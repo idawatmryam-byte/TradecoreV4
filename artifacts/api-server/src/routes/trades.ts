@@ -168,31 +168,38 @@ router.get("/trades/monitor/active", async (req, res): Promise<void> => {
   const now = Date.now();
 
   const monitor = openTrades.map((t) => {
+    const isShort = t.side === "sell";
+    const direction = isShort ? -1 : 1;
     const entryPrice = Number(t.entryPrice);
     const qty = Number(t.remainingQuantity ?? t.quantity);
     const sl = Number(t.stopLoss);
     const tp = Number(t.takeProfit);
     const currentPrice = priceBySymbol.get(t.symbol) ?? entryPrice;
-    const unrealizedPnl = (currentPrice - entryPrice) * qty;
-    const riskDistance = entryPrice - Number(t.plannedStopLoss ?? sl);
-    const expectedRewardRisk = riskDistance > 0 ? (tp - entryPrice) / riskDistance : null;
+    const unrealizedPnl = (currentPrice - entryPrice) * qty * direction;
+    // Risk distance / distances-to-target are always reported as positive
+    // "how far until it happens" numbers regardless of side — a short's SL
+    // sits above price (distance = sl - currentPrice) while a long's sits
+    // below (distance = currentPrice - sl); same mirroring for TP1/TP2/final.
+    const riskDistance = (entryPrice - Number(t.plannedStopLoss ?? sl)) * direction;
+    const expectedRewardRisk = riskDistance > 0 ? ((tp - entryPrice) * direction) / riskDistance : null;
     const heldSeconds = Math.round((now - new Date(t.entryTime).getTime()) / 1000);
 
     return {
       tradeId: t.id,
       symbol: t.symbol,
+      side: isShort ? "short" : "long",
       strategyId: t.strategyId,
       strategyName: t.strategyName,
       entryPrice, currentPrice,
       remainingQuantity: qty,
       unrealizedPnl,
-      unrealizedPnlPercent: entryPrice > 0 ? ((currentPrice - entryPrice) / entryPrice) * 100 : 0,
+      unrealizedPnlPercent: entryPrice > 0 ? (((currentPrice - entryPrice) * direction) / entryPrice) * 100 : 0,
       confidence: Number(t.confidence),
-      distanceToStopLoss: currentPrice - sl,
-      distanceToStopLossPercent: currentPrice > 0 ? ((currentPrice - sl) / currentPrice) * 100 : null,
-      distanceToTp1: t.tp1Filled || !t.tp1Price ? null : Number(t.tp1Price) - currentPrice,
-      distanceToTp2: t.tp2Filled || !t.tp2Price ? null : Number(t.tp2Price) - currentPrice,
-      distanceToFinalTakeProfit: tp - currentPrice,
+      distanceToStopLoss: (currentPrice - sl) * direction,
+      distanceToStopLossPercent: currentPrice > 0 ? (((currentPrice - sl) * direction) / currentPrice) * 100 : null,
+      distanceToTp1: t.tp1Filled || !t.tp1Price ? null : (Number(t.tp1Price) - currentPrice) * direction,
+      distanceToTp2: t.tp2Filled || !t.tp2Price ? null : (Number(t.tp2Price) - currentPrice) * direction,
+      distanceToFinalTakeProfit: (tp - currentPrice) * direction,
       expectedRewardRisk,
       breakEvenActive: t.breakEvenActive,
       trailingStopActive: t.trailingStopActive,

@@ -43,6 +43,9 @@ function isSafeAlertWebhookUrl(raw: string): boolean {
 
 function mapConfig(c: typeof botConfigTable.$inferSelect) {
   return {
+    marketType:                c.marketType as "spot" | "futures",
+    leverage:                  c.leverage,
+    marginMode:                c.marginMode as "isolated" | "cross",
     positionSizeUsdt:          Number(c.positionSizeUsdt),
     riskPercent:               Number(c.riskPercent),
     maxOpenPositions:          c.maxOpenPositions,
@@ -83,6 +86,9 @@ router.put("/config", async (req, res): Promise<void> => {
   const [updated] = await db
     .update(botConfigTable)
     .set({
+      ...(u.marketType                !== undefined && { marketType:                 u.marketType }),
+      ...(u.leverage                  !== undefined && { leverage:                   u.leverage }),
+      ...(u.marginMode                !== undefined && { marginMode:                 u.marginMode }),
       ...(u.positionSizeUsdt          !== undefined && { positionSizeUsdt:          String(u.positionSizeUsdt) }),
       ...(u.riskPercent               !== undefined && { riskPercent:               String(u.riskPercent) }),
       ...(u.maxOpenPositions          !== undefined && { maxOpenPositions:           u.maxOpenPositions }),

@@ -185,7 +185,8 @@ export const GetScannerDataResponseItem = zod.object({
 })),
   "strategyId": zod.string().optional(),
   "strategyName": zod.string().optional(),
-  "entryReason": zod.string().optional()
+  "entryReason": zod.string().optional(),
+  "side": zod.enum(['long', 'short']).optional()
 })
 export const GetScannerDataResponse = zod.array(GetScannerDataResponseItem)
 
@@ -443,6 +444,9 @@ export const GetToxicHoursResponse = zod.array(GetToxicHoursResponseItem)
  * @summary Get bot configuration
  */
 export const GetConfigResponse = zod.object({
+  "marketType": zod.enum(['spot', 'futures']).describe('Spot (no leverage, long-only) or USDⓈ-M Futures (leveraged, long+short)'),
+  "leverage": zod.number().describe('Futures leverage multiplier. Ignored in spot mode (always 1).'),
+  "marginMode": zod.enum(['isolated', 'cross']).describe('Futures margin mode. Ignored in spot mode.'),
   "positionSizeUsdt": zod.number(),
   "riskPercent": zod.number().describe('% of account balance to risk per trade (0 = fixed positionSizeUsdt)'),
   "maxOpenPositions": zod.number(),
@@ -463,6 +467,8 @@ export const GetConfigResponse = zod.object({
 /**
  * @summary Update bot configuration
  */
+export const updateConfigBodyLeverageMax = 125;
+
 export const updateConfigBodyPositionSizeUsdtMax = 1000000;
 
 export const updateConfigBodyRiskPercentMin = 0;
@@ -493,6 +499,9 @@ export const updateConfigBodyScanIntervalSecondsMax = 3600;
 
 
 export const UpdateConfigBody = zod.object({
+  "marketType": zod.enum(['spot', 'futures']).optional(),
+  "leverage": zod.number().min(1).max(updateConfigBodyLeverageMax).optional().describe('Futures leverage multiplier (1 = no leverage). Ignored in spot mode.'),
+  "marginMode": zod.enum(['isolated', 'cross']).optional(),
   "positionSizeUsdt": zod.number().min(1).max(updateConfigBodyPositionSizeUsdtMax).optional(),
   "riskPercent": zod.number().min(updateConfigBodyRiskPercentMin).max(updateConfigBodyRiskPercentMax).optional().describe('0 = fixed positionSizeUsdt instead of risk-based sizing. Capped at 10% per trade.'),
   "maxOpenPositions": zod.number().min(1).max(updateConfigBodyMaxOpenPositionsMax).optional(),
@@ -510,6 +519,9 @@ export const UpdateConfigBody = zod.object({
 })
 
 export const UpdateConfigResponse = zod.object({
+  "marketType": zod.enum(['spot', 'futures']).describe('Spot (no leverage, long-only) or USDⓈ-M Futures (leveraged, long+short)'),
+  "leverage": zod.number().describe('Futures leverage multiplier. Ignored in spot mode (always 1).'),
+  "marginMode": zod.enum(['isolated', 'cross']).describe('Futures margin mode. Ignored in spot mode.'),
   "positionSizeUsdt": zod.number(),
   "riskPercent": zod.number().describe('% of account balance to risk per trade (0 = fixed positionSizeUsdt)'),
   "maxOpenPositions": zod.number(),

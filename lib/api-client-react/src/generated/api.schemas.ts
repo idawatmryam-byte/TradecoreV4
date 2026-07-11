@@ -75,6 +75,14 @@ export const ScannerRowRegime = {
   low_volatility: 'low_volatility',
 } as const;
 
+export type ScannerRowSide = typeof ScannerRowSide[keyof typeof ScannerRowSide];
+
+
+export const ScannerRowSide = {
+  long: 'long',
+  short: 'short',
+} as const;
+
 export interface ScannerRow {
   symbol: string;
   confidence: number;
@@ -93,6 +101,7 @@ export interface ScannerRow {
   strategyId?: string;
   strategyName?: string;
   entryReason?: string;
+  side?: ScannerRowSide;
 }
 
 export type PipelineStageStatus = typeof PipelineStageStatus[keyof typeof PipelineStageStatus];
@@ -359,7 +368,35 @@ export interface ToxicHour {
   blockedAt: string;
 }
 
+/**
+ * Spot (no leverage, long-only) or USDⓈ-M Futures (leveraged, long+short)
+ */
+export type BotConfigMarketType = typeof BotConfigMarketType[keyof typeof BotConfigMarketType];
+
+
+export const BotConfigMarketType = {
+  spot: 'spot',
+  futures: 'futures',
+} as const;
+
+/**
+ * Futures margin mode. Ignored in spot mode.
+ */
+export type BotConfigMarginMode = typeof BotConfigMarginMode[keyof typeof BotConfigMarginMode];
+
+
+export const BotConfigMarginMode = {
+  isolated: 'isolated',
+  cross: 'cross',
+} as const;
+
 export interface BotConfig {
+  /** Spot (no leverage, long-only) or USDⓈ-M Futures (leveraged, long+short) */
+  marketType: BotConfigMarketType;
+  /** Futures leverage multiplier. Ignored in spot mode (always 1). */
+  leverage: number;
+  /** Futures margin mode. Ignored in spot mode. */
+  marginMode: BotConfigMarginMode;
   positionSizeUsdt: number;
   /** % of account balance to risk per trade (0 = fixed positionSizeUsdt) */
   riskPercent: number;
@@ -381,7 +418,31 @@ export interface BotConfig {
   alertWebhookUrl?: string | null;
 }
 
+export type BotConfigUpdateMarketType = typeof BotConfigUpdateMarketType[keyof typeof BotConfigUpdateMarketType];
+
+
+export const BotConfigUpdateMarketType = {
+  spot: 'spot',
+  futures: 'futures',
+} as const;
+
+export type BotConfigUpdateMarginMode = typeof BotConfigUpdateMarginMode[keyof typeof BotConfigUpdateMarginMode];
+
+
+export const BotConfigUpdateMarginMode = {
+  isolated: 'isolated',
+  cross: 'cross',
+} as const;
+
 export interface BotConfigUpdate {
+  marketType?: BotConfigUpdateMarketType;
+  /**
+     * Futures leverage multiplier (1 = no leverage). Ignored in spot mode.
+     * @minimum 1
+     * @maximum 125
+     */
+  leverage?: number;
+  marginMode?: BotConfigUpdateMarginMode;
   /**
      * @minimum 1
      * @maximum 1000000

@@ -1,14 +1,21 @@
 /**
  * Volatility Breakout Strategy
  *
- * Entry when:
+ * Long entry when:
  * - Bollinger Band squeeze (current stdDev < 80% of recent average)
  * - ATR expanding (current > previous × 1.1)
  * - Price breaks above upper Bollinger Band on 15m
  * - Breakout candle is bullish
  * - Volume increasing
+ *
+ * Short entry (Futures Phase — mirror of the above, futures only):
+ * - Bollinger Band squeeze
+ * - ATR expanding
+ * - Price breaks below lower Bollinger Band on 15m
+ * - Breakout candle is bearish
+ * - Volume increasing
  */
-import { type Strategy, type StrategySignal, type StrategyConfig, computeQty, computePercentSLTP } from "./base";
+import { type Strategy, type StrategySignal, type StrategyConfig, type PositionSide, computeQty, computePercentSLTP } from "./base";
 import { type MultiTimeframeCandles, type SignalRow, calcBollingerBands, calcAtr } from "../strategy";
 
 export class VolatilityBreakoutStrategy implements Strategy {
@@ -30,7 +37,7 @@ export class VolatilityBreakoutStrategy implements Strategy {
     const { tf1m, tf15m } = mtf;
     const lastPrice = row.lastPrice;
 
-    // ── Bollinger Band squeeze detection ──────────────────────────────────
+    // ── Bollinger Band squeeze detection (shared by both directions) ──────
     // Phase 6 audit fix: the previous version built `window = closes15m.slice(-i-5, -i)`,
     // which is ALWAYS exactly 5 elements regardless of `i` — the `if (window.length >= 10)`
     // guard below it could therefore never pass, `stdDevCount` stayed 0 for
@@ -68,12 +75,16 @@ export class VolatilityBreakoutStrategy implements Strategy {
     const atrPrev = calcAtr(tf1m.length > 10 ? tf1m.slice(0, -5) : tf1m, 14);
     if (atrPrev <= 0 || atrCurrent <= atrPrev * 1.1) return null;
 
-    // ── Price breaks above upper BB ───────────────────────────────────────
-    if (lastPrice <= bbNow.upper) return null;
-
-    // ── Breakout candle is bullish ─────────────────────────────────────────
+    // ── Price breaks out of the squeeze, either direction ─────────────────
     const lastCandle = tf15m[tf15m.length - 1]!;
-    if (lastCandle[4] <= lastCandle[1]) return null;
+    let side: PositionSide;
+    if (lastPrice > bbNow.upper && lastCandle[4] > lastCandle[1]) {
+      side = "long";
+    } else if (lastPrice < bbNow.lower && lastCandle[4] < lastCandle[1]) {
+      side = "short";
+    } else {
+      return null;
+    }
 
     // ── Volume increasing ─────────────────────────────────────────────────
     if (row.volumeRatio < 1.3) return null;
@@ -82,24 +93,26 @@ export class VolatilityBreakoutStrategy implements Strategy {
     const squeezeBonus = Math.min(15, (1 - bbNow.stdDev / avgStdDev) * 50);
     const volBonus = Math.min(10, (row.volumeRatio - 1.3) * 8);
     const atrBonus = Math.min(10, (atrCurrent / atrPrev - 1) * 20);
-    const macroBonus = row.macroBullish ? 5 : 0;
+    const macroBonus = (side === "long" ? row.macroBullish : row.macroBearish) ? 5 : 0;
     const confidence = Math.min(100, 50 + squeezeBonus + volBonus + atrBonus + macroBonus);
 
     if (confidence < config.confidenceThreshold) return null;
 
     // Phase 5A: SL/TP is a fixed % from entry — no longer ATR- or
     // BB-middle-based. ATR/BB above remain squeeze/entry detection only.
-    const { slPrice, tpPrice } = computePercentSLTP(lastPrice, config.stopLossPercent, config.takeProfitPercent);
+    const { slPrice, tpPrice } = computePercentSLTP(lastPrice, config.stopLossPercent, config.takeProfitPercent, side);
 
-    const qty = computeQty(balance, config.riskPercent, lastPrice, slPrice, positionSizeUsdt);
+    const qty = computeQty(balance, config.riskPercent, lastPrice, slPrice, positionSizeUsdt, 10, side);
     if (qty <= 0) return null;
 
+    const band = side === "long" ? `above ${bbNow.upper.toFixed(4)}` : `below ${bbNow.lower.toFixed(4)}`;
     return {
       strategyId: this.strategyId,
       strategyName: this.strategyName,
       symbol,
+      side,
       confidence: Math.round(confidence * 10) / 10,
-      entryReason: `BB squeeze breakout above ${bbNow.upper.toFixed(4)} · ATR↑ · Vol×${row.volumeRatio.toFixed(2)}`,
+      entryReason: `BB squeeze breakout ${band} · ATR↑ · Vol×${row.volumeRatio.toFixed(2)}`,
       regime: row.regime,
       entryPrice: lastPrice,
       suggestedSL: slPrice,

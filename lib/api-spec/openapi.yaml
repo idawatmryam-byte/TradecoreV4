@@ -882,6 +882,9 @@ components:
           type: string
         entryReason:
           type: string
+        side:
+          type: string
+          enum: [long, short]
 
     PipelineStage:
       type: object
@@ -1215,8 +1218,19 @@ components:
 
     BotConfig:
       type: object
-      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, confidenceThreshold, stopLossPercent, takeProfitPercent, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode]
+      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, confidenceThreshold, stopLossPercent, takeProfitPercent, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, marketType, leverage, marginMode]
       properties:
+        marketType:
+          type: string
+          enum: [spot, futures]
+          description: "Spot (no leverage, long-only) or USDⓈ-M Futures (leveraged, long+short)"
+        leverage:
+          type: integer
+          description: "Futures leverage multiplier. Ignored in spot mode (always 1)."
+        marginMode:
+          type: string
+          enum: [isolated, cross]
+          description: "Futures margin mode. Ignored in spot mode."
         positionSizeUsdt:
           type: number
         riskPercent:
@@ -1257,6 +1271,17 @@ components:
     BotConfigUpdate:
       type: object
       properties:
+        marketType:
+          type: string
+          enum: [spot, futures]
+        leverage:
+          type: integer
+          minimum: 1
+          maximum: 125
+          description: "Futures leverage multiplier (1 = no leverage). Ignored in spot mode."
+        marginMode:
+          type: string
+          enum: [isolated, cross]
         positionSizeUsdt:
           type: number
           minimum: 1

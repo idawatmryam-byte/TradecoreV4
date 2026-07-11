@@ -7,6 +7,10 @@ export const tradesTable = pgTable("trades", {
   /** Owning user — each user runs a fully independent bot instance. */
   userId: integer("user_id").notNull(),
   symbol: text("symbol").notNull(),
+  /** The order side used to OPEN this position — "buy" = long (spot's only
+   *  option, or a futures long), "sell" = short (futures only, opened by
+   *  selling-to-open, closed by buying-to-close). This single column doubles
+   *  as the long/short indicator: side="buy" → long, side="sell" → short. */
   side: text("side").notNull().default("buy"),
   entryPrice: numeric("entry_price", { precision: 18, scale: 8 }).notNull(),
   exitPrice: numeric("exit_price", { precision: 18, scale: 8 }),
@@ -73,6 +77,19 @@ export const tradesTable = pgTable("trades", {
   trailingStopMode: text("trailing_stop_mode"), // none|atr|percent|dynamic|emergency
   /** Best price seen since trailing armed — the reference point the trailing distance is measured from. */
   trailingStopArmedPrice: numeric("trailing_stop_armed_price", { precision: 18, scale: 8 }),
+
+  // ── Futures trading (long + short) ─────────────────────────────────────────
+  /** "spot" | "futures" — which market this trade was placed on. */
+  marketType: text("market_type").notNull().default("spot"),
+  /** Only set for futures trades. Null for spot (leverage is meaningless there). */
+  leverage: integer("leverage"),
+  marginMode: text("margin_mode"), // isolated | cross — futures only
+  /** Exchange-reported liquidation price at entry time (futures only) — a
+   *  forced-close price the position never reaches if stopLoss triggers
+   *  first; used as a pre-entry safety check (see botEngine.ts) and kept for
+   *  audit even though it's a point-in-time snapshot, not continuously
+   *  updated (liquidation price shifts with funding/mark price in reality). */
+  liquidationPrice: numeric("liquidation_price", { precision: 18, scale: 8 }),
 
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
