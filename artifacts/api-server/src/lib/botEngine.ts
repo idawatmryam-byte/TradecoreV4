@@ -177,11 +177,13 @@ class BotEngine {
         );
         this.sendAlert(alertMsg).catch(() => {});
       }
+      this.persistRiskPauseState().catch(() => {});
     },
     recordCleanClose: () => {
       if (this.riskViolationCount > 0) {
         logger.info({ previousCount: this.riskViolationCount }, "Risk violation counter reset: clean trade close");
         this.riskViolationCount = 0;
+        this.persistRiskPauseState().catch(() => {});
       }
     },
   });
@@ -697,6 +699,11 @@ class BotEngine {
     if (this.state.running) return;
 
     const config = await this.loadConfig();
+    // Restore risk-pause state from the last run — this must NOT reset on
+    // restart, since a process crash/redeploy silently clearing a "manual
+    // reset required" safety pause would defeat its entire purpose.
+    this.riskPaused = config.riskPaused;
+    this.riskViolationCount = config.riskViolationCount;
     const ex = await this.initExchange(config.testnet, config.marketType === "futures" ? "futures" : "spot");
 
     logger.info("Loading Binance markets…");
@@ -1108,6 +1115,36 @@ class BotEngine {
           record("BLOCKED", "Risk Checks", "Insufficient balance for minimum order size", bestSignal.confidence);
           continue;
         }
+
+        // Portfolio risk check (maxPortfolioRiskPercent): aggregate $ risk
+        // across every open position — using each trade's CURRENT stop, since
+        // break-even/trailing moves change the real worst-case loss over a
+        // position's life — plus this candidate's own risk, capped against a
+        // % of balance. maxOpenPositions above only caps a position COUNT;
+        // this is the only check that caps actual dollar exposure.
+        const existingRiskUsdt = openTrades.reduce((sum, t) => {
+          const qty = Number(t.remainingQuantity ?? t.quantity);
+          return sum + Math.abs(Number(t.entryPrice) - Number(t.stopLoss)) * qty;
+        }, 0);
+        const candidateRiskUsdt = Math.abs(bestSignal.entryPrice - bestSignal.suggestedSL) * bestSignal.qty;
+        const maxPortfolioRiskUsdt = balance * (Number(config.maxPortfolioRiskPercent) / 100);
+        const portfolioRiskOk = existingRiskUsdt + candidateRiskUsdt <= maxPortfolioRiskUsdt;
+        preChecks.push({
+          name: "Portfolio Risk",
+          passed: portfolioRiskOk,
+          detail: `$${(existingRiskUsdt + candidateRiskUsdt).toFixed(2)} / $${maxPortfolioRiskUsdt.toFixed(2)} max (${Number(config.maxPortfolioRiskPercent)}% of balance)`,
+        });
+        if (!portfolioRiskOk) {
+          this.scannerData.set(symbol, {
+            ...row, status: "skipped",
+            strategyId: bestSignal.strategyId, strategyName: bestSignal.strategyName, side: bestSignal.side,
+          });
+          riskStage.status = "fail";
+          riskStage.detail = `Blocked: aggregate portfolio risk ($${(existingRiskUsdt + candidateRiskUsdt).toFixed(2)}) would exceed ${Number(config.maxPortfolioRiskPercent)}% of balance ($${maxPortfolioRiskUsdt.toFixed(2)})`;
+          record("BLOCKED", "Risk Checks", "Portfolio risk limit reached", bestSignal.confidence);
+          continue;
+        }
+
         riskStage.status = "pass";
         riskStage.detail = "All risk checks passed";
 
@@ -1191,12 +1228,38 @@ class BotEngine {
 
       const rawQty = entry.qty;
       const qty = parseFloat(ex.amountToPrecision(market, rawQty));
+      let effectiveLeverage = config.leverage;
 
       if (isFutures) {
         // Leverage/margin mode must be set on the exchange before the order
         // — Binance rejects an order whose implied notional exceeds what the
-        // account's CURRENT leverage for this symbol allows.
-        await configureFuturesLeverage(ex, market, config.leverage, config.marginMode === "cross" ? "cross" : "isolated");
+        // account's CURRENT leverage for this symbol allows. Binance also
+        // caps leverage per symbol (varies widely by pair), so the
+        // configured value may get clamped down — use whatever was actually
+        // applied for everything below, not the requested value.
+        effectiveLeverage = await configureFuturesLeverage(
+          ex, market, config.leverage, config.marginMode === "cross" ? "cross" : "isolated",
+        );
+
+        // Margin-sufficiency pre-check: previously this relied entirely on
+        // Binance rejecting the order if the required margin didn't fit —
+        // a safety net, not a clean failure. Estimate required initial
+        // margin from the effective (post-clamp) leverage and bail with a
+        // clear, loggable reason before attempting the order if it won't
+        // fit the available free balance (small buffer for fees/slippage).
+        const estimatedNotional = qty * entry.entryPrice;
+        const requiredMargin = estimatedNotional / effectiveLeverage;
+        const freeBalance = await this.getBalance();
+        if (requiredMargin > freeBalance * 0.98) {
+          logger.warn(
+            { symbol, requiredMargin: requiredMargin.toFixed(2), freeBalance: freeBalance.toFixed(2), effectiveLeverage },
+            "Insufficient futures margin for this trade — skipping entry",
+          );
+          return {
+            entered: false,
+            reason: `Insufficient margin: needs ~$${requiredMargin.toFixed(2)} at ${effectiveLeverage}x, only $${freeBalance.toFixed(2)} available`,
+          };
+        }
       }
 
       const estimatedUsdt = qty * entry.entryPrice;
@@ -1337,7 +1400,7 @@ class BotEngine {
           symbol,
           side,
           marketType: config.marketType,
-          ...(isFutures && { leverage: config.leverage, marginMode: config.marginMode, liquidationPrice }),
+          ...(isFutures && { leverage: effectiveLeverage, marginMode: config.marginMode, liquidationPrice }),
           strategy: strategyName ?? "legacy",
           confidence: row.confidence,
           regime: row.regime,
@@ -1367,7 +1430,7 @@ class BotEngine {
           symbol,
           side: openSide,
           marketType: config.marketType,
-          ...(isFutures && { leverage: config.leverage, marginMode: config.marginMode }),
+          ...(isFutures && { leverage: effectiveLeverage, marginMode: config.marginMode }),
           ...(liquidationPrice !== null && { liquidationPrice: liquidationPrice.toFixed(8) }),
           entryPrice: fillPrice.toFixed(8),
           quantity: filledQty.toFixed(8),
@@ -1503,6 +1566,40 @@ class BotEngine {
     const ex = this.exchange!;
     const market = this.toMarket(trade.symbol);
     let orderIds = this.openOrderIds.get(trade.id);
+
+    // Futures Phase: liquidation proximity is only checked once, right after
+    // entry (enterTrade's "RISK GUARD" check) — but for an already-OPEN
+    // futures position that check goes stale immediately, especially under
+    // cross margin, where liquidation price depends on the whole account's
+    // positions, not just this one. Re-verify the same 5% buffer every scan
+    // cycle against the CURRENT stop (post break-even/trailing moves) and
+    // force-flatten if it's been breached — losing the position to our own
+    // market order beats losing it to the exchange's liquidation engine.
+    if (trade.marketType === "futures") {
+      const liquidationPrice = await getLiquidationPrice(ex, market);
+      if (liquidationPrice !== null) {
+        const isShort = trade.side === "sell";
+        const currentStop = Number(trade.stopLoss);
+        const buffer = 1.05;
+        const liquidationIsUnsafe = isShort
+          ? currentStop > liquidationPrice / buffer
+          : currentStop < liquidationPrice * buffer;
+        if (liquidationIsUnsafe) {
+          logger.error(
+            { tradeId: trade.id, symbol: trade.symbol, currentStop, liquidationPrice },
+            "LIQUIDATION RISK: open position's stop is now too close to the exchange's liquidation price — force-flattening",
+          );
+          const outcome = await this.exitManager.closeManually(ex, trade, market, now, cooldownMinutes, "emergency_stop");
+          if (outcome.closed) {
+            this.openOrderIds.delete(trade.id);
+            await this.sendAlert(
+              `🚨 ${trade.symbol} force-closed — stop-loss drifted too close to the liquidation price ($${liquidationPrice.toFixed(4)}). Position flattened to protect capital.`,
+            );
+          }
+          return;
+        }
+      }
+    }
 
     // Phase 4B: TP1/TP2 partial closes, break-even move, and trailing stops
     // run first — they only ever narrow risk or reduce size, never fully
@@ -1963,10 +2060,22 @@ class BotEngine {
    * Reset the risk pause state. Call this after investigating violations.
    * Exposed so a future API endpoint or manual intervention can clear it.
    */
-  resetRiskPause(): void {
+  async resetRiskPause(): Promise<void> {
     this.riskViolationCount = 0;
     this.riskPaused = false;
     logger.info("Risk pause manually cleared — trading will resume on next scan");
+    await this.persistRiskPauseState();
+  }
+
+  private async persistRiskPauseState(): Promise<void> {
+    try {
+      await db
+        .update(botConfigTable)
+        .set({ riskPaused: this.riskPaused, riskViolationCount: this.riskViolationCount })
+        .where(eq(botConfigTable.userId, this.userId));
+    } catch (err) {
+      logger.error({ err }, "Failed to persist risk-pause state — in-memory state is still correct, but a restart before the next successful write would lose it");
+    }
   }
 
   getRiskStatus(): { paused: boolean; violationCount: number; maxViolations: number } {
