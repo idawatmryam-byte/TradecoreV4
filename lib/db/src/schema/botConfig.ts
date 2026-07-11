@@ -49,6 +49,10 @@ export const botConfigTable = pgTable("bot_config", {
   /** Phase 2.5: Discord / Telegram / Slack incoming-webhook URL for risk alerts */
   alertWebhookUrl: text("alert_webhook_url"),
 
+  /** Persisted so a process restart can't silently clear a manual-reset-required pause. */
+  riskPaused: boolean("risk_paused").notNull().default(false),
+  riskViolationCount: integer("risk_violation_count").notNull().default(0),
+
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => [
   unique("bot_config_user_id_unique").on(t.userId),

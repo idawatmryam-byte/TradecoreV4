@@ -114,19 +114,38 @@ export async function closeFuturesPositionMarket(
  * Sets leverage and margin mode for a symbol before opening a position.
  * Best-effort: Binance rejects a margin-mode call with "no need to change"
  * if it's already set to that mode — treated as success, not an error.
+ *
+ * Binance caps max leverage per symbol (varies widely — a major pair may
+ * allow 125x, a low-cap altcoin often caps at 20x or less). Previously this
+ * sent the user's configured leverage straight to `setLeverage` and let
+ * Binance reject the call if it was too high — failing the whole entry
+ * attempt instead of trading at the highest leverage actually available.
+ * Clamp against ccxt's market limits (populated by loadMarkets()) first,
+ * and return the leverage actually applied so the caller can size margin
+ * and record the trade against the real value, not the requested one.
  */
 export async function configureFuturesLeverage(
   ex: any,
   market: string,
   leverage: number,
   marginMode: "isolated" | "cross",
-): Promise<void> {
+): Promise<number> {
+  const maxAllowed = Number(ex.market(market)?.limits?.leverage?.max ?? 0);
+  const effectiveLeverage = maxAllowed > 0 ? Math.min(leverage, maxAllowed) : leverage;
+  if (effectiveLeverage < leverage) {
+    logger.warn(
+      { market, requestedLeverage: leverage, maxAllowed, effectiveLeverage },
+      "Requested leverage exceeds this symbol's exchange maximum — clamped down",
+    );
+  }
+
   try {
     await ex.setMarginMode(marginMode, market);
   } catch (err) {
     logger.debug({ err, market, marginMode }, "setMarginMode no-op (likely already set to this mode)");
   }
-  await ex.setLeverage(leverage, market);
+  await ex.setLeverage(effectiveLeverage, market);
+  return effectiveLeverage;
 }
 
 /**

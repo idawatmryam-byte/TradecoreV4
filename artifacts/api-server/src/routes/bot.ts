@@ -64,7 +64,7 @@ router.post("/bot/reset-risk-pause", async (req, res): Promise<void> => {
     res.status(200).json({ message: "Bot is not risk-paused — nothing to reset", ...engine.getState() });
     return;
   }
-  engine.resetRiskPause();
+  await engine.resetRiskPause();
   req.log.info({ previousViolationCount: violationCount, userId: req.userId }, "Risk pause reset via API");
   res.json({ message: "Risk pause cleared — trading will resume on next scan", ...engine.getState() });
 });
