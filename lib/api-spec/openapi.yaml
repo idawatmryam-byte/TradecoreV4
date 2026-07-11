@@ -1293,6 +1293,10 @@ components:
           type: string
         side:
           type: string
+        strategyId:
+          type: ["string", "null"]
+        strategyName:
+          type: ["string", "null"]
         entryTime:
           type: string
           format: date-time
@@ -1319,6 +1323,8 @@ components:
           type: ["number", "null"]
         pnl:
           type: ["number", "null"]
+        grossPnl:
+          type: ["number", "null"]
         pnlPercent:
           type: ["number", "null"]
         confidence:
@@ -1327,6 +1333,31 @@ components:
           type: ["string", "null"]
         durationSeconds:
           type: ["integer", "null"]
+        mfe:
+          type: ["number", "null"]
+        mae:
+          type: ["number", "null"]
+        riskReward:
+          type: ["number", "null"]
+        # ── Phase 7: trade-management ladder ────────────────────────────────
+        tp1Price:
+          type: ["number", "null"]
+        tp1Filled:
+          type: boolean
+        tp1FillPrice:
+          type: ["number", "null"]
+        tp2Price:
+          type: ["number", "null"]
+        tp2Filled:
+          type: boolean
+        tp2FillPrice:
+          type: ["number", "null"]
+        breakEvenActive:
+          type: boolean
+        trailingStopActive:
+          type: boolean
+        trailingStopMode:
+          type: ["string", "null"]
 
     EquityCurvePoint:
       type: object
