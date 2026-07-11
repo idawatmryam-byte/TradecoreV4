@@ -291,6 +291,8 @@ paths:
           schema:
             type: integer
             default: 50
+            minimum: 1
+            maximum: 500
       responses:
         "200":
           description: Trade list
@@ -693,7 +695,7 @@ components:
 
     BotStatus:
       type: object
-      required: [running, dailyPnl, openPositions, totalTradesToday, winRateToday, circuitBreakerActive, mode]
+      required: [running, dailyPnl, openPositions, totalTradesToday, winRateToday, circuitBreakerActive, riskPaused, mode]
       properties:
         running:
           type: boolean
@@ -707,6 +709,9 @@ components:
           type: number
         circuitBreakerActive:
           type: boolean
+        riskPaused:
+          type: boolean
+          description: "True when trading is suspended after 3 consecutive risk violations — see POST /bot/reset-risk-pause."
         mode:
           type: string
           enum: [live, testnet, backtest]
@@ -767,6 +772,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/IndicatorVote"
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        entryReason:
+          type: string
 
     PipelineStage:
       type: object

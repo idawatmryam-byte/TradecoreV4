@@ -157,7 +157,10 @@ export const GetScannerDataResponseItem = zod.object({
   "signal": zod.enum(['bullish', 'bearish', 'neutral']),
   "weight": zod.number(),
   "value": zod.number()
-}))
+})),
+  "strategyId": zod.string().optional(),
+  "strategyName": zod.string().optional(),
+  "entryReason": zod.string().optional()
 })
 export const GetScannerDataResponse = zod.array(GetScannerDataResponseItem)
 
@@ -238,11 +241,14 @@ export const GetMarketLiveResponse = zod.object({
  * @summary List all trades
  */
 export const getTradesQueryLimitDefault = 50;
+export const getTradesQueryLimitMax = 500;
+
+
 
 export const GetTradesQueryParams = zod.object({
   "status": zod.enum(['open', 'closed', 'stopped']).optional(),
   "source": zod.enum(['live', 'backtest']).optional(),
-  "limit": zod.coerce.number().default(getTradesQueryLimitDefault)
+  "limit": zod.coerce.number().min(1).max(getTradesQueryLimitMax).default(getTradesQueryLimitDefault)
 })
 
 export const GetTradesResponseItem = zod.object({

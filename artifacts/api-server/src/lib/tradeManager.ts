@@ -91,14 +91,30 @@ export function computeTrailingStop(
   }
 }
 
+/** Merge a successful order-replacement result into the OpenOrderIds that
+ *  should now be tracked — builds a fresh object even when `prev` is
+ *  undefined, so a first-ever successful protection placement (e.g. entry
+ *  placement failed but a later re-protect attempt succeeded) is never
+ *  silently discarded for lack of an existing object to mutate. */
+function mergeOrderIds(prev: OpenOrderIds | undefined, result: StopReplacementResult): OpenOrderIds {
+  return {
+    slOrderId: result.slOrderId,
+    tpOrderId: result.tpOrderId ?? prev?.tpOrderId ?? "",
+    ocoOrderListId: result.ocoOrderListId,
+  };
+}
+
 export class TradeManager {
   constructor(private readonly host: TradeManagerHost) {}
 
   /**
-   * Run one management tick for an open trade. Returns the (possibly
-   * updated) trade row — always re-read from the DB after this call if the
-   * caller needs the freshest stopLoss/takeProfit/remainingQuantity, since
-   * this may have written to any of them.
+   * Run one management tick for an open trade. Returns the OpenOrderIds that
+   * should now be tracked for this trade — the caller MUST persist this back
+   * into its own tracking map (even when the caller passed `undefined` in,
+   * since a re-protection attempt after a fully-failed entry-time placement
+   * can produce a first-ever trackable order here). Always re-read the trade
+   * row from the DB after this call if the freshest stopLoss/takeProfit/
+   * remainingQuantity is needed, since this may have written to any of them.
    */
   async manage(
     ex: any,
@@ -107,9 +123,9 @@ export class TradeManager {
     candles1m: Candle[],
     stratConfig: StrategyConfig | undefined,
     orderIds: OpenOrderIds | undefined,
-  ): Promise<void> {
-    if (!stratConfig || stratConfig.tp1RMultiple <= 0) return; // trade management disabled for this strategy
-    if (candles1m.length === 0) return;
+  ): Promise<OpenOrderIds | undefined> {
+    if (!stratConfig || stratConfig.tp1RMultiple <= 0) return orderIds; // trade management disabled for this strategy
+    if (candles1m.length === 0) return orderIds;
 
     const lastCandle = candles1m[candles1m.length - 1]!;
     const [, , high] = lastCandle;
@@ -118,12 +134,12 @@ export class TradeManager {
     // Original risk distance — always measured from the *planned* SL (Phase 4A),
     // not the current one, since the current one may already be at break-even.
     const originalRiskDistance = entryPrice - Number(trade.plannedStopLoss ?? trade.stopLoss);
-    if (originalRiskDistance <= 0) return; // can't compute R-multiples safely
+    if (originalRiskDistance <= 0) return orderIds; // can't compute R-multiples safely
 
     // ── TP1: partial close + move SL to break-even ────────────────────────────
     if (!trade.tp1Filled && trade.tp1Price && Number(trade.tp1Price) > 0) {
       if (high >= Number(trade.tp1Price)) {
-        await this.fillPartial(ex, trade, market, "tp1", Number(trade.tp1Price), Number(trade.tp1Quantity), orderIds);
+        orderIds = await this.fillPartial(ex, trade, market, "tp1", Number(trade.tp1Price), Number(trade.tp1Quantity), orderIds);
         // Re-read — fillPartial updated the DB row.
         trade = (await db.select().from(tradesTable).where(eq(tradesTable.id, trade.id)))[0] ?? trade;
       }
@@ -136,7 +152,7 @@ export class TradeManager {
     // which only enables TP1/TP2 when they land strictly inside entry->takeProfit).
     if (stratConfig.tp3Enabled && trade.tp1Filled && !trade.tp2Filled && trade.tp2Price && Number(trade.tp2Price) > 0) {
       if (high >= Number(trade.tp2Price)) {
-        await this.fillPartial(ex, trade, market, "tp2", Number(trade.tp2Price), Number(trade.tp2Quantity), orderIds);
+        orderIds = await this.fillPartial(ex, trade, market, "tp2", Number(trade.tp2Price), Number(trade.tp2Quantity), orderIds);
         trade = (await db.select().from(tradesTable).where(eq(tradesTable.id, trade.id)))[0] ?? trade;
       }
     }
@@ -168,10 +184,8 @@ export class TradeManager {
             trailingStopArmedPrice: currentPrice.toFixed(8),
           })
           .where(eq(tradesTable.id, trade.id));
-        if (result && orderIds) {
-          orderIds.slOrderId = result.slOrderId;
-          if (result.tpOrderId) orderIds.tpOrderId = result.tpOrderId;
-          orderIds.ocoOrderListId = result.ocoOrderListId;
+        if (result) {
+          orderIds = mergeOrderIds(orderIds, result);
         }
         logger.info(
           { tradeId: trade.id, symbol: trade.symbol, mode, oldStop: currentStop, newStop: candidate },
@@ -179,8 +193,19 @@ export class TradeManager {
         );
       }
     }
+
+    return orderIds;
   }
 
+  /**
+   * Returns the OpenOrderIds that should now be tracked for this trade —
+   * which may be a NEW object even if the caller passed `undefined` in (e.g.
+   * entry-time protection placement fully failed, so nothing was tracked
+   * yet, but this partial-close's re-protection attempt succeeded). The
+   * caller MUST persist whatever comes back into its own tracking map;
+   * mutating a possibly-undefined `orderIds` in place can silently discard
+   * a freshly-placed order's id forever.
+   */
   private async fillPartial(
     ex: any,
     trade: Trade,
@@ -189,11 +214,11 @@ export class TradeManager {
     triggerPrice: number,
     plannedQty: number,
     orderIds: OpenOrderIds | undefined,
-  ): Promise<void> {
-    if (!(plannedQty > 0)) return;
+  ): Promise<OpenOrderIds | undefined> {
+    if (!(plannedQty > 0)) return orderIds;
     const remaining = Number(trade.remainingQuantity ?? trade.quantity);
     const qty = Math.min(plannedQty, remaining);
-    if (qty <= 0) return;
+    if (qty <= 0) return orderIds;
 
     const entryPrice = Number(trade.entryPrice);
     const currentSl = Number(trade.stopLoss);
@@ -214,16 +239,14 @@ export class TradeManager {
         "Partial close market order failed AFTER cancelling protection — position is temporarily unprotected, restoring the original SL/TP now",
       );
       const restored = await this.host.replaceStopOrder(ex, trade, market, currentSl, currentTp, remaining, orderIds);
-      if (restored && orderIds) {
-        orderIds.slOrderId = restored.slOrderId;
-        if (restored.tpOrderId) orderIds.tpOrderId = restored.tpOrderId;
-        orderIds.ocoOrderListId = restored.ocoOrderListId;
+      if (restored) {
+        orderIds = mergeOrderIds(orderIds, restored);
       } else {
         await this.host.sendAlert(
           `🚨 ${trade.symbol} (trade #${trade.id}): failed to restore SL/TP protection after a failed ${reason} partial-close attempt. Position may be UNPROTECTED — please check manually.`,
         ).catch(() => {});
       }
-      return;
+      return orderIds;
     }
 
     const entryFeeShare = entryPrice * qty * this.host.takerFee;
@@ -254,10 +277,8 @@ export class TradeManager {
 
     if (newRemaining > 0) {
       const result = await this.host.replaceStopOrder(ex, trade, market, newSl, currentTp, newRemaining, orderIds);
-      if (result && orderIds) {
-        orderIds.slOrderId = result.slOrderId;
-        if (result.tpOrderId) orderIds.tpOrderId = result.tpOrderId;
-        orderIds.ocoOrderListId = result.ocoOrderListId;
+      if (result) {
+        orderIds = mergeOrderIds(orderIds, result);
       } else {
         logger.error(
           { tradeId: trade.id, symbol: trade.symbol, reason },
@@ -277,5 +298,6 @@ export class TradeManager {
       { tradeId: trade.id, symbol: trade.symbol, reason, qty, fillPrice, pnl, newRemaining },
       `${reason.toUpperCase()} partial close filled`,
     );
+    return orderIds;
   }
 }
