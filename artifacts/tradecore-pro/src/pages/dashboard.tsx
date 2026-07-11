@@ -1,7 +1,7 @@
 import { useGetBotStatus, useGetScannerData, useGetTrades, useStartBot, useStopBot, getGetBotStatusQueryKey, getGetScannerDataQueryKey, getGetTradesQueryKey } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
-import { Power, Square, Activity, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Power, Square, Activity, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, WifiOff } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { BlockingBanner, MarketMonitor, DecisionPanel } from "@/components/verification";
@@ -17,9 +17,13 @@ function ProgressBar({ value, colorClass }: { value: number, colorClass: string 
 export function Dashboard() {
   const queryClient = useQueryClient();
   
-  const { data: bot } = useGetBotStatus({ query: { refetchInterval: 5000, queryKey: getGetBotStatusQueryKey() } });
-  const { data: scanner } = useGetScannerData({ query: { refetchInterval: 15000, queryKey: getGetScannerDataQueryKey() } });
-  const { data: trades } = useGetTrades({ status: 'open', limit: 10 }, { query: { refetchInterval: 10000, queryKey: getGetTradesQueryKey({ status: 'open', limit: 10 }) } });
+  const { data: bot, isLoading: botLoading, isError: botError } = useGetBotStatus({ query: { refetchInterval: 5000, queryKey: getGetBotStatusQueryKey() } });
+  const { data: scanner, isLoading: scannerLoading, isError: scannerError } = useGetScannerData({ query: { refetchInterval: 15000, queryKey: getGetScannerDataQueryKey() } });
+  const { data: trades, isLoading: tradesLoading, isError: tradesError } = useGetTrades({ status: 'open', limit: 10 }, { query: { refetchInterval: 10000, queryKey: getGetTradesQueryKey({ status: 'open', limit: 10 }) } });
+
+  // Distinguish "genuinely flat/idle" from "can't reach the API" — otherwise
+  // a failed fetch renders identically to a real 0-position, 0-PnL bot.
+  const statusUnknown = botLoading || botError;
 
   const startBot = useStartBot();
   const stopBot = useStopBot();
@@ -39,13 +43,19 @@ export function Dashboard() {
               <h2 className="text-sm font-mono text-muted-foreground uppercase tracking-widest mb-1">Trading Engine</h2>
               <div className="flex items-center gap-3 mb-6">
                 <span className={cn("relative flex h-3 w-3")}>
-                  {bot?.running && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>}
-                  <span className={cn("relative inline-flex rounded-full h-3 w-3", bot?.running ? "bg-success" : "bg-destructive")}></span>
+                  {bot?.running && !statusUnknown && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>}
+                  <span className={cn("relative inline-flex rounded-full h-3 w-3", statusUnknown ? "bg-muted-foreground" : bot?.running ? "bg-success" : "bg-destructive")}></span>
                 </span>
                 <span className="text-2xl font-bold tracking-tight">
-                  {bot?.running ? "SYSTEM ACTIVE" : "SYSTEM STANDBY"}
+                  {statusUnknown ? "STATUS UNKNOWN" : bot?.running ? "SYSTEM ACTIVE" : "SYSTEM STANDBY"}
                 </span>
               </div>
+              {botError && (
+                <div className="flex items-center gap-2 mb-4 text-xs font-mono text-destructive">
+                  <WifiOff className="h-3.5 w-3.5" />
+                  Can't reach the API — this is NOT a confirmed idle state. Open positions may still exist.
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-4">
@@ -76,16 +86,16 @@ export function Dashboard() {
             <Card>
               <CardContent className="p-6">
                 <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">Today's PnL</p>
-                <p className={cn("text-3xl font-bold tracking-tight", (bot?.dailyPnl ?? 0) >= 0 ? "text-success" : "text-destructive")}>
-                  {formatCurrency(bot?.dailyPnl, "always")}
+                <p className={cn("text-3xl font-bold tracking-tight", statusUnknown ? "text-muted-foreground" : (bot?.dailyPnl ?? 0) >= 0 ? "text-success" : "text-destructive")}>
+                  {statusUnknown ? "—" : formatCurrency(bot?.dailyPnl, "always")}
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-6">
                 <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">Win Rate</p>
-                <p className="text-3xl font-bold tracking-tight text-primary">
-                  {formatPercent(bot?.winRateToday)}
+                <p className={cn("text-3xl font-bold tracking-tight", statusUnknown ? "text-muted-foreground" : "text-primary")}>
+                  {statusUnknown ? "—" : formatPercent(bot?.winRateToday)}
                 </p>
               </CardContent>
             </Card>
@@ -94,16 +104,16 @@ export function Dashboard() {
             <Card>
               <CardContent className="p-6">
                 <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">Open Positions</p>
-                <p className="text-3xl font-bold tracking-tight">
-                  {bot?.openPositions ?? 0}
+                <p className={cn("text-3xl font-bold tracking-tight", statusUnknown && "text-muted-foreground")}>
+                  {statusUnknown ? "—" : (bot?.openPositions ?? 0)}
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-6">
                 <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">Total Trades</p>
-                <p className="text-3xl font-bold tracking-tight">
-                  {bot?.totalTradesToday ?? 0}
+                <p className={cn("text-3xl font-bold tracking-tight", statusUnknown && "text-muted-foreground")}>
+                  {statusUnknown ? "—" : (bot?.totalTradesToday ?? 0)}
                 </p>
               </CardContent>
             </Card>
@@ -184,7 +194,21 @@ export function Dashboard() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {(!scanner || scanner.length === 0) && (
+                {scannerError && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-destructive font-mono text-sm">
+                      Unable to load scanner data — check API connectivity.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!scannerError && scannerLoading && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground font-mono text-sm">
+                      Loading scanner data…
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!scannerError && !scannerLoading && (!scanner || scanner.length === 0) && (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground font-mono text-sm">
                       No pairs matching scan criteria.
@@ -236,7 +260,19 @@ export function Dashboard() {
                 </div>
               );
             })}
-            {(!trades || trades.length === 0) && (
+            {tradesError && (
+              <div className="p-8 text-center text-destructive flex flex-col items-center justify-center h-full">
+                <WifiOff className="h-8 w-8 mb-3 opacity-50" />
+                <p className="font-mono text-sm uppercase tracking-wider">Unable to load positions</p>
+                <p className="text-xs text-muted-foreground mt-1 normal-case">Open positions may still exist — check the exchange directly.</p>
+              </div>
+            )}
+            {!tradesError && tradesLoading && (
+              <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center h-full">
+                <p className="font-mono text-sm uppercase tracking-wider">Loading positions…</p>
+              </div>
+            )}
+            {!tradesError && !tradesLoading && (!trades || trades.length === 0) && (
               <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center h-full">
                 <AlertTriangle className="h-8 w-8 mb-3 opacity-20" />
                 <p className="font-mono text-sm uppercase tracking-wider">No active positions</p>

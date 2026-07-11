@@ -507,6 +507,10 @@ export interface BacktestTrade {
   runId: number;
   symbol: string;
   side: string;
+  /** @nullable */
+  strategyId?: string | null;
+  /** @nullable */
+  strategyName?: string | null;
   entryTime: string;
   /** @nullable */
   exitTime?: string | null;
@@ -527,6 +531,8 @@ export interface BacktestTrade {
   /** @nullable */
   pnl?: number | null;
   /** @nullable */
+  grossPnl?: number | null;
+  /** @nullable */
   pnlPercent?: number | null;
   /** @nullable */
   confidence?: number | null;
@@ -534,6 +540,26 @@ export interface BacktestTrade {
   exitReason?: string | null;
   /** @nullable */
   durationSeconds?: number | null;
+  /** @nullable */
+  mfe?: number | null;
+  /** @nullable */
+  mae?: number | null;
+  /** @nullable */
+  riskReward?: number | null;
+  /** @nullable */
+  tp1Price?: number | null;
+  tp1Filled?: boolean;
+  /** @nullable */
+  tp1FillPrice?: number | null;
+  /** @nullable */
+  tp2Price?: number | null;
+  tp2Filled?: boolean;
+  /** @nullable */
+  tp2FillPrice?: number | null;
+  breakEvenActive?: boolean;
+  trailingStopActive?: boolean;
+  /** @nullable */
+  trailingStopMode?: string | null;
 }
 
 export interface EquityCurvePoint {
