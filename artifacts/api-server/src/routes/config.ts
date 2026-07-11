@@ -11,6 +11,36 @@ import {
 
 const router: IRouter = Router();
 
+// SSRF guard: botEngine.sendAlert() fetches this URL server-side on every
+// risk alert, so an authenticated caller could otherwise point it at
+// internal-only services (e.g. cloud instance metadata at 169.254.169.254).
+// Only blocks obvious literal loopback/private/link-local hosts — it does
+// NOT protect against DNS rebinding (a public hostname resolving to a
+// private IP at fetch time), which would need resolving+checking the IP at
+// request time in botEngine itself.
+const PRIVATE_HOSTNAME_PATTERNS = [
+  /^localhost$/i,
+  /^127\./,
+  /^0\.0\.0\.0$/,
+  /^::1$/,
+  /^169\.254\./, // link-local, includes the AWS/GCP/Azure metadata IP
+  /^10\./,
+  /^172\.(1[6-9]|2\d|3[01])\./,
+  /^192\.168\./,
+];
+
+function isSafeAlertWebhookUrl(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  const hostname = url.hostname.toLowerCase();
+  return !PRIVATE_HOSTNAME_PATTERNS.some((re) => re.test(hostname));
+}
+
 function mapConfig(c: typeof botConfigTable.$inferSelect) {
   return {
     positionSizeUsdt:          Number(c.positionSizeUsdt),
@@ -39,6 +69,11 @@ router.put("/config", async (req, res): Promise<void> => {
   const parsed = UpdateConfigBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  if (parsed.data.alertWebhookUrl && !isSafeAlertWebhookUrl(parsed.data.alertWebhookUrl)) {
+    res.status(400).json({ error: "alertWebhookUrl must be a public http(s) URL (not localhost/private/link-local)" });
     return;
   }
 

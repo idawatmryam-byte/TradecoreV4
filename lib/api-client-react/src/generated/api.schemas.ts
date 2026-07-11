@@ -88,6 +88,9 @@ export interface ScannerRow {
   macdHistogram: number;
   atrAbs: number;
   votes: IndicatorVote[];
+  strategyId?: string;
+  strategyName?: string;
+  entryReason?: string;
 }
 
 export type PipelineStageStatus = typeof PipelineStageStatus[keyof typeof PipelineStageStatus];
@@ -751,6 +754,10 @@ export type GetAuthStatus200 = {
 export type GetTradesParams = {
 status?: GetTradesStatus;
 source?: GetTradesSource;
+/**
+ * @minimum 1
+ * @maximum 500
+ */
 limit?: number;
 };
 

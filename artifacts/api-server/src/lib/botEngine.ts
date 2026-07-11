@@ -1400,13 +1400,24 @@ class BotEngine {
   ): Promise<void> {
     const ex = this.exchange!;
     const market = this.toMarket(trade.symbol);
-    const orderIds = this.openOrderIds.get(trade.id);
+    let orderIds = this.openOrderIds.get(trade.id);
 
     // Phase 4B: TP1/TP2 partial closes, break-even move, and trailing stops
     // run first — they only ever narrow risk or reduce size, never fully
     // close. Re-fetch the trade afterward since TradeManager may have updated
     // stopLoss/takeProfit/remainingQuantity directly in the DB.
-    await this.tradeManager.manage(ex, trade, market, candles1m, stratConfig, orderIds);
+    //
+    // manage() returns the OpenOrderIds that should now be tracked — this
+    // MUST be persisted back into openOrderIds rather than discarded, since
+    // if entry-time protection placement had fully failed (no map entry
+    // existed), a later successful re-protection here is the only place that
+    // order id is ever recorded. Previously this was dropped on the floor,
+    // leaving the bot treating the trade as unprotected on every later tick.
+    const updatedOrderIds = await this.tradeManager.manage(ex, trade, market, candles1m, stratConfig, orderIds);
+    if (updatedOrderIds) {
+      this.openOrderIds.set(trade.id, updatedOrderIds);
+      orderIds = updatedOrderIds;
+    }
     const current = (await db.select().from(tradesTable).where(eq(tradesTable.id, trade.id)))[0];
     if (!current || current.status !== "open") return; // TradeManager can't fully close, but guard anyway
 
