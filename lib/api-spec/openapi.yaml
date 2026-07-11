@@ -39,7 +39,7 @@ tags:
 # credentials (health checks, and obtaining credentials in the first place).
 security:
   - sessionCookie: []
-  - bearerAuth: []
+  - basicAuth: []
 
 paths:
   /healthz:
@@ -61,22 +61,25 @@ paths:
     post:
       operationId: login
       tags: [auth]
-      summary: Log in with the shared operator token
+      summary: Log in with the shared operator username/password
       security: []
       description: >-
-        Exchanges API_AUTH_TOKEN for a signed session cookie (12h expiry).
-        Rate-limited separately and much more strictly than the rest of the
-        API (10 attempts / 15 min / IP) since this is the one meaningful
-        brute-force target on an otherwise-authenticated API.
+        Exchanges OPERATOR_USERNAME/OPERATOR_PASSWORD for a signed session
+        cookie (12h expiry). Rate-limited separately and much more strictly
+        than the rest of the API (10 attempts / 15 min / IP) since this is
+        the one meaningful brute-force target on an otherwise-authenticated
+        API.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [token]
+              required: [username, password]
               properties:
-                token:
+                username:
+                  type: string
+                password:
                   type: string
       responses:
         "200":
@@ -89,7 +92,7 @@ paths:
                   ok:
                     type: boolean
         "401":
-          description: Invalid token
+          description: Invalid username or password
 
   /auth/logout:
     post:
@@ -671,13 +674,13 @@ components:
       description: >-
         Signed, stateless session cookie set by POST /auth/login. Used by
         the web dashboard — the browser attaches it automatically.
-    bearerAuth:
+    basicAuth:
       type: http
-      scheme: bearer
+      scheme: basic
       description: >-
-        `Authorization: Bearer <API_AUTH_TOKEN>` — for scripts, curl, or a
-        non-browser client. Same shared credential as sessionCookie; this is
-        just the non-cookie way to present it.
+        `Authorization: Basic <base64(OPERATOR_USERNAME:OPERATOR_PASSWORD)>`
+        — for scripts, curl, or a non-browser client. Same shared credentials
+        as sessionCookie; this is just the non-cookie way to present them.
   schemas:
     HealthStatus:
       type: object

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ShieldCheck, Loader2, KeyRound } from "lucide-react";
+import { ShieldCheck, Loader2, User, KeyRound } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,17 +8,19 @@ import { Button } from "@/components/ui/button";
 /**
  * Phase 5B — Production Hardening.
  *
- * The API now requires a session cookie or bearer token on every route
- * except /healthz and /auth/*. This gate checks auth status once on load;
- * if unauthenticated, it blocks the whole app behind a token prompt instead
- * of letting every page underneath fire a wave of 401s. The token itself
- * lives server-side only (API_AUTH_TOKEN env var) — this form just
- * exchanges it once for the session cookie via POST /auth/login, and the
- * browser handles the cookie automatically from then on.
+ * The API now requires a session cookie or Basic-auth credentials on every
+ * route except /healthz and /auth/*. This gate checks auth status once on
+ * load; if unauthenticated, it blocks the whole app behind a login prompt
+ * instead of letting every page underneath fire a wave of 401s. The
+ * username/password live server-side only (OPERATOR_USERNAME/
+ * OPERATOR_PASSWORD env vars) — this form just exchanges them once for the
+ * session cookie via POST /auth/login, and the browser handles the cookie
+ * automatically from then on.
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<"checking" | "authenticated" | "unauthenticated">("checking");
-  const [token, setToken] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,14 +45,14 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ username, password }),
       });
       if (res.ok) {
         setStatus("authenticated");
       } else if (res.status === 429) {
         setError("Too many attempts. Wait a few minutes and try again.");
       } else {
-        setError("Invalid token.");
+        setError("Invalid username or password.");
       }
     } catch {
       setError("Couldn't reach the server. Check your connection and try again.");
@@ -83,23 +85,38 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="operator-token">Operator token</Label>
+                <Label htmlFor="operator-username">Username</Label>
+                <div className="relative">
+                  <User className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="operator-username"
+                    type="text"
+                    autoFocus
+                    autoComplete="username"
+                    className="pl-9"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Username"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="operator-password">Password</Label>
                 <div className="relative">
                   <KeyRound className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    id="operator-token"
+                    id="operator-password"
                     type="password"
-                    autoFocus
                     autoComplete="current-password"
                     className="pl-9"
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    placeholder="API_AUTH_TOKEN"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Password"
                   />
                 </div>
               </div>
               {error && <p className="text-xs text-destructive">{error}</p>}
-              <Button type="submit" className="w-full" disabled={submitting || !token}>
+              <Button type="submit" className="w-full" disabled={submitting || !username || !password}>
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Unlock"}
               </Button>
             </form>

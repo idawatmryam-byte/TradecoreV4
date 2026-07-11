@@ -8,13 +8,13 @@
  * combined with `cors()` called with no options (reflects any origin). That
  * is the single most important gap this phase closes.
  *
- * DESIGN — single shared operator credential, not multi-user RBAC:
+ * DESIGN — single shared operator username/password, not multi-user RBAC:
  * this is a single-operator bot, not a multi-tenant SaaS product. The brief
  * asks for "role-based permissions where appropriate" — for one operator
  * with one Binance account, there is exactly one role, so a full RBAC/user
  * table would be unused complexity the audit itself warns against. What IS
- * appropriate, and implemented here, is a single strong shared secret
- * (`API_AUTH_TOKEN`) with two ways to present it:
+ * appropriate, and implemented here, is a single shared username/password
+ * (`OPERATOR_USERNAME` / `OPERATOR_PASSWORD`) with two ways to present it:
  *
  *   1. A signed, stateless, HttpOnly session cookie for the web dashboard
  *      (via POST /api/auth/login) — this is what `custom-fetch.ts` was
@@ -22,14 +22,14 @@
  *      [setAuthTokenGetter] should never be used in web applications where
  *      session token cookies are automatically associated with API calls by
  *      the browser" — that plumbing was built for this and never finished).
- *   2. A bare `Authorization: Bearer <API_AUTH_TOKEN>` header for scripts,
- *      curl, or a future mobile/Expo client (`setAuthTokenGetter`).
+ *   2. An `Authorization: Basic <base64(username:password)>` header for
+ *      scripts, curl, or a future mobile/Expo client.
  *
  * The cookie is intentionally stateless (HMAC-signed expiry, no server-side
  * session store/table) — simpler, survives a server restart without
- * logging everyone out, and there is exactly one credential to revoke
- * (rotate API_AUTH_TOKEN) if it's ever compromised, which invalidates every
- * outstanding cookie immediately since re-login would fail.
+ * logging everyone out, and there is exactly one credential pair to revoke
+ * (rotate OPERATOR_PASSWORD) if it's ever compromised, which invalidates
+ * every outstanding cookie immediately since re-login would fail.
  */
 import type { NextFunction, Request, Response } from "express";
 import { createHmac, timingSafeEqual } from "crypto";
@@ -78,24 +78,42 @@ function verifySessionToken(token: string | undefined): boolean {
   return timingSafeStringEqual(signature, expected);
 }
 
-function verifyBearerToken(header: string | undefined): boolean {
-  if (!header?.startsWith("Bearer ")) return false;
-  const token = header.slice("Bearer ".length).trim();
-  if (!token) return false;
-  const { apiAuthToken } = validateEnv();
-  return timingSafeStringEqual(token, apiAuthToken);
+function verifyBasicAuth(header: string | undefined): boolean {
+  if (!header?.startsWith("Basic ")) return false;
+  const encoded = header.slice("Basic ".length).trim();
+  if (!encoded) return false;
+
+  let decoded: string;
+  try {
+    decoded = Buffer.from(encoded, "base64").toString("utf8");
+  } catch {
+    return false;
+  }
+  const separatorIndex = decoded.indexOf(":");
+  if (separatorIndex === -1) return false;
+
+  const username = decoded.slice(0, separatorIndex);
+  const password = decoded.slice(separatorIndex + 1);
+  const { operatorUsername, operatorPassword } = validateEnv();
+
+  // Both comparisons run unconditionally (no short-circuit on the first
+  // failure) so a wrong username can't be distinguished from a wrong
+  // password by timing.
+  const usernameOk = timingSafeStringEqual(username, operatorUsername);
+  const passwordOk = timingSafeStringEqual(password, operatorPassword);
+  return usernameOk && passwordOk;
 }
 
 /**
- * Require either a valid session cookie or a valid bearer token. 401s with a
- * generic message (never reveal *which* check failed — that's an oracle).
- * Mount this on every route except /health and /auth/login.
+ * Require either a valid session cookie or valid Basic-auth credentials.
+ * 401s with a generic message (never reveal *which* check failed — that's
+ * an oracle). Mount this on every route except /health and /auth/login.
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const cookieOk = verifySessionToken(req.cookies?.[SESSION_COOKIE_NAME]);
-  const bearerOk = !cookieOk && verifyBearerToken(req.headers.authorization);
+  const basicOk = !cookieOk && verifyBasicAuth(req.headers.authorization);
 
-  if (cookieOk || bearerOk) {
+  if (cookieOk || basicOk) {
     next();
     return;
   }
@@ -105,5 +123,5 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 }
 
 export function isAuthenticated(req: Request): boolean {
-  return verifySessionToken(req.cookies?.[SESSION_COOKIE_NAME]) || verifyBearerToken(req.headers.authorization);
+  return verifySessionToken(req.cookies?.[SESSION_COOKIE_NAME]) || verifyBasicAuth(req.headers.authorization);
 }
