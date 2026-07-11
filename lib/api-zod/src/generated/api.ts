@@ -18,11 +18,12 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * Exchanges API_AUTH_TOKEN for a signed session cookie (12h expiry). Rate-limited separately and much more strictly than the rest of the API (10 attempts / 15 min / IP) since this is the one meaningful brute-force target on an otherwise-authenticated API.
- * @summary Log in with the shared operator token
+ * Exchanges OPERATOR_USERNAME/OPERATOR_PASSWORD for a signed session cookie (12h expiry). Rate-limited separately and much more strictly than the rest of the API (10 attempts / 15 min / IP) since this is the one meaningful brute-force target on an otherwise-authenticated API.
+ * @summary Log in with the shared operator username/password
  */
 export const LoginBody = zod.object({
-  "token": zod.string()
+  "username": zod.string(),
+  "password": zod.string()
 })
 
 export const LoginResponse = zod.object({
@@ -58,6 +59,7 @@ export const GetBotStatusResponse = zod.object({
   "totalTradesToday": zod.number(),
   "winRateToday": zod.number(),
   "circuitBreakerActive": zod.boolean(),
+  "riskPaused": zod.boolean().describe('True when trading is suspended after 3 consecutive risk violations — see POST \/bot\/reset-risk-pause.'),
   "mode": zod.enum(['live', 'testnet', 'backtest']),
   "startedAt": zod.coerce.date().nullish(),
   "lastScanAt": zod.coerce.date().nullish()
@@ -75,6 +77,7 @@ export const StartBotResponse = zod.object({
   "totalTradesToday": zod.number(),
   "winRateToday": zod.number(),
   "circuitBreakerActive": zod.boolean(),
+  "riskPaused": zod.boolean().describe('True when trading is suspended after 3 consecutive risk violations — see POST \/bot\/reset-risk-pause.'),
   "mode": zod.enum(['live', 'testnet', 'backtest']),
   "startedAt": zod.coerce.date().nullish(),
   "lastScanAt": zod.coerce.date().nullish()
@@ -92,6 +95,7 @@ export const StopBotResponse = zod.object({
   "totalTradesToday": zod.number(),
   "winRateToday": zod.number(),
   "circuitBreakerActive": zod.boolean(),
+  "riskPaused": zod.boolean().describe('True when trading is suspended after 3 consecutive risk violations — see POST \/bot\/reset-risk-pause.'),
   "mode": zod.enum(['live', 'testnet', 'backtest']),
   "startedAt": zod.coerce.date().nullish(),
   "lastScanAt": zod.coerce.date().nullish()

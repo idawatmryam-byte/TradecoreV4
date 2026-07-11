@@ -29,6 +29,8 @@ export interface BotStatus {
   totalTradesToday: number;
   winRateToday: number;
   circuitBreakerActive: boolean;
+  /** True when trading is suspended after 3 consecutive risk violations — see POST /bot/reset-risk-pause. */
+  riskPaused: boolean;
   mode: BotStatusMode;
   /** @nullable */
   startedAt?: string | null;
@@ -736,7 +738,8 @@ export interface StrategySignalItem {
 }
 
 export type LoginBody = {
-  token: string;
+  username: string;
+  password: string;
 };
 
 export type Login200 = {

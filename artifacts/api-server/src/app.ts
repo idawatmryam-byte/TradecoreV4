@@ -70,7 +70,7 @@ app.use(
 );
 app.use("/api", publicRouter);
 
-// Everything else requires a valid session cookie or bearer token.
+// Everything else requires a valid session cookie or Basic-auth credentials.
 app.use("/api", requireAuth, router);
 
 // Unknown /api/* routes: return a JSON 404 instead of falling through to the SPA.

@@ -170,8 +170,8 @@ export const getLoginUrl = () => {
 }
 
 /**
- * Exchanges API_AUTH_TOKEN for a signed session cookie (12h expiry). Rate-limited separately and much more strictly than the rest of the API (10 attempts / 15 min / IP) since this is the one meaningful brute-force target on an otherwise-authenticated API.
- * @summary Log in with the shared operator token
+ * Exchanges OPERATOR_USERNAME/OPERATOR_PASSWORD for a signed session cookie (12h expiry). Rate-limited separately and much more strictly than the rest of the API (10 attempts / 15 min / IP) since this is the one meaningful brute-force target on an otherwise-authenticated API.
+ * @summary Log in with the shared operator username/password
  */
 export const login = async (loginBody: LoginBody, options?: RequestInit): Promise<Login200> => {
 
@@ -219,7 +219,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type LoginMutationError = ErrorType<void>
 
     /**
- * @summary Log in with the shared operator token
+ * @summary Log in with the shared operator username/password
  */
 export const useLogin = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,{data: BodyType<LoginBody>}, TContext>, request?: SecondParameter<typeof customFetch>}

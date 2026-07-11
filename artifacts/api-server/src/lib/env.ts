@@ -22,8 +22,9 @@ export interface AppEnv {
   databaseUrl: string;
   binanceApiKey: string;
   binanceApiSecret: string;
-  /** Shared operator credential — see middleware/auth.ts. Never logged. */
-  apiAuthToken: string;
+  /** Shared operator credentials — see middleware/auth.ts. Never logged. */
+  operatorUsername: string;
+  operatorPassword: string;
   /** HMAC signing key for the session cookie — see middleware/auth.ts. Never logged. */
   sessionSecret: string;
   /** Comma-separated allow-list of origins permitted to make cross-origin API
@@ -94,14 +95,16 @@ export function validateEnv(): AppEnv {
     problems.push("BINANCE_API_SECRET is required.");
   }
 
-  const apiAuthToken = process.env["API_AUTH_TOKEN"];
-  if (!isNonEmpty(apiAuthToken)) {
-    problems.push(
-      "API_AUTH_TOKEN is required — this protects every trading/config endpoint. " +
-        "Generate one with: openssl rand -hex 32",
-    );
-  } else if (apiAuthToken.length < 16) {
-    problems.push("API_AUTH_TOKEN is too short (< 16 chars) — generate with: openssl rand -hex 32");
+  const operatorUsername = process.env["OPERATOR_USERNAME"];
+  if (!isNonEmpty(operatorUsername)) {
+    problems.push("OPERATOR_USERNAME is required — this protects every trading/config endpoint.");
+  }
+
+  const operatorPassword = process.env["OPERATOR_PASSWORD"];
+  if (!isNonEmpty(operatorPassword)) {
+    problems.push("OPERATOR_PASSWORD is required — this protects every trading/config endpoint.");
+  } else if (operatorPassword.length < 12) {
+    problems.push("OPERATOR_PASSWORD is too short (< 12 chars) — use a long, unique passphrase.");
   }
 
   const sessionSecret = process.env["SESSION_SECRET"];
@@ -134,7 +137,8 @@ export function validateEnv(): AppEnv {
     databaseUrl: databaseUrl!,
     binanceApiKey: binanceApiKey!,
     binanceApiSecret: binanceApiSecret!,
-    apiAuthToken: apiAuthToken!,
+    operatorUsername: operatorUsername!,
+    operatorPassword: operatorPassword!,
     sessionSecret: resolvedSessionSecret!,
     allowedOrigins,
   });
