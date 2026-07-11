@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { botConfigTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { botEngine } from "../lib/botEngine";
+import { getOrCreateEngine } from "../lib/engineRegistry";
 import {
   GetConfigResponse,
   UpdateConfigBody,
@@ -60,8 +60,8 @@ function mapConfig(c: typeof botConfigTable.$inferSelect) {
   };
 }
 
-router.get("/config", async (_req, res): Promise<void> => {
-  const config = await botEngine.loadConfig();
+router.get("/config", async (req, res): Promise<void> => {
+  const config = await getOrCreateEngine(req.userId!).loadConfig();
   res.json(GetConfigResponse.parse(mapConfig(config)));
 });
 
@@ -77,7 +77,7 @@ router.put("/config", async (req, res): Promise<void> => {
     return;
   }
 
-  const existing = await botEngine.loadConfig();
+  const existing = await getOrCreateEngine(req.userId!).loadConfig();
   const u = parsed.data;
 
   const [updated] = await db

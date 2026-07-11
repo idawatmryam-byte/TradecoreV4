@@ -1,9 +1,99 @@
-import { useGetConfig, useUpdateConfig, getGetConfigQueryKey } from "@workspace/api-client-react";
+import {
+  useGetConfig, useUpdateConfig, getGetConfigQueryKey,
+  useGetBinanceCredentials, useSetBinanceCredentials, useDeleteBinanceCredentials, getGetBinanceCredentialsQueryKey,
+} from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label, Switch } from "@/components/ui";
-import { Settings as SettingsIcon, Save, TestTube2 } from "lucide-react";
+import { Settings as SettingsIcon, Save, TestTube2, KeyRound, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
+
+function BinanceCredentialsCard() {
+  const { data: status, isLoading } = useGetBinanceCredentials({ query: { queryKey: getGetBinanceCredentialsQueryKey() } });
+  const setCredentials = useSetBinanceCredentials();
+  const deleteCredentials = useDeleteBinanceCredentials();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const [apiKey, setApiKey] = useState("");
+  const [apiSecret, setApiSecret] = useState("");
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetBinanceCredentialsQueryKey() });
+
+  const handleSave = () => {
+    if (!apiKey.trim() || !apiSecret.trim()) return;
+    setCredentials.mutate({ data: { apiKey: apiKey.trim(), apiSecret: apiSecret.trim() } }, {
+      onSuccess: () => {
+        setApiKey("");
+        setApiSecret("");
+        invalidate();
+        toast({ title: "Binance Credentials Saved", description: "Restart the bot for the new credentials to take effect." });
+      },
+      onError: () => {
+        toast({ title: "Error", description: "Failed to save Binance credentials.", variant: "destructive" });
+      },
+    });
+  };
+
+  const handleRemove = () => {
+    deleteCredentials.mutate(undefined, {
+      onSuccess: () => {
+        invalidate();
+        toast({ title: "Binance Credentials Removed" });
+      },
+      onError: () => {
+        toast({ title: "Error", description: "Failed to remove Binance credentials.", variant: "destructive" });
+      },
+    });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+          <KeyRound className="h-4 w-4 text-primary" /> Your Binance API Credentials
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Your bot connects to Binance using YOUR OWN API key and secret — never a shared account. Stored encrypted;
+          never displayed back once saved. Use testnet keys (<code className="text-xs font-mono">testnet.binance.vision</code>)
+          while the Testnet toggle below is on.
+        </p>
+
+        {!isLoading && (
+          <div className="text-xs font-mono text-muted-foreground">
+            {status?.configured
+              ? <>Currently configured — key ends in <span className="text-foreground">{status.apiKeyPreview}</span></>
+              : "No Binance credentials configured yet."}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>API Key</Label>
+            <Input type="password" autoComplete="off" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Enter new API key" />
+          </div>
+          <div className="space-y-2">
+            <Label>API Secret</Label>
+            <Input type="password" autoComplete="off" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} placeholder="Enter new API secret" />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button onClick={handleSave} disabled={setCredentials.isPending || !apiKey.trim() || !apiSecret.trim()}>
+            {setCredentials.isPending ? "Saving..." : "Save Credentials"}
+          </Button>
+          {status?.configured && (
+            <Button variant="destructive" onClick={handleRemove} disabled={deleteCredentials.isPending}>
+              <Trash2 className="mr-2 h-4 w-4" /> Remove
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export function Settings() {
   const { data: config } = useGetConfig({ query: { queryKey: getGetConfigQueryKey() } });
@@ -79,6 +169,8 @@ export function Settings() {
         </h1>
         <p className="text-muted-foreground text-sm mt-1">Adjust core trading parameters and risk management rules.</p>
       </div>
+
+      <BinanceCredentialsCard />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>

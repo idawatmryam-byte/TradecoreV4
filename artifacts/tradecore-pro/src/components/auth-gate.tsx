@@ -6,19 +6,21 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
 /**
- * Phase 5B — Production Hardening.
+ * Multi-user Phase.
  *
- * The API now requires a session cookie or Basic-auth credentials on every
- * route except /healthz and /auth/*. This gate checks auth status once on
- * load; if unauthenticated, it blocks the whole app behind a login prompt
- * instead of letting every page underneath fire a wave of 401s. The
- * username/password live server-side only (OPERATOR_USERNAME/
- * OPERATOR_PASSWORD env vars) — this form just exchanges them once for the
- * session cookie via POST /auth/login, and the browser handles the cookie
+ * The API requires a session cookie or Basic-auth credentials on every
+ * route except /healthz and /auth/*. This gate checks auth state once on
+ * load; if unauthenticated, it blocks the whole app behind a login/register
+ * prompt instead of letting every page underneath fire a wave of 401s. Each
+ * user has their own account (registered here, or by an operator) and their
+ * own Binance credentials (set later on the Settings page) — this form only
+ * ever exchanges a username/password for the session cookie via
+ * POST /auth/login or /auth/register; the browser handles the cookie
  * automatically from then on.
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<"checking" | "authenticated" | "unauthenticated">("checking");
+  const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -41,7 +43,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(mode === "login" ? "/api/auth/login" : "/api/auth/register", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -49,8 +51,17 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       });
       if (res.ok) {
         setStatus("authenticated");
-      } else if (res.status === 429) {
+        return;
+      }
+      if (res.status === 429) {
         setError("Too many attempts. Wait a few minutes and try again.");
+        return;
+      }
+      const data = await res.json().catch(() => null);
+      if (mode === "register" && res.status === 409) {
+        setError("Username already taken.");
+      } else if (mode === "register" && res.status === 400) {
+        setError(data?.error ?? "Invalid username or password.");
       } else {
         setError("Invalid username or password.");
       }
@@ -79,17 +90,17 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             </div>
             <CardTitle className="text-lg">TradeCore Pro</CardTitle>
             <p className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
-              Authentication required
+              {mode === "login" ? "Log in to your account" : "Create your account"}
             </p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="operator-username">Username</Label>
+                <Label htmlFor="auth-username">Username</Label>
                 <div className="relative">
                   <User className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    id="operator-username"
+                    id="auth-username"
                     type="text"
                     autoFocus
                     autoComplete="username"
@@ -101,24 +112,33 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="operator-password">Password</Label>
+                <Label htmlFor="auth-password">Password</Label>
                 <div className="relative">
                   <KeyRound className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    id="operator-password"
+                    id="auth-password"
                     type="password"
-                    autoComplete="current-password"
+                    autoComplete={mode === "login" ? "current-password" : "new-password"}
                     className="pl-9"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Password"
+                    placeholder={mode === "login" ? "Password" : "Password (min. 12 characters)"}
                   />
                 </div>
               </div>
               {error && <p className="text-xs text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={submitting || !username || !password}>
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Unlock"}
+                {submitting
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : mode === "login" ? "Log In" : "Create Account"}
               </Button>
+              <button
+                type="button"
+                className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }}
+              >
+                {mode === "login" ? "Need an account? Register" : "Already have an account? Log in"}
+              </button>
             </form>
           </CardContent>
         </Card>

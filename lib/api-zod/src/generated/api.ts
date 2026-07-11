@@ -18,8 +18,29 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * Exchanges OPERATOR_USERNAME/OPERATOR_PASSWORD for a signed session cookie (12h expiry). Rate-limited separately and much more strictly than the rest of the API (10 attempts / 15 min / IP) since this is the one meaningful brute-force target on an otherwise-authenticated API.
- * @summary Log in with the shared operator username/password
+ * Multi-user Phase: creates a new account (username + password, hashed with scrypt) and immediately logs in, setting the same signed session cookie POST /auth/login issues. Each account only ever risks its own Binance credentials/funds, so registration is open to anyone who can reach the app.
+ * @summary Create a new account
+ */
+export const registerBodyUsernameMin = 3;
+export const registerBodyUsernameMax = 64;
+
+export const registerBodyPasswordMin = 12;
+
+
+
+export const RegisterBody = zod.object({
+  "username": zod.string().min(registerBodyUsernameMin).max(registerBodyUsernameMax),
+  "password": zod.string().min(registerBodyPasswordMin)
+})
+
+export const RegisterResponse = zod.object({
+  "ok": zod.boolean().optional()
+})
+
+
+/**
+ * Exchanges a user's username/password for a signed session cookie (12h expiry). Rate-limited separately and much more strictly than the rest of the API (10 attempts / 15 min / IP) since this is the one meaningful brute-force target on an otherwise-authenticated API.
+ * @summary Log in to an existing account
  */
 export const LoginBody = zod.object({
   "username": zod.string(),
@@ -503,6 +524,43 @@ export const UpdateConfigResponse = zod.object({
   "testnet": zod.boolean(),
   "backtestMode": zod.boolean(),
   "alertWebhookUrl": zod.string().nullish().describe('Discord \/ Telegram \/ Slack incoming-webhook URL for risk alerts')
+})
+
+
+/**
+ * Never returns the plaintext API key/secret — only whether one is configured and a masked preview (last 4 chars of the key).
+ * @summary Get the logged-in user's Binance credential status
+ */
+export const GetBinanceCredentialsResponse = zod.object({
+  "configured": zod.boolean(),
+  "apiKeyPreview": zod.string().nullable().describe('Last 4 chars of the stored API key, e.g. \"...ab12\" — never the full key.'),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * Encrypted at rest (AES-256-GCM) and linked only to the logged-in user's account. The bot engine only reads credentials at start(), so restart the bot (if running) for a changed credential to take effect.
+ * @summary Set the logged-in user's Binance API key/secret
+ */
+export const SetBinanceCredentialsBody = zod.object({
+  "apiKey": zod.string(),
+  "apiSecret": zod.string()
+})
+
+export const SetBinanceCredentialsResponse = zod.object({
+  "configured": zod.boolean(),
+  "apiKeyPreview": zod.string().nullable().describe('Last 4 chars of the stored API key, e.g. \"...ab12\" — never the full key.'),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary Remove the logged-in user's stored Binance credentials
+ */
+export const DeleteBinanceCredentialsResponse = zod.object({
+  "configured": zod.boolean(),
+  "apiKeyPreview": zod.string().nullable().describe('Last 4 chars of the stored API key, e.g. \"...ab12\" — never the full key.'),
+  "updatedAt": zod.coerce.date().nullable()
 })
 
 

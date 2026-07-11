@@ -9,7 +9,7 @@ import {
   GetTradesResponse,
 } from "@workspace/api-zod";
 import { isValidExitReason } from "../lib/exitTypes";
-import { botEngine } from "../lib/botEngine";
+import { getOrCreateEngine } from "../lib/engineRegistry";
 
 const router: IRouter = Router();
 
@@ -70,12 +70,10 @@ router.get("/trades", async (req, res): Promise<void> => {
   const { status, source, limit } = query.data;
   let q = db.select().from(tradesTable).$dynamic();
 
-  const conditions = [];
+  const conditions = [eq(tradesTable.userId, req.userId!)];
   if (status) conditions.push(eq(tradesTable.status, status));
   if (source) conditions.push(eq(tradesTable.isBacktest, source === "backtest"));
-  if (conditions.length > 0) {
-    q = q.where(and(...conditions));
-  }
+  q = q.where(and(...conditions));
 
   const trades = await q.orderBy(desc(tradesTable.entryTime)).limit(limit ?? 50);
   const mapped = trades.map(mapTrade);
@@ -93,7 +91,7 @@ router.get("/trades/:id", async (req, res): Promise<void> => {
   const [trade] = await db
     .select()
     .from(tradesTable)
-    .where(eq(tradesTable.id, params.data.id));
+    .where(and(eq(tradesTable.id, params.data.id), eq(tradesTable.userId, req.userId!)));
 
   if (!trade) {
     res.status(404).json({ error: "Trade not found" });
@@ -115,7 +113,10 @@ router.get("/trades/:id/replay", async (req, res): Promise<void> => {
     return;
   }
 
-  const [trade] = await db.select().from(tradesTable).where(eq(tradesTable.id, params.data.id));
+  const [trade] = await db
+    .select()
+    .from(tradesTable)
+    .where(and(eq(tradesTable.id, params.data.id), eq(tradesTable.userId, req.userId!)));
   if (!trade) {
     res.status(404).json({ error: "Trade not found" });
     return;
@@ -152,14 +153,17 @@ router.get("/trades/:id/replay", async (req, res): Promise<void> => {
 // expected reward/risk). Powers the "active trades" dashboard panel.
 // ---------------------------------------------------------------------------
 
-router.get("/trades/monitor/active", async (_req, res): Promise<void> => {
-  const openTrades = await db.select().from(tradesTable).where(eq(tradesTable.status, "open"));
+router.get("/trades/monitor/active", async (req, res): Promise<void> => {
+  const openTrades = await db
+    .select()
+    .from(tradesTable)
+    .where(and(eq(tradesTable.userId, req.userId!), eq(tradesTable.status, "open")));
   if (openTrades.length === 0) {
     res.json([]);
     return;
   }
 
-  const scannerRows = botEngine.getScannerData();
+  const scannerRows = getOrCreateEngine(req.userId!).getScannerData();
   const priceBySymbol = new Map(scannerRows.map((r) => [r.symbol, r.lastPrice]));
   const now = Date.now();
 
