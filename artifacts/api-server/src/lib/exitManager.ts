@@ -284,7 +284,13 @@ export class ExitManager {
     reasonOverride: string,
   ): Promise<{ exitReason: string | null; exitPrice: number | null }> {
     try {
-      const closeQty = parseFloat(ex.amountToPrecision(market, Number(trade.quantity)));
+      // Phase 4B: after a TP1/TP2 partial close, `quantity` is the ORIGINAL
+      // size — the exchange only holds `remainingQuantity` of base asset.
+      // Selling the original quantity here gets rejected for insufficient
+      // balance, which silently defeats both the timeout exit and the
+      // unprotected-position reconciliation fallback (see closeTrade() below,
+      // which already reads remainingQuantity correctly).
+      const closeQty = parseFloat(ex.amountToPrecision(market, Number(trade.remainingQuantity ?? trade.quantity)));
       const order = await ex.createOrder(market, "market", "sell", closeQty);
       const fillPrice = order.average ?? order.price ?? (touched ? sl : tp);
       logger.warn(
