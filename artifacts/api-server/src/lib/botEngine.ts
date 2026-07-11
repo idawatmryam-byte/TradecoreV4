@@ -18,6 +18,7 @@ import {
   botConfigTable,
   blacklistTable,
   hourlyStatsTable,
+  tradePartialExitsTable,
 } from "@workspace/db";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
 import { logger } from "./logger";
@@ -1517,7 +1518,19 @@ class BotEngine {
       logger.warn({ err, tradeId: trade.id }, "RECONCILE_MISMATCH: fetchMyTrades failed — falling back to entryPrice as a neutral placeholder");
     }
 
-    const pnl = (exitPrice - Number(trade.entryPrice)) * trackedQty;
+    // Roll in any TP1/TP2 partial closes so pnl reflects the WHOLE trade, not
+    // just the remaining (post-partial) tranche — mirrors ExitManager.closeTrade().
+    // Without this, a trade that took a profitable TP1 fill before the bot
+    // went offline silently loses that profit from dailyPnl (circuit breaker)
+    // and from the win-rate stats that drive blacklisting.
+    const partials = await db
+      .select()
+      .from(tradePartialExitsTable)
+      .where(eq(tradePartialExitsTable.tradeId, trade.id));
+    const partialsNetPnl = partials.reduce((s, p) => s + Number(p.pnl), 0);
+
+    const legPnl = (exitPrice - Number(trade.entryPrice)) * trackedQty;
+    const pnl = legPnl + partialsNetPnl;
     await db
       .update(tradesTable)
       .set({
