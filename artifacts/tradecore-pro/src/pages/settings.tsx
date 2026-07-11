@@ -3,7 +3,8 @@ import {
   useGetBinanceCredentials, useSetBinanceCredentials, useDeleteBinanceCredentials, getGetBinanceCredentialsQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label, Switch } from "@/components/ui";
-import { Settings as SettingsIcon, Save, TestTube2, KeyRound, Trash2 } from "lucide-react";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Settings as SettingsIcon, Save, TestTube2, KeyRound, Trash2, TrendingUp } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
@@ -102,6 +103,9 @@ export function Settings() {
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
+    marketType: "spot" as "spot" | "futures",
+    leverage: 1,
+    marginMode: "isolated" as "isolated" | "cross",
     positionSizeUsdt: 10,
     maxOpenPositions: 5,
     dailyLossLimitUsdt: -10,
@@ -118,6 +122,9 @@ export function Settings() {
   useEffect(() => {
     if (config) {
       setFormData({
+        marketType: config.marketType,
+        leverage: config.leverage,
+        marginMode: config.marginMode,
         positionSizeUsdt: config.positionSizeUsdt,
         maxOpenPositions: config.maxOpenPositions,
         dailyLossLimitUsdt: config.dailyLossLimitUsdt,
@@ -136,6 +143,8 @@ export function Settings() {
   const handleChange = (field: string, value: string | number | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  const isFutures = formData.marketType === "futures";
 
   const handleSave = () => {
     const payload = {
@@ -171,6 +180,57 @@ export function Settings() {
       </div>
 
       <BinanceCredentialsCard />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-primary" /> Market Type
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <p className="text-xs text-muted-foreground">
+            Spot trading is long-only, no leverage. Futures (USDⓈ-M) supports both long and short positions with
+            configurable leverage — losses can exceed your position size, so use with caution.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>Market Type</Label>
+              <Select value={formData.marketType} onValueChange={(v) => handleChange("marketType", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="spot">Spot</SelectItem>
+                  <SelectItem value="futures">Futures (USDⓈ-M)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Leverage {!isFutures && "(futures only)"}</Label>
+              <Input
+                type="number"
+                min={1}
+                max={125}
+                disabled={!isFutures}
+                value={formData.leverage}
+                onChange={(e) => handleChange("leverage", Number(e.target.value))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Margin Mode {!isFutures && "(futures only)"}</Label>
+              <Select
+                value={formData.marginMode}
+                onValueChange={(v) => handleChange("marginMode", v)}
+                disabled={!isFutures}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="isolated">Isolated</SelectItem>
+                  <SelectItem value="cross">Cross</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>

@@ -38,6 +38,14 @@ export const botConfigTable = pgTable("bot_config", {
   testnet: boolean("testnet").notNull().default(true),
   backtestMode: boolean("backtest_mode").notNull().default(false),
 
+  // ── Futures trading (long + short) ─────────────────────────────────────────
+  /** "spot" (long-only, buy-to-open) | "futures" (long+short, leveraged). */
+  marketType: text("market_type").notNull().default("spot"), // spot | futures
+  /** Only applies when marketType = "futures". 1 = no leverage. Binance USDⓈ-M caps vary by symbol (often up to 125x) — the app enforces its own lower safety cap, see lib/env.ts / routes/config.ts. */
+  leverage: integer("leverage").notNull().default(1),
+  /** Only applies when marketType = "futures". isolated: only that position's margin is at risk of liquidation. cross: the whole futures wallet backs every position — one bad position can drag down others. */
+  marginMode: text("margin_mode").notNull().default("isolated"), // isolated | cross
+
   /** Phase 2.5: Discord / Telegram / Slack incoming-webhook URL for risk alerts */
   alertWebhookUrl: text("alert_webhook_url"),
 

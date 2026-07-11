@@ -67,27 +67,33 @@ export function computeTrailingStop(
   candles1m: Candle[],
   cfg: StrategyConfig,
   emergency: boolean,
+  isShort = false,
 ): number {
+  // A short's trailing stop sits ABOVE current price (mirror of long, which
+  // sits below) — every formula below just flips its distance's sign.
+  const sign = isShort ? 1 : -1;
   if (emergency) {
-    return currentPrice * (1 - cfg.emergencyTrailingPercent / 100);
+    return currentPrice * (1 + sign * cfg.emergencyTrailingPercent / 100);
   }
   switch (mode) {
     case "percent":
-      return currentPrice * (1 - cfg.trailingStopPercent / 100);
+      return currentPrice * (1 + sign * cfg.trailingStopPercent / 100);
     case "atr": {
       const atr = calcAtr(candles1m, 14);
-      return currentPrice - atr * cfg.trailingStopAtrMultiplier;
+      return currentPrice + sign * atr * cfg.trailingStopAtrMultiplier;
     }
     case "dynamic": {
       // "Dynamic" = ATR-based distance that also never exceeds a percent cap,
       // so trailing doesn't get dangerously wide during a volatility spike.
       const atr = calcAtr(candles1m, 14);
-      const atrStop = currentPrice - atr * cfg.trailingStopAtrMultiplier;
-      const pctStop = currentPrice * (1 - cfg.trailingStopPercent / 100);
-      return Math.max(atrStop, pctStop);
+      const atrStop = currentPrice + sign * atr * cfg.trailingStopAtrMultiplier;
+      const pctStop = currentPrice * (1 + sign * cfg.trailingStopPercent / 100);
+      // Long: the LESS generous (higher) of the two candidate stops wins —
+      // i.e. Math.max, tighter risk control. Short: mirror is the lower one.
+      return isShort ? Math.min(atrStop, pctStop) : Math.max(atrStop, pctStop);
     }
     default:
-      return -Infinity; // "none" — never tightens
+      return isShort ? Infinity : -Infinity; // "none" — never tightens
   }
 }
 
@@ -127,18 +133,27 @@ export class TradeManager {
     if (!stratConfig || stratConfig.tp1RMultiple <= 0) return orderIds; // trade management disabled for this strategy
     if (candles1m.length === 0) return orderIds;
 
+    // Futures Phase: a short (side="sell") mirrors every direction-dependent
+    // calc below — SL/TP1/TP2 sit on the opposite side of entry, trailing
+    // tightens downward instead of upward, etc.
+    const isShort = trade.side === "sell";
+
     const lastCandle = candles1m[candles1m.length - 1]!;
-    const [, , high] = lastCandle;
+    const [, , high, low] = lastCandle;
     const entryPrice = Number(trade.entryPrice);
 
     // Original risk distance — always measured from the *planned* SL (Phase 4A),
     // not the current one, since the current one may already be at break-even.
-    const originalRiskDistance = entryPrice - Number(trade.plannedStopLoss ?? trade.stopLoss);
+    const plannedSl = Number(trade.plannedStopLoss ?? trade.stopLoss);
+    const originalRiskDistance = isShort ? plannedSl - entryPrice : entryPrice - plannedSl;
     if (originalRiskDistance <= 0) return orderIds; // can't compute R-multiples safely
 
     // ── TP1: partial close + move SL to break-even ────────────────────────────
+    // Long TP1 sits above entry (triggered by a high); short TP1 sits below
+    // (triggered by a low).
     if (!trade.tp1Filled && trade.tp1Price && Number(trade.tp1Price) > 0) {
-      if (high >= Number(trade.tp1Price)) {
+      const tp1Hit = isShort ? low <= Number(trade.tp1Price) : high >= Number(trade.tp1Price);
+      if (tp1Hit) {
         orderIds = await this.fillPartial(ex, trade, market, "tp1", Number(trade.tp1Price), Number(trade.tp1Quantity), orderIds);
         // Re-read — fillPartial updated the DB row.
         trade = (await db.select().from(tradesTable).where(eq(tradesTable.id, trade.id)))[0] ?? trade;
@@ -151,7 +166,8 @@ export class TradeManager {
     // between entry and that target, never a target beyond it (see enterTrade,
     // which only enables TP1/TP2 when they land strictly inside entry->takeProfit).
     if (stratConfig.tp3Enabled && trade.tp1Filled && !trade.tp2Filled && trade.tp2Price && Number(trade.tp2Price) > 0) {
-      if (high >= Number(trade.tp2Price)) {
+      const tp2Hit = isShort ? low <= Number(trade.tp2Price) : high >= Number(trade.tp2Price);
+      if (tp2Hit) {
         orderIds = await this.fillPartial(ex, trade, market, "tp2", Number(trade.tp2Price), Number(trade.tp2Quantity), orderIds);
         trade = (await db.select().from(tradesTable).where(eq(tradesTable.id, trade.id)))[0] ?? trade;
       }
@@ -159,7 +175,7 @@ export class TradeManager {
 
     // ── Trailing stop (normal or emergency) ────────────────────────────────────
     const currentPrice = lastCandle[4];
-    const unrealizedR = (currentPrice - entryPrice) / originalRiskDistance;
+    const unrealizedR = (isShort ? entryPrice - currentPrice : currentPrice - entryPrice) / originalRiskDistance;
     const trailingArmed = trade.tp1Filled || !stratConfig.trailingAfterTp1Only;
     const emergencyArmed =
       !trailingArmed &&
@@ -168,10 +184,11 @@ export class TradeManager {
 
     if ((trailingArmed && stratConfig.trailingStopMode !== "none") || emergencyArmed) {
       const mode = emergencyArmed ? "emergency" : stratConfig.trailingStopMode;
-      const candidate = computeTrailingStop(mode, currentPrice, candles1m, stratConfig, emergencyArmed);
+      const candidate = computeTrailingStop(mode, currentPrice, candles1m, stratConfig, emergencyArmed, isShort);
       const currentStop = Number(trade.stopLoss);
-      // Only ever tighten (raise) the stop — never loosen it.
-      if (candidate > currentStop) {
+      // Only ever tighten the stop — raise it for a long, lower it for a
+      // short — never loosen it.
+      if (isShort ? candidate < currentStop : candidate > currentStop) {
         const qty = Number(trade.remainingQuantity ?? trade.quantity);
         const tp = Number(trade.takeProfit);
         const result = await this.host.replaceStopOrder(ex, trade, market, candidate, tp, qty, orderIds);
@@ -220,6 +237,7 @@ export class TradeManager {
     const qty = Math.min(plannedQty, remaining);
     if (qty <= 0) return orderIds;
 
+    const isShort = trade.side === "sell";
     const entryPrice = Number(trade.entryPrice);
     const currentSl = Number(trade.stopLoss);
     const currentTp = Number(trade.takeProfit);
@@ -252,7 +270,7 @@ export class TradeManager {
     const entryFeeShare = entryPrice * qty * this.host.takerFee;
     const exitFee = fillPrice * qty * this.host.takerFee;
     const fees = entryFeeShare + exitFee;
-    const pnl = (fillPrice - entryPrice) * qty - fees;
+    const pnl = (isShort ? entryPrice - fillPrice : fillPrice - entryPrice) * qty - fees;
     const newRemaining = remaining - qty;
     const now = new Date();
 

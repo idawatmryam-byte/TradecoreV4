@@ -27,7 +27,7 @@ import {
   type Candle,
   type MultiTimeframeCandles,
 } from "./strategy";
-import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig } from "./strategies";
+import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig, type PositionSide } from "./strategies";
 import { computeTrailingStop } from "./tradeManager";
 import { loadStrategyConfigs } from "./strategyConfigLoader";
 import { buildEffectiveBacktestConfigs } from "./backtestConfig";
@@ -72,6 +72,7 @@ interface PartialExitRecord {
 
 interface OpenPosition {
   symbol: string;
+  side: PositionSide;
   entryPrice: number;
   /** Current stop — mutates via break-even move (Phase 4B) and trailing (Phase 4B). */
   slPrice: number;
@@ -115,6 +116,7 @@ interface OpenPosition {
 
 interface SimTrade {
   symbol: string;
+  side: PositionSide;
   entryTime: Date;
   exitTime: Date;
   entryPrice: number;
@@ -561,11 +563,15 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         const pos = openPositions[pi]!;
         if (pos.symbol !== symbol) continue;
 
+        // Futures Phase: a short's favorable direction is DOWN (mirror of
+        // long) — every directional calc in this loop branches on this.
+        const isShort = pos.side === "short";
+
         // Phase 4C: update running MFE/MAE with this bar's range before
         // evaluating exits, so a bar that both makes a new excursion AND
         // triggers the exit still has that excursion counted.
-        const favorableExcursion = (high - pos.entryPrice) * pos.qty;
-        const adverseExcursion = (low - pos.entryPrice) * pos.qty;
+        const favorableExcursion = isShort ? (pos.entryPrice - low) * pos.qty : (high - pos.entryPrice) * pos.qty;
+        const adverseExcursion = isShort ? (pos.entryPrice - high) * pos.qty : (low - pos.entryPrice) * pos.qty;
         if (favorableExcursion > pos.mfe) pos.mfe = favorableExcursion;
         if (adverseExcursion < pos.mae) pos.mae = adverseExcursion;
 
@@ -578,15 +584,19 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         // tighten this same candle is reflected in that check, exactly as
         // it would be live (TradeManager runs before ExitManager each tick).
         if (posStratCfg && posStratCfg.tp1RMultiple > 0) {
-          // TP1: partial close + move stop to break-even
-          if (!pos.tp1Filled && pos.tp1Price > 0 && high >= pos.tp1Price) {
-            const fillP = pos.tp1Price * (1 - slippageRate);
+          // TP1: partial close + move stop to break-even. Long TP1 sits above
+          // entry (triggered by a high); short TP1 sits below (triggered by
+          // a low) — mirror of live's TradeManager.
+          if (!pos.tp1Filled && pos.tp1Price > 0 && (isShort ? low <= pos.tp1Price : high >= pos.tp1Price)) {
+            // Worse fill = lower for a long's sell-to-exit, higher for a
+            // short's buy-to-cover.
+            const fillP = pos.tp1Price * (isShort ? 1 + slippageRate : 1 - slippageRate);
             const qty = Math.min(pos.tp1Qty, pos.remainingQty);
             if (qty > 0) {
               const entryFeeShare = pos.entryPrice * qty * feeRate;
               const exitFee = fillP * qty * feeRate;
               const fees = entryFeeShare + exitFee;
-              const pnl = (fillP - pos.entryPrice) * qty - fees;
+              const pnl = (isShort ? pos.entryPrice - fillP : fillP - pos.entryPrice) * qty - fees;
               pos.partialExits.push({ reason: "tp1", qty, price: fillP, fees, pnl, time: now });
               pos.remainingQty -= qty;
               pos.tp1Filled = true;
@@ -599,14 +609,14 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
           // TP2 (only when tp3Enabled): partial close of another slice.
           // Remainder keeps targeting the strategy's own final tpPrice
           // (untouched) — TP1/TP2 are interior waypoints, never beyond it.
-          if (posStratCfg.tp3Enabled && pos.tp1Filled && !pos.tp2Filled && pos.tp2Price > 0 && high >= pos.tp2Price) {
-            const fillP = pos.tp2Price * (1 - slippageRate);
+          if (posStratCfg.tp3Enabled && pos.tp1Filled && !pos.tp2Filled && pos.tp2Price > 0 && (isShort ? low <= pos.tp2Price : high >= pos.tp2Price)) {
+            const fillP = pos.tp2Price * (isShort ? 1 + slippageRate : 1 - slippageRate);
             const qty = Math.min(pos.tp2Qty, pos.remainingQty);
             if (qty > 0) {
               const entryFeeShare = pos.entryPrice * qty * feeRate;
               const exitFee = fillP * qty * feeRate;
               const fees = entryFeeShare + exitFee;
-              const pnl = (fillP - pos.entryPrice) * qty - fees;
+              const pnl = (isShort ? pos.entryPrice - fillP : fillP - pos.entryPrice) * qty - fees;
               pos.partialExits.push({ reason: "tp2", qty, price: fillP, fees, pnl, time: now });
               pos.remainingQty -= qty;
               pos.tp2Filled = true;
@@ -617,11 +627,12 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
           }
           // Trailing stop (normal or emergency) — same formula as live
           // (computeTrailingStop, shared from tradeManager.ts), only ever
-          // tightens (raises) the stop, never loosens it.
+          // tightens the stop (raises it for a long, lowers it for a short),
+          // never loosens it.
           const currentClose = currentCandle[4];
-          const originalRiskDistance = pos.entryPrice - pos.plannedSlPrice;
+          const originalRiskDistance = isShort ? pos.plannedSlPrice - pos.entryPrice : pos.entryPrice - pos.plannedSlPrice;
           if (originalRiskDistance > 0) {
-            const unrealizedR = (currentClose - pos.entryPrice) / originalRiskDistance;
+            const unrealizedR = (isShort ? pos.entryPrice - currentClose : currentClose - pos.entryPrice) / originalRiskDistance;
             const trailingArmed = pos.tp1Filled || !posStratCfg.trailingAfterTp1Only;
             const emergencyArmed =
               !trailingArmed &&
@@ -637,8 +648,8 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
               // primary timeframe will be proportionally wider than live's
               // (which always computes ATR on real 1m data). Flagged in
               // CHANGES.md as a Phase 8 follow-up, not silently assumed correct.
-              const candidate = computeTrailingStop(mode, currentClose, candles.slice(0, idx + 1), posStratCfg, emergencyArmed);
-              if (candidate > pos.slPrice) {
+              const candidate = computeTrailingStop(mode, currentClose, candles.slice(0, idx + 1), posStratCfg, emergencyArmed, isShort);
+              if (isShort ? candidate < pos.slPrice : candidate > pos.slPrice) {
                 pos.slPrice = candidate;
                 pos.trailingStopActive = true;
                 pos.trailingStopMode = mode;
@@ -658,18 +669,23 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         // historical stop→target→timeout order — the conservative,
         // never-overstates-results assumption — when exitPriority is empty
         // or doesn't cover what triggered.
-        const stopTouched = low <= pos.slPrice;
-        const targetTouched = high >= pos.tpPrice;
+        // A short's stop sits ABOVE entry (hit by a high) and target sits
+        // BELOW (hit by a low) — mirror of long.
+        const stopTouched = isShort ? high >= pos.slPrice : low <= pos.slPrice;
+        const targetTouched = isShort ? low <= pos.tpPrice : high >= pos.tpPrice;
         const holdSecs = (now.getTime() - pos.entryTime.getTime()) / 1000;
         const timedOut = !!posStratCfg && holdSecs >= posStratCfg.maxHoldingSeconds;
 
+        // Worse fill for the CLOSING trade: lower for a long (sells to
+        // close), higher for a short (buys to close).
+        const closeSlippageMult = isShort ? 1 + slippageRate : 1 - slippageRate;
         const stopLabel = pos.trailingStopActive ? "trailing_stop" : pos.breakEvenActive ? "break_even" : "stop_loss";
         type Candidate = { key: string; reason: string; exitPrice: number };
         const candidates: Candidate[] = [];
-        if (stopTouched) candidates.push({ key: "stop_loss", reason: stopLabel, exitPrice: pos.slPrice * (1 - slippageRate) });
-        if (stopTouched && pos.trailingStopActive) candidates.push({ key: "trailing_stop", reason: stopLabel, exitPrice: pos.slPrice * (1 - slippageRate) });
-        if (targetTouched) candidates.push({ key: "take_profit", reason: "take_profit", exitPrice: pos.tpPrice * (1 - slippageRate) });
-        if (timedOut) candidates.push({ key: "timeout", reason: "timeout", exitPrice: currentCandle[4] * (1 - slippageRate) });
+        if (stopTouched) candidates.push({ key: "stop_loss", reason: stopLabel, exitPrice: pos.slPrice * closeSlippageMult });
+        if (stopTouched && pos.trailingStopActive) candidates.push({ key: "trailing_stop", reason: stopLabel, exitPrice: pos.slPrice * closeSlippageMult });
+        if (targetTouched) candidates.push({ key: "take_profit", reason: "take_profit", exitPrice: pos.tpPrice * closeSlippageMult });
+        if (timedOut) candidates.push({ key: "timeout", reason: "timeout", exitPrice: currentCandle[4] * closeSlippageMult });
 
         let chosen: Candidate | null = null;
         if (candidates.length === 1) {
@@ -687,15 +703,19 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
           const { reason: exitReason, exitPrice } = chosen;
           const exitQty = pos.remainingQty;
           const exitFees = exitPrice * exitQty * feeRate;
-          const finalSlicePnl = (exitPrice - pos.entryPrice) * exitQty - exitFees;
+          const finalSlicePnl = (isShort ? pos.entryPrice - exitPrice : exitPrice - pos.entryPrice) * exitQty - exitFees;
           const partialPnl = pos.partialExits.reduce((s, p) => s + p.pnl, 0);
           const partialFees = pos.partialExits.reduce((s, p) => s + p.fees, 0);
           const pnl = finalSlicePnl + partialPnl; // NET total across every slice
-          const grossPnl = (exitPrice - pos.entryPrice) * exitQty + pos.partialExits.reduce((s, p) => s + (p.price - pos.entryPrice) * p.qty, 0);
+          const grossPnl = (isShort ? pos.entryPrice - exitPrice : exitPrice - pos.entryPrice) * exitQty
+            + pos.partialExits.reduce((s, p) => s + (isShort ? pos.entryPrice - p.price : p.price - pos.entryPrice) * p.qty, 0);
           const totalFees = pos.fees + exitFees + partialFees;
           const durationSeconds = Math.round((now.getTime() - pos.entryTime.getTime()) / 1000);
+          // Note: this ratio is direction-agnostic — for a short, both
+          // (tpPrice - entryPrice) and (entryPrice - plannedSlPrice) are
+          // negative, so the ratio comes out the same sign as long's.
           const riskReward =
-            pos.entryPrice - pos.plannedSlPrice > 0
+            pos.entryPrice - pos.plannedSlPrice !== 0
               ? (pos.tpPrice - pos.entryPrice) / (pos.entryPrice - pos.plannedSlPrice)
               : 0;
           const notional = pos.entryPrice * pos.qty;
@@ -705,7 +725,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
           if (balance > peakBalance) peakBalance = balance;
 
           allTrades.push({
-            symbol, entryTime: pos.entryTime, exitTime: now,
+            symbol, side: pos.side, entryTime: pos.entryTime, exitTime: now,
             entryPrice: pos.entryPrice, exitPrice,
             qty: pos.qty, slPrice: pos.slPrice, tpPrice: pos.tpPrice,
             fees: totalFees,
@@ -787,9 +807,14 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       // been removed. slDistancePercent is still computed and logged below as
       // a diagnostic — it should always equal the strategy's configured
       // stopLossPercent; any drift would indicate a config-plumbing bug.
-      const slDistancePercent = ((bestSignal.entryPrice - bestSignal.suggestedSL) / bestSignal.entryPrice) * 100;
+      const isShortSignal = bestSignal.side === "short";
+      const slDistancePercent =
+        (Math.abs(bestSignal.entryPrice - bestSignal.suggestedSL) / bestSignal.entryPrice) * 100;
 
-      const fillPrice = bestSignal.entryPrice * (1 + slippageRate);
+      // Entry slippage direction mirrors the real fill mechanics: a long
+      // BUYs to open (pays slightly more), a short SELLs to open (receives
+      // slightly less) — same convention botEngine.ts uses for live fills.
+      const fillPrice = bestSignal.entryPrice * (isShortSignal ? 1 - slippageRate : 1 + slippageRate);
       const entryFees = fillPrice * bestSignal.qty * feeRate;
       const entrySlippage = (fillPrice - bestSignal.entryPrice) * bestSignal.qty;
 
@@ -820,18 +845,25 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       // TP to the actual fill price, rather than recomputing a fresh
       // percentage from either price (those are subtly different formulas —
       // this matches live's exact approach, not just an approximation of it).
+      // For a short, suggestedSL sits ABOVE entry and suggestedTP sits BELOW
+      // entry, so both distances are negated to keep slDistance/tpDistance
+      // positive, then re-applied in the opposite direction around fillPrice
+      // — mirrors botEngine.ts enterTrade's side-aware re-anchoring exactly.
       const signalEntry = bestSignal.entryPrice;
-      const slDistance = signalEntry - bestSignal.suggestedSL;
-      const tpDistance = bestSignal.suggestedTP - signalEntry;
-      const realSlPrice = fillPrice - slDistance;
-      const realTpPrice = fillPrice + tpDistance;
+      const slDistance = isShortSignal ? bestSignal.suggestedSL - signalEntry : signalEntry - bestSignal.suggestedSL;
+      const tpDistance = isShortSignal ? signalEntry - bestSignal.suggestedTP : bestSignal.suggestedTP - signalEntry;
+      const realSlPrice = isShortSignal ? fillPrice + slDistance : fillPrice - slDistance;
+      const realTpPrice = isShortSignal ? fillPrice - tpDistance : fillPrice + tpDistance;
 
       // Phase 7: TP1/TP2 interior-waypoint ladder — same shared formula
       // botEngine.ts uses (computeTp1Tp2Ladder in strategies/base.ts), so the
       // backtest now simulates the same staged exit structure live trading
       // actually runs, instead of a single binary SL/TP.
       const ladder = usedConfig
-        ? computeTp1Tp2Ladder(fillPrice, realSlPrice, realTpPrice, bestSignal.qty, usedConfig)
+        ? computeTp1Tp2Ladder(
+            fillPrice, realSlPrice, realTpPrice, bestSignal.qty, usedConfig,
+            (p) => p, (q) => q, bestSignal.side,
+          )
         : { tp1Price: 0, tp1Qty: 0, tp2Price: 0, tp2Qty: 0 };
 
       openPositions.push({
@@ -860,6 +892,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         breakEvenActive: false,
         trailingStopActive: false,
         partialExits: [],
+        side: bestSignal.side,
       });
     }
 
@@ -871,19 +904,22 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     // to exitTypes.ts) so exit-reason statistics aren't polluted with a
     // category that isn't a real trading outcome.
     for (const pos of openPositions) {
+      const isShort = pos.side === "short";
       const candles = symbolCandles.get(pos.symbol)!;
       const lastCandle = candles[candles.length - 1]!;
-      const exitPrice = lastCandle[4] * (1 - slippageRate);
+      const exitPrice = lastCandle[4] * (isShort ? 1 + slippageRate : 1 - slippageRate);
       const exitQty = pos.remainingQty;
       const exitFees = exitPrice * exitQty * feeRate;
-      const finalSlicePnl = (exitPrice - pos.entryPrice) * exitQty - exitFees;
+      const finalSlicePnl = (isShort ? pos.entryPrice - exitPrice : exitPrice - pos.entryPrice) * exitQty - exitFees;
       const partialPnl = pos.partialExits.reduce((s, p) => s + p.pnl, 0);
       const partialFees = pos.partialExits.reduce((s, p) => s + p.fees, 0);
       const pnl = finalSlicePnl + partialPnl;
-      const grossPnl = (exitPrice - pos.entryPrice) * exitQty + pos.partialExits.reduce((s, p) => s + (p.price - pos.entryPrice) * p.qty, 0);
+      const grossPnl =
+        (isShort ? pos.entryPrice - exitPrice : exitPrice - pos.entryPrice) * exitQty +
+        pos.partialExits.reduce((s, p) => s + (isShort ? pos.entryPrice - p.price : p.price - pos.entryPrice) * p.qty, 0);
       const totalFees = pos.fees + exitFees + partialFees;
       const riskReward =
-        pos.entryPrice - pos.plannedSlPrice > 0
+        pos.entryPrice - pos.plannedSlPrice !== 0
           ? (pos.tpPrice - pos.entryPrice) / (pos.entryPrice - pos.plannedSlPrice)
           : 0;
       const notional = pos.entryPrice * pos.qty;
@@ -909,6 +945,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         trailingStopActive: pos.trailingStopActive,
         trailingStopMode: pos.trailingStopMode,
         partialExits: pos.partialExits,
+        side: pos.side,
       });
     }
 
@@ -925,7 +962,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       for (let i = 0; i < allTrades.length; i += 200) {
         const chunk = allTrades.slice(i, i + 200);
         const batch = chunk.map((t) => ({
-          runId, symbol: t.symbol, side: "buy" as const,
+          runId, symbol: t.symbol, side: t.side === "short" ? ("sell" as const) : ("buy" as const),
           entryTime: t.entryTime, exitTime: t.exitTime,
           entryPrice: t.entryPrice.toFixed(8), exitPrice: t.exitPrice.toFixed(8),
           quantity: t.qty.toFixed(8), stopLoss: t.slPrice.toFixed(8),
