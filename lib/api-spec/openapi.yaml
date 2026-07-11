@@ -1,0 +1,1602 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: TradeCore Pro - Binance Spot Trading Bot API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: >-
+      Authentication (Phase 5B). Single shared operator credential — see
+      middleware/auth.ts for the design rationale (one operator, one Binance
+      account, so a full multi-user RBAC system is unused complexity, not a
+      missing feature).
+  - name: bot
+    description: Bot control operations
+  - name: scanner
+    description: Live market scanner
+  - name: market
+    description: Live market monitor and connection health
+  - name: trades
+    description: Trade log operations
+  - name: stats
+    description: Performance statistics
+  - name: memory
+    description: Adaptive learning memory
+  - name: config
+    description: Bot configuration
+  - name: strategies
+    description: Multi-strategy management and performance
+
+# Every operation requires ONE of these by default (either is sufficient —
+# see components.securitySchemes below). /healthz and /auth/* override this
+# with their own empty `security: []` since they must stay reachable without
+# credentials (health checks, and obtaining credentials in the first place).
+security:
+  - sessionCookie: []
+  - bearerAuth: []
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      security: []
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Log in with the shared operator token
+      security: []
+      description: >-
+        Exchanges API_AUTH_TOKEN for a signed session cookie (12h expiry).
+        Rate-limited separately and much more strictly than the rest of the
+        API (10 attempts / 15 min / IP) since this is the one meaningful
+        brute-force target on an otherwise-authenticated API.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        "200":
+          description: Logged in — session cookie set
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        "401":
+          description: Invalid token
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Clear the session cookie
+      security: []
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+  /auth/status:
+    get:
+      operationId: getAuthStatus
+      tags: [auth]
+      summary: Check whether the current request is authenticated
+      security: []
+      description: >-
+        Lets the frontend check auth state on load without risking a 401
+        (and without the global rate limiter mistaking routine polling for
+        abuse).
+      responses:
+        "200":
+          description: Auth status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [authenticated]
+                properties:
+                  authenticated:
+                    type: boolean
+
+  /bot/status:
+    get:
+      operationId: getBotStatus
+      tags: [bot]
+      summary: Get bot status
+      description: Returns the current bot runtime state
+      responses:
+        "200":
+          description: Bot status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotStatus"
+
+  /bot/start:
+    post:
+      operationId: startBot
+      tags: [bot]
+      summary: Start the bot
+      description: Starts the trading bot engine
+      responses:
+        "200":
+          description: Bot started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotStatus"
+
+  /bot/stop:
+    post:
+      operationId: stopBot
+      tags: [bot]
+      summary: Stop the bot
+      description: Stops the trading bot engine
+      responses:
+        "200":
+          description: Bot stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotStatus"
+
+  /bot/backtest:
+    post:
+      operationId: startBacktest
+      tags: [bot]
+      summary: Start a backtest
+      description: Fetches historical Binance candles and simulates the strategy. Runs in the background.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BacktestRequest"
+      responses:
+        "202":
+          description: Backtest started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BacktestStatus"
+
+  /bot/backtest/status:
+    get:
+      operationId: getBacktestStatus
+      tags: [bot]
+      summary: Get backtest progress
+      description: Returns the current backtest run status and progress
+      responses:
+        "200":
+          description: Backtest status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BacktestStatus"
+
+  /scanner:
+    get:
+      operationId: getScannerData
+      tags: [scanner]
+      summary: Get live scanner table
+      description: Returns current scanner rows for all watched pairs
+      responses:
+        "200":
+          description: Scanner rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScannerRow"
+
+  /bot/decisions:
+    get:
+      operationId: getBotDecisions
+      tags: [bot]
+      summary: Get strategy decision trace
+      description: Returns the full per-symbol pipeline decision (market data → indicators → signal → risk → order) from the most recent scan
+      responses:
+        "200":
+          description: Decision trace rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SymbolDecision"
+
+  /bot/blocking-summary:
+    get:
+      operationId: getBlockingSummary
+      tags: [bot]
+      summary: Get blocking summary
+      description: Aggregated explanation of why trades are or are not being executed
+      responses:
+        "200":
+          description: Blocking summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlockingSummary"
+
+  /market/live:
+    get:
+      operationId: getMarketLive
+      tags: [market]
+      summary: Get live market monitor
+      description: Returns real-time ticker snapshots and exchange connection health
+      responses:
+        "200":
+          description: Live market monitor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketMonitor"
+
+  /trades:
+    get:
+      operationId: getTrades
+      tags: [trades]
+      summary: List all trades
+      description: Returns trade log with optional status and source filter
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [open, closed, stopped]
+        - name: source
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [live, backtest]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Trade list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Trade"
+
+  /trades/{id}:
+    get:
+      operationId: getTrade
+      tags: [trades]
+      summary: Get trade by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Trade detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trade"
+        "404":
+          description: Trade not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /stats/summary:
+    get:
+      operationId: getStatsSummary
+      tags: [stats]
+      summary: Get performance summary
+      description: Returns aggregate stats including win rate and total PnL
+      responses:
+        "200":
+          description: Performance summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsSummary"
+
+  /stats/daily:
+    get:
+      operationId: getDailyStats
+      tags: [stats]
+      summary: Get daily statistics
+      description: Returns today's hourly trading breakdown
+      responses:
+        "200":
+          description: Daily stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyStats"
+
+  /stats/hourly:
+    get:
+      operationId: getHourlyStats
+      tags: [stats]
+      summary: Get hourly PnL breakdown
+      description: Returns per-hour performance data used for toxic hour detection
+      responses:
+        "200":
+          description: Hourly breakdown
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HourlyStat"
+
+  /memory/blacklist:
+    get:
+      operationId: getBlacklist
+      tags: [memory]
+      summary: Get blacklisted symbols
+      description: Returns symbols currently blacklisted by the adaptive learning engine
+      responses:
+        "200":
+          description: Blacklist entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BlacklistEntry"
+
+  /memory/toxic-hours:
+    get:
+      operationId: getToxicHours
+      tags: [memory]
+      summary: Get toxic hours
+      description: Returns UTC hours blocked by the adaptive learning engine
+      responses:
+        "200":
+          description: Toxic hour list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ToxicHour"
+
+  /config:
+    get:
+      operationId: getConfig
+      tags: [config]
+      summary: Get bot configuration
+      responses:
+        "200":
+          description: Current config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotConfig"
+
+    put:
+      operationId: updateConfig
+      tags: [config]
+      summary: Update bot configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BotConfigUpdate"
+      responses:
+        "200":
+          description: Updated config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotConfig"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+
+  /backtests:
+    get:
+      operationId: listBacktests
+      tags: [backtests]
+      summary: List all backtest runs
+      responses:
+        "200":
+          description: List of backtest runs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BacktestRun"
+
+  /backtests/run:
+    post:
+      operationId: runBacktest
+      tags: [backtests]
+      summary: Start a new backtest (async)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BacktestRunRequest"
+      responses:
+        "202":
+          description: Backtest started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BacktestStarted"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /backtests/optimize:
+    post:
+      operationId: optimizeBacktest
+      tags: [backtests]
+      summary: Start parameter optimization (async)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OptimizeRequest"
+      responses:
+        "202":
+          description: Optimization started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BacktestStarted"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /backtests/{id}:
+    get:
+      operationId: getBacktest
+      tags: [backtests]
+      summary: Get backtest run detail (run + trades + equity curve)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Backtest detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BacktestDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteBacktest
+      tags: [backtests]
+      summary: Delete a backtest run and all its data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted]
+                properties:
+                  deleted:
+                    type: boolean
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /strategies:
+    get:
+      operationId: getStrategies
+      tags: [strategies]
+      summary: List all strategies with config and performance
+      description: Returns all 6 built-in strategies with their current configuration and lifetime performance metrics
+      responses:
+        "200":
+          description: Strategy list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StrategyInfo"
+
+  /strategies/signals:
+    get:
+      operationId: getStrategySignals
+      tags: [strategies]
+      summary: Live ranked opportunity signals
+      description: Returns the most recent scanner results enriched with the strategy that fired
+      responses:
+        "200":
+          description: Ranked signal list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StrategySignalItem"
+
+  /strategies/{id}:
+    put:
+      operationId: updateStrategyConfig
+      tags: [strategies]
+      summary: Update strategy configuration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StrategyConfigUpdate"
+      responses:
+        "200":
+          description: Updated configuration
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, strategyId]
+                properties:
+                  success:
+                    type: boolean
+                  strategyId:
+                    type: string
+        "404":
+          description: Strategy not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /backtests/{id}/export:
+    get:
+      operationId: exportBacktest
+      tags: [backtests]
+      summary: Export backtest trades as CSV or JSON
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv]
+            default: json
+      responses:
+        "200":
+          description: Export data
+          content:
+            application/json:
+              schema:
+                type: object
+            text/csv:
+              schema:
+                type: string
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: tc_session
+      description: >-
+        Signed, stateless session cookie set by POST /auth/login. Used by
+        the web dashboard — the browser attaches it automatically.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: >-
+        `Authorization: Bearer <API_AUTH_TOKEN>` — for scripts, curl, or a
+        non-browser client. Same shared credential as sessionCookie; this is
+        just the non-cookie way to present it.
+  schemas:
+    HealthStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    BotStatus:
+      type: object
+      required: [running, dailyPnl, openPositions, totalTradesToday, winRateToday, circuitBreakerActive, mode]
+      properties:
+        running:
+          type: boolean
+        dailyPnl:
+          type: number
+        openPositions:
+          type: integer
+        totalTradesToday:
+          type: integer
+        winRateToday:
+          type: number
+        circuitBreakerActive:
+          type: boolean
+        mode:
+          type: string
+          enum: [live, testnet, backtest]
+        startedAt:
+          type: ["string", "null"]
+          format: date-time
+        lastScanAt:
+          type: ["string", "null"]
+          format: date-time
+
+    IndicatorVote:
+      type: object
+      required: [name, signal, weight, value]
+      properties:
+        name:
+          type: string
+        signal:
+          type: string
+          enum: [bullish, bearish, neutral]
+        weight:
+          type: number
+        value:
+          type: number
+
+    ScannerRow:
+      type: object
+      required: [symbol, confidence, rsi, atrPercent, status, ema5AboveEma20, macroBullish, volumeRatio, regime, adx, macdHistogram, atrAbs, votes]
+      properties:
+        symbol:
+          type: string
+        confidence:
+          type: number
+        rsi:
+          type: number
+        atrPercent:
+          type: number
+        status:
+          type: string
+          enum: [watching, entered, blacklisted, skipped]
+        ema5AboveEma20:
+          type: boolean
+        macroBullish:
+          type: boolean
+        volumeRatio:
+          type: number
+        lastPrice:
+          type: number
+        regime:
+          type: string
+          enum: [strong_trend, weak_trend, range, high_volatility, low_volatility]
+        adx:
+          type: number
+        macdHistogram:
+          type: number
+        atrAbs:
+          type: number
+        votes:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndicatorVote"
+
+    PipelineStage:
+      type: object
+      required: [name, status, detail]
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [pass, fail, skip]
+        detail:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+
+    SymbolDecision:
+      type: object
+      required: [symbol, timestamp, confidence, finalDecision, blockStage, blockReason, stages]
+      properties:
+        symbol:
+          type: string
+        timestamp:
+          type: string
+        confidence:
+          type: number
+        finalDecision:
+          type: string
+          enum: [ENTERED, BLOCKED]
+        blockStage:
+          type: ["string", "null"]
+        blockReason:
+          type: ["string", "null"]
+        stages:
+          type: array
+          items:
+            $ref: "#/components/schemas/PipelineStage"
+
+    LiveTicker:
+      type: object
+      required: [symbol, last, bid, ask, spread, spreadPercent, baseVolume, quoteVolume, changePercent, timestamp]
+      properties:
+        symbol:
+          type: string
+        last:
+          type: number
+        bid:
+          type: number
+        ask:
+          type: number
+        spread:
+          type: number
+        spreadPercent:
+          type: number
+        baseVolume:
+          type: number
+        quoteVolume:
+          type: number
+        changePercent:
+          type: number
+        timestamp:
+          type: number
+
+    ConnectionStatus:
+      type: object
+      required: [connected, mode, exchange, marketsLoaded, credentialsVerified, lastTickerFetchAt, lastTickerLatencyMs, lastError]
+      properties:
+        connected:
+          type: boolean
+        mode:
+          type: string
+          enum: [live, testnet, backtest]
+        exchange:
+          type: string
+        marketsLoaded:
+          type: integer
+        credentialsVerified:
+          type: boolean
+        lastTickerFetchAt:
+          type: ["string", "null"]
+        lastTickerLatencyMs:
+          type: ["number", "null"]
+        lastError:
+          type: ["string", "null"]
+
+    MarketMonitor:
+      type: object
+      required: [connection, tickers]
+      properties:
+        connection:
+          $ref: "#/components/schemas/ConnectionStatus"
+        tickers:
+          type: array
+          items:
+            $ref: "#/components/schemas/LiveTicker"
+
+    BlockingReason:
+      type: object
+      required: [stage, reason, count, symbols]
+      properties:
+        stage:
+          type: string
+        reason:
+          type: string
+        count:
+          type: integer
+        symbols:
+          type: array
+          items:
+            type: string
+
+    BlockingSummary:
+      type: object
+      required: [tradingActive, running, globalBlock, entered, totalEvaluated, reasons, lastScanAt]
+      properties:
+        tradingActive:
+          type: boolean
+        running:
+          type: boolean
+        globalBlock:
+          type: ["string", "null"]
+        entered:
+          type: integer
+        totalEvaluated:
+          type: integer
+        reasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/BlockingReason"
+        lastScanAt:
+          type: ["string", "null"]
+
+    Trade:
+      type: object
+      required: [id, symbol, side, entryPrice, quantity, status, confidence, stopLoss, takeProfit, entryTime]
+      properties:
+        id:
+          type: integer
+        symbol:
+          type: string
+        side:
+          type: string
+          enum: [buy, sell]
+        entryPrice:
+          type: number
+        exitPrice:
+          type: ["number", "null"]
+        quantity:
+          type: number
+        pnl:
+          type: ["number", "null"]
+        status:
+          type: string
+          enum: [open, closed, stopped]
+        confidence:
+          type: number
+        stopLoss:
+          type: number
+        takeProfit:
+          type: number
+        entryTime:
+          type: string
+          format: date-time
+        exitTime:
+          type: ["string", "null"]
+          format: date-time
+        exitReason:
+          type: ["string", "null"]
+          # "timeout" is the on-the-wire value for the Phase 4 TIME_LIMIT exit —
+          # see lib/exitTypes.ts for the canonical mapping.
+          enum: [take_profit, stop_loss, signal_exit, timeout, break_even, trailing_stop, manual, emergency_stop, circuit_breaker, reconciled_missing, null]
+        isBacktest:
+          type: boolean
+        plannedStopLoss:
+          type: ["number", "null"]
+        plannedTakeProfit:
+          type: ["number", "null"]
+        plannedQuantity:
+          type: ["number", "null"]
+        feesUsdt:
+          type: ["number", "null"]
+        slippageUsdt:
+          type: ["number", "null"]
+        holdingSeconds:
+          type: ["integer", "null"]
+        grossPnl:
+          type: ["number", "null"]
+        remainingQuantity:
+          type: ["number", "null"]
+        tp1Price:
+          type: ["number", "null"]
+        tp1Quantity:
+          type: ["number", "null"]
+        tp1Filled:
+          type: boolean
+        tp1FillPrice:
+          type: ["number", "null"]
+        tp2Price:
+          type: ["number", "null"]
+        tp2Quantity:
+          type: ["number", "null"]
+        tp2Filled:
+          type: boolean
+        tp2FillPrice:
+          type: ["number", "null"]
+        breakEvenActive:
+          type: boolean
+        trailingStopActive:
+          type: boolean
+        trailingStopMode:
+          type: ["string", "null"]
+
+    BacktestRequest:
+      type: object
+      required: [days]
+      properties:
+        days:
+          type: integer
+          minimum: 1
+          maximum: 30
+          description: Number of historical days to backtest
+
+    BacktestStatus:
+      type: object
+      required: [running, progress, pairsTotal, pairsDone, tradesFound]
+      properties:
+        running:
+          type: boolean
+        progress:
+          type: number
+          description: 0-100 percentage
+        pairsTotal:
+          type: integer
+        pairsDone:
+          type: integer
+        tradesFound:
+          type: integer
+        error:
+          type: ["string", "null"]
+
+    StatsSummary:
+      type: object
+      required: [totalTrades, winRate, totalPnl, maxDrawdown, avgConfidence, bestTrade, worstTrade, streakCurrent, streakType]
+      properties:
+        totalTrades:
+          type: integer
+        winRate:
+          type: number
+        totalPnl:
+          type: number
+        maxDrawdown:
+          type: number
+        avgConfidence:
+          type: number
+        bestTrade:
+          type: number
+        worstTrade:
+          type: number
+        streakCurrent:
+          type: integer
+        streakType:
+          type: string
+          enum: [win, loss, none]
+
+    DailyStats:
+      type: object
+      required: [date, tradesCount, winRate, totalPnl, openPositions, circuitBreakerHit]
+      properties:
+        date:
+          type: string
+        tradesCount:
+          type: integer
+        winRate:
+          type: number
+        totalPnl:
+          type: number
+        openPositions:
+          type: integer
+        circuitBreakerHit:
+          type: boolean
+        hourlyBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/HourlyStat"
+
+    HourlyStat:
+      type: object
+      required: [hour, pnl, tradeCount, winRate, isToxic]
+      properties:
+        hour:
+          type: integer
+        pnl:
+          type: number
+        tradeCount:
+          type: integer
+        winRate:
+          type: number
+        isToxic:
+          type: boolean
+
+    BlacklistEntry:
+      type: object
+      required: [symbol, winRate, tradeCount, blacklistedAt, expiresAt]
+      properties:
+        symbol:
+          type: string
+        winRate:
+          type: number
+        tradeCount:
+          type: integer
+        blacklistedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+
+    ToxicHour:
+      type: object
+      required: [hour, cumulativePnl, tradeCount, blockedAt]
+      properties:
+        hour:
+          type: integer
+        cumulativePnl:
+          type: number
+        tradeCount:
+          type: integer
+        blockedAt:
+          type: string
+          format: date-time
+
+    BotConfig:
+      type: object
+      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, confidenceThreshold, stopLossPercent, takeProfitPercent, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode]
+      properties:
+        positionSizeUsdt:
+          type: number
+        riskPercent:
+          type: number
+          description: "% of account balance to risk per trade (0 = fixed positionSizeUsdt)"
+        maxOpenPositions:
+          type: integer
+        maxPortfolioRiskPercent:
+          type: number
+          description: "Maximum % of total balance across all open positions"
+        dailyLossLimitUsdt:
+          type: number
+        confidenceThreshold:
+          type: integer
+        stopLossPercent:
+          type: number
+          description: "Stop-loss distance as a % below entry price (Phase 5A — replaces atrMultiplierSl)"
+        takeProfitPercent:
+          type: number
+          description: "Take-profit distance as a % above entry price (Phase 5A — replaces atrMultiplierTp)"
+        cooldownMinutes:
+          type: integer
+        scanIntervalSeconds:
+          type: integer
+        pairs:
+          type: array
+          items:
+            type: string
+        testnet:
+          type: boolean
+        backtestMode:
+          type: boolean
+        alertWebhookUrl:
+          type: string
+          nullable: true
+          description: "Discord / Telegram / Slack incoming-webhook URL for risk alerts"
+
+    BotConfigUpdate:
+      type: object
+      properties:
+        positionSizeUsdt:
+          type: number
+          minimum: 1
+          maximum: 1000000
+        riskPercent:
+          type: number
+          minimum: 0
+          maximum: 10
+          description: "0 = fixed positionSizeUsdt instead of risk-based sizing. Capped at 10% per trade."
+        maxOpenPositions:
+          type: integer
+          minimum: 1
+          maximum: 50
+        maxPortfolioRiskPercent:
+          type: number
+          minimum: 0.1
+          maximum: 100
+        dailyLossLimitUsdt:
+          type: number
+          minimum: 0
+          description: "Stored as a positive magnitude; the circuit breaker trips when dailyPnl <= -this value."
+        confidenceThreshold:
+          type: integer
+          minimum: 0
+          maximum: 100
+        stopLossPercent:
+          type: number
+          minimum: 0.01
+          maximum: 20
+        takeProfitPercent:
+          type: number
+          minimum: 0.3
+          maximum: 100
+          description: "Must clear round-trip trading costs (~0.3% at default fee/slippage assumptions) — see lib/tradingCosts.ts. A lower value is a guaranteed net loss on every winning trade, confirmed empirically in the Phase 6 audit."
+        cooldownMinutes:
+          type: integer
+          minimum: 0
+          maximum: 1440
+        scanIntervalSeconds:
+          type: integer
+          minimum: 5
+          maximum: 3600
+        pairs:
+          type: array
+          items:
+            type: string
+        testnet:
+          type: boolean
+        backtestMode:
+          type: boolean
+        alertWebhookUrl:
+          type: string
+          nullable: true
+          description: "Discord / Telegram / Slack incoming-webhook URL for risk alerts"
+    BacktestRun:
+      type: object
+      required: [id, strategyVersion, strategyName, symbols, timeframe, startDate, endDate, startingBalance, status, progress, createdAt]
+      properties:
+        id:
+          type: integer
+        strategyVersion:
+          type: string
+        strategyName:
+          type: string
+        symbols:
+          type: array
+          items:
+            type: string
+        timeframe:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        startingBalance:
+          type: number
+        endingBalance:
+          type: ["number", "null"]
+        totalReturn:
+          type: ["number", "null"]
+        totalPnl:
+          type: ["number", "null"]
+        totalTrades:
+          type: ["integer", "null"]
+        winningTrades:
+          type: ["integer", "null"]
+        losingTrades:
+          type: ["integer", "null"]
+        winRate:
+          type: ["number", "null"]
+        profitFactor:
+          type: ["number", "null"]
+        sharpeRatio:
+          type: ["number", "null"]
+        sortinoRatio:
+          type: ["number", "null"]
+        maxDrawdown:
+          type: ["number", "null"]
+        averageWin:
+          type: ["number", "null"]
+        averageLoss:
+          type: ["number", "null"]
+        expectancy:
+          type: ["number", "null"]
+        largestWin:
+          type: ["number", "null"]
+        largestLoss:
+          type: ["number", "null"]
+        dailyReturns:
+          nullable: true
+        monthlyReturns:
+          nullable: true
+        strategyComparison:
+          nullable: true
+        effectiveConfig:
+          nullable: true
+          description: >-
+            Diagnostic: the actual per-strategy stopLossPercent/takeProfitPercent,
+            confidenceThreshold, and riskPercent used for this run — shape
+            `{ summary: [...per-strategy], runLevelOverrides: {...} }` —
+            computed before the simulation started (Phase 5A).
+            See lib/backtestConfig.ts.
+        params:
+          nullable: true
+        status:
+          type: string
+          enum: [pending, running, completed, failed, cancelled]
+        progress:
+          type: integer
+        error:
+          type: ["string", "null"]
+        aiAnalysis:
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    BacktestTrade:
+      type: object
+      required: [id, runId, symbol, side, entryTime, entryPrice, quantity, stopLoss, takeProfit]
+      properties:
+        id:
+          type: integer
+        runId:
+          type: integer
+        symbol:
+          type: string
+        side:
+          type: string
+        entryTime:
+          type: string
+          format: date-time
+        exitTime:
+          type: ["string", "null"]
+          format: date-time
+        entryPrice:
+          type: number
+        exitPrice:
+          type: ["number", "null"]
+        quantity:
+          type: number
+        stopLoss:
+          type: number
+        takeProfit:
+          type: number
+        slPercent:
+          type: ["number", "null"]
+        tpPercent:
+          type: ["number", "null"]
+        fees:
+          type: ["number", "null"]
+        slippage:
+          type: ["number", "null"]
+        pnl:
+          type: ["number", "null"]
+        pnlPercent:
+          type: ["number", "null"]
+        confidence:
+          type: ["number", "null"]
+        exitReason:
+          type: ["string", "null"]
+        durationSeconds:
+          type: ["integer", "null"]
+
+    EquityCurvePoint:
+      type: object
+      required: [timestamp, balance, drawdown]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        balance:
+          type: number
+        drawdown:
+          type: number
+
+    OptimizationResult:
+      type: object
+      required: [id, parameterSet, score, winRate, pnl, drawdown, profitFactor, totalTrades]
+      properties:
+        id:
+          type: integer
+        parameterSet:
+          type: object
+        score:
+          type: number
+        winRate:
+          type: number
+        pnl:
+          type: number
+        drawdown:
+          type: number
+        profitFactor:
+          type: number
+        totalTrades:
+          type: integer
+
+    BacktestDetail:
+      type: object
+      required: [run, trades, equityCurve, optimizationResults]
+      properties:
+        run:
+          $ref: "#/components/schemas/BacktestRun"
+        trades:
+          type: array
+          items:
+            $ref: "#/components/schemas/BacktestTrade"
+        equityCurve:
+          type: array
+          items:
+            $ref: "#/components/schemas/EquityCurvePoint"
+        optimizationResults:
+          type: array
+          items:
+            $ref: "#/components/schemas/OptimizationResult"
+
+    BacktestRunRequest:
+      type: object
+      required: [symbols, timeframe, startDate, endDate]
+      properties:
+        symbols:
+          type: array
+          items:
+            type: string
+        timeframe:
+          type: string
+          enum: ["1m","3m","5m","15m","30m","1h","4h","1d"]
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        startingBalance:
+          type: number
+          default: 1000
+        confidenceThreshold:
+          type: integer
+          default: 65
+        stopLossPercent:
+          type: number
+          default: 1.5
+          description: "Stop-loss distance as a % below entry (Phase 5A — replaces atrMultiplierSl)"
+        takeProfitPercent:
+          type: number
+          default: 2.5
+          minimum: 0.3
+          description: "Take-profit distance as a % above entry (Phase 5A — replaces atrMultiplierTp). Minimum clears round-trip trading costs — see lib/tradingCosts.ts."
+        positionSizeUsdt:
+          type: number
+          default: 10
+        maxOpenPositions:
+          type: integer
+          default: 5
+        dailyLossLimitUsdt:
+          type: number
+          default: 50
+        riskPercent:
+          type: number
+          default: 0
+          description: >-
+            0 = use each strategy's own configured risk% (no override).
+            Any other value overrides risk% for every strategy in this run.
+            (Bug fix: this field was already read by the backend but was
+            missing from this schema and had no UI field — see CHANGES.md.)
+        feeRate:
+          type: number
+          default: 0.001
+        slippageRate:
+          type: number
+          default: 0.0005
+
+    OptimizeRequest:
+      type: object
+      required: [symbols, timeframe, startDate, endDate]
+      properties:
+        symbols:
+          type: array
+          items:
+            type: string
+        timeframe:
+          type: string
+          enum: ["1m","3m","5m","15m","30m","1h","4h","1d"]
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        startingBalance:
+          type: number
+          default: 1000
+        confidenceThresholds:
+          type: array
+          items:
+            type: number
+        stopLossPercents:
+          type: array
+          items:
+            type: number
+          description: "Stop-loss % values to grid-search (Phase 5A — replaces atrMultiplierSls)"
+        takeProfitPercents:
+          type: array
+          items:
+            type: number
+          description: "Take-profit % values to grid-search (Phase 5A — replaces atrMultiplierTps)"
+        positionSizeUsdts:
+          type: array
+          items:
+            type: number
+        rankBy:
+          type: string
+          enum: [pnl, profitFactor, sharpeRatio, winRate, maxDrawdown]
+          default: profitFactor
+
+    BacktestStarted:
+      type: object
+      required: [runId, status]
+      properties:
+        runId:
+          type: integer
+        status:
+          type: string
+
+    StrategyConfig:
+      type: object
+      required: [strategyId, enabled, riskPercent, confidenceThreshold, stopLossPercent, takeProfitPercent, maxHoldingSeconds, maxConcurrentPositions, cooldownMinutes]
+      properties:
+        strategyId:
+          type: string
+        enabled:
+          type: boolean
+        riskPercent:
+          type: number
+          description: "% of account balance to risk per trade"
+        confidenceThreshold:
+          type: integer
+          description: "Minimum confidence score 0–100 required to enter"
+        stopLossPercent:
+          type: number
+          description: "Stop-loss distance as a % below entry price (Phase 5A — replaces atrMultiplierSl)"
+        takeProfitPercent:
+          type: number
+          description: "Take-profit distance as a % above entry price (Phase 5A — replaces atrMultiplierTp)"
+        maxHoldingSeconds:
+          type: integer
+        maxConcurrentPositions:
+          type: integer
+        cooldownMinutes:
+          type: integer
+
+    StrategyConfigUpdate:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        riskPercent:
+          type: number
+        confidenceThreshold:
+          type: integer
+        stopLossPercent:
+          type: number
+        takeProfitPercent:
+          type: number
+          minimum: 0.3
+        maxHoldingSeconds:
+          type: integer
+        maxConcurrentPositions:
+          type: integer
+        cooldownMinutes:
+          type: integer
+
+    StrategyPerformance:
+      type: object
+      required: [totalTrades, winningTrades, losingTrades, totalPnl, avgWin, avgLoss, avgDurationSeconds]
+      properties:
+        totalTrades:
+          type: integer
+        winningTrades:
+          type: integer
+        losingTrades:
+          type: integer
+        winRate:
+          type: ["number", "null"]
+        totalPnl:
+          type: number
+        avgWin:
+          type: number
+        avgLoss:
+          type: number
+        avgDurationSeconds:
+          type: number
+
+    StrategyInfo:
+      type: object
+      required: [strategyId, strategyName, supportedRegimes, config, performance]
+      properties:
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        supportedRegimes:
+          type: array
+          items:
+            type: string
+        config:
+          $ref: "#/components/schemas/StrategyConfig"
+        performance:
+          $ref: "#/components/schemas/StrategyPerformance"
+
+    StrategySignalItem:
+      type: object
+      required: [symbol, confidence, regime, lastPrice, status]
+      properties:
+        symbol:
+          type: string
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        confidence:
+          type: number
+        regime:
+          type: string
+        lastPrice:
+          type: number
+        adx:
+          type: number
+        rsi:
+          type: number
+        volumeRatio:
+          type: number
+        status:
+          type: string
+        entryReason:
+          type: string
