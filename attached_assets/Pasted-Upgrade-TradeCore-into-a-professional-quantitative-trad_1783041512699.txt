@@ -1,0 +1,295 @@
+Upgrade TradeCore into a professional quantitative trading platform by adding a complete database-driven Backtesting System.
+
+IMPORTANT:
+- Do NOT break or modify the existing live trading engine.
+- Do NOT change VPS deployment.
+- Keep the current dashboard and API working.
+- Reuse existing strategy logic instead of duplicating code.
+
+====================================================
+DATABASE
+====================================================
+
+Use PostgreSQL as the central storage for everything.
+
+Create tables for:
+
+HistoricalCandles
+- symbol
+- timeframe
+- timestamp
+- open
+- high
+- low
+- close
+- volume
+- downloadedAt
+
+BacktestRuns
+- id
+- strategyVersion
+- strategyName
+- symbols
+- timeframe
+- startDate
+- endDate
+- startingBalance
+- endingBalance
+- totalReturn
+- totalPnL
+- totalTrades
+- winningTrades
+- losingTrades
+- winRate
+- profitFactor
+- sharpeRatio
+- sortinoRatio
+- maxDrawdown
+- averageWin
+- averageLoss
+- expectancy
+- createdAt
+
+BacktestTrades
+- runId
+- symbol
+- side
+- entryTime
+- exitTime
+- entryPrice
+- exitPrice
+- quantity
+- stopLoss
+- takeProfit
+- fees
+- slippage
+- pnl
+- pnlPercent
+- confidence
+- exitReason
+- duration
+
+EquityCurve
+- runId
+- timestamp
+- balance
+- drawdown
+
+OptimizationResults
+- runId
+- parameterSet
+- score
+- winRate
+- pnl
+- drawdown
+- profitFactor
+
+====================================================
+HISTORICAL DATA
+====================================================
+
+Download Binance OHLCV data using CCXT.
+
+Cache all candles inside PostgreSQL.
+
+If candles already exist:
+- Do not download again.
+- Only download missing candles.
+
+Support:
+- 1m
+- 3m
+- 5m
+- 15m
+- 30m
+- 1h
+- 4h
+- 1d
+
+Support all Binance Spot symbols.
+
+====================================================
+BACKTEST ENGINE
+====================================================
+
+Replay candles exactly one candle at a time.
+
+Never use future candles.
+
+Use the exact same strategy engine used by Live Trading.
+
+Reuse:
+- indicators
+- confidence scoring
+- TP
+- SL
+- risk management
+- position sizing
+- circuit breaker
+- cooldown
+- maximum open positions
+
+Simulate:
+
+- Market Orders
+- Limit Orders
+- Stop Loss
+- Take Profit
+- Fees
+- Slippage
+- Partial fills (if practical)
+- Multiple simultaneous trades
+
+====================================================
+RESULTS
+====================================================
+
+Store every completed backtest permanently.
+
+Calculate:
+
+- Total Return
+- Total Profit
+- Total Trades
+- Win Rate
+- Average Win
+- Average Loss
+- Risk Reward
+- Profit Factor
+- Expectancy
+- Sharpe Ratio
+- Sortino Ratio
+- Maximum Drawdown
+- Average Trade Duration
+- Best Trade
+- Worst Trade
+- Monthly Returns
+- Daily Returns
+- Results Per Symbol
+
+====================================================
+DASHBOARD
+====================================================
+
+Add a new "Backtesting" page.
+
+Allow selecting:
+
+- Symbols
+- Multiple symbols
+- Timeframe
+- Date Range
+- Initial Balance
+- Risk %
+- Strategy Version
+- Confidence Threshold
+
+Buttons:
+
+- Run Backtest
+- Pause
+- Resume
+- Stop
+- Save
+- Export
+- Delete
+- Compare Runs
+
+Display:
+
+- Equity Curve
+- Drawdown Graph
+- Monthly Returns
+- Daily Returns
+- Trade Distribution
+- Win/Loss Pie Chart
+- Performance Table
+- Trade History
+- Open Positions Timeline
+
+====================================================
+OPTIMIZER
+====================================================
+
+Add parameter optimization.
+
+Automatically test combinations of:
+
+- RSI
+- EMA
+- ATR
+- TP
+- SL
+- Risk %
+- Confidence Threshold
+- Position Size
+
+Store every optimization run in PostgreSQL.
+
+Rank by:
+
+- Net Profit
+- Profit Factor
+- Sharpe Ratio
+- Lowest Drawdown
+- Win Rate
+
+====================================================
+API
+====================================================
+
+Create endpoints:
+
+GET /api/backtests
+
+GET /api/backtests/:id
+
+POST /api/backtests/run
+
+POST /api/backtests/optimize
+
+DELETE /api/backtests/:id
+
+====================================================
+EXPORT
+====================================================
+
+Allow exporting:
+
+CSV
+
+JSON
+
+PDF
+
+====================================================
+AI
+====================================================
+
+After every completed backtest:
+
+Analyze the results.
+
+Identify:
+
+- strongest setups
+- weakest setups
+- best symbols
+- worst symbols
+- best timeframes
+- best confidence levels
+
+Save these insights into PostgreSQL so the live bot can optionally learn from historical performance.
+
+====================================================
+FINAL REQUIREMENTS
+====================================================
+
+- Keep the existing VPS deployment working.
+- Keep the existing dashboard working.
+- Keep Live Trading working.
+- Keep Paper Trading working.
+- Never duplicate strategy logic.
+- Everything must share one unified strategy engine.
+- Ensure all database migrations are automatic.
+- The finished system should resemble a professional quantitative trading platform suitable for evaluating and improving TradeCore before live deployment.

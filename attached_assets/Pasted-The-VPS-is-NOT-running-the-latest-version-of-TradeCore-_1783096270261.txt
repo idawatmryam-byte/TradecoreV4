@@ -1,0 +1,44 @@
+The VPS is NOT running the latest version of TradeCore.
+
+The Replit project includes the new Phase 2 "Strategies" page with six strategies, but the VPS dashboard does not. This confirms the VPS deployment is out of sync.
+
+Perform a COMPLETE synchronization and deployment from the current Replit project to the VPS.
+
+Requirements:
+
+- Upgrade the existing project in-place. Do NOT create a second project or duplicate the trading engine.
+- Reuse the existing architecture and components wherever possible.
+- Sync the FULL project source, not only compiled dist files.
+- Include all Phase 2 additions:
+  - Strategy framework
+  - Six strategy modules
+  - Strategies API routes
+  - Frontend Strategies page
+  - Dashboard navigation updates
+  - OpenAPI changes
+  - Generated client
+  - Configuration changes
+  - Database schema changes
+  - Any shared utilities and supporting files
+- Install any missing dependencies.
+- Apply all pending database migrations.
+- Build BOTH frontend and backend directly on the VPS from the synced source.
+- Preserve the existing .env, Binance API keys, database credentials, PM2 configuration, and all production settings.
+- Do NOT modify the trading strategy logic except for deploying the new version already present in Replit.
+- Restart PM2 after deployment.
+
+After deployment, verify ALL of the following:
+
+✓ VPS dashboard matches the Replit dashboard exactly.
+✓ Strategies page exists.
+✓ Six strategies are visible.
+✓ GET /api/strategies returns all strategies.
+✓ GET /api/strategies/signals returns live data.
+✓ GET /api/bot/status returns 200.
+✓ GET /api/backtests returns 200.
+✓ Database schema matches the Replit project.
+✓ Frontend is serving the NEW build (not an old cached bundle).
+✓ Backend is running the latest compiled code.
+✓ PM2 is healthy with no restart loop.
+
+Finally, perform a deployment audit by comparing the Replit project and the VPS. If ANY file, dependency, migration, asset, route, build artifact, or frontend bundle differs, synchronize it automatically until both environments are identical. Do not finish until the VPS is confirmed to be running the exact same version as Replit.
