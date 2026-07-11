@@ -1,32 +1,32 @@
 /**
- * TradeCore Pro — Environment validation  (Phase 5B, Production Hardening)
+ * TradeCore Pro — Environment validation  (Phase 5B, Production Hardening;
+ * Multi-user Phase: per-user accounts + per-user Binance credentials)
  *
  * Previously, required env vars were each checked lazily, in whatever module
  * happened to read them first: `DATABASE_URL` at import time in
- * `@workspace/db`, `PORT` in `index.ts`, and — worst of all —
- * `BINANCE_API_KEY`/`BINANCE_API_SECRET` only inside `botEngine.initExchange()`,
- * meaning the HTTP server would boot and start serving requests completely
- * successfully even with no exchange credentials configured at all, and the
- * misconfiguration would only surface later when someone tried to actually
- * start the bot — in production, potentially hours or days after deploy.
+ * `@workspace/db`, `PORT` in `index.ts`. `validateEnv()` checks everything
+ * the server needs up front, once, at startup, and throws a single clear
+ * error listing every problem at once (not just the first one hit) if
+ * anything is missing or malformed. Call this before `app.listen(...)` in
+ * `index.ts`.
  *
- * `validateEnv()` checks everything the server needs up front, once, at
- * startup, and throws a single clear error listing every problem at once
- * (not just the first one hit) if anything is missing or malformed. Call
- * this before `app.listen(...)` in `index.ts`.
+ * Multi-user Phase: there is no longer a single shared operator credential
+ * or a single global Binance API key/secret — each user registers their own
+ * account (lib/passwordHash.ts) and supplies their own Binance credentials
+ * via the settings page (encrypted at rest — see lib/credentialsCrypto.ts).
+ * CREDENTIALS_ENCRYPTION_KEY is the one remaining server-side secret: it
+ * protects every stored Binance credential, so it is validated here with
+ * the same up-front rigor.
  */
 
 export interface AppEnv {
   port: number;
   nodeEnv: "development" | "production" | "test";
   databaseUrl: string;
-  binanceApiKey: string;
-  binanceApiSecret: string;
-  /** Shared operator credentials — see middleware/auth.ts. Never logged. */
-  operatorUsername: string;
-  operatorPassword: string;
   /** HMAC signing key for the session cookie — see middleware/auth.ts. Never logged. */
   sessionSecret: string;
+  /** AES-256-GCM key (32 raw bytes) encrypting every stored Binance credential — see lib/credentialsCrypto.ts. Never logged. */
+  credentialsEncryptionKey: Buffer;
   /** Comma-separated allow-list of origins permitted to make cross-origin API
    *  calls. Empty = no cross-origin calls allowed (same-origin only), which
    *  is the safe default — this app serves its own frontend, so cross-origin
@@ -85,28 +85,6 @@ export function validateEnv(): AppEnv {
     problems.push("DATABASE_URL is required (Postgres connection string).");
   }
 
-  const binanceApiKey = process.env["BINANCE_API_KEY"];
-  if (!isNonEmpty(binanceApiKey)) {
-    problems.push("BINANCE_API_KEY is required (validated here even though the bot only connects lazily — so a missing key is caught at deploy time, not when someone finally clicks Start).");
-  }
-
-  const binanceApiSecret = process.env["BINANCE_API_SECRET"];
-  if (!isNonEmpty(binanceApiSecret)) {
-    problems.push("BINANCE_API_SECRET is required.");
-  }
-
-  const operatorUsername = process.env["OPERATOR_USERNAME"];
-  if (!isNonEmpty(operatorUsername)) {
-    problems.push("OPERATOR_USERNAME is required — this protects every trading/config endpoint.");
-  }
-
-  const operatorPassword = process.env["OPERATOR_PASSWORD"];
-  if (!isNonEmpty(operatorPassword)) {
-    problems.push("OPERATOR_PASSWORD is required — this protects every trading/config endpoint.");
-  } else if (operatorPassword.length < 12) {
-    problems.push("OPERATOR_PASSWORD is too short (< 12 chars) — use a long, unique passphrase.");
-  }
-
   const sessionSecret = process.env["SESSION_SECRET"];
   let resolvedSessionSecret = sessionSecret;
   if (!isNonEmpty(sessionSecret)) {
@@ -122,6 +100,21 @@ export function validateEnv(): AppEnv {
     problems.push("SESSION_SECRET is too short (< 16 chars) — generate with: openssl rand -hex 32");
   }
 
+  const rawEncryptionKey = process.env["CREDENTIALS_ENCRYPTION_KEY"];
+  let credentialsEncryptionKey: Buffer = Buffer.alloc(32);
+  if (!isNonEmpty(rawEncryptionKey)) {
+    problems.push(
+      "CREDENTIALS_ENCRYPTION_KEY is required — protects every user's stored Binance API credentials. " +
+        "Generate with: openssl rand -hex 32",
+    );
+  } else if (!/^[0-9a-fA-F]{64}$/.test(rawEncryptionKey)) {
+    problems.push(
+      "CREDENTIALS_ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes) — generate with: openssl rand -hex 32",
+    );
+  } else {
+    credentialsEncryptionKey = Buffer.from(rawEncryptionKey, "hex");
+  }
+
   const rawAllowedOrigins = process.env["ALLOWED_ORIGINS"];
   const allowedOrigins = isNonEmpty(rawAllowedOrigins)
     ? rawAllowedOrigins.split(",").map((s) => s.trim()).filter(Boolean)
@@ -135,11 +128,8 @@ export function validateEnv(): AppEnv {
     port,
     nodeEnv,
     databaseUrl: databaseUrl!,
-    binanceApiKey: binanceApiKey!,
-    binanceApiSecret: binanceApiSecret!,
-    operatorUsername: operatorUsername!,
-    operatorPassword: operatorPassword!,
     sessionSecret: resolvedSessionSecret!,
+    credentialsEncryptionKey,
     allowedOrigins,
   });
 

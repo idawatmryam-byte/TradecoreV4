@@ -441,6 +441,17 @@ export interface BotConfigUpdate {
   alertWebhookUrl?: string | null;
 }
 
+export interface BinanceCredentialsStatus {
+  configured: boolean;
+  /**
+     * Last 4 chars of the stored API key, e.g. "...ab12" — never the full key.
+     * @nullable
+     */
+  apiKeyPreview: string | null;
+  /** @nullable */
+  updatedAt: string | null;
+}
+
 export type BacktestRunStatus = typeof BacktestRunStatus[keyof typeof BacktestRunStatus];
 
 
@@ -737,6 +748,20 @@ export interface StrategySignalItem {
   entryReason?: string;
 }
 
+export type RegisterBody = {
+  /**
+     * @minLength 3
+     * @maxLength 64
+     */
+  username: string;
+  /** @minLength 12 */
+  password: string;
+};
+
+export type Register201 = {
+  ok?: boolean;
+};
+
 export type LoginBody = {
   username: string;
   password: string;
@@ -780,6 +805,11 @@ export const GetTradesSource = {
   live: 'live',
   backtest: 'backtest',
 } as const;
+
+export type SetBinanceCredentialsBody = {
+  apiKey: string;
+  apiSecret: string;
+};
 
 export type DeleteBacktest200 = {
   deleted: boolean;

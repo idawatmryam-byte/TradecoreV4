@@ -56,8 +56,9 @@ app.use(express.json({ limit: "256kb" }));
 app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 
 // Global rate limit — generous, just a backstop against runaway clients/bugs
-// and casual scraping. Login has its own much stricter limiter below, since
-// it's the one unauthenticated endpoint worth brute-forcing.
+// and casual scraping. Login/register have their own much stricter limiter
+// below, since they're the unauthenticated endpoints worth brute-forcing or
+// abusing for mass account creation.
 app.use(
   "/api",
   rateLimit({ name: "global", windowMs: 60_000, max: 300 }),
@@ -67,6 +68,10 @@ app.use(
 app.use(
   "/api/auth/login",
   rateLimit({ name: "login", windowMs: 15 * 60_000, max: 10 }),
+);
+app.use(
+  "/api/auth/register",
+  rateLimit({ name: "register", windowMs: 15 * 60_000, max: 10 }),
 );
 app.use("/api", publicRouter);
 

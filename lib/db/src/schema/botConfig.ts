@@ -1,9 +1,11 @@
-import { pgTable, serial, numeric, integer, boolean, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, numeric, integer, boolean, text, timestamp, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const botConfigTable = pgTable("bot_config", {
   id: serial("id").primaryKey(),
+  /** One config row per user — each user's bot instance has its own settings. */
+  userId: integer("user_id").notNull(),
 
   // ── Position / risk ────────────────────────────────────────────────────────
   /** Fixed USDT position size — also acts as a hard cap when riskPercent > 0 */
@@ -40,7 +42,9 @@ export const botConfigTable = pgTable("bot_config", {
   alertWebhookUrl: text("alert_webhook_url"),
 
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (t) => [
+  unique("bot_config_user_id_unique").on(t.userId),
+]);
 
 export const insertBotConfigSchema = createInsertSchema(botConfigTable).omit({
   id: true,

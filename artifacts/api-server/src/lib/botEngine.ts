@@ -22,6 +22,7 @@ import {
 } from "@workspace/db";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
 import { logger } from "./logger";
+import { getBinanceCredentials } from "./binanceCredentials";
 import {
   buildSignalRow,
   buildSignalRowLegacy,
@@ -270,23 +271,28 @@ class BotEngine {
     error: null,
   };
 
+  /** Each instance is scoped to exactly one user — their own trades, config,
+   *  strategy tuning, and Binance credentials. See lib/engineRegistry.ts for
+   *  how a userId maps to its own BotEngine instance. */
+  constructor(private readonly userId: number) {}
+
   // ---------------------------------------------------------------------------
   // Exchange initialisation
   // ---------------------------------------------------------------------------
 
-  private initExchange(testnet: boolean): InstanceType<typeof BinanceExchange> {
+  private async initExchange(testnet: boolean): Promise<InstanceType<typeof BinanceExchange>> {
     if (this.exchange) return this.exchange;
 
-    const apiKey = process.env["BINANCE_API_KEY"];
-    const secret = process.env["BINANCE_API_SECRET"];
-
-    if (!apiKey || !secret) {
-      throw new Error("BINANCE_API_KEY and BINANCE_API_SECRET must be set");
+    const credentials = await getBinanceCredentials(this.userId);
+    if (!credentials) {
+      throw new Error(
+        "No Binance API credentials configured for this account — add them on the Settings page before starting the bot.",
+      );
     }
 
     const ex = new BinanceExchange({
-      apiKey,
-      secret,
+      apiKey: credentials.apiKey,
+      secret: credentials.apiSecret,
       options: {
         defaultType: "spot",
         adjustForTimeDifference: true,
@@ -352,7 +358,7 @@ class BotEngine {
     if (now - this.lastStrategyConfigLoad < this.STRATEGY_CONFIG_CACHE_MS && this.strategyConfigs.size > 0) {
       return this.strategyConfigs;
     }
-    this.strategyConfigs = await loadStrategyConfigs();
+    this.strategyConfigs = await loadStrategyConfigs(this.userId);
     this.lastStrategyConfigLoad = now;
     return this.strategyConfigs;
   }
@@ -580,6 +586,7 @@ class BotEngine {
               if (exitReason) {
                 const pnl = (exitPrice - entryPrice) * qty;
                 await db.insert(tradesTable).values({
+                  userId: this.userId,
                   symbol, side: "buy",
                   entryPrice: entryPrice.toFixed(8),
                   exitPrice: exitPrice.toFixed(8),
@@ -626,6 +633,7 @@ class BotEngine {
             const exitPrice = lastC[4];
             const pnl = (exitPrice - entryPrice) * qty;
             await db.insert(tradesTable).values({
+              userId: this.userId,
               symbol, side: "buy",
               entryPrice: entryPrice.toFixed(8),
               exitPrice: exitPrice.toFixed(8),
@@ -667,7 +675,7 @@ class BotEngine {
     if (this.state.running) return;
 
     const config = await this.loadConfig();
-    const ex = this.initExchange(config.testnet);
+    const ex = await this.initExchange(config.testnet);
 
     logger.info("Loading Binance markets…");
     await ex.loadMarkets();
@@ -757,7 +765,7 @@ class BotEngine {
     this.scanning = true;
     try {
       const config = await this.loadConfig();
-      const ex = this.initExchange(config.testnet);
+      const ex = await this.initExchange(config.testnet);
       const now = new Date();
       this.state.lastScanAt = now.toISOString();
 
@@ -770,7 +778,7 @@ class BotEngine {
       const openTrades = await db
         .select()
         .from(tradesTable)
-        .where(eq(tradesTable.status, "open"));
+        .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.status, "open")));
       this.state.openPositions = openTrades.length;
 
       // Circuit breaker
@@ -1279,6 +1287,7 @@ class BotEngine {
       const [trade] = await db
         .insert(tradesTable)
         .values({
+          userId: this.userId,
           symbol,
           side: "buy",
           entryPrice: fillPrice.toFixed(8),
@@ -1461,7 +1470,10 @@ class BotEngine {
   // ---------------------------------------------------------------------------
   private async reconcileOnStartup(): Promise<void> {
     const ex = this.exchange!;
-    const openTrades = await db.select().from(tradesTable).where(eq(tradesTable.status, "open"));
+    const openTrades = await db
+      .select()
+      .from(tradesTable)
+      .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.status, "open")));
 
     if (openTrades.length === 0) {
       logger.info("Startup reconciliation: no open trades in the database — nothing to reconcile");
@@ -1693,7 +1705,7 @@ class BotEngine {
       const recent = await db
         .select()
         .from(tradesTable)
-        .where(and(eq(tradesTable.symbol, symbol), eq(tradesTable.status, "closed")))
+        .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.symbol, symbol), eq(tradesTable.status, "closed")))
         .orderBy(desc(tradesTable.exitTime))
         .limit(10);
 
@@ -1706,9 +1718,9 @@ class BotEngine {
         const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
         await db
           .insert(blacklistTable)
-          .values({ symbol, winRate: winRate.toFixed(4), tradeCount: recent.length, blacklistedAt: now, expiresAt })
+          .values({ userId: this.userId, symbol, winRate: winRate.toFixed(4), tradeCount: recent.length, blacklistedAt: now, expiresAt })
           .onConflictDoUpdate({
-            target: blacklistTable.symbol,
+            target: [blacklistTable.userId, blacklistTable.symbol],
             set: { winRate: winRate.toFixed(4), tradeCount: recent.length, blacklistedAt: now, expiresAt },
           });
         // Only log when the symbol is newly blacklisted — not on every 15-second scan tick
@@ -1720,7 +1732,10 @@ class BotEngine {
   }
 
   private async loadActiveBlacklist(now: Date): Promise<Set<string>> {
-    const rows = await db.select().from(blacklistTable).where(gte(blacklistTable.expiresAt, now));
+    const rows = await db
+      .select()
+      .from(blacklistTable)
+      .where(and(eq(blacklistTable.userId, this.userId), gte(blacklistTable.expiresAt, now)));
     return new Set(rows.map((r) => r.symbol));
   }
 
@@ -1729,7 +1744,11 @@ class BotEngine {
     const rows = await db
       .select()
       .from(hourlyStatsTable)
-      .where(and(eq(hourlyStatsTable.hour, hour), gte(hourlyStatsTable.date, threeDaysAgo)));
+      .where(and(
+        eq(hourlyStatsTable.userId, this.userId),
+        eq(hourlyStatsTable.hour, hour),
+        gte(hourlyStatsTable.date, threeDaysAgo),
+      ));
     if (rows.length === 0) return false;
     return rows.reduce((sum, r) => sum + Number(r.pnl), 0) < 0;
   }
@@ -1738,9 +1757,9 @@ class BotEngine {
     const date = now.toISOString().split("T")[0]!;
     const hour = now.getUTCHours();
     await db.execute(
-      sql`INSERT INTO hourly_stats (date, hour, pnl, trade_count, win_count)
-          VALUES (${date}, ${hour}, ${pnl}, 1, ${win ? 1 : 0})
-          ON CONFLICT (date, hour)
+      sql`INSERT INTO hourly_stats (user_id, date, hour, pnl, trade_count, win_count)
+          VALUES (${this.userId}, ${date}, ${hour}, ${pnl}, 1, ${win ? 1 : 0})
+          ON CONFLICT (user_id, date, hour)
           DO UPDATE SET
             pnl         = hourly_stats.pnl + EXCLUDED.pnl,
             trade_count = hourly_stats.trade_count + 1,
@@ -1758,7 +1777,7 @@ class BotEngine {
     const closedToday = await db
       .select()
       .from(tradesTable)
-      .where(and(eq(tradesTable.status, "closed"), gte(tradesTable.exitTime, startOfDay)));
+      .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.status, "closed"), gte(tradesTable.exitTime, startOfDay)));
 
     const totalPnl = closedToday.reduce((sum, t) => sum + Number(t.pnl ?? 0), 0);
     const wins = closedToday.filter((t) => Number(t.pnl ?? 0) > 0).length;
@@ -1779,9 +1798,9 @@ class BotEngine {
   }
 
   async loadConfig() {
-    const rows = await db.select().from(botConfigTable).limit(1);
+    const rows = await db.select().from(botConfigTable).where(eq(botConfigTable.userId, this.userId)).limit(1);
     if (rows.length > 0) return rows[0]!;
-    const [inserted] = await db.insert(botConfigTable).values({}).returning();
+    const [inserted] = await db.insert(botConfigTable).values({ userId: this.userId }).returning();
     return inserted!;
   }
 
@@ -1842,4 +1861,4 @@ class BotEngine {
   }
 }
 
-export const botEngine = new BotEngine();
+export { BotEngine };

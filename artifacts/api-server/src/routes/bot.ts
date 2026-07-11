@@ -1,33 +1,35 @@
 import { Router, type IRouter } from "express";
-import { botEngine } from "../lib/botEngine";
+import { getOrCreateEngine } from "../lib/engineRegistry";
 import { StartBacktestBody, GetBacktestStatusResponse, StartBacktestResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
-router.get("/bot/status", async (_req, res): Promise<void> => {
-  res.json(botEngine.getState());
+router.get("/bot/status", async (req, res): Promise<void> => {
+  res.json(getOrCreateEngine(req.userId!).getState());
 });
 
 // Full per-symbol pipeline decision trace from the most recent scan.
-router.get("/bot/decisions", async (_req, res): Promise<void> => {
-  res.json(botEngine.getDecisions());
+router.get("/bot/decisions", async (req, res): Promise<void> => {
+  res.json(getOrCreateEngine(req.userId!).getDecisions());
 });
 
 // Aggregated "why is nothing trading" summary across all evaluated symbols.
-router.get("/bot/blocking-summary", async (_req, res): Promise<void> => {
-  res.json(botEngine.getBlockingSummary());
+router.get("/bot/blocking-summary", async (req, res): Promise<void> => {
+  res.json(getOrCreateEngine(req.userId!).getBlockingSummary());
 });
 
 router.post("/bot/start", async (req, res): Promise<void> => {
-  await botEngine.start();
-  req.log.info("Bot started via API");
-  res.json(botEngine.getState());
+  const engine = getOrCreateEngine(req.userId!);
+  await engine.start();
+  req.log.info({ userId: req.userId }, "Bot started via API");
+  res.json(engine.getState());
 });
 
 router.post("/bot/stop", async (req, res): Promise<void> => {
-  await botEngine.stop();
-  req.log.info("Bot stopped via API");
-  res.json(botEngine.getState());
+  const engine = getOrCreateEngine(req.userId!);
+  await engine.stop();
+  req.log.info({ userId: req.userId }, "Bot stopped via API");
+  res.json(engine.getState());
 });
 
 router.post("/bot/backtest", async (req, res): Promise<void> => {
@@ -37,32 +39,34 @@ router.post("/bot/backtest", async (req, res): Promise<void> => {
     return;
   }
 
-  if (botEngine.getBacktestStatus().running) {
+  const engine = getOrCreateEngine(req.userId!);
+  if (engine.getBacktestStatus().running) {
     res.status(409).json({ error: "Backtest already running" });
     return;
   }
 
   // Fire-and-forget; progress tracked via GET /bot/backtest/status
-  await botEngine.startBacktest(body.data.days);
-  req.log.info({ days: body.data.days }, "Backtest started via API");
-  res.status(202).json(StartBacktestResponse.parse(botEngine.getBacktestStatus()));
+  await engine.startBacktest(body.data.days);
+  req.log.info({ days: body.data.days, userId: req.userId }, "Backtest started via API");
+  res.status(202).json(StartBacktestResponse.parse(engine.getBacktestStatus()));
 });
 
-router.get("/bot/backtest/status", async (_req, res): Promise<void> => {
-  res.json(GetBacktestStatusResponse.parse(botEngine.getBacktestStatus()));
+router.get("/bot/backtest/status", async (req, res): Promise<void> => {
+  res.json(GetBacktestStatusResponse.parse(getOrCreateEngine(req.userId!).getBacktestStatus()));
 });
 
 // Reset the risk pause that is triggered after 3 consecutive risk violations.
 // Call this after investigating the violations; trading resumes on the next scan.
 router.post("/bot/reset-risk-pause", async (req, res): Promise<void> => {
-  const { paused, violationCount } = botEngine.getRiskStatus();
+  const engine = getOrCreateEngine(req.userId!);
+  const { paused, violationCount } = engine.getRiskStatus();
   if (!paused) {
-    res.status(200).json({ message: "Bot is not risk-paused — nothing to reset", ...botEngine.getState() });
+    res.status(200).json({ message: "Bot is not risk-paused — nothing to reset", ...engine.getState() });
     return;
   }
-  botEngine.resetRiskPause();
-  req.log.info({ previousViolationCount: violationCount }, "Risk pause reset via API");
-  res.json({ message: "Risk pause cleared — trading will resume on next scan", ...botEngine.getState() });
+  engine.resetRiskPause();
+  req.log.info({ previousViolationCount: violationCount, userId: req.userId }, "Risk pause reset via API");
+  res.json({ message: "Risk pause cleared — trading will resume on next scan", ...engine.getState() });
 });
 
 export default router;

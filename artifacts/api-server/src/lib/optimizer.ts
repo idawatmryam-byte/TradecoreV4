@@ -64,7 +64,8 @@ function* cartesian(
 
 export async function runOptimization(
   parentRunId: number,
-  params: OptimizeParams
+  params: OptimizeParams,
+  userId: number,
 ): Promise<void> {
   const {
     symbols,
@@ -107,6 +108,7 @@ export async function runOptimization(
     const [childRun] = await db
       .insert(backtestRunsTable)
       .values({
+        userId,
         strategyVersion: "1.0",
         strategyName: "TradeCore v1 (Optimization)",
         symbols: symbols.join(","),
@@ -133,7 +135,7 @@ export async function runOptimization(
     };
 
     try {
-      await runBacktest(childRun.id, runParams);
+      await runBacktest(childRun.id, runParams, userId);
 
       // Fetch the completed run to get metrics
       const [completed] = await db

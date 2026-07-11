@@ -1,10 +1,10 @@
 import { Router, type IRouter } from "express";
-import { botEngine } from "../lib/botEngine";
+import { getOrCreateEngine } from "../lib/engineRegistry";
 
 const router: IRouter = Router();
 
-router.get("/scanner", async (_req, res): Promise<void> => {
-  const rows = botEngine.getScannerData();
+router.get("/scanner", async (req, res): Promise<void> => {
+  const rows = getOrCreateEngine(req.userId!).getScannerData();
   res.json(rows);
 });
 

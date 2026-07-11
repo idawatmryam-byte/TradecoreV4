@@ -370,7 +370,7 @@ function computeMetrics(
 // Main runner
 // ---------------------------------------------------------------------------
 
-export async function runBacktest(runId: number, params: BacktestParams): Promise<void> {
+export async function runBacktest(runId: number, params: BacktestParams, userId: number): Promise<void> {
   const {
     symbols, timeframe, startDate, endDate, startingBalance,
     feeRate = DEFAULT_FEE_RATE, slippageRate = DEFAULT_SLIPPAGE_RATE,
@@ -460,7 +460,7 @@ export async function runBacktest(runId: number, params: BacktestParams): Promis
     }
 
     // ── Strategy configs from DB (with defaults for any missing strategy) ──────
-    const dbStrategyConfigs = await loadStrategyConfigs();
+    const dbStrategyConfigs = await loadStrategyConfigs(userId);
 
     // Diagnostic checkpoint 2: what's actually sitting in Postgres right now
     // (this is the LIVE bot's configuration too — loadStrategyConfigs() is

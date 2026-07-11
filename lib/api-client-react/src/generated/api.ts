@@ -26,6 +26,7 @@ import type {
   BacktestRunRequest,
   BacktestStarted,
   BacktestStatus,
+  BinanceCredentialsStatus,
   BlacklistEntry,
   BlockingSummary,
   BotConfig,
@@ -45,7 +46,10 @@ import type {
   Logout200,
   MarketMonitor,
   OptimizeRequest,
+  Register201,
+  RegisterBody,
   ScannerRow,
+  SetBinanceCredentialsBody,
   StatsSummary,
   StrategyConfigUpdate,
   StrategyInfo,
@@ -161,6 +165,77 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
+export const getRegisterUrl = () => {
+
+
+
+
+  return `/api/auth/register`
+}
+
+/**
+ * Multi-user Phase: creates a new account (username + password, hashed with scrypt) and immediately logs in, setting the same signed session cookie POST /auth/login issues. Each account only ever risks its own Binance credentials/funds, so registration is open to anyone who can reach the app.
+ * @summary Create a new account
+ */
+export const register = async (registerBody: RegisterBody, options?: RequestInit): Promise<Register201> => {
+
+  return customFetch<Register201>(getRegisterUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(registerBody)
+  }
+);}
+
+
+
+
+export const getRegisterMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof register>>, TError,{data: BodyType<RegisterBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof register>>, TError,{data: BodyType<RegisterBody>}, TContext> => {
+
+const mutationKey = ['register'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof register>>, {data: BodyType<RegisterBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  register(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterMutationResult = NonNullable<Awaited<ReturnType<typeof register>>>
+    export type RegisterMutationBody = BodyType<RegisterBody>
+    export type RegisterMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a new account
+ */
+export const useRegister = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof register>>, TError,{data: BodyType<RegisterBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof register>>,
+        TError,
+        {data: BodyType<RegisterBody>},
+        TContext
+      > => {
+      return useMutation(getRegisterMutationOptions(options));
+    }
+
 export const getLoginUrl = () => {
 
 
@@ -170,8 +245,8 @@ export const getLoginUrl = () => {
 }
 
 /**
- * Exchanges OPERATOR_USERNAME/OPERATOR_PASSWORD for a signed session cookie (12h expiry). Rate-limited separately and much more strictly than the rest of the API (10 attempts / 15 min / IP) since this is the one meaningful brute-force target on an otherwise-authenticated API.
- * @summary Log in with the shared operator username/password
+ * Exchanges a user's username/password for a signed session cookie (12h expiry). Rate-limited separately and much more strictly than the rest of the API (10 attempts / 15 min / IP) since this is the one meaningful brute-force target on an otherwise-authenticated API.
+ * @summary Log in to an existing account
  */
 export const login = async (loginBody: LoginBody, options?: RequestInit): Promise<Login200> => {
 
@@ -219,7 +294,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type LoginMutationError = ErrorType<void>
 
     /**
- * @summary Log in with the shared operator username/password
+ * @summary Log in to an existing account
  */
 export const useLogin = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,{data: BodyType<LoginBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -1758,6 +1833,225 @@ export const useUpdateConfig = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getUpdateConfigMutationOptions(options));
+    }
+
+export const getGetBinanceCredentialsUrl = () => {
+
+
+
+
+  return `/api/me/binance-credentials`
+}
+
+/**
+ * Never returns the plaintext API key/secret — only whether one is configured and a masked preview (last 4 chars of the key).
+ * @summary Get the logged-in user's Binance credential status
+ */
+export const getBinanceCredentials = async ( options?: RequestInit): Promise<BinanceCredentialsStatus> => {
+
+  return customFetch<BinanceCredentialsStatus>(getGetBinanceCredentialsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBinanceCredentialsQueryKey = () => {
+    return [
+    `/api/me/binance-credentials`
+    ] as const;
+    }
+
+
+export const getGetBinanceCredentialsQueryOptions = <TData = Awaited<ReturnType<typeof getBinanceCredentials>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBinanceCredentials>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBinanceCredentialsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBinanceCredentials>>> = ({ signal }) => getBinanceCredentials({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBinanceCredentials>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBinanceCredentialsQueryResult = NonNullable<Awaited<ReturnType<typeof getBinanceCredentials>>>
+export type GetBinanceCredentialsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the logged-in user's Binance credential status
+ */
+
+export function useGetBinanceCredentials<TData = Awaited<ReturnType<typeof getBinanceCredentials>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBinanceCredentials>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBinanceCredentialsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSetBinanceCredentialsUrl = () => {
+
+
+
+
+  return `/api/me/binance-credentials`
+}
+
+/**
+ * Encrypted at rest (AES-256-GCM) and linked only to the logged-in user's account. The bot engine only reads credentials at start(), so restart the bot (if running) for a changed credential to take effect.
+ * @summary Set the logged-in user's Binance API key/secret
+ */
+export const setBinanceCredentials = async (setBinanceCredentialsBody: SetBinanceCredentialsBody, options?: RequestInit): Promise<BinanceCredentialsStatus> => {
+
+  return customFetch<BinanceCredentialsStatus>(getSetBinanceCredentialsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(setBinanceCredentialsBody)
+  }
+);}
+
+
+
+
+export const getSetBinanceCredentialsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setBinanceCredentials>>, TError,{data: BodyType<SetBinanceCredentialsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setBinanceCredentials>>, TError,{data: BodyType<SetBinanceCredentialsBody>}, TContext> => {
+
+const mutationKey = ['setBinanceCredentials'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setBinanceCredentials>>, {data: BodyType<SetBinanceCredentialsBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  setBinanceCredentials(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetBinanceCredentialsMutationResult = NonNullable<Awaited<ReturnType<typeof setBinanceCredentials>>>
+    export type SetBinanceCredentialsMutationBody = BodyType<SetBinanceCredentialsBody>
+    export type SetBinanceCredentialsMutationError = ErrorType<void>
+
+    /**
+ * @summary Set the logged-in user's Binance API key/secret
+ */
+export const useSetBinanceCredentials = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setBinanceCredentials>>, TError,{data: BodyType<SetBinanceCredentialsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setBinanceCredentials>>,
+        TError,
+        {data: BodyType<SetBinanceCredentialsBody>},
+        TContext
+      > => {
+      return useMutation(getSetBinanceCredentialsMutationOptions(options));
+    }
+
+export const getDeleteBinanceCredentialsUrl = () => {
+
+
+
+
+  return `/api/me/binance-credentials`
+}
+
+/**
+ * @summary Remove the logged-in user's stored Binance credentials
+ */
+export const deleteBinanceCredentials = async ( options?: RequestInit): Promise<BinanceCredentialsStatus> => {
+
+  return customFetch<BinanceCredentialsStatus>(getDeleteBinanceCredentialsUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteBinanceCredentialsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBinanceCredentials>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteBinanceCredentials>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteBinanceCredentials'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteBinanceCredentials>>, void> = () => {
+
+
+          return  deleteBinanceCredentials(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteBinanceCredentialsMutationResult = NonNullable<Awaited<ReturnType<typeof deleteBinanceCredentials>>>
+
+    export type DeleteBinanceCredentialsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove the logged-in user's stored Binance credentials
+ */
+export const useDeleteBinanceCredentials = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBinanceCredentials>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteBinanceCredentials>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteBinanceCredentialsMutationOptions(options));
     }
 
 export const getListBacktestsUrl = () => {

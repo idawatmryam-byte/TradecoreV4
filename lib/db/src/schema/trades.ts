@@ -4,6 +4,8 @@ import { z } from "zod/v4";
 
 export const tradesTable = pgTable("trades", {
   id: serial("id").primaryKey(),
+  /** Owning user — each user runs a fully independent bot instance. */
+  userId: integer("user_id").notNull(),
   symbol: text("symbol").notNull(),
   side: text("side").notNull().default("buy"),
   entryPrice: numeric("entry_price", { precision: 18, scale: 8 }).notNull(),
@@ -75,10 +77,10 @@ export const tradesTable = pgTable("trades", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   // Frequently queried in every scan cycle — open position lookup + blacklist update
-  index("trades_status_idx").on(t.status),
-  index("trades_symbol_idx").on(t.symbol),
+  index("trades_user_status_idx").on(t.userId, t.status),
+  index("trades_user_symbol_idx").on(t.userId, t.symbol),
   // Composite for the per-symbol "last 10 closed trades" query in updateBlacklist
-  index("trades_symbol_status_exit_time_idx").on(t.symbol, t.status, t.exitTime),
+  index("trades_user_symbol_status_exit_time_idx").on(t.userId, t.symbol, t.status, t.exitTime),
 ]);
 
 export const insertTradeSchema = createInsertSchema(tradesTable).omit({
