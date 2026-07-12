@@ -129,6 +129,10 @@ class BotEngine {
 
   // Symbol cooldowns: symbol → expiry timestamp (ms)
   private symbolCooldowns: Map<string, number> = new Map();
+  /** Last resolved market regime per symbol — feeds regime hysteresis so the
+   *  regime (and thus which strategies are eligible) can't flip every 15s
+   *  scan tick on a metric hovering at a threshold. See detectMarketRegime. */
+  private lastRegime: Map<string, MarketRegime> = new Map();
 
   // Single-flight guard: prevents overlapping scan executions
   private scanning = false;
@@ -942,7 +946,11 @@ class BotEngine {
         }
 
         const mtf: MultiTimeframeCandles = { tf1m, tf3m, tf5m, tf15m, tf1h };
-        const row = buildSignalRow(symbol, mtf);
+        // Deferred-work #2: feed the last regime we saw for THIS symbol so
+        // detectMarketRegime can apply hysteresis and stop whipsawing at the
+        // 15s scan cadence. Store the resolved regime back for the next tick.
+        const row = buildSignalRow(symbol, mtf, this.lastRegime.get(symbol));
+        this.lastRegime.set(symbol, row.regime);
         marketStage.status = "pass";
         marketStage.detail = `Fetched 5 timeframes · last price ${row.lastPrice}`;
 

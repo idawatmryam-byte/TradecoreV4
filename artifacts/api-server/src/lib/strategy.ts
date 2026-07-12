@@ -267,7 +267,23 @@ export function calcBollingerBands(
 // Market regime detection
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function detectMarketRegime(candles1m: Candle[], adx: number): MarketRegime {
+// Hysteresis (dead-band) thresholds. A regime is ENTERED at the outer bound
+// and only LEFT once the metric crosses back past a tighter inner bound, so a
+// value hovering on a boundary (e.g. ADX oscillating around 20) can't flip the
+// regime — and therefore which strategies are eligible — every single tick.
+// Deferred-work #2: without this, regime whipsawed at 15s cadence live.
+const REGIME_HYST = {
+  strongEnter: 30, strongExit: 27, // strong_trend ADX band
+  weakEnter: 20, weakExit: 17,     // weak_trend ADX band
+  highVolEnter: 1.8, highVolExit: 1.6, // high_volatility: current/avg ATR%
+  lowVolEnter: 0.4, lowVolExit: 0.5,   // low_volatility: current/avg ATR%
+} as const;
+
+export function detectMarketRegime(
+  candles1m: Candle[],
+  adx: number,
+  previous?: MarketRegime,
+): MarketRegime {
   // Current ATR%
   const currentAtr = calcAtr(candles1m, 14);
   const currentPrice = candles1m[candles1m.length - 1]![4];
@@ -289,14 +305,37 @@ export function detectMarketRegime(candles1m: Candle[], adx: number): MarketRegi
     }
   }
   const avgAtrPct = atrCount > 0 ? atrSum / atrCount : currentAtrPct;
+  const ratio = avgAtrPct > 0 ? currentAtrPct / avgAtrPct : 1;
 
-  // Volatility regime takes priority over trend regime
-  if (avgAtrPct > 0 && currentAtrPct > avgAtrPct * 1.8) return "high_volatility";
-  if (avgAtrPct > 0 && currentAtrPct < avgAtrPct * 0.4) return "low_volatility";
+  // Volatility regime takes priority over trend regime — with a dead-band so a
+  // brief spike/dip near the boundary doesn't toggle it. When already in a
+  // volatility regime, it persists until the ratio crosses the (looser) exit
+  // bound; otherwise it's entered only past the (stricter) enter bound.
+  if (avgAtrPct > 0) {
+    if (previous === "high_volatility" ? ratio > REGIME_HYST.highVolExit : ratio > REGIME_HYST.highVolEnter) {
+      return "high_volatility";
+    }
+    if (previous === "low_volatility" ? ratio < REGIME_HYST.lowVolExit : ratio < REGIME_HYST.lowVolEnter) {
+      return "low_volatility";
+    }
+  }
 
-  // Trend strength via ADX
-  if (adx >= 30) return "strong_trend";
-  if (adx >= 20) return "weak_trend";
+  // Trend strength via ADX, sticky around the band edges. If we're already in a
+  // trend regime, hold it until ADX falls past the tighter exit bound; coming
+  // fresh (range / from a volatility regime) requires the stricter enter bound.
+  if (previous === "strong_trend") {
+    if (adx >= REGIME_HYST.strongExit) return "strong_trend";
+    if (adx >= REGIME_HYST.weakExit) return "weak_trend";
+    return "range";
+  }
+  if (previous === "weak_trend") {
+    if (adx >= REGIME_HYST.strongEnter) return "strong_trend";
+    if (adx >= REGIME_HYST.weakExit) return "weak_trend";
+    return "range";
+  }
+  // Fresh evaluation (previous was range, a volatility regime, or undefined).
+  if (adx >= REGIME_HYST.strongEnter) return "strong_trend";
+  if (adx >= REGIME_HYST.weakEnter) return "weak_trend";
   return "range";
 }
 
@@ -333,7 +372,11 @@ function detectSupportResistance(candles: Candle[], currentPrice: number): VoteS
 // Core signal builder — multi-timeframe weighted voting engine
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function buildSignalRow(symbol: string, mtf: MultiTimeframeCandles): SignalRow {
+export function buildSignalRow(
+  symbol: string,
+  mtf: MultiTimeframeCandles,
+  previousRegime?: MarketRegime,
+): SignalRow {
   const { tf1m, tf3m, tf5m, tf15m, tf1h } = mtf;
 
   const lastCandle1m = tf1m[tf1m.length - 1]!;
@@ -393,7 +436,7 @@ export function buildSignalRow(symbol: string, mtf: MultiTimeframeCandles): Sign
   const macroBearish = closes1h[closes1h.length - 1]! < ema50_1h;
 
   // ── Market regime ─────────────────────────────────────────────────────────
-  const regime = detectMarketRegime(tf1m, adxVal);
+  const regime = detectMarketRegime(tf1m, adxVal, previousRegime);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Indicator voting
