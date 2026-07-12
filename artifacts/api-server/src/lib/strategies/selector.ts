@@ -11,7 +11,7 @@
  *   5. Return the sorted opportunity list — caller decides how many to execute
  */
 import { type Strategy, type StrategySignal, type StrategyConfig } from "./base";
-import { type MultiTimeframeCandles, type SignalRow } from "../strategy";
+import { type MultiTimeframeCandles, type SignalRow, unifyConfidence } from "../strategy";
 import { netRewardRisk, MIN_VIABLE_REWARD_RISK } from "../tradingCosts";
 
 export class StrategySelector {
@@ -44,6 +44,22 @@ export class StrategySelector {
       try {
         const signal = strategy.evaluate(symbol, mtf, row, config, balance, positionSizeUsdt);
         if (!signal) continue;
+
+        // Confidence unification (deferred-work #1): blend the strategy's own
+        // setup-quality confidence with the 12-indicator market-structure
+        // confidence in the SAME direction, then gate + rank on the result —
+        // so the broad analysis actually informs the trade, and a setup that
+        // fights the overall tape is rejected even if its own pattern looks
+        // clean. Re-gating against the strategy's own threshold can only make
+        // entries more selective (quality over quantity).
+        const unified = unifyConfidence(signal.confidence, signal.side, row);
+        if (unified < config.confidenceThreshold) {
+          console.warn(
+            `[selector] ${strategy.strategyId} rejected on ${symbol}: unified confidence ${unified} < ${config.confidenceThreshold} threshold`,
+          );
+          continue;
+        }
+        signal.confidence = unified;
 
         // Structural reward:risk quality gate (shared by live + backtest since
         // both call this method). A trade whose reward doesn't justify its
