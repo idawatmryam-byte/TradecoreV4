@@ -21,6 +21,11 @@
 
 export interface AppEnv {
   port: number;
+  /** Bind address. `undefined` → Node's default (every interface), which is what
+   *  Replit and any platform terminating TLS in front of us needs. Set to
+   *  127.0.0.1 on a VPS where the dashboard is reached through an SSH tunnel or
+   *  a local reverse proxy, so the port is never exposed on a public interface. */
+  host: string | undefined;
   nodeEnv: "development" | "production" | "test";
   databaseUrl: string;
   /** HMAC signing key for the session cookie — see middleware/auth.ts. Never logged. */
@@ -74,6 +79,9 @@ export function validateEnv(): AppEnv {
     }
   }
 
+  const rawHost = process.env["HOST"];
+  const host = isNonEmpty(rawHost) ? rawHost.trim() : undefined;
+
   const rawNodeEnv = process.env["NODE_ENV"];
   const nodeEnv = (isNonEmpty(rawNodeEnv) ? rawNodeEnv : "development") as AppEnv["nodeEnv"];
   if (!["development", "production", "test"].includes(nodeEnv)) {
@@ -126,6 +134,7 @@ export function validateEnv(): AppEnv {
 
   cached = Object.freeze({
     port,
+    host,
     nodeEnv,
     databaseUrl: databaseUrl!,
     sessionSecret: resolvedSessionSecret!,
