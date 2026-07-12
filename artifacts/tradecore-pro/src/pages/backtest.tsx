@@ -51,6 +51,46 @@ const SYMBOLS_DEFAULT = [
 ];
 const TIMEFRAMES = ["1m","3m","5m","15m","30m","1h","4h","1d"];
 
+// ── Timeframe suitability guard ──────────────────────────────────────────────
+// The backtest checks each open trade's stop-loss / take-profit / trailing
+// stop ONCE PER CANDLE. So the candle interval must be much finer than how
+// long a strategy holds, or trades hit the max-hold timeout before their
+// exits can ever trigger — producing a run that's ~all timeouts and tells you
+// nothing about the strategies (confirmed: 15m/1h runs came back 94–95%
+// timeouts). These are the shipped strategies' holding windows.
+const TF_SECONDS: Record<string, number> = {
+  "1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600, "4h": 14400, "1d": 86400,
+};
+const SHORTEST_HOLD_S = 600;  // micro_scalping maxHoldingSeconds (fastest)
+const LONGEST_HOLD_S = 3600;  // momentum / volatility maxHoldingSeconds (slowest)
+
+function timeframeAdvice(tf: string): { level: "ok" | "caution" | "bad"; message: string } {
+  const s = TF_SECONDS[tf] ?? 60;
+  const m = Math.round(s / 60);
+  if (s >= LONGEST_HOLD_S) {
+    return {
+      level: "bad",
+      message: `At ${tf}, exits are only checked once every ${m} min. Every strategy holds for ≤ ${LONGEST_HOLD_S / 60} min, so almost every trade will hit the max-hold timeout before its stop-loss or take-profit can trigger — the result won't reflect your strategies. Use 1m.`,
+    };
+  }
+  if (s >= SHORTEST_HOLD_S) {
+    return {
+      level: "bad",
+      message: `At ${tf}, scalping trades (≤ ${SHORTEST_HOLD_S / 60} min hold) time out before a single exit check, and the longer strategies only get a few checks. Most trades will time out. Use 1m for meaningful SL/TP/trailing behaviour.`,
+    };
+  }
+  if (s > 60) {
+    return {
+      level: "caution",
+      message: `1m is recommended. At ${tf}, exits are checked once every ${m} min, so the fastest (scalping) setups are under-resolved.`,
+    };
+  }
+  return {
+    level: "ok",
+    message: "Exits are checked every candle — stop-loss, take-profit, and trailing behave as they do live.",
+  };
+}
+
 function isoDate(d: Date) {
   return d.toISOString().split("T")[0];
 }
@@ -76,7 +116,7 @@ function defaultForm(): RunFormState {
   start.setMonth(start.getMonth() - 1);
   return {
     symbols: ["BTCUSDT", "ETHUSDT", "BNBUSDT"],
-    timeframe: "1h",
+    timeframe: "1m",
     startDate: isoDate(start),
     endDate: isoDate(end),
     startingBalance: 1000,
@@ -119,10 +159,15 @@ function statusBadge(status: string) {
 function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
   const [form, setForm] = useState<RunFormState>(defaultForm());
   const [symbolInput, setSymbolInput] = useState(form.symbols.join(", "));
+  const [runAnyway, setRunAnyway] = useState(false);
   const { mutate, isPending } = useRunBacktest();
+
+  const tfAdvice = timeframeAdvice(form.timeframe);
+  const timeframeBlocks = tfAdvice.level === "bad" && !runAnyway;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (timeframeBlocks) return; // guard: too-coarse timeframe not acknowledged
     const symbols = symbolInput.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
     mutate(
       {
@@ -188,13 +233,41 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
             <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Timeframe</label>
             <select
               value={form.timeframe}
-              onChange={(e) => setForm((f) => ({ ...f, timeframe: e.target.value }))}
+              onChange={(e) => { setForm((f) => ({ ...f, timeframe: e.target.value })); setRunAnyway(false); }}
               className="w-full bg-background border border-border rounded px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
             >
               {TIMEFRAMES.map((tf) => (
-                <option key={tf} value={tf}>{tf}</option>
+                <option key={tf} value={tf}>{tf}{tf === "1m" ? " (recommended)" : ""}</option>
               ))}
             </select>
+
+            {/* Timeframe suitability banner — a too-coarse timeframe produces
+                an all-timeouts run that doesn't test the strategies. */}
+            {tfAdvice.level !== "ok" && (
+              <div
+                className={cn(
+                  "mt-2 rounded border p-2.5 text-xs flex gap-2",
+                  tfAdvice.level === "bad"
+                    ? "border-destructive/50 bg-destructive/10 text-destructive"
+                    : "border-warning/50 bg-warning/10 text-warning",
+                )}
+              >
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="space-y-1.5">
+                  <p className="leading-snug">{tfAdvice.message}</p>
+                  {tfAdvice.level === "bad" && (
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={runAnyway}
+                        onChange={(e) => setRunAnyway(e.target.checked)}
+                      />
+                      Run anyway — I understand most trades will time out
+                    </label>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Date range */}
@@ -234,9 +307,9 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
 
           <EffectiveConfigPreview form={form} />
 
-          <Button type="submit" disabled={isPending} className="w-full gap-2">
+          <Button type="submit" disabled={isPending || timeframeBlocks} className="w-full gap-2">
             <Play className="h-4 w-4" />
-            {isPending ? "Starting…" : "Run Backtest"}
+            {isPending ? "Starting…" : timeframeBlocks ? "Choose 1m or tick “Run anyway”" : "Run Backtest"}
           </Button>
         </form>
       </CardContent>
