@@ -34,6 +34,7 @@ import { buildEffectiveBacktestConfigs, buildPerStrategyBacktestConfigs } from "
 import { ensureCandles, loadCandles } from "./historicalData";
 import { logger } from "./logger";
 import { MIN_VIABLE_TAKE_PROFIT_PERCENT, DEFAULT_FEE_RATE, DEFAULT_SLIPPAGE_RATE } from "./tradingCosts";
+import { estimateLiquidationPrice, stopTooCloseToLiquidation } from "./futuresMath";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,6 +68,16 @@ export interface BacktestParams {
    * (its flat form is a single-config sweep). See backtestConfig.ts.
    */
   perStrategyConfigs?: boolean;
+
+  // ── Futures leverage modeling (spot is the default when unset) ─────────────
+  /** "spot" (no leverage/liquidation) | "futures". Default "spot". */
+  marketType?: "spot" | "futures";
+  /** Futures leverage. Only affects liquidation risk — NOT position size, to
+   *  match the live engine's notional-based sizing. Default 1. */
+  leverage?: number;
+  /** Reserved for future cross-margin modeling; backtest currently models
+   *  isolated-margin liquidation regardless. */
+  marginMode?: "isolated" | "cross";
 }
 
 interface PartialExitRecord {
@@ -99,6 +110,9 @@ interface OpenPosition {
   /** Entry-side fee only; exit-side fees are computed per-slice at close time. */
   fees: number;
   slippage: number;
+  /** Futures only: estimated isolated-margin liquidation price. Undefined for
+   *  spot / 1x, where liquidation can't occur. */
+  liquidationPrice?: number;
   strategyId?: string;
   strategyName?: string;
   regime?: string;
@@ -385,6 +399,15 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     symbols, timeframe, startDate, endDate, startingBalance,
     feeRate = DEFAULT_FEE_RATE, slippageRate = DEFAULT_SLIPPAGE_RATE,
   } = params;
+
+  // Futures leverage modeling. Leverage affects ONLY liquidation risk here,
+  // not position size — matching the live engine's notional-based sizing (see
+  // futuresMath.ts). Spot (default) leaves leverage at 1 → no liquidation and
+  // zero behavior change from before this feature.
+  const isFutures = params.marketType === "futures";
+  const leverage = isFutures ? Math.max(1, Math.floor(params.leverage ?? 1)) : 1;
+  const modelsLiquidation = isFutures && leverage > 1;
+  let liquidationRejectedEntries = 0; // entries the live liquidation guard would refuse
 
   // Diagnostic checkpoint 1: exactly what runBacktest() received, before
   // anything else touches it. Compare against the route's log of what the
@@ -696,6 +719,17 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         if (stopTouched && pos.trailingStopActive) candidates.push({ key: "trailing_stop", reason: stopLabel, exitPrice: pos.slPrice * closeSlippageMult });
         if (targetTouched) candidates.push({ key: "take_profit", reason: "take_profit", exitPrice: pos.tpPrice * closeSlippageMult });
         if (timedOut) candidates.push({ key: "timeout", reason: "timeout", exitPrice: currentCandle[4] * closeSlippageMult });
+        // Futures liquidation: a forced close at the liquidation price (loss ≈
+        // the posted margin). The entry guard keeps the stop INSIDE the
+        // liquidation price, so any candle reaching liquidation also reached
+        // the (closer) stop — the priority list resolves that co-touch to the
+        // stop, which fills first on the way there. Liquidation is therefore
+        // only chosen when it's the sole trigger. It's kept out of the
+        // priority list intentionally so it never pre-empts a nearer stop.
+        if (pos.liquidationPrice !== undefined) {
+          const liqTouched = isShort ? high >= pos.liquidationPrice : low <= pos.liquidationPrice;
+          if (liqTouched) candidates.push({ key: "liquidation", reason: "liquidation", exitPrice: pos.liquidationPrice * closeSlippageMult });
+        }
 
         let chosen: Candidate | null = null;
         if (candidates.length === 1) {
@@ -865,6 +899,21 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       const realSlPrice = isShortSignal ? fillPrice + slDistance : fillPrice - slDistance;
       const realTpPrice = isShortSignal ? fillPrice - tpDistance : fillPrice + tpDistance;
 
+      // Futures liquidation guard (parity with live botEngine.enterTrade): a
+      // leveraged position whose stop sits too close to the liquidation price
+      // would be liquidated before the stop can protect it, so the live engine
+      // refuses the entry. Replicate that here so a too-aggressive leverage
+      // (e.g. 50x with a 1.5% stop) shows the SAME "few/no trades" outcome the
+      // live bot would produce, instead of pretending the trades happen.
+      let liquidationPrice: number | undefined;
+      if (modelsLiquidation) {
+        liquidationPrice = estimateLiquidationPrice(fillPrice, bestSignal.side, leverage);
+        if (stopTooCloseToLiquidation(realSlPrice, liquidationPrice, bestSignal.side)) {
+          liquidationRejectedEntries++;
+          continue; // live would not open this trade
+        }
+      }
+
       // Phase 7: TP1/TP2 interior-waypoint ladder — same shared formula
       // botEngine.ts uses (computeTp1Tp2Ladder in strategies/base.ts), so the
       // backtest now simulates the same staged exit structure live trading
@@ -888,6 +937,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         confidence: bestSignal.confidence,
         fees: entryFees,
         slippage: entrySlippage,
+        liquidationPrice,
         strategyId: bestSignal.strategyId,
         strategyName: bestSignal.strategyName,
         regime: bestSignal.regime,
@@ -960,6 +1010,13 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     }
 
     // ── Phase 5: Persist results (90–100%) ────────────────────────────────────
+    if (modelsLiquidation) {
+      logger.info(
+        { runId, marketType: "futures", leverage, liquidationRejectedEntries },
+        `Backtest futures mode: ${leverage}x leverage — ${liquidationRejectedEntries} entries were refused because the stop sat too close to liquidation (matches the live engine's guard).`,
+      );
+    }
+
     logger.info({ runId, trades: allTrades.length }, "Backtest: persisting results");
 
     if (cancelledRuns.has(runId)) throw new Error("cancelled");

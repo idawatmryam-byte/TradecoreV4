@@ -108,6 +108,8 @@ interface RunFormState {
   positionSizeUsdt: number;
   maxOpenPositions: number;
   dailyLossLimitUsdt: number;
+  marketType: "spot" | "futures";
+  leverage: number;
 }
 
 function defaultForm(): RunFormState {
@@ -127,6 +129,8 @@ function defaultForm(): RunFormState {
     positionSizeUsdt: 10,
     maxOpenPositions: 5,
     dailyLossLimitUsdt: 50,
+    marketType: "spot",
+    leverage: 1,
   };
 }
 
@@ -275,6 +279,42 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
             {field("Start Date", "startDate", "date")}
             {field("End Date", "endDate", "date")}
           </div>
+
+          {/* Market type + leverage (futures models liquidation) */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Market Type</label>
+              <select
+                value={form.marketType}
+                onChange={(e) => setForm((f) => ({ ...f, marketType: e.target.value as "spot" | "futures" }))}
+                className="w-full bg-background border border-border rounded px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="spot">Spot</option>
+                <option value="futures">Futures (USDⓈ-M)</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
+                Leverage {form.marketType !== "futures" && "(futures only)"}
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={125}
+                disabled={form.marketType !== "futures"}
+                value={form.leverage}
+                onChange={(e) => setForm((f) => ({ ...f, leverage: Number(e.target.value) }))}
+                className="w-full bg-background border border-border rounded px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+              />
+            </div>
+          </div>
+          {form.marketType === "futures" && (
+            <p className="text-[11px] text-muted-foreground -mt-2">
+              Leverage models liquidation risk only, not position size (matches the live engine). A stop too close to
+              the liquidation price is refused, exactly as the live bot would — so very high leverage may produce few or
+              no trades.
+            </p>
+          )}
 
           {/* Balance + position */}
           <div className="grid grid-cols-2 gap-3">

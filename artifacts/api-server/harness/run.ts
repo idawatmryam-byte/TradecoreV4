@@ -47,6 +47,9 @@ async function main() {
   const end = new Date(arg("end", "2025-06-01T00:00:00.000Z")!);
   const symbols = arg("symbols", "BTCUSDT,ETHUSDT,SOLUSDT")!.split(",").map((s) => s.trim());
   const startingBalance = Number(arg("balance", "1000"));
+  // Optional futures leverage modeling: --market futures --leverage 10
+  const marketType = (arg("market", "spot") as "spot" | "futures");
+  const leverage = Number(arg("leverage", "1"));
 
   const params: BacktestParams = {
     symbols,
@@ -64,6 +67,8 @@ async function main() {
     dailyLossLimitUsdt: 100,
     riskPercent: 0,
     perStrategyConfigs: true, // ← faithful: each strategy uses its own config
+    marketType,
+    leverage,
   };
 
   const [run] = await db
