@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { botConfigTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { botEngine } from "../lib/botEngine";
+import { getOrCreateEngine } from "../lib/engineRegistry";
 import {
   GetConfigResponse,
   UpdateConfigBody,
@@ -11,8 +11,41 @@ import {
 
 const router: IRouter = Router();
 
+// SSRF guard: botEngine.sendAlert() fetches this URL server-side on every
+// risk alert, so an authenticated caller could otherwise point it at
+// internal-only services (e.g. cloud instance metadata at 169.254.169.254).
+// Only blocks obvious literal loopback/private/link-local hosts — it does
+// NOT protect against DNS rebinding (a public hostname resolving to a
+// private IP at fetch time), which would need resolving+checking the IP at
+// request time in botEngine itself.
+const PRIVATE_HOSTNAME_PATTERNS = [
+  /^localhost$/i,
+  /^127\./,
+  /^0\.0\.0\.0$/,
+  /^::1$/,
+  /^169\.254\./, // link-local, includes the AWS/GCP/Azure metadata IP
+  /^10\./,
+  /^172\.(1[6-9]|2\d|3[01])\./,
+  /^192\.168\./,
+];
+
+function isSafeAlertWebhookUrl(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  const hostname = url.hostname.toLowerCase();
+  return !PRIVATE_HOSTNAME_PATTERNS.some((re) => re.test(hostname));
+}
+
 function mapConfig(c: typeof botConfigTable.$inferSelect) {
   return {
+    marketType:                c.marketType as "spot" | "futures",
+    leverage:                  c.leverage,
+    marginMode:                c.marginMode as "isolated" | "cross",
     positionSizeUsdt:          Number(c.positionSizeUsdt),
     riskPercent:               Number(c.riskPercent),
     maxOpenPositions:          c.maxOpenPositions,
@@ -30,8 +63,8 @@ function mapConfig(c: typeof botConfigTable.$inferSelect) {
   };
 }
 
-router.get("/config", async (_req, res): Promise<void> => {
-  const config = await botEngine.loadConfig();
+router.get("/config", async (req, res): Promise<void> => {
+  const config = await getOrCreateEngine(req.userId!).loadConfig();
   res.json(GetConfigResponse.parse(mapConfig(config)));
 });
 
@@ -42,12 +75,20 @@ router.put("/config", async (req, res): Promise<void> => {
     return;
   }
 
-  const existing = await botEngine.loadConfig();
+  if (parsed.data.alertWebhookUrl && !isSafeAlertWebhookUrl(parsed.data.alertWebhookUrl)) {
+    res.status(400).json({ error: "alertWebhookUrl must be a public http(s) URL (not localhost/private/link-local)" });
+    return;
+  }
+
+  const existing = await getOrCreateEngine(req.userId!).loadConfig();
   const u = parsed.data;
 
   const [updated] = await db
     .update(botConfigTable)
     .set({
+      ...(u.marketType                !== undefined && { marketType:                 u.marketType }),
+      ...(u.leverage                  !== undefined && { leverage:                   u.leverage }),
+      ...(u.marginMode                !== undefined && { marginMode:                 u.marginMode }),
       ...(u.positionSizeUsdt          !== undefined && { positionSizeUsdt:          String(u.positionSizeUsdt) }),
       ...(u.riskPercent               !== undefined && { riskPercent:               String(u.riskPercent) }),
       ...(u.maxOpenPositions          !== undefined && { maxOpenPositions:           u.maxOpenPositions }),

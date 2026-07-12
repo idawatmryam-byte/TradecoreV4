@@ -10,7 +10,7 @@ A Binance Spot algorithmic trading bot dashboard with real-time scanner, adaptiv
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: see `.env.example` — `DATABASE_URL`, `BINANCE_API_KEY`/`BINANCE_API_SECRET`, `API_AUTH_TOKEN`, `SESSION_SECRET` (production only). Server refuses to boot if any are missing/invalid (`lib/env.ts`).
+- Required env: see `.env.example` — `DATABASE_URL`, `BINANCE_API_KEY`/`BINANCE_API_SECRET`, `OPERATOR_USERNAME`/`OPERATOR_PASSWORD`, `SESSION_SECRET` (production only). Server refuses to boot if any are missing/invalid (`lib/env.ts`).
 
 ## Stack
 
@@ -38,7 +38,7 @@ A Binance Spot algorithmic trading bot dashboard with real-time scanner, adaptiv
 - Startup reconciliation (Phase 5B): on every `start()`, before the scan loop begins, the bot compares Exchange ⟷ Database ⟷ in-memory order tracking for every DB "open" trade, restores in-memory order-ID tracking (which is otherwise empty after any restart), re-places protection if a position is found completely unprotected, and closes (reason `reconciled_missing`) any DB-open trade the exchange balance no longer backs. See `botEngine.reconcileOnStartup()`.
 - Hourly stats use a single atomic upsert (ON CONFLICT DO UPDATE) to prevent double-counting.
 - All API contracts defined in OpenAPI first; codegen produces React Query hooks and Zod schemas.
-- Security (Phase 5B): every route except `/healthz` and `/auth/*` requires a session cookie (web dashboard, via `POST /auth/login`) or `Authorization: Bearer <API_AUTH_TOKEN>` (scripts). Single shared operator credential, not multi-user RBAC — see `middleware/auth.ts`. CORS is an explicit allow-list (`ALLOWED_ORIGINS`, empty by default), not `cors()` with no options.
+- Security (Phase 5B): every route except `/healthz` and `/auth/*` requires a session cookie (web dashboard, via `POST /auth/login`) or `Authorization: Basic <base64(username:password)>` (scripts). Single shared operator username/password, not multi-user RBAC — see `middleware/auth.ts`. CORS is an explicit allow-list (`ALLOWED_ORIGINS`, empty by default), not `cors()` with no options.
 
 ## Product
 

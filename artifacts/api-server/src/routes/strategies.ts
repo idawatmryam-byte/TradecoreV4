@@ -7,11 +7,11 @@
  */
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { strategyConfigsTable, backtestTradesTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { strategyConfigsTable } from "@workspace/db";
+import { sql } from "drizzle-orm";
 import { ALL_STRATEGIES, DEFAULT_STRATEGY_CONFIGS } from "../lib/strategies";
 import { loadStrategyConfigs } from "../lib/strategyConfigLoader";
-import { botEngine } from "../lib/botEngine";
+import { getOrCreateEngine } from "../lib/engineRegistry";
 import { logger } from "../lib/logger";
 import { MIN_VIABLE_TAKE_PROFIT_PERCENT } from "../lib/tradingCosts";
 
@@ -21,24 +21,27 @@ const router = Router();
 // GET /strategies
 // ---------------------------------------------------------------------------
 
-router.get("/strategies", async (_req, res) => {
+router.get("/strategies", async (req, res) => {
   try {
-    const configs = await loadStrategyConfigs();
+    const configs = await loadStrategyConfigs(req.userId!);
 
-    // Per-strategy performance from backtest_trades (lifetime)
+    // Per-strategy performance from THIS user's backtest_trades (lifetime) —
+    // joined to backtest_runs to scope by owner, since backtest_trades
+    // itself only carries run_id (see lib/db/src/schema/backtest.ts).
     const perfRows = await db.execute(sql`
       SELECT
-        strategy_id,
+        bt.strategy_id,
         COUNT(*)::int                                    AS total_trades,
-        SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END)::int   AS winning_trades,
-        SUM(CASE WHEN pnl <= 0 THEN 1 ELSE 0 END)::int  AS losing_trades,
-        COALESCE(SUM(pnl), 0)::float                     AS total_pnl,
-        COALESCE(AVG(CASE WHEN pnl > 0 THEN pnl END), 0)::float AS avg_win,
-        COALESCE(AVG(CASE WHEN pnl <= 0 THEN pnl END), 0)::float AS avg_loss,
-        COALESCE(AVG(duration_seconds), 0)::float        AS avg_duration_seconds
-      FROM backtest_trades
-      WHERE strategy_id IS NOT NULL
-      GROUP BY strategy_id
+        SUM(CASE WHEN bt.pnl > 0 THEN 1 ELSE 0 END)::int AS winning_trades,
+        SUM(CASE WHEN bt.pnl <= 0 THEN 1 ELSE 0 END)::int AS losing_trades,
+        COALESCE(SUM(bt.pnl), 0)::float                     AS total_pnl,
+        COALESCE(AVG(CASE WHEN bt.pnl > 0 THEN bt.pnl END), 0)::float AS avg_win,
+        COALESCE(AVG(CASE WHEN bt.pnl <= 0 THEN bt.pnl END), 0)::float AS avg_loss,
+        COALESCE(AVG(bt.duration_seconds), 0)::float        AS avg_duration_seconds
+      FROM backtest_trades bt
+      JOIN backtest_runs br ON br.id = bt.run_id
+      WHERE bt.strategy_id IS NOT NULL AND br.user_id = ${req.userId}
+      GROUP BY bt.strategy_id
     `);
 
     const perfMap = new Map<string, any>();
@@ -84,9 +87,9 @@ router.get("/strategies", async (_req, res) => {
 // GET /strategies/signals  — live opportunity rankings from scanner
 // ---------------------------------------------------------------------------
 
-router.get("/strategies/signals", (_req, res) => {
+router.get("/strategies/signals", (req, res) => {
   try {
-    const scannerRows = botEngine.getScannerData();
+    const scannerRows = getOrCreateEngine(req.userId!).getScannerData();
     // Return scanner data enriched with strategy info, sorted by confidence
     const signals = scannerRows
       .filter((r) => r.strategyId)
@@ -191,6 +194,7 @@ router.put("/strategies/:id", async (req, res) => {
     const [updated] = await db
       .insert(strategyConfigsTable)
       .values({
+        userId: req.userId!,
         strategyId,
         strategyName: strategy.strategyName,
         enabled:                b.enabled                !== undefined ? Boolean(b.enabled) : d.enabled,
@@ -216,7 +220,7 @@ router.put("/strategies/:id", async (req, res) => {
         exitPriority: exitPriority.join(","),
       })
       .onConflictDoUpdate({
-        target: strategyConfigsTable.strategyId,
+        target: [strategyConfigsTable.userId, strategyConfigsTable.strategyId],
         set: {
           enabled:                b.enabled                !== undefined ? Boolean(b.enabled) : undefined,
           riskPercent:            b.riskPercent            !== undefined ? String(b.riskPercent) : undefined,

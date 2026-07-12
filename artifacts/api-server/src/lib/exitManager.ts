@@ -23,6 +23,7 @@ import { tradesTable, tradePartialExitsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "./logger";
 import { normalizeExitReason, type ExitReason } from "./exitTypes";
+import { closeFuturesPositionMarket } from "./binanceFutures";
 
 // ccxt OHLCV candle: [timestamp, open, high, low, close, volume]
 type Candle = [number, number, number, number, number, number];
@@ -98,8 +99,11 @@ export class ExitManager {
       const lastCandle = candles1m[candles1m.length - 1];
       if (lastCandle) {
         const [, , high, low] = lastCandle;
-        const slTouched = low <= sl;
-        const tpTouched = high >= tp;
+        // Futures Phase: a short's SL sits ABOVE entry (hit by price rising)
+        // and TP sits BELOW entry (hit by price falling) — mirror of long.
+        const isShort = trade.side === "sell";
+        const slTouched = isShort ? high >= sl : low <= sl;
+        const tpTouched = isShort ? low <= tp : high >= tp;
         if (slTouched || tpTouched) {
           const resolved = await this.reconcilePriceTouch(ex, trade, market, orderIds, sl, tp, slTouched, tpTouched);
           exitReason = resolved.exitReason;
@@ -284,8 +288,19 @@ export class ExitManager {
     reasonOverride: string,
   ): Promise<{ exitReason: string | null; exitPrice: number | null }> {
     try {
-      const closeQty = parseFloat(ex.amountToPrecision(market, Number(trade.quantity)));
-      const order = await ex.createOrder(market, "market", "sell", closeQty);
+      // Phase 4B: after a TP1/TP2 partial close, `quantity` is the ORIGINAL
+      // size — the exchange only holds `remainingQuantity` of base asset.
+      // Selling the original quantity here gets rejected for insufficient
+      // balance, which silently defeats both the timeout exit and the
+      // unprotected-position reconciliation fallback (see closeTrade() below,
+      // which already reads remainingQuantity correctly).
+      const closeQty = parseFloat(ex.amountToPrecision(market, Number(trade.remainingQuantity ?? trade.quantity)));
+      // Futures Phase: a short position (side="sell") is closed by BUYING
+      // back; a long (side="buy", spot's only option) is closed by selling.
+      const isShort = trade.side === "sell";
+      const order = trade.marketType === "futures"
+        ? await closeFuturesPositionMarket(ex, market, isShort ? "sell" : "buy", closeQty)
+        : await ex.createOrder(market, "market", isShort ? "buy" : "sell", closeQty);
       const fillPrice = order.average ?? order.price ?? (touched ? sl : tp);
       logger.warn(
         { symbol: trade.symbol, tradeId: trade.id, fillPrice, reason: reasonOverride },
@@ -328,6 +343,12 @@ export class ExitManager {
     }
 
     const entryPrice = Number(trade.entryPrice);
+    // Futures Phase: a short (side="sell") profits when price FALLS — every
+    // directional P&L calc below multiplies by this so "profit"/"loss"
+    // always mean the same thing regardless of side. Long (side="buy",
+    // spot's only option) is unaffected (direction=1, identical to before).
+    const isShort = trade.side === "sell";
+    const direction = isShort ? -1 : 1;
     // Phase 4B: if TP1/TP2 partial closes happened, `quantity` is the ORIGINAL
     // size and `remainingQuantity` is what's actually being closed right now.
     // `stopLoss`/`takeProfit` may already reflect a break-even move, a
@@ -345,7 +366,7 @@ export class ExitManager {
 
     // ── Validation: fees, slippage, gross vs. net P/L for THIS (final) leg ────
     const legFeesUsdt = entryPrice * qty * this.host.takerFee + exitPrice * qty * this.host.takerFee;
-    const legGrossPnl = (exitPrice - entryPrice) * qty;
+    const legGrossPnl = (exitPrice - entryPrice) * qty * direction;
     const legNetPnl = legGrossPnl - legFeesUsdt;
 
     // ── Roll in any TP1/TP2 partial closes so pnl/fees reflect the WHOLE trade ─
@@ -398,11 +419,15 @@ export class ExitManager {
     }
 
     // ── Validation: expected max loss vs. actual loss (risk audit) ─────────────
-    const storedSlValid = sl > 0 && sl < entryPrice;
-    const expectedMaxLossUsdt = storedSlValid ? Math.max(0, (entryPrice - sl) * qty) : 0;
-    const actualLossUsdt = exitPrice < entryPrice ? (entryPrice - exitPrice) * qty : 0;
-    const actualProfitUsdt = exitPrice > entryPrice ? (exitPrice - entryPrice) * qty : 0;
-    const expectedProfitUsdt = Math.max(0, (tp - entryPrice) * qty);
+    // pnlPerUnit(price): positive = profit direction, negative = loss
+    // direction, regardless of long/short — see `direction` above.
+    const pnlPerUnit = (price: number) => (price - entryPrice) * direction;
+    const storedSlValid = sl > 0 && pnlPerUnit(sl) < 0;
+    const expectedMaxLossUsdt = storedSlValid ? Math.max(0, -pnlPerUnit(sl) * qty) : 0;
+    const exitPnlPerUnit = pnlPerUnit(exitPrice);
+    const actualLossUsdt = exitPnlPerUnit < 0 ? -exitPnlPerUnit * qty : 0;
+    const actualProfitUsdt = exitPnlPerUnit > 0 ? exitPnlPerUnit * qty : 0;
+    const expectedProfitUsdt = Math.max(0, pnlPerUnit(tp) * qty);
     const tolerance = Math.max(0.1, expectedMaxLossUsdt * 0.02) + feesUsdt;
     const isRiskViolation =
       storedSlValid && actualLossUsdt > 0 && expectedMaxLossUsdt > 0 && actualLossUsdt > expectedMaxLossUsdt + tolerance;

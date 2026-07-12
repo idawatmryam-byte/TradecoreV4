@@ -10,11 +10,11 @@ import {
 
 const router: IRouter = Router();
 
-router.get("/stats/summary", async (_req, res): Promise<void> => {
+router.get("/stats/summary", async (req, res): Promise<void> => {
   const closed = await db
     .select()
     .from(tradesTable)
-    .where(eq(tradesTable.status, "closed"))
+    .where(and(eq(tradesTable.userId, req.userId!), eq(tradesTable.status, "closed")))
     .orderBy(tradesTable.exitTime); // ascending: oldest→newest for correct drawdown
 
   const totalTrades = closed.length;
@@ -69,22 +69,26 @@ router.get("/stats/summary", async (_req, res): Promise<void> => {
   );
 });
 
-router.get("/stats/daily", async (_req, res): Promise<void> => {
+router.get("/stats/daily", async (req, res): Promise<void> => {
   const today = new Date();
-  const dateStr = today.toISOString().split("T")[0];
+  const dateStr = today.toISOString().split("T")[0]!;
   const startOfDay = new Date(dateStr + "T00:00:00Z");
-  const configRows = await db.select().from(botConfigTable).limit(1);
-  const dailyLossLimit = configRows.length > 0 ? Number(configRows[0].dailyLossLimitUsdt) : 10;
+  const configRows = await db.select().from(botConfigTable).where(eq(botConfigTable.userId, req.userId!)).limit(1);
+  const dailyLossLimit = configRows.length > 0 ? Number(configRows[0]!.dailyLossLimitUsdt) : 10;
 
   const closedToday = await db
     .select()
     .from(tradesTable)
-    .where(and(eq(tradesTable.status, "closed"), gte(tradesTable.exitTime, startOfDay)));
+    .where(and(
+      eq(tradesTable.userId, req.userId!),
+      eq(tradesTable.status, "closed"),
+      gte(tradesTable.exitTime, startOfDay),
+    ));
 
   const openToday = await db
     .select()
     .from(tradesTable)
-    .where(eq(tradesTable.status, "open"));
+    .where(and(eq(tradesTable.userId, req.userId!), eq(tradesTable.status, "open")));
 
   const pnls = closedToday.map((t) => Number(t.pnl ?? 0));
   const wins = pnls.filter((p) => p > 0);
@@ -93,7 +97,7 @@ router.get("/stats/daily", async (_req, res): Promise<void> => {
   const hourlyRows = await db
     .select()
     .from(hourlyStatsTable)
-    .where(eq(hourlyStatsTable.date, dateStr));
+    .where(and(eq(hourlyStatsTable.userId, req.userId!), eq(hourlyStatsTable.date, dateStr)));
 
   // Build 24-hour breakdown
   const hourlyMap = new Map(hourlyRows.map((r) => [r.hour, r]));
@@ -106,14 +110,14 @@ router.get("/stats/daily", async (_req, res): Promise<void> => {
   });
 
   // Load toxic hours
-  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]!;
   const historicHourly = await db
     .select({
       hour: hourlyStatsTable.hour,
       totalPnl: sql<number>`sum(${hourlyStatsTable.pnl})`,
     })
     .from(hourlyStatsTable)
-    .where(gte(hourlyStatsTable.date, threeDaysAgo))
+    .where(and(eq(hourlyStatsTable.userId, req.userId!), gte(hourlyStatsTable.date, threeDaysAgo)))
     .groupBy(hourlyStatsTable.hour);
 
   const toxicHours = new Set(
@@ -136,8 +140,8 @@ router.get("/stats/daily", async (_req, res): Promise<void> => {
   );
 });
 
-router.get("/stats/hourly", async (_req, res): Promise<void> => {
-  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+router.get("/stats/hourly", async (req, res): Promise<void> => {
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]!;
 
   const rows = await db
     .select({
@@ -147,7 +151,7 @@ router.get("/stats/hourly", async (_req, res): Promise<void> => {
       winCount: sql<number>`sum(${hourlyStatsTable.winCount})`,
     })
     .from(hourlyStatsTable)
-    .where(gte(hourlyStatsTable.date, threeDaysAgo))
+    .where(and(eq(hourlyStatsTable.userId, req.userId!), gte(hourlyStatsTable.date, threeDaysAgo)))
     .groupBy(hourlyStatsTable.hour);
 
   const result = Array.from({ length: 24 }, (_, h) => {

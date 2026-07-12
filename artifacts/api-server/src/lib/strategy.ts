@@ -56,6 +56,13 @@ export interface SignalRow {
   ema5AboveEma20: boolean;
   /** 1h close > EMA50(1h) */
   macroBullish: boolean;
+  /** 1h close < EMA50(1h) — Futures Phase: the short-side mirror of macroBullish. Not simply !macroBullish (both can be false exactly at EMA50). */
+  macroBearish: boolean;
+  /** Futures Phase: symmetric bearish-vote confidence (0-100), the short-side
+   *  mirror of `confidence` — computed the same way but from bearish votes
+   *  instead of bullish ones. Strategies gate short entries against this
+   *  instead of `confidence`. */
+  shortConfidence: number;
   /** Last 1m volume / 20-period rolling average */
   volumeRatio: number;
   lastPrice: number;
@@ -383,6 +390,7 @@ export function buildSignalRow(symbol: string, mtf: MultiTimeframeCandles): Sign
   const closes1h = tf1h.map((c) => c[4]);
   const ema50_1h = calcEma(closes1h, 50);
   const macroBullish = closes1h[closes1h.length - 1]! > ema50_1h;
+  const macroBearish = closes1h[closes1h.length - 1]! < ema50_1h;
 
   // ── Market regime ─────────────────────────────────────────────────────────
   const regime = detectMarketRegime(tf1m, adxVal);
@@ -505,6 +513,11 @@ export function buildSignalRow(symbol: string, mtf: MultiTimeframeCandles): Sign
   const bearishScore = votes.filter((v) => v.signal === "bearish").reduce((s, v) => s + v.weight, 0);
   const rawConf = Math.max(0, ((bullishScore - bearishScore * 0.5) / totalWeight) * 100);
   const confidence = Math.round((macroBullish ? rawConf : rawConf * 0.7) * 10) / 10;
+  // Futures Phase: mirror of the above, from the bearish side — same
+  // dampening logic (macro trend disagreeing with the signal direction
+  // knocks 30% off), so long and short signals are held to a symmetric bar.
+  const rawShortConf = Math.max(0, ((bearishScore - bullishScore * 0.5) / totalWeight) * 100);
+  const shortConfidence = Math.round((macroBearish ? rawShortConf : rawShortConf * 0.7) * 10) / 10;
 
   return {
     symbol,
@@ -513,6 +526,8 @@ export function buildSignalRow(symbol: string, mtf: MultiTimeframeCandles): Sign
     atrPercent: Math.round(atrPercent * 100) / 100,
     ema5AboveEma20: ema20_5m > ema50_5m, // API compat field — now means EMA20>EMA50 on 5m
     macroBullish,
+    macroBearish,
+    shortConfidence,
     volumeRatio: Math.round(volumeRatio * 100) / 100,
     lastPrice: Math.round(lastPrice * 10000) / 10000,
     regime,

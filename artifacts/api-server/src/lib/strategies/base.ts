@@ -51,12 +51,23 @@ export interface StrategyConfig {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Futures Phase: long/short direction. Spot is long-only (side "buy" always);
+// futures can be either. This is the semantic type strategies/exit logic work
+// in — it maps to the DB's `side` column ("buy"/"sell", the actual order
+// side used to open) at the entry/persistence boundary: long → "buy",
+// short → "sell". See lib/db/src/schema/trades.ts's `side` column comment.
+// ─────────────────────────────────────────────────────────────────────────────
+export type PositionSide = "long" | "short";
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Output of a strategy evaluation
 // ─────────────────────────────────────────────────────────────────────────────
 export interface StrategySignal {
   strategyId: string;
   strategyName: string;
   symbol: string;
+  /** Long (buy-to-open) or short (sell-to-open, futures only). */
+  side: PositionSide;
   /** Confidence 0–100, strategy-specific calculation */
   confidence: number;
   /** Human-readable entry rationale for logging / UI */
@@ -70,6 +81,10 @@ export interface StrategySignal {
   suggestedHoldingTime: number;
   /** Pre-computed quantity (units of base asset) */
   qty: number;
+  /** Net reward:risk after round-trip costs, populated centrally by the
+   *  StrategySelector (see tradingCosts.netRewardRisk) so every accepted
+   *  signal carries the auditable number the entry decision was made on. */
+  netRewardRisk?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -225,7 +240,15 @@ export function computePercentSLTP(
   entryPrice: number,
   stopLossPercent: number,
   takeProfitPercent: number,
+  side: PositionSide = "long",
 ): { slPrice: number; tpPrice: number } {
+  if (side === "short") {
+    // Mirror image of long: SL sits ABOVE entry (price rising hurts a short),
+    // TP sits BELOW entry (price falling is the short's profit direction).
+    const slPrice = entryPrice * (1 + stopLossPercent / 100);
+    const tpPrice = entryPrice * (1 - takeProfitPercent / 100);
+    return { slPrice, tpPrice };
+  }
   const slPrice = entryPrice * (1 - stopLossPercent / 100);
   const tpPrice = entryPrice * (1 + takeProfitPercent / 100);
   return { slPrice, tpPrice };
@@ -241,15 +264,19 @@ export function computeQty(
   slPrice: number,
   positionSizeUsdt: number,
   minNotional = 10,
+  side: PositionSide = "long",
 ): number {
-  // Hard guard: SL must be positive and strictly below the entry price.
-  // An invalid SL (zero ATR, miscalculation, etc.) always returns 0 so the
-  // strategy filter rejects the signal before a trade is placed.
-  if (slPrice <= 0 || slPrice >= entryPrice) return 0;
+  // Hard guard: SL must be positive and on the correct side of entry for the
+  // position direction — below entry for a long (price falling hurts it),
+  // above entry for a short (price rising hurts it). An invalid SL (zero
+  // ATR, miscalculation, etc.) always returns 0 so the strategy filter
+  // rejects the signal before a trade is placed.
+  if (slPrice <= 0) return 0;
+  if (side === "short" ? slPrice <= entryPrice : slPrice >= entryPrice) return 0;
 
   if (riskPercent > 0 && balance > 0) {
     const riskAmount = balance * (riskPercent / 100);
-    const stopDist   = entryPrice - slPrice;
+    const stopDist   = side === "short" ? slPrice - entryPrice : entryPrice - slPrice;
     const riskQty    = riskAmount / stopDist;
     // Cap to the configured USDT hard limit. When the cap kicks in, the
     // actual loss on a stop-out is proportionally less than riskAmount —
@@ -292,13 +319,22 @@ export function computeTp1Tp2Ladder(
   stratConfig: StrategyConfig,
   roundPrice: (p: number) => number = (p) => p,
   roundQty: (q: number) => number = (q) => q,
+  side: PositionSide = "long",
 ): Tp1Tp2Ladder {
   const result: Tp1Tp2Ladder = { tp1Price: 0, tp1Qty: 0, tp2Price: 0, tp2Qty: 0 };
-  const riskDistance = fillPrice - slPrice;
+  const isShort = side === "short";
+  // Risk distance is always a positive number regardless of direction — for
+  // a short, slPrice sits ABOVE fillPrice, so the subtraction order flips.
+  const riskDistance = isShort ? slPrice - fillPrice : fillPrice - slPrice;
   if (!(stratConfig.tp1RMultiple > 0) || riskDistance <= 0) return result;
 
-  const candidateTp1 = fillPrice + riskDistance * stratConfig.tp1RMultiple;
-  if (candidateTp1 >= tpPrice) return result; // TP1 must land strictly inside entry→takeProfit
+  // Long TP1 sits ABOVE fill (toward tpPrice, which is also above fill);
+  // short TP1 sits BELOW fill (toward tpPrice, which is also below fill).
+  const candidateTp1 = isShort
+    ? fillPrice - riskDistance * stratConfig.tp1RMultiple
+    : fillPrice + riskDistance * stratConfig.tp1RMultiple;
+  // TP1 must land strictly inside entry→takeProfit either direction.
+  if (isShort ? candidateTp1 <= tpPrice : candidateTp1 >= tpPrice) return result;
 
   result.tp1Price = roundPrice(candidateTp1);
   // Clamp so TP1 (+TP2) can never consume the whole position — at least 10%
@@ -307,8 +343,13 @@ export function computeTp1Tp2Ladder(
   result.tp1Qty = roundQty(filledQty * (tp1Percent / 100));
 
   if (stratConfig.tp3Enabled) {
-    const candidateTp2 = fillPrice + riskDistance * stratConfig.tp2RMultiple;
-    if (candidateTp2 > candidateTp1 && candidateTp2 < tpPrice) {
+    const candidateTp2 = isShort
+      ? fillPrice - riskDistance * stratConfig.tp2RMultiple
+      : fillPrice + riskDistance * stratConfig.tp2RMultiple;
+    const tp2Valid = isShort
+      ? candidateTp2 < candidateTp1 && candidateTp2 > tpPrice
+      : candidateTp2 > candidateTp1 && candidateTp2 < tpPrice;
+    if (tp2Valid) {
       result.tp2Price = roundPrice(candidateTp2);
       const tp2Percent = Math.min(stratConfig.tp2ClosePercent, 90 - tp1Percent);
       result.tp2Qty = roundQty(filledQty * (tp2Percent / 100));

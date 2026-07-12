@@ -19,7 +19,7 @@ import {
   equityCurveTable,
   optimizationResultsTable,
 } from "@workspace/db";
-import { eq, desc, asc } from "drizzle-orm";
+import { and, eq, desc, asc } from "drizzle-orm";
 import { runBacktest, cancelBacktestRun, getTimeframeMs } from "../lib/backtestEngine";
 import { runOptimization } from "../lib/optimizer";
 import { loadStrategyConfigs } from "../lib/strategyConfigLoader";
@@ -35,10 +35,11 @@ const VALID_TIMEFRAMES = new Set(["1m","3m","5m","15m","30m","1h","4h","1d"]);
 // GET /backtests
 // ---------------------------------------------------------------------------
 
-router.get("/backtests", async (_req, res) => {
+router.get("/backtests", async (req, res) => {
   const runs = await db
     .select()
     .from(backtestRunsTable)
+    .where(eq(backtestRunsTable.userId, req.userId!))
     .orderBy(desc(backtestRunsTable.createdAt));
   res.json(runs.map(serializeRun));
 });
@@ -54,7 +55,7 @@ router.get("/backtests/:id", async (req, res) => {
   const [run] = await db
     .select()
     .from(backtestRunsTable)
-    .where(eq(backtestRunsTable.id, id));
+    .where(and(eq(backtestRunsTable.id, id), eq(backtestRunsTable.userId, req.userId!)));
   if (!run) return res.status(404).json({ error: "Run not found" });
 
   const [trades, equity, optimizations] = await Promise.all([
@@ -118,7 +119,7 @@ router.post("/backtests/preview-config", async (req, res) => {
     riskPercent: Number(b.riskPercent ?? 0),
   };
 
-  const dbConfigs = await loadStrategyConfigs();
+  const dbConfigs = await loadStrategyConfigs(req.userId!);
   const effective = buildEffectiveBacktestConfigs(dbConfigs, params);
 
   res.json({
@@ -188,7 +189,7 @@ router.post("/backtests/run", async (req, res) => {
   // so the result isn't silently misread as "the strategy doesn't work"
   // when it's really "this timeframe can't resolve trades in time."
   const candleIntervalMs = getTimeframeMs(b.timeframe as string);
-  const dbStrategyConfigsForWarning = await loadStrategyConfigs();
+  const dbStrategyConfigsForWarning = await loadStrategyConfigs(req.userId!);
   const timeframeWarnings: string[] = [];
   for (const [, cfg] of dbStrategyConfigsForWarning) {
     if (!cfg.enabled) continue;
@@ -206,6 +207,7 @@ router.post("/backtests/run", async (req, res) => {
   const [run] = await db
     .insert(backtestRunsTable)
     .values({
+      userId: req.userId!,
       symbols: symbols.join(","),
       timeframe: b.timeframe,
       startDate,
@@ -233,7 +235,7 @@ router.post("/backtests/run", async (req, res) => {
     riskPercent,
     feeRate,
     slippageRate,
-  }).catch((err) => {
+  }, req.userId!).catch((err) => {
     logger.error({ err, runId: run.id }, "Background backtest error");
   });
 
@@ -284,6 +286,7 @@ router.post("/backtests/optimize", async (req, res) => {
   const [parentRun] = await db
     .insert(backtestRunsTable)
     .values({
+      userId: req.userId!,
       strategyName: "TradeCore v1 (Optimization)",
       symbols: symbols.join(","),
       timeframe: b.timeframe,
@@ -306,7 +309,7 @@ router.post("/backtests/optimize", async (req, res) => {
     takeProfitPercents: rawTpGrid,
     positionSizeUsdts: Array.isArray(b.positionSizeUsdts) ? b.positionSizeUsdts as number[] : undefined,
     rankBy: (b.rankBy as any) ?? "profitFactor",
-  }).catch((err) => {
+  }, req.userId!).catch((err) => {
     logger.error({ err, runId: parentRun.id }, "Background optimizer error");
   });
 
@@ -325,7 +328,7 @@ router.delete("/backtests/:id", async (req, res) => {
 
   const deleted = await db
     .delete(backtestRunsTable)
-    .where(eq(backtestRunsTable.id, id))
+    .where(and(eq(backtestRunsTable.id, id), eq(backtestRunsTable.userId, req.userId!)))
     .returning();
 
   if (deleted.length === 0) return res.status(404).json({ error: "Run not found" });
@@ -346,7 +349,7 @@ router.get("/backtests/:id/export", async (req, res) => {
   const [run] = await db
     .select()
     .from(backtestRunsTable)
-    .where(eq(backtestRunsTable.id, id));
+    .where(and(eq(backtestRunsTable.id, id), eq(backtestRunsTable.userId, req.userId!)));
   if (!run) return res.status(404).json({ error: "Run not found" });
 
   const trades = await db

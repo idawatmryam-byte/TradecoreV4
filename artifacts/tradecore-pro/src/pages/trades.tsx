@@ -1,15 +1,15 @@
 import { useGetTrades, getGetTradesQueryKey, type GetTradesStatus } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge, Button } from "@/components/ui";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
-import { History, ArrowUpRight, ArrowDownRight, Filter } from "lucide-react";
+import { History, ArrowUpRight, ArrowDownRight, Filter, WifiOff } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 export function Trades() {
   const [filter, setFilter] = useState<GetTradesStatus | undefined>(undefined);
   
-  const { data: trades } = useGetTrades(
-    { status: filter, limit: 100 }, 
+  const { data: trades, isLoading, isError } = useGetTrades(
+    { status: filter, limit: 100 },
     { query: { refetchInterval: 10000, queryKey: getGetTradesQueryKey({ status: filter, limit: 100 }) } }
   );
 
@@ -76,7 +76,7 @@ export function Trades() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {trades?.map((trade) => {
+              {!isError && !isLoading && trades?.map((trade) => {
                 const isClosed = trade.status !== 'open';
                 const isProfit = (trade.pnl ?? 0) >= 0;
 
@@ -127,7 +127,23 @@ export function Trades() {
                   </TableRow>
                 );
               })}
-              {(!trades || trades.length === 0) && (
+              {isError && (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-12 text-destructive font-mono text-sm uppercase tracking-wider">
+                    <div className="flex items-center justify-center gap-2">
+                      <WifiOff className="h-4 w-4" /> Unable to load trades — check API connectivity.
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+              {!isError && isLoading && (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground font-mono text-sm uppercase tracking-wider">
+                    Loading trades…
+                  </TableCell>
+                </TableRow>
+              )}
+              {!isError && !isLoading && (!trades || trades.length === 0) && (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-12 text-muted-foreground font-mono text-sm uppercase tracking-wider">
                     No trades found matching criteria.

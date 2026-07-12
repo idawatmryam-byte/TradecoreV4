@@ -1,11 +1,11 @@
 import { Router, type IRouter } from "express";
-import { botEngine } from "../lib/botEngine";
+import { getOrCreateEngine } from "../lib/engineRegistry";
 
 const router: IRouter = Router();
 
 // Live market monitor: real ticker snapshots + exchange connection health.
-router.get("/market/live", async (_req, res): Promise<void> => {
-  res.json(botEngine.getMarketMonitor());
+router.get("/market/live", async (req, res): Promise<void> => {
+  res.json(getOrCreateEngine(req.userId!).getMarketMonitor());
 });
 
 export default router;

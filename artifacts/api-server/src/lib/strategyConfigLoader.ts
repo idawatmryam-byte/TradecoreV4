@@ -7,14 +7,15 @@
  */
 import { db } from "@workspace/db";
 import { strategyConfigsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { type StrategyConfig, DEFAULT_STRATEGY_CONFIGS, ALL_STRATEGIES } from "./strategies";
 import { logger } from "./logger";
 
 /**
- * Load all strategy configs from DB, seeding defaults for any missing entries.
- * Returns a Map<strategyId, StrategyConfig>.
+ * Load all strategy configs for one user from DB, seeding defaults for any
+ * missing entries. Returns a Map<strategyId, StrategyConfig>.
  */
-export async function loadStrategyConfigs(): Promise<Map<string, StrategyConfig>> {
+export async function loadStrategyConfigs(userId: number): Promise<Map<string, StrategyConfig>> {
   try {
     // Upsert defaults for each known strategy so they always exist in DB
     for (const strategy of ALL_STRATEGIES) {
@@ -23,6 +24,7 @@ export async function loadStrategyConfigs(): Promise<Map<string, StrategyConfig>
       await db
         .insert(strategyConfigsTable)
         .values({
+          userId,
           strategyId: strategy.strategyId,
           strategyName: strategy.strategyName,
           enabled: defaults.enabled,
@@ -47,13 +49,15 @@ export async function loadStrategyConfigs(): Promise<Map<string, StrategyConfig>
           emergencyTrailingPercent: String(defaults.emergencyTrailingPercent),
           exitPriority: defaults.exitPriority.join(","),
         })
-        .onConflictDoNothing(); // don't overwrite user-edited values
+        .onConflictDoNothing({
+          target: [strategyConfigsTable.userId, strategyConfigsTable.strategyId],
+        }); // don't overwrite user-edited values
     }
   } catch (err) {
     logger.warn({ err }, "Strategy config upsert failed (non-fatal)");
   }
 
-  const rows = await db.select().from(strategyConfigsTable);
+  const rows = await db.select().from(strategyConfigsTable).where(eq(strategyConfigsTable.userId, userId));
   const map = new Map<string, StrategyConfig>();
 
   const VALID_PRIORITY_KEYS = new Set(["stop_loss", "take_profit", "trailing_stop", "timeout"]);
