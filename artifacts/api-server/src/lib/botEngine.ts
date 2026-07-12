@@ -11,16 +11,18 @@
  * - Adaptive learning: blacklist + toxic-hour filter backed by PostgreSQL
  */
 
-import { binance as BinanceExchange } from "ccxt";
+import { binance as BinanceExchange, binanceusdm as BinanceUsdmExchange } from "ccxt";
 import { db } from "@workspace/db";
 import {
   tradesTable,
   botConfigTable,
   blacklistTable,
   hourlyStatsTable,
+  tradePartialExitsTable,
 } from "@workspace/db";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
 import { logger } from "./logger";
+import { getBinanceCredentials } from "./binanceCredentials";
 import {
   buildSignalRow,
   buildSignalRowLegacy,
@@ -29,11 +31,12 @@ import {
   type MarketRegime,
   type IndicatorVote,
 } from "./strategy";
-import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig } from "./strategies";
+import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig, type PositionSide } from "./strategies";
 import { loadStrategyConfigs } from "./strategyConfigLoader";
 import { ExitManager, type OpenOrderIds } from "./exitManager";
 import { TradeManager } from "./tradeManager";
 import { placeSellOco, cancelOco } from "./binanceOco";
+import { placeFuturesStopAndTakeProfit, closeFuturesPositionMarket, configureFuturesLeverage, getLiquidationPrice } from "./binanceFutures";
 import type {
   StageStatus,
   PipelineStage,
@@ -71,6 +74,8 @@ export interface ScannerRow {
   strategyId?: string;
   strategyName?: string;
   entryReason?: string;
+  /** Futures Phase: long or short — undefined until a strategy signal exists for this symbol. */
+  side?: PositionSide;
 }
 
 export interface BotState {
@@ -96,7 +101,12 @@ export interface BotState {
 // ---------------------------------------------------------------------------
 
 class BotEngine {
-  private exchange: InstanceType<typeof BinanceExchange> | null = null;
+  // Futures Phase: spot (`binance`) and futures (`binanceusdm`) are distinct
+  // ccxt exchange classes with slightly different method surfaces (e.g. only
+  // futures has fetchPositions/setLeverage) — typed loosely here, matching
+  // the existing `ex: any` convention already used throughout
+  // ExitManager/TradeManager's host callbacks for the same reason.
+  private exchange: any = null;
   private availableMarkets: Set<string> = new Set();
   private scannerData: Map<string, ScannerRow> = new Map();
   private openOrderIds: Map<number, OpenOrderIds> = new Map();
@@ -167,11 +177,13 @@ class BotEngine {
         );
         this.sendAlert(alertMsg).catch(() => {});
       }
+      this.persistRiskPauseState().catch(() => {});
     },
     recordCleanClose: () => {
       if (this.riskViolationCount > 0) {
         logger.info({ previousCount: this.riskViolationCount }, "Risk violation counter reset: clean trade close");
         this.riskViolationCount = 0;
+        this.persistRiskPauseState().catch(() => {});
       }
     },
   });
@@ -202,21 +214,30 @@ class BotEngine {
         if (oldOrderIds?.slOrderId) await ex.cancelOrder(oldOrderIds.slOrderId, market).catch(() => {});
       }
 
-      const sellQty = parseFloat(ex.amountToPrecision(market, qty));
-      if (sellQty <= 0) return null;
-      const stopLimitPrice = parseFloat(ex.priceToPrecision(market, newStopPrice * 0.999));
+      const preciseQty = parseFloat(ex.amountToPrecision(market, qty));
+      if (preciseQty <= 0) return null;
 
-      const ocoResult = await placeSellOco(ex, market, sellQty, tp, newStopPrice, stopLimitPrice);
+      // Futures Phase: a short (side="sell") closes with a BUY; no atomic
+      // OCO exists on futures at all (see lib/binanceFutures.ts header).
+      if (trade.marketType === "futures") {
+        const positionSide = trade.side === "sell" ? "sell" : "buy";
+        const result = await placeFuturesStopAndTakeProfit(ex, market, positionSide, preciseQty, newStopPrice, tp);
+        return result ? { slOrderId: result.slOrderId, tpOrderId: result.tpOrderId } : null;
+      }
+
+      const stopLimitPrice = parseFloat(ex.priceToPrecision(market, newStopPrice * 0.999));
+      const ocoResult = await placeSellOco(ex, market, preciseQty, tp, newStopPrice, stopLimitPrice);
       if (ocoResult) {
         return { slOrderId: ocoResult.slOrderId, tpOrderId: ocoResult.tpOrderId, ocoOrderListId: ocoResult.orderListId };
       }
 
       // Fallback: independent SL-only replacement (carries the known
       // double-reservation risk — see lib/binanceOco.ts). At minimum this
-      // still protects the downside, which matters most.
+      // still protects the downside, which matters most. Spot is long-only,
+      // so this closing sell is always correct here.
       try {
         const stopPrice = parseFloat(ex.priceToPrecision(market, newStopPrice));
-        const order = await ex.createOrder(market, "stop_loss_limit", "sell", sellQty, stopLimitPrice, { stopPrice });
+        const order = await ex.createOrder(market, "stop_loss_limit", "sell", preciseQty, stopLimitPrice, { stopPrice });
         return { slOrderId: String(order.id) };
       } catch (err) {
         logger.error({ err, tradeId: trade.id, symbol: trade.symbol, newStopPrice, qty },
@@ -226,9 +247,13 @@ class BotEngine {
     },
     executePartialClose: async (ex, trade, market, qty) => {
       try {
-        const sellQty = parseFloat(ex.amountToPrecision(market, qty));
-        if (sellQty <= 0) return null;
-        const order = await ex.createOrder(market, "market", "sell", sellQty);
+        const preciseQty = parseFloat(ex.amountToPrecision(market, qty));
+        if (preciseQty <= 0) return null;
+        // Futures Phase: a short (side="sell") is partially closed by BUYING
+        // back; a long (side="buy", spot's only option) by selling.
+        const closeSide = trade.side === "sell" ? "buy" : "sell";
+        const params = trade.marketType === "futures" ? { reduceOnly: true } : undefined;
+        const order = await ex.createOrder(market, "market", closeSide, preciseQty, undefined, params);
         return order.average ?? order.price ?? null;
       } catch (err) {
         logger.error({ err, tradeId: trade.id, symbol: trade.symbol, qty }, "Partial close market order failed");
@@ -269,25 +294,31 @@ class BotEngine {
     error: null,
   };
 
+  /** Each instance is scoped to exactly one user — their own trades, config,
+   *  strategy tuning, and Binance credentials. See lib/engineRegistry.ts for
+   *  how a userId maps to its own BotEngine instance. */
+  constructor(private readonly userId: number) {}
+
   // ---------------------------------------------------------------------------
   // Exchange initialisation
   // ---------------------------------------------------------------------------
 
-  private initExchange(testnet: boolean): InstanceType<typeof BinanceExchange> {
+  private async initExchange(testnet: boolean, marketType: "spot" | "futures"): Promise<any> {
     if (this.exchange) return this.exchange;
 
-    const apiKey = process.env["BINANCE_API_KEY"];
-    const secret = process.env["BINANCE_API_SECRET"];
-
-    if (!apiKey || !secret) {
-      throw new Error("BINANCE_API_KEY and BINANCE_API_SECRET must be set");
+    const credentials = await getBinanceCredentials(this.userId);
+    if (!credentials) {
+      throw new Error(
+        "No Binance API credentials configured for this account — add them on the Settings page before starting the bot.",
+      );
     }
 
-    const ex = new BinanceExchange({
-      apiKey,
-      secret,
+    const ExchangeClass = marketType === "futures" ? BinanceUsdmExchange : BinanceExchange;
+    const ex = new ExchangeClass({
+      apiKey: credentials.apiKey,
+      secret: credentials.apiSecret,
       options: {
-        defaultType: "spot",
+        defaultType: marketType,
         adjustForTimeDifference: true,
       },
     });
@@ -351,7 +382,7 @@ class BotEngine {
     if (now - this.lastStrategyConfigLoad < this.STRATEGY_CONFIG_CACHE_MS && this.strategyConfigs.size > 0) {
       return this.strategyConfigs;
     }
-    this.strategyConfigs = await loadStrategyConfigs();
+    this.strategyConfigs = await loadStrategyConfigs(this.userId);
     this.lastStrategyConfigLoad = now;
     return this.strategyConfigs;
   }
@@ -446,7 +477,7 @@ class BotEngine {
     this.tickerPolling = true;
     const start = Date.now();
     try {
-      const tickers = await ex.fetchTickers(this.monitoredMarkets);
+      const tickers = (await ex.fetchTickers(this.monitoredMarkets)) as Record<string, any>;
       this.lastTickerLatencyMs = Date.now() - start;
       for (const [market, t] of Object.entries(tickers)) {
         const symbol = this.fromMarket(market);
@@ -579,6 +610,7 @@ class BotEngine {
               if (exitReason) {
                 const pnl = (exitPrice - entryPrice) * qty;
                 await db.insert(tradesTable).values({
+                  userId: this.userId,
                   symbol, side: "buy",
                   entryPrice: entryPrice.toFixed(8),
                   exitPrice: exitPrice.toFixed(8),
@@ -625,6 +657,7 @@ class BotEngine {
             const exitPrice = lastC[4];
             const pnl = (exitPrice - entryPrice) * qty;
             await db.insert(tradesTable).values({
+              userId: this.userId,
               symbol, side: "buy",
               entryPrice: entryPrice.toFixed(8),
               exitPrice: exitPrice.toFixed(8),
@@ -666,7 +699,12 @@ class BotEngine {
     if (this.state.running) return;
 
     const config = await this.loadConfig();
-    const ex = this.initExchange(config.testnet);
+    // Restore risk-pause state from the last run — this must NOT reset on
+    // restart, since a process crash/redeploy silently clearing a "manual
+    // reset required" safety pause would defeat its entire purpose.
+    this.riskPaused = config.riskPaused;
+    this.riskViolationCount = config.riskViolationCount;
+    const ex = await this.initExchange(config.testnet, config.marketType === "futures" ? "futures" : "spot");
 
     logger.info("Loading Binance markets…");
     await ex.loadMarkets();
@@ -698,7 +736,7 @@ class BotEngine {
     // tick against stale/empty in-memory order tracking. See
     // reconcileOnStartup()'s header comment for exactly what this fixes.
     try {
-      await this.reconcileOnStartup();
+      await this.reconcileOnStartup(config.marketType === "futures" ? "futures" : "spot");
     } catch (err) {
       // Reconciliation failing should never block the bot from starting —
       // that would turn a diagnostic safety net into an outage — but it
@@ -756,7 +794,7 @@ class BotEngine {
     this.scanning = true;
     try {
       const config = await this.loadConfig();
-      const ex = this.initExchange(config.testnet);
+      const ex = await this.initExchange(config.testnet, config.marketType === "futures" ? "futures" : "spot");
       const now = new Date();
       this.state.lastScanAt = now.toISOString();
 
@@ -769,7 +807,7 @@ class BotEngine {
       const openTrades = await db
         .select()
         .from(tradesTable)
-        .where(eq(tradesTable.status, "open"));
+        .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.status, "open")));
       this.state.openPositions = openTrades.length;
 
       // Circuit breaker
@@ -1007,9 +1045,16 @@ class BotEngine {
         // ── Stage 3: Signal (Phase 2 multi-strategy evaluation) ──────────────
         const balance = await this.getBalance();
 
-        const signals = strategySelector.evaluateSymbol(
+        let signals = strategySelector.evaluateSymbol(
           symbol, mtf, row, strategyConfigs, balance, Number(config.positionSizeUsdt)
         );
+        // Spot has no short-selling mechanism (buy-to-open is the only way to
+        // enter) — strategies always evaluate both directions, so filter out
+        // short signals here rather than duplicating a market-type check into
+        // all 6 strategy files.
+        if (config.marketType !== "futures") {
+          signals = signals.filter((s) => s.side === "long");
+        }
 
         if (signals.length === 0) {
           logger.info(
@@ -1034,6 +1079,7 @@ class BotEngine {
         signalStage.data = {
           strategyId: bestSignal.strategyId, strategyName: bestSignal.strategyName,
           confidence: bestSignal.confidence, regime: bestSignal.regime, entryReason: bestSignal.entryReason,
+          netRewardRisk: bestSignal.netRewardRisk,
         };
 
         // ── Stage 4 (cont.): post-signal risk checks ─────────────────────────
@@ -1053,7 +1099,7 @@ class BotEngine {
           );
           this.scannerData.set(symbol, {
             ...row, status: "skipped",
-            strategyId: bestSignal.strategyId, strategyName: bestSignal.strategyName,
+            strategyId: bestSignal.strategyId, strategyName: bestSignal.strategyName, side: bestSignal.side,
           });
           riskStage.status = "fail";
           riskStage.detail = `Blocked: ${bestSignal.strategyName} at max concurrent positions (${stratOpenCount}/${maxConcurrent})`;
@@ -1063,13 +1109,43 @@ class BotEngine {
         if (!qtyOk) {
           this.scannerData.set(symbol, {
             ...row, status: "skipped",
-            strategyId: bestSignal.strategyId, strategyName: bestSignal.strategyName,
+            strategyId: bestSignal.strategyId, strategyName: bestSignal.strategyName, side: bestSignal.side,
           });
           riskStage.status = "fail";
           riskStage.detail = "Blocked: position size resolves to 0 (insufficient balance for min order size)";
           record("BLOCKED", "Risk Checks", "Insufficient balance for minimum order size", bestSignal.confidence);
           continue;
         }
+
+        // Portfolio risk check (maxPortfolioRiskPercent): aggregate $ risk
+        // across every open position — using each trade's CURRENT stop, since
+        // break-even/trailing moves change the real worst-case loss over a
+        // position's life — plus this candidate's own risk, capped against a
+        // % of balance. maxOpenPositions above only caps a position COUNT;
+        // this is the only check that caps actual dollar exposure.
+        const existingRiskUsdt = openTrades.reduce((sum, t) => {
+          const qty = Number(t.remainingQuantity ?? t.quantity);
+          return sum + Math.abs(Number(t.entryPrice) - Number(t.stopLoss)) * qty;
+        }, 0);
+        const candidateRiskUsdt = Math.abs(bestSignal.entryPrice - bestSignal.suggestedSL) * bestSignal.qty;
+        const maxPortfolioRiskUsdt = balance * (Number(config.maxPortfolioRiskPercent) / 100);
+        const portfolioRiskOk = existingRiskUsdt + candidateRiskUsdt <= maxPortfolioRiskUsdt;
+        preChecks.push({
+          name: "Portfolio Risk",
+          passed: portfolioRiskOk,
+          detail: `$${(existingRiskUsdt + candidateRiskUsdt).toFixed(2)} / $${maxPortfolioRiskUsdt.toFixed(2)} max (${Number(config.maxPortfolioRiskPercent)}% of balance)`,
+        });
+        if (!portfolioRiskOk) {
+          this.scannerData.set(symbol, {
+            ...row, status: "skipped",
+            strategyId: bestSignal.strategyId, strategyName: bestSignal.strategyName, side: bestSignal.side,
+          });
+          riskStage.status = "fail";
+          riskStage.detail = `Blocked: aggregate portfolio risk ($${(existingRiskUsdt + candidateRiskUsdt).toFixed(2)}) would exceed ${Number(config.maxPortfolioRiskPercent)}% of balance ($${maxPortfolioRiskUsdt.toFixed(2)})`;
+          record("BLOCKED", "Risk Checks", "Portfolio risk limit reached", bestSignal.confidence);
+          continue;
+        }
+
         riskStage.status = "pass";
         riskStage.detail = "All risk checks passed";
 
@@ -1090,7 +1166,7 @@ class BotEngine {
 
         // ── Stage 5: Order ───────────────────────────────────────────────────
         const { entered, reason } = await this.enterTrade(
-          symbol, row, entry, config, now,
+          symbol, row, entry, config, now, bestSignal.side,
           bestSignal.strategyId, bestSignal.strategyName, stratConfig,
         );
         if (entered) this.state.openPositions++;
@@ -1100,6 +1176,7 @@ class BotEngine {
           strategyId: bestSignal.strategyId,
           strategyName: bestSignal.strategyName,
           entryReason: bestSignal.entryReason,
+          side: bestSignal.side,
         });
         if (entered) {
           orderStage.status = "pass";
@@ -1130,12 +1207,18 @@ class BotEngine {
     entry: { entryPrice: number; slPrice: number; tpPrice: number; qty: number },
     config: Awaited<ReturnType<typeof this.loadConfig>>,
     now: Date,
+    side: PositionSide,
     strategyId?: string,
     strategyName?: string,
     stratConfig?: StrategyConfig,
   ): Promise<{ entered: boolean; reason: string }> {
     const ex = this.exchange!;
     const market = this.toMarket(symbol);
+    const isShort = side === "short";
+    const isFutures = config.marketType === "futures";
+    // Order side to OPEN the position; the opposite side closes it.
+    const openSide = isShort ? "sell" : "buy";
+    const closeSide = isShort ? "buy" : "sell";
 
     try {
       const marketInfo = ex.markets[market];
@@ -1146,16 +1229,49 @@ class BotEngine {
 
       const rawQty = entry.qty;
       const qty = parseFloat(ex.amountToPrecision(market, rawQty));
+      let effectiveLeverage = config.leverage;
+
+      if (isFutures) {
+        // Leverage/margin mode must be set on the exchange before the order
+        // — Binance rejects an order whose implied notional exceeds what the
+        // account's CURRENT leverage for this symbol allows. Binance also
+        // caps leverage per symbol (varies widely by pair), so the
+        // configured value may get clamped down — use whatever was actually
+        // applied for everything below, not the requested value.
+        effectiveLeverage = await configureFuturesLeverage(
+          ex, market, config.leverage, config.marginMode === "cross" ? "cross" : "isolated",
+        );
+
+        // Margin-sufficiency pre-check: previously this relied entirely on
+        // Binance rejecting the order if the required margin didn't fit —
+        // a safety net, not a clean failure. Estimate required initial
+        // margin from the effective (post-clamp) leverage and bail with a
+        // clear, loggable reason before attempting the order if it won't
+        // fit the available free balance (small buffer for fees/slippage).
+        const estimatedNotional = qty * entry.entryPrice;
+        const requiredMargin = estimatedNotional / effectiveLeverage;
+        const freeBalance = await this.getBalance();
+        if (requiredMargin > freeBalance * 0.98) {
+          logger.warn(
+            { symbol, requiredMargin: requiredMargin.toFixed(2), freeBalance: freeBalance.toFixed(2), effectiveLeverage },
+            "Insufficient futures margin for this trade — skipping entry",
+          );
+          return {
+            entered: false,
+            reason: `Insufficient margin: needs ~$${requiredMargin.toFixed(2)} at ${effectiveLeverage}x, only $${freeBalance.toFixed(2)} available`,
+          };
+        }
+      }
 
       const estimatedUsdt = qty * entry.entryPrice;
       logger.info(
-        { symbol, qty, estimatedUsdt: estimatedUsdt.toFixed(2) },
-        "Placing market BUY"
+        { symbol, side, qty, estimatedUsdt: estimatedUsdt.toFixed(2), marketType: config.marketType },
+        `Placing market ${openSide.toUpperCase()} (${side})`
       );
-      const buyOrder = await ex.createOrder(market, "market", "buy", qty);
+      const openOrder = await ex.createOrder(market, "market", openSide, qty);
 
-      const fillPrice = buyOrder.average ?? buyOrder.price ?? entry.entryPrice;
-      const filledQty = buyOrder.filled ?? qty;
+      const fillPrice = openOrder.average ?? openOrder.price ?? entry.entryPrice;
+      const filledQty = openOrder.filled ?? qty;
 
       // ── FIX (bug #1 / #2): use the STRATEGY's own SL/TP, not a generic
       // ATR recompute ─────────────────────────────────────────────────────
@@ -1172,24 +1288,46 @@ class BotEngine {
       // Fix: preserve the strategy's intended risk distance (entry → SL) and
       // reward distance (entry → TP) in absolute price terms, then shift
       // both by the entry slippage (signal price vs. actual fill price) so
-      // they stay anchored to what was actually filled.
+      // they stay anchored to what was actually filled. Futures Phase: for a
+      // short, SL sits ABOVE entry and TP sits BELOW — the distances below
+      // are still always positive magnitudes; only the +/- when reapplying
+      // to fillPrice flips.
       const signalEntry = entry.entryPrice;
-      const slDistance = signalEntry - entry.slPrice; // intended risk ($/unit)
-      const tpDistance = entry.tpPrice - signalEntry;  // intended reward ($/unit)
+      const slDistance = isShort ? entry.slPrice - signalEntry : signalEntry - entry.slPrice; // intended risk ($/unit)
+      const tpDistance = isShort ? signalEntry - entry.tpPrice : entry.tpPrice - signalEntry;  // intended reward ($/unit)
 
-      const realSl = fillPrice - slDistance;
-      const realTp = fillPrice + tpDistance;
+      const realSl = isShort ? fillPrice + slDistance : fillPrice - slDistance;
+      const realTp = isShort ? fillPrice - tpDistance : fillPrice + tpDistance;
 
       // ── Phase 2.5: SL/TP validity guard — close immediately if invalid ────────
       // An invalid SL/TP after a real fill means we cannot protect the position.
-      // Execute an immediate market sell rather than leave capital unprotected.
-      const slIsValid = realSl > 0 && realSl < fillPrice;
-      const tpIsValid = realTp > fillPrice;
+      // Execute an immediate market close rather than leave capital unprotected.
+      const slIsValid = isShort ? realSl > fillPrice : (realSl > 0 && realSl < fillPrice);
+      const tpIsValid = isShort ? (realTp > 0 && realTp < fillPrice) : realTp > fillPrice;
 
-      if (!slIsValid || !tpIsValid) {
+      // Futures Phase: a leveraged position can be liquidated before its SL
+      // ever triggers if the SL is placed beyond (or too close to) the
+      // exchange-computed liquidation price. Checked only after a real fill,
+      // since liquidation price isn't known until the position exists.
+      let liquidationPrice: number | null = null;
+      let liquidationIsUnsafe = false;
+      if (isFutures) {
+        liquidationPrice = await getLiquidationPrice(ex, market);
+        if (liquidationPrice !== null) {
+          // Require at least a 5% buffer between SL and liquidation so normal
+          // price noise around the SL trigger can't cross into liquidation
+          // territory first.
+          const buffer = 1.05;
+          liquidationIsUnsafe = isShort
+            ? realSl > liquidationPrice / buffer
+            : realSl < liquidationPrice * buffer;
+        }
+      }
+
+      if (!slIsValid || !tpIsValid || liquidationIsUnsafe) {
         logger.error(
           {
-            symbol,
+            symbol, side,
             fillPrice:  fillPrice.toFixed(6),
             realSl:     realSl.toFixed(8),
             realTp:     realTp.toFixed(8),
@@ -1197,12 +1335,15 @@ class BotEngine {
             tpDistance: tpDistance.toFixed(8),
             slIsValid,
             tpIsValid,
+            liquidationPrice,
+            liquidationIsUnsafe,
           },
-          "RISK GUARD: computed SL/TP invalid after fill — executing immediate market close to protect capital"
+          "RISK GUARD: computed SL/TP invalid (or too close to liquidation) after fill — executing immediate market close to protect capital"
         );
         try {
           const closeQty = parseFloat(ex.amountToPrecision(market, filledQty));
-          const closeOrder = await ex.createOrder(market, "market", "sell", closeQty);
+          const closeParams = isFutures ? { reduceOnly: true } : undefined;
+          const closeOrder = await ex.createOrder(market, "market", closeSide, closeQty, undefined, closeParams);
           logger.warn(
             { symbol, closeOrderId: closeOrder.id, qty: closeQty },
             "RISK GUARD: position closed immediately — no trade recorded"
@@ -1213,23 +1354,27 @@ class BotEngine {
             "RISK GUARD: failed to close unprotected position — MANUAL INTERVENTION REQUIRED"
           );
         }
-        return { entered: false, reason: "Risk guard: computed SL/TP invalid after fill — position closed immediately" };
+        const reason = liquidationIsUnsafe
+          ? "Risk guard: stop-loss too close to the exchange's liquidation price — position closed immediately"
+          : "Risk guard: computed SL/TP invalid after fill — position closed immediately";
+        return { entered: false, reason };
       }
 
       const tpPrice = parseFloat(ex.priceToPrecision(market, realTp));
       const slPrice = parseFloat(ex.priceToPrecision(market, realSl));
-      const slLimitPrice = parseFloat(ex.priceToPrecision(market, realSl * 0.999));
+      const slLimitPrice = parseFloat(ex.priceToPrecision(market, isShort ? realSl * 1.001 : realSl * 0.999));
 
       // ── Phase 4B: compute TP1 / (optional) TP2 interior waypoints ────────────
       // Both are R-multiples of the same entry→SL distance the position was
       // risk-sized against. Either is only enabled when it lands strictly
       // between the entry and the strategy's own final `takeProfit` — never
-      // beyond it — so the ladder is always entry < tp1 < tp2 < takeProfit.
-      // These are TICK-CHECKED TRIGGERS (see TradeManager), not resting
-      // exchange orders — a Binance OCO's two legs must share one quantity,
-      // so there's no valid resting order shape for "SL protects everything,
-      // TP1/TP2 carve out smaller slices" at the same time. See CHANGES.md /
-      // lib/binanceOco.ts for the full reasoning.
+      // beyond it — so the ladder is always entry < tp1 < tp2 < takeProfit
+      // (or the mirror order for a short). These are TICK-CHECKED TRIGGERS
+      // (see TradeManager), not resting exchange orders — a Binance spot OCO's
+      // two legs must share one quantity (and futures has no atomic OCO at
+      // all), so there's no valid resting order shape for "SL protects
+      // everything, TP1/TP2 carve out smaller slices" at the same time. See
+      // CHANGES.md / lib/binanceOco.ts for the full reasoning.
       //
       // Phase 7: this formula now lives once, in strategies/base.ts
       // (computeTp1Tp2Ladder), shared with backtestEngine.ts's simulation —
@@ -1240,19 +1385,23 @@ class BotEngine {
             fillPrice, slPrice, tpPrice, filledQty, stratConfig,
             (p) => parseFloat(ex.priceToPrecision(market, p)),
             (q) => parseFloat(ex.amountToPrecision(market, q)),
+            side,
           )
         : { tp1Price: 0, tp1Qty: 0, tp2Price: 0, tp2Qty: 0 };
       const { tp1Price, tp1Qty, tp2Price, tp2Qty } = ladder;
 
-      const slPercent = ((fillPrice - slPrice) / fillPrice) * 100;
-      const tpPercent = ((tpPrice - fillPrice) / fillPrice) * 100;
-      const riskUsdt = (fillPrice - slPrice) * filledQty;
-      const expectedMaxLossUsdt = Math.max(0, (fillPrice - slPrice) * filledQty);
+      const slPercent = (Math.abs(fillPrice - slPrice) / fillPrice) * 100;
+      const tpPercent = (Math.abs(tpPrice - fillPrice) / fillPrice) * 100;
+      const riskUsdt = Math.abs(fillPrice - slPrice) * filledQty;
+      const expectedMaxLossUsdt = riskUsdt;
 
       // ── Structured acceptance log ─────────────────────────────────────────
       logger.info(
         {
           symbol,
+          side,
+          marketType: config.marketType,
+          ...(isFutures && { leverage: effectiveLeverage, marginMode: config.marginMode, liquidationPrice }),
           strategy: strategyName ?? "legacy",
           confidence: row.confidence,
           regime: row.regime,
@@ -1278,8 +1427,12 @@ class BotEngine {
       const [trade] = await db
         .insert(tradesTable)
         .values({
+          userId: this.userId,
           symbol,
-          side: "buy",
+          side: openSide,
+          marketType: config.marketType,
+          ...(isFutures && { leverage: effectiveLeverage, marginMode: config.marginMode }),
+          ...(liquidationPrice !== null && { liquidationPrice: liquidationPrice.toFixed(8) }),
           entryPrice: fillPrice.toFixed(8),
           quantity: filledQty.toFixed(8),
           status: "open",
@@ -1302,43 +1455,57 @@ class BotEngine {
         })
         .returning();
 
-      // Phase 4B/OCO-fix: the SL and final take-profit are placed as ONE
-      // atomic Binance OCO order for the FULL filled qty — not the
-      // post-TP1/TP2 remainder — because a real OCO requires both legs to
-      // share one quantity. TP1/TP2 are tick-checked triggers (see
-      // TradeManager): when hit, it cancels this OCO, market-sells the
-      // slice, and re-places a fresh OCO for whatever remains. This is the
-      // only way to avoid two resting orders competing for the same locked
-      // balance (see lib/binanceOco.ts for the full verified API details).
       let tpOrderId = "";
       let slOrderId = "";
       let ocoOrderListId = "";
 
-      const ocoResult = await placeSellOco(ex, market, filledQty, tpPrice, slPrice, slLimitPrice);
-      if (ocoResult) {
-        tpOrderId = ocoResult.tpOrderId;
-        slOrderId = ocoResult.slOrderId;
-        ocoOrderListId = ocoResult.orderListId;
-      } else {
-        // Fallback: independent orders. Carries the known double-reservation
-        // risk documented in CHANGES.md/ARCHITECTURE.md — only reached if
-        // this ccxt build doesn't expose the raw orderList/oco endpoint.
-        const sellQty = parseFloat(ex.amountToPrecision(market, filledQty));
-        try {
-          const tpOrder = await ex.createOrder(market, "limit", "sell", sellQty, tpPrice);
-          tpOrderId = String(tpOrder.id);
-        } catch (tpErr) {
-          logger.warn({ err: tpErr, symbol, tradeId: trade!.id },
-            "TP order placement failed — position monitored by price");
+      if (isFutures) {
+        // Futures Phase: no atomic OCO exists on USDⓈ-M Futures — always two
+        // independent reduceOnly orders (STOP_MARKET + TAKE_PROFIT_MARKET).
+        // ExitManager already treats a missing ocoOrderListId as "cancel the
+        // other leg on fill" (its independent-orders fallback path for spot),
+        // which is exactly correct here too — no changes needed there.
+        const result = await placeFuturesStopAndTakeProfit(ex, market, openSide, filledQty, slPrice, tpPrice);
+        if (result) {
+          slOrderId = result.slOrderId;
+          tpOrderId = result.tpOrderId;
         }
-        try {
-          const slOrder = await ex.createOrder(market, "stop_loss_limit", "sell", sellQty, slLimitPrice, {
-            stopPrice: slPrice,
-          });
-          slOrderId = String(slOrder.id);
-        } catch (slErr) {
-          logger.warn({ err: slErr, symbol, tradeId: trade!.id },
-            "SL order placement failed — position monitored by price");
+      } else {
+        // Phase 4B/OCO-fix: the SL and final take-profit are placed as ONE
+        // atomic Binance OCO order for the FULL filled qty — not the
+        // post-TP1/TP2 remainder — because a real OCO requires both legs to
+        // share one quantity. TP1/TP2 are tick-checked triggers (see
+        // TradeManager): when hit, it cancels this OCO, market-sells the
+        // slice, and re-places a fresh OCO for whatever remains. This is the
+        // only way to avoid two resting orders competing for the same locked
+        // balance (see lib/binanceOco.ts for the full verified API details).
+        // Spot is long-only, so this path never runs for a short.
+        const ocoResult = await placeSellOco(ex, market, filledQty, tpPrice, slPrice, slLimitPrice);
+        if (ocoResult) {
+          tpOrderId = ocoResult.tpOrderId;
+          slOrderId = ocoResult.slOrderId;
+          ocoOrderListId = ocoResult.orderListId;
+        } else {
+          // Fallback: independent orders. Carries the known double-reservation
+          // risk documented in CHANGES.md/ARCHITECTURE.md — only reached if
+          // this ccxt build doesn't expose the raw orderList/oco endpoint.
+          const sellQty = parseFloat(ex.amountToPrecision(market, filledQty));
+          try {
+            const tpOrder = await ex.createOrder(market, "limit", closeSide, sellQty, tpPrice);
+            tpOrderId = String(tpOrder.id);
+          } catch (tpErr) {
+            logger.warn({ err: tpErr, symbol, tradeId: trade!.id },
+              "TP order placement failed — position monitored by price");
+          }
+          try {
+            const slOrder = await ex.createOrder(market, "stop_loss_limit", closeSide, sellQty, slLimitPrice, {
+              stopPrice: slPrice,
+            });
+            slOrderId = String(slOrder.id);
+          } catch (slErr) {
+            logger.warn({ err: slErr, symbol, tradeId: trade!.id },
+              "SL order placement failed — position monitored by price");
+          }
         }
       }
 
@@ -1368,10 +1535,10 @@ class BotEngine {
       return {
         entered: true,
         reason: bothPlaced
-          ? "market BUY filled, TP + SL protection placed"
+          ? `market ${openSide.toUpperCase()} filled, TP + SL protection placed`
           : neitherPlaced
-            ? "market BUY filled, price-based exit monitoring (TP/SL orders failed)"
-            : "market BUY filled, partial exchange protection",
+            ? `market ${openSide.toUpperCase()} filled, price-based exit monitoring (TP/SL orders failed)`
+            : `market ${openSide.toUpperCase()} filled, partial exchange protection`,
       };
     } catch (err) {
       logger.error({ err, symbol }, "Failed to enter trade");
@@ -1399,13 +1566,58 @@ class BotEngine {
   ): Promise<void> {
     const ex = this.exchange!;
     const market = this.toMarket(trade.symbol);
-    const orderIds = this.openOrderIds.get(trade.id);
+    let orderIds = this.openOrderIds.get(trade.id);
+
+    // Futures Phase: liquidation proximity is only checked once, right after
+    // entry (enterTrade's "RISK GUARD" check) — but for an already-OPEN
+    // futures position that check goes stale immediately, especially under
+    // cross margin, where liquidation price depends on the whole account's
+    // positions, not just this one. Re-verify the same 5% buffer every scan
+    // cycle against the CURRENT stop (post break-even/trailing moves) and
+    // force-flatten if it's been breached — losing the position to our own
+    // market order beats losing it to the exchange's liquidation engine.
+    if (trade.marketType === "futures") {
+      const liquidationPrice = await getLiquidationPrice(ex, market);
+      if (liquidationPrice !== null) {
+        const isShort = trade.side === "sell";
+        const currentStop = Number(trade.stopLoss);
+        const buffer = 1.05;
+        const liquidationIsUnsafe = isShort
+          ? currentStop > liquidationPrice / buffer
+          : currentStop < liquidationPrice * buffer;
+        if (liquidationIsUnsafe) {
+          logger.error(
+            { tradeId: trade.id, symbol: trade.symbol, currentStop, liquidationPrice },
+            "LIQUIDATION RISK: open position's stop is now too close to the exchange's liquidation price — force-flattening",
+          );
+          const outcome = await this.exitManager.closeManually(ex, trade, market, now, cooldownMinutes, "emergency_stop");
+          if (outcome.closed) {
+            this.openOrderIds.delete(trade.id);
+            await this.sendAlert(
+              `🚨 ${trade.symbol} force-closed — stop-loss drifted too close to the liquidation price ($${liquidationPrice.toFixed(4)}). Position flattened to protect capital.`,
+            );
+          }
+          return;
+        }
+      }
+    }
 
     // Phase 4B: TP1/TP2 partial closes, break-even move, and trailing stops
     // run first — they only ever narrow risk or reduce size, never fully
     // close. Re-fetch the trade afterward since TradeManager may have updated
     // stopLoss/takeProfit/remainingQuantity directly in the DB.
-    await this.tradeManager.manage(ex, trade, market, candles1m, stratConfig, orderIds);
+    //
+    // manage() returns the OpenOrderIds that should now be tracked — this
+    // MUST be persisted back into openOrderIds rather than discarded, since
+    // if entry-time protection placement had fully failed (no map entry
+    // existed), a later successful re-protection here is the only place that
+    // order id is ever recorded. Previously this was dropped on the floor,
+    // leaving the bot treating the trade as unprotected on every later tick.
+    const updatedOrderIds = await this.tradeManager.manage(ex, trade, market, candles1m, stratConfig, orderIds);
+    if (updatedOrderIds) {
+      this.openOrderIds.set(trade.id, updatedOrderIds);
+      orderIds = updatedOrderIds;
+    }
     const current = (await db.select().from(tradesTable).where(eq(tradesTable.id, trade.id)))[0];
     if (!current || current.status !== "open") return; // TradeManager can't fully close, but guard anyway
 
@@ -1447,20 +1659,32 @@ class BotEngine {
   // price/strategy/risk profile for a position this bot didn't itself open
   // is worse than loudly alerting and leaving it for a human to look at.
   // ---------------------------------------------------------------------------
-  private async reconcileOnStartup(): Promise<void> {
+  private async reconcileOnStartup(marketType: "spot" | "futures"): Promise<void> {
     const ex = this.exchange!;
-    const openTrades = await db.select().from(tradesTable).where(eq(tradesTable.status, "open"));
+    const openTrades = await db
+      .select()
+      .from(tradesTable)
+      .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.status, "open")));
 
     if (openTrades.length === 0) {
       logger.info("Startup reconciliation: no open trades in the database — nothing to reconcile");
     } else {
       logger.info({ count: openTrades.length }, "Startup reconciliation: verifying exchange state for open trades");
 
+      // Futures Phase: the "DB says open but exchange balance doesn't back
+      // it" check below is inherently spot-shaped — it reads the SPOT wallet's
+      // base-asset balance, which has nothing to do with a futures position
+      // (margin-backed, tracked via fetchPositions, not a wallet balance of
+      // the coin itself). For futures, skip straight to re-verifying/
+      // re-placing resting orders — still a real safety net, just narrower
+      // than spot's until a futures-native missing-position check is added.
       let balance: any;
-      try {
-        balance = await ex.fetchBalance();
-      } catch (err) {
-        logger.error({ err }, "Startup reconciliation: fetchBalance failed — cannot verify open trades against the exchange this cycle; will retry protective-order recovery only, using tracked quantities");
+      if (marketType === "spot") {
+        try {
+          balance = await ex.fetchBalance();
+        } catch (err) {
+          logger.error({ err }, "Startup reconciliation: fetchBalance failed — cannot verify open trades against the exchange this cycle; will retry protective-order recovery only, using tracked quantities");
+        }
       }
 
       for (const trade of openTrades) {
@@ -1484,7 +1708,9 @@ class BotEngine {
       logger.info("Startup reconciliation: open-trade pass complete");
     }
 
-    await this.detectUntrackedPositions(openTrades);
+    if (marketType === "spot") {
+      await this.detectUntrackedPositions(openTrades);
+    }
   }
 
   /** DB says open, exchange balance says otherwise — closed while the bot was
@@ -1501,23 +1727,38 @@ class BotEngine {
       "RECONCILE_MISMATCH: DB shows an open position the exchange balance doesn't back — it closed while the bot was offline",
     );
 
+    // The order side that CLOSES this position — sell for a long, buy for a short.
+    const closingSide = trade.side === "sell" ? "buy" : "sell";
     let exitPrice = Number(trade.entryPrice);
     let priceSource = "entryPrice (no trade history available — verify manually)";
     try {
       const ex = this.exchange!;
       const myTrades: any[] = await ex.fetchMyTrades(market, undefined, 20);
       const entryTime = new Date(trade.entryTime).getTime();
-      const sells = myTrades.filter((t) => t.side === "sell" && t.timestamp >= entryTime);
+      const sells = myTrades.filter((t) => t.side === closingSide && t.timestamp >= entryTime);
       const qty = sells.reduce((s, t) => s + Number(t.amount), 0);
       if (qty > 0) {
         exitPrice = sells.reduce((s, t) => s + Number(t.amount) * Number(t.price), 0) / qty;
-        priceSource = `weighted average of ${sells.length} sell fill(s) since entry`;
+        priceSource = `weighted average of ${sells.length} closing ${closingSide} fill(s) since entry`;
       }
     } catch (err) {
       logger.warn({ err, tradeId: trade.id }, "RECONCILE_MISMATCH: fetchMyTrades failed — falling back to entryPrice as a neutral placeholder");
     }
 
-    const pnl = (exitPrice - Number(trade.entryPrice)) * trackedQty;
+    // Roll in any TP1/TP2 partial closes so pnl reflects the WHOLE trade, not
+    // just the remaining (post-partial) tranche — mirrors ExitManager.closeTrade().
+    // Without this, a trade that took a profitable TP1 fill before the bot
+    // went offline silently loses that profit from dailyPnl (circuit breaker)
+    // and from the win-rate stats that drive blacklisting.
+    const partials = await db
+      .select()
+      .from(tradePartialExitsTable)
+      .where(eq(tradePartialExitsTable.tradeId, trade.id));
+    const partialsNetPnl = partials.reduce((s, p) => s + Number(p.pnl), 0);
+
+    const isShort = trade.side === "sell";
+    const legPnl = (isShort ? Number(trade.entryPrice) - exitPrice : exitPrice - Number(trade.entryPrice)) * trackedQty;
+    const pnl = legPnl + partialsNetPnl;
     await db
       .update(tradesTable)
       .set({
@@ -1547,24 +1788,34 @@ class BotEngine {
     trackedQty: number,
   ): Promise<void> {
     const ex = this.exchange!;
+    const isShort = trade.side === "sell";
+    const isFutures = trade.marketType === "futures";
+    // The order side that CLOSES this position — opposite of how it opened.
+    const closingSide = isShort ? "buy" : "sell";
     try {
       const openOrders: any[] = await ex.fetchOpenOrders(market);
-      const sellOrders = openOrders.filter((o) => o.side === "sell");
+      const closingOrders = openOrders.filter((o) => o.side === closingSide);
 
-      if (sellOrders.length === 0) {
+      if (closingOrders.length === 0) {
         logger.error(
           { tradeId: trade.id, symbol: trade.symbol },
-          "RECONCILE_UNPROTECTED: open position confirmed on the exchange but NO resting sell orders exist — position has zero exchange-side protection. Re-placing now.",
+          `RECONCILE_UNPROTECTED: open position confirmed on the exchange but NO resting ${closingSide} orders exist — position has zero exchange-side protection. Re-placing now.`,
         );
-        const stopLimitPrice = parseFloat(ex.priceToPrecision(market, Number(trade.stopLoss) * 0.999));
-        const ocoResult = await placeSellOco(
-          ex, market, trackedQty, Number(trade.takeProfit), Number(trade.stopLoss), stopLimitPrice,
-        );
+        let ocoResult: { tpOrderId: string; slOrderId: string; orderListId?: string } | null = null;
+        if (isFutures) {
+          ocoResult = await placeFuturesStopAndTakeProfit(ex, market, isShort ? "sell" : "buy", trackedQty, Number(trade.stopLoss), Number(trade.takeProfit));
+        } else {
+          const stopLimitPrice = parseFloat(ex.priceToPrecision(market, Number(trade.stopLoss) * 0.999));
+          ocoResult = await placeSellOco(
+            ex, market, trackedQty, Number(trade.takeProfit), Number(trade.stopLoss), stopLimitPrice,
+          );
+        }
         if (ocoResult) {
           this.openOrderIds.set(trade.id, {
-            tpOrderId: ocoResult.tpOrderId, slOrderId: ocoResult.slOrderId, ocoOrderListId: ocoResult.orderListId,
+            tpOrderId: ocoResult.tpOrderId, slOrderId: ocoResult.slOrderId,
+            ...(ocoResult.orderListId && { ocoOrderListId: ocoResult.orderListId }),
           });
-          logger.info({ tradeId: trade.id }, "RECONCILE: re-placed protective OCO for a previously-unprotected position");
+          logger.info({ tradeId: trade.id }, "RECONCILE: re-placed protective orders for a previously-unprotected position");
           await this.sendAlert(
             `🚨 RECONCILIATION: trade #${trade.id} (${trade.symbol}) had NO exchange-side stop/take-profit on restart. ` +
               `Protection has been re-placed automatically. Please review why the original orders were missing.`,
@@ -1578,12 +1829,12 @@ class BotEngine {
         return;
       }
 
-      // Group by Binance's orderListId when present (true OCO); otherwise fall
-      // back to distinguishing the independent-orders fallback path by type.
-      const withList = sellOrders.find((o) => o.info?.orderListId && String(o.info.orderListId) !== "-1");
+      // Group by Binance's orderListId when present (true OCO — spot only,
+      // futures never has one); otherwise fall back to distinguishing by type.
+      const withList = closingOrders.find((o) => o.info?.orderListId && String(o.info.orderListId) !== "-1");
       if (withList) {
         const listId = String(withList.info.orderListId);
-        const legs = sellOrders.filter((o) => String(o.info?.orderListId) === listId);
+        const legs = closingOrders.filter((o) => String(o.info?.orderListId) === listId);
         const tp = legs.find((o) => !String(o.type).includes("stop"));
         const sl = legs.find((o) => String(o.type).includes("stop"));
         this.openOrderIds.set(trade.id, {
@@ -1592,15 +1843,15 @@ class BotEngine {
           slOrderId: sl ? String(sl.id) : "",
         });
       } else {
-        const tp = sellOrders.find((o) => !String(o.type).includes("stop"));
-        const sl = sellOrders.find((o) => String(o.type).includes("stop"));
+        const tp = closingOrders.find((o) => !String(o.type).toLowerCase().includes("stop"));
+        const sl = closingOrders.find((o) => String(o.type).toLowerCase().includes("stop"));
         this.openOrderIds.set(trade.id, {
           tpOrderId: tp ? String(tp.id) : "",
           slOrderId: sl ? String(sl.id) : "",
         });
       }
       logger.info(
-        { tradeId: trade.id, symbol: trade.symbol, orderCount: sellOrders.length },
+        { tradeId: trade.id, symbol: trade.symbol, orderCount: closingOrders.length },
         "RECONCILE: restored in-memory order tracking from existing exchange orders",
       );
     } catch (err) {
@@ -1669,7 +1920,7 @@ class BotEngine {
       const recent = await db
         .select()
         .from(tradesTable)
-        .where(and(eq(tradesTable.symbol, symbol), eq(tradesTable.status, "closed")))
+        .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.symbol, symbol), eq(tradesTable.status, "closed")))
         .orderBy(desc(tradesTable.exitTime))
         .limit(10);
 
@@ -1682,9 +1933,9 @@ class BotEngine {
         const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
         await db
           .insert(blacklistTable)
-          .values({ symbol, winRate: winRate.toFixed(4), tradeCount: recent.length, blacklistedAt: now, expiresAt })
+          .values({ userId: this.userId, symbol, winRate: winRate.toFixed(4), tradeCount: recent.length, blacklistedAt: now, expiresAt })
           .onConflictDoUpdate({
-            target: blacklistTable.symbol,
+            target: [blacklistTable.userId, blacklistTable.symbol],
             set: { winRate: winRate.toFixed(4), tradeCount: recent.length, blacklistedAt: now, expiresAt },
           });
         // Only log when the symbol is newly blacklisted — not on every 15-second scan tick
@@ -1696,7 +1947,10 @@ class BotEngine {
   }
 
   private async loadActiveBlacklist(now: Date): Promise<Set<string>> {
-    const rows = await db.select().from(blacklistTable).where(gte(blacklistTable.expiresAt, now));
+    const rows = await db
+      .select()
+      .from(blacklistTable)
+      .where(and(eq(blacklistTable.userId, this.userId), gte(blacklistTable.expiresAt, now)));
     return new Set(rows.map((r) => r.symbol));
   }
 
@@ -1705,7 +1959,11 @@ class BotEngine {
     const rows = await db
       .select()
       .from(hourlyStatsTable)
-      .where(and(eq(hourlyStatsTable.hour, hour), gte(hourlyStatsTable.date, threeDaysAgo)));
+      .where(and(
+        eq(hourlyStatsTable.userId, this.userId),
+        eq(hourlyStatsTable.hour, hour),
+        gte(hourlyStatsTable.date, threeDaysAgo),
+      ));
     if (rows.length === 0) return false;
     return rows.reduce((sum, r) => sum + Number(r.pnl), 0) < 0;
   }
@@ -1714,9 +1972,9 @@ class BotEngine {
     const date = now.toISOString().split("T")[0]!;
     const hour = now.getUTCHours();
     await db.execute(
-      sql`INSERT INTO hourly_stats (date, hour, pnl, trade_count, win_count)
-          VALUES (${date}, ${hour}, ${pnl}, 1, ${win ? 1 : 0})
-          ON CONFLICT (date, hour)
+      sql`INSERT INTO hourly_stats (user_id, date, hour, pnl, trade_count, win_count)
+          VALUES (${this.userId}, ${date}, ${hour}, ${pnl}, 1, ${win ? 1 : 0})
+          ON CONFLICT (user_id, date, hour)
           DO UPDATE SET
             pnl         = hourly_stats.pnl + EXCLUDED.pnl,
             trade_count = hourly_stats.trade_count + 1,
@@ -1734,7 +1992,7 @@ class BotEngine {
     const closedToday = await db
       .select()
       .from(tradesTable)
-      .where(and(eq(tradesTable.status, "closed"), gte(tradesTable.exitTime, startOfDay)));
+      .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.status, "closed"), gte(tradesTable.exitTime, startOfDay)));
 
     const totalPnl = closedToday.reduce((sum, t) => sum + Number(t.pnl ?? 0), 0);
     const wins = closedToday.filter((t) => Number(t.pnl ?? 0) > 0).length;
@@ -1755,9 +2013,9 @@ class BotEngine {
   }
 
   async loadConfig() {
-    const rows = await db.select().from(botConfigTable).limit(1);
+    const rows = await db.select().from(botConfigTable).where(eq(botConfigTable.userId, this.userId)).limit(1);
     if (rows.length > 0) return rows[0]!;
-    const [inserted] = await db.insert(botConfigTable).values({}).returning();
+    const [inserted] = await db.insert(botConfigTable).values({ userId: this.userId }).returning();
     return inserted!;
   }
 
@@ -1803,10 +2061,22 @@ class BotEngine {
    * Reset the risk pause state. Call this after investigating violations.
    * Exposed so a future API endpoint or manual intervention can clear it.
    */
-  resetRiskPause(): void {
+  async resetRiskPause(): Promise<void> {
     this.riskViolationCount = 0;
     this.riskPaused = false;
     logger.info("Risk pause manually cleared — trading will resume on next scan");
+    await this.persistRiskPauseState();
+  }
+
+  private async persistRiskPauseState(): Promise<void> {
+    try {
+      await db
+        .update(botConfigTable)
+        .set({ riskPaused: this.riskPaused, riskViolationCount: this.riskViolationCount })
+        .where(eq(botConfigTable.userId, this.userId));
+    } catch (err) {
+      logger.error({ err }, "Failed to persist risk-pause state — in-memory state is still correct, but a restart before the next successful write would lose it");
+    }
   }
 
   getRiskStatus(): { paused: boolean; violationCount: number; maxViolations: number } {
@@ -1818,4 +2088,4 @@ class BotEngine {
   }
 }
 
-export const botEngine = new BotEngine();
+export { BotEngine };

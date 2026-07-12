@@ -12,6 +12,7 @@
  */
 import { type Strategy, type StrategySignal, type StrategyConfig } from "./base";
 import { type MultiTimeframeCandles, type SignalRow } from "../strategy";
+import { netRewardRisk, MIN_VIABLE_REWARD_RISK } from "../tradingCosts";
 
 export class StrategySelector {
   private strategies: Strategy[];
@@ -42,7 +43,23 @@ export class StrategySelector {
 
       try {
         const signal = strategy.evaluate(symbol, mtf, row, config, balance, positionSizeUsdt);
-        if (signal) signals.push(signal);
+        if (!signal) continue;
+
+        // Structural reward:risk quality gate (shared by live + backtest since
+        // both call this method). A trade whose reward doesn't justify its
+        // risk after costs is rejected here regardless of confidence — the
+        // "well-defined risk/reward profile" discipline, enforced once,
+        // centrally, so a single misconfigured strategy can't leak a
+        // structurally-poor trade into either engine.
+        const rr = netRewardRisk(signal.entryPrice, signal.suggestedSL, signal.suggestedTP, signal.side);
+        if (rr < MIN_VIABLE_REWARD_RISK) {
+          console.warn(
+            `[selector] ${strategy.strategyId} rejected on ${symbol}: net reward:risk ${rr.toFixed(2)} below ${MIN_VIABLE_REWARD_RISK} floor`,
+          );
+          continue;
+        }
+        signal.netRewardRisk = Math.round(rr * 100) / 100;
+        signals.push(signal);
       } catch (err) {
         // Individual strategy failures must never crash the scan loop
         console.error(`[selector] ${strategy.strategyId} threw on ${symbol}:`, err);

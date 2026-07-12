@@ -1,14 +1,16 @@
-import { pgTable, serial, text, numeric, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, numeric, integer, boolean, timestamp, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 // ---------------------------------------------------------------------------
-// Per-strategy configurable parameters
+// Per-strategy configurable parameters — one row per (user, strategy): each
+// user's bot instance tunes strategies independently.
 // ---------------------------------------------------------------------------
 
 export const strategyConfigsTable = pgTable("strategy_configs", {
   id: serial("id").primaryKey(),
-  strategyId: text("strategy_id").notNull().unique(),
+  userId: integer("user_id").notNull(),
+  strategyId: text("strategy_id").notNull(),
   strategyName: text("strategy_name").notNull(),
   enabled: boolean("enabled").notNull().default(true),
   /** % of account balance to risk per trade */
@@ -55,7 +57,9 @@ export const strategyConfigsTable = pgTable("strategy_configs", {
    *  Comma-separated subset/permutation of: stop_loss,take_profit,trailing_stop,timeout */
   exitPriority: text("exit_priority").notNull().default("stop_loss,take_profit,trailing_stop,timeout"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (t) => [
+  unique("strategy_configs_user_id_strategy_id_unique").on(t.userId, t.strategyId),
+]);
 
 export const insertStrategyConfigSchema = createInsertSchema(strategyConfigsTable).omit({
   id: true,

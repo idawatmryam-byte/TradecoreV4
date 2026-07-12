@@ -18,11 +18,33 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * Exchanges API_AUTH_TOKEN for a signed session cookie (12h expiry). Rate-limited separately and much more strictly than the rest of the API (10 attempts / 15 min / IP) since this is the one meaningful brute-force target on an otherwise-authenticated API.
- * @summary Log in with the shared operator token
+ * Multi-user Phase: creates a new account (username + password, hashed with scrypt) and immediately logs in, setting the same signed session cookie POST /auth/login issues. Each account only ever risks its own Binance credentials/funds, so registration is open to anyone who can reach the app.
+ * @summary Create a new account
+ */
+export const registerBodyUsernameMin = 3;
+export const registerBodyUsernameMax = 64;
+
+export const registerBodyPasswordMin = 12;
+
+
+
+export const RegisterBody = zod.object({
+  "username": zod.string().min(registerBodyUsernameMin).max(registerBodyUsernameMax),
+  "password": zod.string().min(registerBodyPasswordMin)
+})
+
+export const RegisterResponse = zod.object({
+  "ok": zod.boolean().optional()
+})
+
+
+/**
+ * Exchanges a user's username/password for a signed session cookie (12h expiry). Rate-limited separately and much more strictly than the rest of the API (10 attempts / 15 min / IP) since this is the one meaningful brute-force target on an otherwise-authenticated API.
+ * @summary Log in to an existing account
  */
 export const LoginBody = zod.object({
-  "token": zod.string()
+  "username": zod.string(),
+  "password": zod.string()
 })
 
 export const LoginResponse = zod.object({
@@ -58,6 +80,7 @@ export const GetBotStatusResponse = zod.object({
   "totalTradesToday": zod.number(),
   "winRateToday": zod.number(),
   "circuitBreakerActive": zod.boolean(),
+  "riskPaused": zod.boolean().describe('True when trading is suspended after 3 consecutive risk violations — see POST \/bot\/reset-risk-pause.'),
   "mode": zod.enum(['live', 'testnet', 'backtest']),
   "startedAt": zod.coerce.date().nullish(),
   "lastScanAt": zod.coerce.date().nullish()
@@ -75,6 +98,7 @@ export const StartBotResponse = zod.object({
   "totalTradesToday": zod.number(),
   "winRateToday": zod.number(),
   "circuitBreakerActive": zod.boolean(),
+  "riskPaused": zod.boolean().describe('True when trading is suspended after 3 consecutive risk violations — see POST \/bot\/reset-risk-pause.'),
   "mode": zod.enum(['live', 'testnet', 'backtest']),
   "startedAt": zod.coerce.date().nullish(),
   "lastScanAt": zod.coerce.date().nullish()
@@ -92,6 +116,7 @@ export const StopBotResponse = zod.object({
   "totalTradesToday": zod.number(),
   "winRateToday": zod.number(),
   "circuitBreakerActive": zod.boolean(),
+  "riskPaused": zod.boolean().describe('True when trading is suspended after 3 consecutive risk violations — see POST \/bot\/reset-risk-pause.'),
   "mode": zod.enum(['live', 'testnet', 'backtest']),
   "startedAt": zod.coerce.date().nullish(),
   "lastScanAt": zod.coerce.date().nullish()
@@ -157,7 +182,11 @@ export const GetScannerDataResponseItem = zod.object({
   "signal": zod.enum(['bullish', 'bearish', 'neutral']),
   "weight": zod.number(),
   "value": zod.number()
-}))
+})),
+  "strategyId": zod.string().optional(),
+  "strategyName": zod.string().optional(),
+  "entryReason": zod.string().optional(),
+  "side": zod.enum(['long', 'short']).optional()
 })
 export const GetScannerDataResponse = zod.array(GetScannerDataResponseItem)
 
@@ -238,11 +267,14 @@ export const GetMarketLiveResponse = zod.object({
  * @summary List all trades
  */
 export const getTradesQueryLimitDefault = 50;
+export const getTradesQueryLimitMax = 500;
+
+
 
 export const GetTradesQueryParams = zod.object({
   "status": zod.enum(['open', 'closed', 'stopped']).optional(),
   "source": zod.enum(['live', 'backtest']).optional(),
-  "limit": zod.coerce.number().default(getTradesQueryLimitDefault)
+  "limit": zod.coerce.number().min(1).max(getTradesQueryLimitMax).default(getTradesQueryLimitDefault)
 })
 
 export const GetTradesResponseItem = zod.object({
@@ -412,6 +444,9 @@ export const GetToxicHoursResponse = zod.array(GetToxicHoursResponseItem)
  * @summary Get bot configuration
  */
 export const GetConfigResponse = zod.object({
+  "marketType": zod.enum(['spot', 'futures']).describe('Spot (no leverage, long-only) or USDⓈ-M Futures (leveraged, long+short)'),
+  "leverage": zod.number().describe('Futures leverage multiplier. Ignored in spot mode (always 1).'),
+  "marginMode": zod.enum(['isolated', 'cross']).describe('Futures margin mode. Ignored in spot mode.'),
   "positionSizeUsdt": zod.number(),
   "riskPercent": zod.number().describe('% of account balance to risk per trade (0 = fixed positionSizeUsdt)'),
   "maxOpenPositions": zod.number(),
@@ -432,6 +467,8 @@ export const GetConfigResponse = zod.object({
 /**
  * @summary Update bot configuration
  */
+export const updateConfigBodyLeverageMax = 125;
+
 export const updateConfigBodyPositionSizeUsdtMax = 1000000;
 
 export const updateConfigBodyRiskPercentMin = 0;
@@ -462,6 +499,9 @@ export const updateConfigBodyScanIntervalSecondsMax = 3600;
 
 
 export const UpdateConfigBody = zod.object({
+  "marketType": zod.enum(['spot', 'futures']).optional(),
+  "leverage": zod.number().min(1).max(updateConfigBodyLeverageMax).optional().describe('Futures leverage multiplier (1 = no leverage). Ignored in spot mode.'),
+  "marginMode": zod.enum(['isolated', 'cross']).optional(),
   "positionSizeUsdt": zod.number().min(1).max(updateConfigBodyPositionSizeUsdtMax).optional(),
   "riskPercent": zod.number().min(updateConfigBodyRiskPercentMin).max(updateConfigBodyRiskPercentMax).optional().describe('0 = fixed positionSizeUsdt instead of risk-based sizing. Capped at 10% per trade.'),
   "maxOpenPositions": zod.number().min(1).max(updateConfigBodyMaxOpenPositionsMax).optional(),
@@ -479,6 +519,9 @@ export const UpdateConfigBody = zod.object({
 })
 
 export const UpdateConfigResponse = zod.object({
+  "marketType": zod.enum(['spot', 'futures']).describe('Spot (no leverage, long-only) or USDⓈ-M Futures (leveraged, long+short)'),
+  "leverage": zod.number().describe('Futures leverage multiplier. Ignored in spot mode (always 1).'),
+  "marginMode": zod.enum(['isolated', 'cross']).describe('Futures margin mode. Ignored in spot mode.'),
   "positionSizeUsdt": zod.number(),
   "riskPercent": zod.number().describe('% of account balance to risk per trade (0 = fixed positionSizeUsdt)'),
   "maxOpenPositions": zod.number(),
@@ -493,6 +536,43 @@ export const UpdateConfigResponse = zod.object({
   "testnet": zod.boolean(),
   "backtestMode": zod.boolean(),
   "alertWebhookUrl": zod.string().nullish().describe('Discord \/ Telegram \/ Slack incoming-webhook URL for risk alerts')
+})
+
+
+/**
+ * Never returns the plaintext API key/secret — only whether one is configured and a masked preview (last 4 chars of the key).
+ * @summary Get the logged-in user's Binance credential status
+ */
+export const GetBinanceCredentialsResponse = zod.object({
+  "configured": zod.boolean(),
+  "apiKeyPreview": zod.string().nullable().describe('Last 4 chars of the stored API key, e.g. \"...ab12\" — never the full key.'),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * Encrypted at rest (AES-256-GCM) and linked only to the logged-in user's account. The bot engine only reads credentials at start(), so restart the bot (if running) for a changed credential to take effect.
+ * @summary Set the logged-in user's Binance API key/secret
+ */
+export const SetBinanceCredentialsBody = zod.object({
+  "apiKey": zod.string(),
+  "apiSecret": zod.string()
+})
+
+export const SetBinanceCredentialsResponse = zod.object({
+  "configured": zod.boolean(),
+  "apiKeyPreview": zod.string().nullable().describe('Last 4 chars of the stored API key, e.g. \"...ab12\" — never the full key.'),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary Remove the logged-in user's stored Binance credentials
+ */
+export const DeleteBinanceCredentialsResponse = zod.object({
+  "configured": zod.boolean(),
+  "apiKeyPreview": zod.string().nullable().describe('Last 4 chars of the stored API key, e.g. \"...ab12\" — never the full key.'),
+  "updatedAt": zod.coerce.date().nullable()
 })
 
 
@@ -651,6 +731,8 @@ export const GetBacktestResponse = zod.object({
   "runId": zod.number(),
   "symbol": zod.string(),
   "side": zod.string(),
+  "strategyId": zod.string().nullish(),
+  "strategyName": zod.string().nullish(),
   "entryTime": zod.coerce.date(),
   "exitTime": zod.coerce.date().nullish(),
   "entryPrice": zod.number(),
@@ -663,10 +745,23 @@ export const GetBacktestResponse = zod.object({
   "fees": zod.number().nullish(),
   "slippage": zod.number().nullish(),
   "pnl": zod.number().nullish(),
+  "grossPnl": zod.number().nullish(),
   "pnlPercent": zod.number().nullish(),
   "confidence": zod.number().nullish(),
   "exitReason": zod.string().nullish(),
-  "durationSeconds": zod.number().nullish()
+  "durationSeconds": zod.number().nullish(),
+  "mfe": zod.number().nullish(),
+  "mae": zod.number().nullish(),
+  "riskReward": zod.number().nullish(),
+  "tp1Price": zod.number().nullish(),
+  "tp1Filled": zod.boolean().optional(),
+  "tp1FillPrice": zod.number().nullish(),
+  "tp2Price": zod.number().nullish(),
+  "tp2Filled": zod.boolean().optional(),
+  "tp2FillPrice": zod.number().nullish(),
+  "breakEvenActive": zod.boolean().optional(),
+  "trailingStopActive": zod.boolean().optional(),
+  "trailingStopMode": zod.string().nullish()
 })),
   "equityCurve": zod.array(zod.object({
   "timestamp": zod.coerce.date(),

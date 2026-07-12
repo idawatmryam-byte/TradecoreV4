@@ -57,6 +57,9 @@ export type HistoricalCandle = typeof historicalCandlesTable.$inferSelect;
 
 export const backtestRunsTable = pgTable("backtest_runs", {
   id: serial("id").primaryKey(),
+  /** Owning user — backtest_trades/equity_curve/optimization_results all
+   *  cascade-scope via run_id, so only this table needs the column directly. */
+  userId: integer("user_id").notNull(),
   strategyVersion: text("strategy_version").notNull().default("1.0"),
   strategyName: text("strategy_name").notNull().default("TradeCore v1"),
   symbols: text("symbols").notNull(), // comma-separated
@@ -123,7 +126,9 @@ export const backtestRunsTable = pgTable("backtest_runs", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (t) => [
+  index("backtest_runs_user_id_idx").on(t.userId),
+]);
 
 export const insertBacktestRunSchema = createInsertSchema(
   backtestRunsTable

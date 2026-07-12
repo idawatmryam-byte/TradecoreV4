@@ -12,10 +12,13 @@ tags:
     description: Health operations
   - name: auth
     description: >-
-      Authentication (Phase 5B). Single shared operator credential — see
-      middleware/auth.ts for the design rationale (one operator, one Binance
-      account, so a full multi-user RBAC system is unused complexity, not a
-      missing feature).
+      Authentication (Multi-user Phase). Each user registers their own
+      account (username/password) — see middleware/auth.ts for the full
+      design rationale.
+  - name: credentials
+    description: >-
+      Per-user Binance API credential management (Multi-user Phase) —
+      encrypted at rest, linked only to the owning account.
   - name: bot
     description: Bot control operations
   - name: scanner
@@ -39,7 +42,7 @@ tags:
 # credentials (health checks, and obtaining credentials in the first place).
 security:
   - sessionCookie: []
-  - bearerAuth: []
+  - basicAuth: []
 
 paths:
   /healthz:
@@ -57,26 +60,70 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
-  /auth/login:
+  /auth/register:
     post:
-      operationId: login
+      operationId: register
       tags: [auth]
-      summary: Log in with the shared operator token
+      summary: Create a new account
       security: []
       description: >-
-        Exchanges API_AUTH_TOKEN for a signed session cookie (12h expiry).
-        Rate-limited separately and much more strictly than the rest of the
-        API (10 attempts / 15 min / IP) since this is the one meaningful
-        brute-force target on an otherwise-authenticated API.
+        Multi-user Phase: creates a new account (username + password, hashed
+        with scrypt) and immediately logs in, setting the same signed
+        session cookie POST /auth/login issues. Each account only ever risks
+        its own Binance credentials/funds, so registration is open to
+        anyone who can reach the app.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [token]
+              required: [username, password]
               properties:
-                token:
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 64
+                password:
+                  type: string
+                  minLength: 12
+      responses:
+        "201":
+          description: Account created — session cookie set
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        "400":
+          description: Invalid username or password
+        "409":
+          description: Username already taken
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Log in to an existing account
+      security: []
+      description: >-
+        Exchanges a user's username/password for a signed session cookie
+        (12h expiry). Rate-limited separately and much more strictly than
+        the rest of the API (10 attempts / 15 min / IP) since this is the
+        one meaningful brute-force target on an otherwise-authenticated API.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
                   type: string
       responses:
         "200":
@@ -89,7 +136,7 @@ paths:
                   ok:
                     type: boolean
         "401":
-          description: Invalid token
+          description: Invalid username or password
 
   /auth/logout:
     post:
@@ -291,6 +338,8 @@ paths:
           schema:
             type: integer
             default: 50
+            minimum: 1
+            maximum: 500
       responses:
         "200":
           description: Trade list
@@ -439,6 +488,63 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /me/binance-credentials:
+    get:
+      operationId: getBinanceCredentials
+      tags: [credentials]
+      summary: Get the logged-in user's Binance credential status
+      description: >-
+        Never returns the plaintext API key/secret — only whether one is
+        configured and a masked preview (last 4 chars of the key).
+      responses:
+        "200":
+          description: Credential status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BinanceCredentialsStatus"
+
+    put:
+      operationId: setBinanceCredentials
+      tags: [credentials]
+      summary: Set the logged-in user's Binance API key/secret
+      description: >-
+        Encrypted at rest (AES-256-GCM) and linked only to the logged-in
+        user's account. The bot engine only reads credentials at start(), so
+        restart the bot (if running) for a changed credential to take effect.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [apiKey, apiSecret]
+              properties:
+                apiKey:
+                  type: string
+                apiSecret:
+                  type: string
+      responses:
+        "200":
+          description: Credentials updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BinanceCredentialsStatus"
+        "400":
+          description: apiKey/apiSecret missing
+
+    delete:
+      operationId: deleteBinanceCredentials
+      tags: [credentials]
+      summary: Remove the logged-in user's stored Binance credentials
+      responses:
+        "200":
+          description: Credentials removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BinanceCredentialsStatus"
 
   /backtests:
     get:
@@ -669,13 +775,13 @@ components:
       description: >-
         Signed, stateless session cookie set by POST /auth/login. Used by
         the web dashboard — the browser attaches it automatically.
-    bearerAuth:
+    basicAuth:
       type: http
-      scheme: bearer
+      scheme: basic
       description: >-
-        `Authorization: Bearer <API_AUTH_TOKEN>` — for scripts, curl, or a
-        non-browser client. Same shared credential as sessionCookie; this is
-        just the non-cookie way to present it.
+        `Authorization: Basic <base64(OPERATOR_USERNAME:OPERATOR_PASSWORD)>`
+        — for scripts, curl, or a non-browser client. Same shared credentials
+        as sessionCookie; this is just the non-cookie way to present them.
   schemas:
     HealthStatus:
       type: object
@@ -693,7 +799,7 @@ components:
 
     BotStatus:
       type: object
-      required: [running, dailyPnl, openPositions, totalTradesToday, winRateToday, circuitBreakerActive, mode]
+      required: [running, dailyPnl, openPositions, totalTradesToday, winRateToday, circuitBreakerActive, riskPaused, mode]
       properties:
         running:
           type: boolean
@@ -707,6 +813,9 @@ components:
           type: number
         circuitBreakerActive:
           type: boolean
+        riskPaused:
+          type: boolean
+          description: "True when trading is suspended after 3 consecutive risk violations — see POST /bot/reset-risk-pause."
         mode:
           type: string
           enum: [live, testnet, backtest]
@@ -767,6 +876,15 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/IndicatorVote"
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        entryReason:
+          type: string
+        side:
+          type: string
+          enum: [long, short]
 
     PipelineStage:
       type: object
@@ -1100,8 +1218,19 @@ components:
 
     BotConfig:
       type: object
-      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, confidenceThreshold, stopLossPercent, takeProfitPercent, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode]
+      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, confidenceThreshold, stopLossPercent, takeProfitPercent, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, marketType, leverage, marginMode]
       properties:
+        marketType:
+          type: string
+          enum: [spot, futures]
+          description: "Spot (no leverage, long-only) or USDⓈ-M Futures (leveraged, long+short)"
+        leverage:
+          type: integer
+          description: "Futures leverage multiplier. Ignored in spot mode (always 1)."
+        marginMode:
+          type: string
+          enum: [isolated, cross]
+          description: "Futures margin mode. Ignored in spot mode."
         positionSizeUsdt:
           type: number
         riskPercent:
@@ -1142,6 +1271,17 @@ components:
     BotConfigUpdate:
       type: object
       properties:
+        marketType:
+          type: string
+          enum: [spot, futures]
+        leverage:
+          type: integer
+          minimum: 1
+          maximum: 125
+          description: "Futures leverage multiplier (1 = no leverage). Ignored in spot mode."
+        marginMode:
+          type: string
+          enum: [isolated, cross]
         positionSizeUsdt:
           type: number
           minimum: 1
@@ -1196,6 +1336,20 @@ components:
           type: string
           nullable: true
           description: "Discord / Telegram / Slack incoming-webhook URL for risk alerts"
+
+    BinanceCredentialsStatus:
+      type: object
+      required: [configured, apiKeyPreview, updatedAt]
+      properties:
+        configured:
+          type: boolean
+        apiKeyPreview:
+          type: ["string", "null"]
+          description: "Last 4 chars of the stored API key, e.g. \"...ab12\" — never the full key."
+        updatedAt:
+          type: ["string", "null"]
+          format: date-time
+
     BacktestRun:
       type: object
       required: [id, strategyVersion, strategyName, symbols, timeframe, startDate, endDate, startingBalance, status, progress, createdAt]
@@ -1293,6 +1447,10 @@ components:
           type: string
         side:
           type: string
+        strategyId:
+          type: ["string", "null"]
+        strategyName:
+          type: ["string", "null"]
         entryTime:
           type: string
           format: date-time
@@ -1319,6 +1477,8 @@ components:
           type: ["number", "null"]
         pnl:
           type: ["number", "null"]
+        grossPnl:
+          type: ["number", "null"]
         pnlPercent:
           type: ["number", "null"]
         confidence:
@@ -1327,6 +1487,31 @@ components:
           type: ["string", "null"]
         durationSeconds:
           type: ["integer", "null"]
+        mfe:
+          type: ["number", "null"]
+        mae:
+          type: ["number", "null"]
+        riskReward:
+          type: ["number", "null"]
+        # ── Phase 7: trade-management ladder ────────────────────────────────
+        tp1Price:
+          type: ["number", "null"]
+        tp1Filled:
+          type: boolean
+        tp1FillPrice:
+          type: ["number", "null"]
+        tp2Price:
+          type: ["number", "null"]
+        tp2Filled:
+          type: boolean
+        tp2FillPrice:
+          type: ["number", "null"]
+        breakEvenActive:
+          type: boolean
+        trailingStopActive:
+          type: boolean
+        trailingStopMode:
+          type: ["string", "null"]
 
     EquityCurvePoint:
       type: object
