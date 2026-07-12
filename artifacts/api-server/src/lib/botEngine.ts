@@ -1079,6 +1079,7 @@ class BotEngine {
         signalStage.data = {
           strategyId: bestSignal.strategyId, strategyName: bestSignal.strategyName,
           confidence: bestSignal.confidence, regime: bestSignal.regime, entryReason: bestSignal.entryReason,
+          netRewardRisk: bestSignal.netRewardRisk,
         };
 
         // ── Stage 4 (cont.): post-signal risk checks ─────────────────────────

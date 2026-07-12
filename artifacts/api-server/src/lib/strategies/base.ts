@@ -81,6 +81,10 @@ export interface StrategySignal {
   suggestedHoldingTime: number;
   /** Pre-computed quantity (units of base asset) */
   qty: number;
+  /** Net reward:risk after round-trip costs, populated centrally by the
+   *  StrategySelector (see tradingCosts.netRewardRisk) so every accepted
+   *  signal carries the auditable number the entry decision was made on. */
+  netRewardRisk?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
