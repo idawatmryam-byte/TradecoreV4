@@ -169,6 +169,18 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
   const tfAdvice = timeframeAdvice(form.timeframe);
   const timeframeBlocks = tfAdvice.level === "bad" && !runAnyway;
 
+  // Coins currently in the input, normalized — drives the quick-pick chips.
+  const selectedSymbols = symbolInput
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
+
+  function toggleSymbol(sym: string) {
+    const has = selectedSymbols.includes(sym);
+    const next = has ? selectedSymbols.filter((s) => s !== sym) : [...selectedSymbols, sym];
+    setSymbolInput(next.join(", "));
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (timeframeBlocks) return; // guard: too-coarse timeframe not acknowledged
@@ -220,14 +232,36 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Symbols */}
-          <div className="space-y-1">
-            <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Symbols (comma-separated)</label>
+          {/* Symbols — pick coins from the quick list or type any custom pair */}
+          <div className="space-y-2">
+            <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
+              Coins / Markets{selectedSymbols.length > 0 && ` · ${selectedSymbols.length} selected`}
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {SYMBOLS_DEFAULT.map((sym) => {
+                const on = selectedSymbols.includes(sym);
+                return (
+                  <button
+                    type="button"
+                    key={sym}
+                    onClick={() => toggleSymbol(sym)}
+                    className={cn(
+                      "px-2 py-1 rounded text-xs font-mono border transition-colors",
+                      on
+                        ? "border-primary bg-primary/15 text-primary"
+                        : "border-border text-muted-foreground hover:border-primary/50",
+                    )}
+                  >
+                    {sym.replace("USDT", "")}
+                  </button>
+                );
+              })}
+            </div>
             <input
               type="text"
               value={symbolInput}
               onChange={(e) => setSymbolInput(e.target.value)}
-              placeholder="BTCUSDT, ETHUSDT, ..."
+              placeholder="BTCUSDT, ETHUSDT, … (click a coin above, or type any pair)"
               className="w-full bg-background border border-border rounded px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
