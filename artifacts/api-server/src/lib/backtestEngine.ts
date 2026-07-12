@@ -26,6 +26,7 @@ import {
   buildSignalRow,
   type Candle,
   type MultiTimeframeCandles,
+  type MarketRegime,
 } from "./strategy";
 import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig, type PositionSide } from "./strategies";
 import { computeTrailingStop } from "./tradeManager";
@@ -565,6 +566,9 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     // whereas live trading enforces a per-symbol cooldown after every exit.
     // Mirrors botEngine's symbolCooldowns Map<symbol, expiryTimestampMs>.
     const symbolCooldownExpiry = new Map<string, number>();
+    // Per-symbol last regime for hysteresis (deferred-work #2) — mirrors
+    // BotEngine.lastRegime so backtest and live resolve regime identically.
+    const symbolRegime = new Map<string, MarketRegime>();
 
     const progressStep = Math.max(1, Math.floor(events.length / 50));
 
@@ -836,7 +840,8 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       };
 
       // Phase 2: multi-strategy evaluation — pass current balance for risk-based sizing
-      const row = buildSignalRow(symbol, mtf);
+      const row = buildSignalRow(symbol, mtf, symbolRegime.get(symbol));
+      symbolRegime.set(symbol, row.regime);
       const signals = strategySelector.evaluateSymbol(
         symbol, mtf, row, strategyConfigs, balance, params.positionSizeUsdt
       );
