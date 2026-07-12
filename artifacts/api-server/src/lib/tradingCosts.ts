@@ -39,3 +39,51 @@ export function minViableTakeProfitPercent(
 /** Precomputed at default rates — 0.3% — used where a static bound is
  *  simpler than threading feeRate/slippageRate through (e.g. a zod schema). */
 export const MIN_VIABLE_TAKE_PROFIT_PERCENT = minViableTakeProfitPercent();
+
+/**
+ * Net reward-to-risk ratio of a trade AFTER round-trip costs — the number a
+ * professional actually decides on, not the raw TP:SL distance. Costs widen
+ * the effective risk (you pay them on the losing exit too) and shrink the
+ * effective reward, so a trade that looks like 1.5:1 on paper is always a
+ * bit worse once fees + slippage are charged on both legs.
+ *
+ *   long:  grossReward = tp - entry,  grossRisk = entry - sl
+ *   short: grossReward = entry - tp,  grossRisk = sl - entry
+ *   cost  = entry × (2·fee + 2·slippage)   (both legs, entry-notional basis)
+ *   netRR = (grossReward - cost) / (grossRisk + cost)
+ *
+ * Returns 0 for a structurally invalid trade (SL/TP on the wrong side) and
+ * can return ≤ 0 when the reward doesn't even clear costs (a guaranteed net
+ * loser regardless of win rate — the same failure the TP floor above guards
+ * against, expressed as a ratio).
+ */
+export function netRewardRisk(
+  entryPrice: number,
+  slPrice: number,
+  tpPrice: number,
+  side: "long" | "short",
+  feeRate: number = DEFAULT_FEE_RATE,
+  slippageRate: number = DEFAULT_SLIPPAGE_RATE,
+): number {
+  if (!(entryPrice > 0)) return 0;
+  const grossReward = side === "short" ? entryPrice - tpPrice : tpPrice - entryPrice;
+  const grossRisk = side === "short" ? slPrice - entryPrice : entryPrice - slPrice;
+  if (!(grossReward > 0) || !(grossRisk > 0)) return 0;
+  const roundTripCost = entryPrice * (2 * feeRate + 2 * slippageRate);
+  const netRisk = grossRisk + roundTripCost;
+  if (netRisk <= 0) return 0;
+  return (grossReward - roundTripCost) / netRisk;
+}
+
+/**
+ * Structural safety FLOOR on net reward:risk — a misconfiguration guardrail,
+ * NOT a strategy-quality target (parallel to MIN_VIABLE_TAKE_PROFIT_PERCENT).
+ * Every shipped default strategy clears this comfortably (the lowest,
+ * micro-scalping, sits at ~0.82 net). A trade below 0.5 means risking more
+ * than 2× the reward after costs — to be break-even there you'd need a
+ * >67% win rate, which is almost always a fat-fingered SL/TP config rather
+ * than a considered strategy. Blocking it only ever removes structurally
+ * poor trades; it never forces a new one. A user with a validated
+ * high-win-rate/low-R:R strategy is the reason this is a floor, not a target.
+ */
+export const MIN_VIABLE_REWARD_RISK = 0.5;
