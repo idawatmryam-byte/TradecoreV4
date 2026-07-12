@@ -47,19 +47,19 @@ export class StrategySelector {
 
         // Confidence unification (deferred-work #1): blend the strategy's own
         // setup-quality confidence with the 12-indicator market-structure
-        // confidence in the SAME direction, then gate + rank on the result —
-        // so the broad analysis actually informs the trade, and a setup that
-        // fights the overall tape is rejected even if its own pattern looks
-        // clean. Re-gating against the strategy's own threshold can only make
-        // entries more selective (quality over quantity).
-        const unified = unifyConfidence(signal.confidence, signal.side, row);
-        if (unified < config.confidenceThreshold) {
-          console.warn(
-            `[selector] ${strategy.strategyId} rejected on ${symbol}: unified confidence ${unified} < ${config.confidenceThreshold} threshold`,
-          );
-          continue;
-        }
-        signal.confidence = unified;
+        // score so the broad analysis INFORMS the trade — it sets the
+        // signal's confidence, which drives ranking (highest first) and the
+        // displayed/stored value. The strategy has already gated on its own
+        // confidence threshold; the blend does NOT re-gate.
+        //
+        // WHY NO RE-GATE: an earlier version re-gated the blended value
+        // against the same threshold. On REAL data that zeroed out trades —
+        // the 12-indicator structure score runs low on live crypto (~10–50,
+        // vs 60–70 thresholds), so `0.7·strat + 0.3·structure` almost always
+        // fell below the bar and every signal was rejected. The synthetic
+        // harness missed it (its structure scores are higher). A structure-
+        // based veto can come back later, but only tuned against real data.
+        signal.confidence = unifyConfidence(signal.confidence, signal.side, row);
 
         // Structural reward:risk quality gate (shared by live + backtest since
         // both call this method). A trade whose reward doesn't justify its
