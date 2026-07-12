@@ -1620,6 +1620,21 @@ components:
         slippageRate:
           type: number
           default: 0.0005
+        marketType:
+          type: string
+          enum: [spot, futures]
+          default: spot
+          description: "futures models isolated-margin liquidation (leverage affects liquidation risk only, not position size — matches live sizing)."
+        leverage:
+          type: integer
+          minimum: 1
+          maximum: 125
+          default: 1
+          description: "Futures leverage. Only affects liquidation risk in the backtest, not position size."
+        marginMode:
+          type: string
+          enum: [isolated, cross]
+          default: isolated
 
     OptimizeRequest:
       type: object

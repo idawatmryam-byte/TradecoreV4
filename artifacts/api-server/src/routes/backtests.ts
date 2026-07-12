@@ -166,6 +166,9 @@ router.post("/backtests/run", async (req, res) => {
   const riskPercent = Number(b.riskPercent ?? 0);
   const feeRate = Number(b.feeRate ?? DEFAULT_FEE_RATE);
   const slippageRate = Number(b.slippageRate ?? DEFAULT_SLIPPAGE_RATE);
+  const marketType = b.marketType === "futures" ? "futures" : "spot";
+  const leverage = Math.max(1, Math.min(125, Math.floor(Number(b.leverage ?? 1)) || 1));
+  const marginMode = b.marginMode === "cross" ? "cross" : "isolated";
 
   // Phase 6 audit Finding B fix: this exact route produced the bt6 scenario
   // — a takeProfitPercent (0.25%) smaller than round-trip trading costs,
@@ -235,6 +238,9 @@ router.post("/backtests/run", async (req, res) => {
     riskPercent,
     feeRate,
     slippageRate,
+    marketType,
+    leverage,
+    marginMode,
   }, req.userId!).catch((err) => {
     logger.error({ err, runId: run.id }, "Background backtest error");
   });

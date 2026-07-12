@@ -633,6 +633,11 @@ export const runBacktestBodyDailyLossLimitUsdtDefault = 50;
 export const runBacktestBodyRiskPercentDefault = 0;
 export const runBacktestBodyFeeRateDefault = 0.001;
 export const runBacktestBodySlippageRateDefault = 0.0005;
+export const runBacktestBodyMarketTypeDefault = `spot`;
+export const runBacktestBodyLeverageDefault = 1;
+export const runBacktestBodyLeverageMax = 125;
+
+export const runBacktestBodyMarginModeDefault = `isolated`;
 
 export const RunBacktestBody = zod.object({
   "symbols": zod.array(zod.string()),
@@ -648,7 +653,10 @@ export const RunBacktestBody = zod.object({
   "dailyLossLimitUsdt": zod.number().default(runBacktestBodyDailyLossLimitUsdtDefault),
   "riskPercent": zod.number().default(runBacktestBodyRiskPercentDefault).describe('0 = use each strategy\'s own configured risk% (no override). Any other value overrides risk% for every strategy in this run. (Bug fix: this field was already read by the backend but was missing from this schema and had no UI field — see CHANGES.md.)'),
   "feeRate": zod.number().default(runBacktestBodyFeeRateDefault),
-  "slippageRate": zod.number().default(runBacktestBodySlippageRateDefault)
+  "slippageRate": zod.number().default(runBacktestBodySlippageRateDefault),
+  "marketType": zod.enum(['spot', 'futures']).default(runBacktestBodyMarketTypeDefault).describe('futures models isolated-margin liquidation (leverage affects liquidation risk only, not position size — matches live sizing).'),
+  "leverage": zod.number().min(1).max(runBacktestBodyLeverageMax).default(runBacktestBodyLeverageDefault).describe('Futures leverage. Only affects liquidation risk in the backtest, not position size.'),
+  "marginMode": zod.enum(['isolated', 'cross']).default(runBacktestBodyMarginModeDefault)
 })
 
 export const RunBacktestResponse = zod.object({

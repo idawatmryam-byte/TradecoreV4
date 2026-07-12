@@ -679,6 +679,25 @@ export const BacktestRunRequestTimeframe = {
   '1d': '1d',
 } as const;
 
+/**
+ * futures models isolated-margin liquidation (leverage affects liquidation risk only, not position size — matches live sizing).
+ */
+export type BacktestRunRequestMarketType = typeof BacktestRunRequestMarketType[keyof typeof BacktestRunRequestMarketType];
+
+
+export const BacktestRunRequestMarketType = {
+  spot: 'spot',
+  futures: 'futures',
+} as const;
+
+export type BacktestRunRequestMarginMode = typeof BacktestRunRequestMarginMode[keyof typeof BacktestRunRequestMarginMode];
+
+
+export const BacktestRunRequestMarginMode = {
+  isolated: 'isolated',
+  cross: 'cross',
+} as const;
+
 export interface BacktestRunRequest {
   symbols: string[];
   timeframe: BacktestRunRequestTimeframe;
@@ -700,6 +719,15 @@ export interface BacktestRunRequest {
   riskPercent?: number;
   feeRate?: number;
   slippageRate?: number;
+  /** futures models isolated-margin liquidation (leverage affects liquidation risk only, not position size — matches live sizing). */
+  marketType?: BacktestRunRequestMarketType;
+  /**
+     * Futures leverage. Only affects liquidation risk in the backtest, not position size.
+     * @minimum 1
+     * @maximum 125
+     */
+  leverage?: number;
+  marginMode?: BacktestRunRequestMarginMode;
 }
 
 export type OptimizeRequestTimeframe = typeof OptimizeRequestTimeframe[keyof typeof OptimizeRequestTimeframe];

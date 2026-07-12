@@ -36,6 +36,7 @@ export const EXIT_REASONS = [
   "circuit_breaker", // CIRCUIT_BREAKER  — daily loss limit forced close
   "reconciled_missing", // RECONCILED_MISSING — startup reconciliation found the DB said open but the exchange balance didn't back it (closed while the bot was offline); see botEngine.ts reconcileMissingPosition() (Phase 5B)
   "end_of_backtest", // END_OF_BACKTEST — backtest date range ended with the position still open; NOT a genuine maxHoldingSeconds timeout (Phase 6 audit Flaw 2 fix — these used to be mislabeled "timeout", inflating that count and polluting exit-reason statistics). Backtest-only; never written by ExitManager.
+  "liquidation", // LIQUIDATION — leveraged futures position hit its liquidation price (loss ≈ posted margin). Modeled in the backtest (see backtestEngine.ts / futuresMath.ts); on the live side a real liquidation surfaces via reconciliation.
 ] as const;
 
 export type ExitReason = (typeof EXIT_REASONS)[number];
