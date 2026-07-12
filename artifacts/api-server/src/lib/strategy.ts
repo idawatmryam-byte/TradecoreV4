@@ -539,6 +539,35 @@ export function buildSignalRow(symbol: string, mtf: MultiTimeframeCandles): Sign
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Confidence unification  (deferred-work #1)
+//
+// Each strategy computes its OWN setup-quality confidence (how good ITS
+// specific pattern looks — breakout strength, RSI extremity, band distance,
+// …). buildSignalRow() separately computes a 12-indicator, weighted,
+// regime-aware market-STRUCTURE confidence (row.confidence for longs,
+// row.shortConfidence for shorts). Before this, the structure score only
+// drove the scanner UI — it never touched the actual trade decision.
+//
+// unifyConfidence() blends them into the single number the selector then
+// gates and ranks on, so a setup must be BOTH intrinsically good AND
+// supported by broad market structure in its own direction. The strategy
+// term stays dominant (it knows its own edge); structure is a meaningful
+// secondary that can veto a setup fighting the overall tape. Weights are a
+// named constant so they can be tuned against the backtest harness.
+// ─────────────────────────────────────────────────────────────────────────────
+export const CONFIDENCE_BLEND = { strategy: 0.7, structure: 0.3 } as const;
+
+export function unifyConfidence(
+  strategyConfidence: number,
+  side: "long" | "short",
+  row: SignalRow,
+): number {
+  const structure = side === "short" ? row.shortConfidence : row.confidence;
+  const blended = CONFIDENCE_BLEND.strategy * strategyConfidence + CONFIDENCE_BLEND.structure * structure;
+  return Math.round(blended * 10) / 10;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Entry evaluation — checks all conditions and returns trade parameters or null
 // ─────────────────────────────────────────────────────────────────────────────
 
