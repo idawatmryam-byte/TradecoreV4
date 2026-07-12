@@ -30,7 +30,7 @@ import {
 import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig, type PositionSide } from "./strategies";
 import { computeTrailingStop } from "./tradeManager";
 import { loadStrategyConfigs } from "./strategyConfigLoader";
-import { buildEffectiveBacktestConfigs } from "./backtestConfig";
+import { buildEffectiveBacktestConfigs, buildPerStrategyBacktestConfigs } from "./backtestConfig";
 import { ensureCandles, loadCandles } from "./historicalData";
 import { logger } from "./logger";
 import { MIN_VIABLE_TAKE_PROFIT_PERCENT, DEFAULT_FEE_RATE, DEFAULT_SLIPPAGE_RATE } from "./tradingCosts";
@@ -59,6 +59,14 @@ export interface BacktestParams {
   feeRate?: number;
   /** Slippage fraction, default 0.05% */
   slippageRate?: number;
+  /**
+   * Faithful mode: use each strategy's OWN configured SL/TP/confidence/risk
+   * (what the live bot trades with) instead of flattening every strategy to
+   * the run-level stopLossPercent/takeProfitPercent/confidenceThreshold. Used
+   * by the backtest-validation harness; the interactive UI leaves this off
+   * (its flat form is a single-config sweep). See backtestConfig.ts.
+   */
+  perStrategyConfigs?: boolean;
 }
 
 interface PartialExitRecord {
@@ -488,7 +496,9 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     // shared/cached objects, so this can't affect the live bot's config or
     // write back to the database). See lib/backtestConfig.ts for the full
     // root-cause writeup. Checkpoint 3/3 is logged inside that function.
-    const effectiveConfig = buildEffectiveBacktestConfigs(dbStrategyConfigs, params);
+    const effectiveConfig = params.perStrategyConfigs
+      ? buildPerStrategyBacktestConfigs(dbStrategyConfigs)
+      : buildEffectiveBacktestConfigs(dbStrategyConfigs, params);
     const strategyConfigs = effectiveConfig.configs;
 
     // Persist the exact effective configuration used, BEFORE the simulation
