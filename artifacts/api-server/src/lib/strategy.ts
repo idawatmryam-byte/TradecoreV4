@@ -277,6 +277,12 @@ export function calcBollingerBands(
 // bullish nor bearish (chop) so no directional entry is forced. Tunable.
 const MACRO_BUFFER_PCT = 0.15;
 
+// Deferred-work #5: period of the longer-term ATR used as the "normal"
+// volatility baseline the current ATR-14 is compared against. Long enough to
+// be a stable reference the current candle can't dominate; short enough to
+// stay adaptive. Tunable.
+const REGIME_BASELINE_ATR_PERIOD = 45;
+
 const REGIME_HYST = {
   strongEnter: 30, strongExit: 27, // strong_trend ADX band
   weakEnter: 20, weakExit: 17,     // weak_trend ADX band
@@ -294,22 +300,16 @@ export function detectMarketRegime(
   const currentPrice = candles1m[candles1m.length - 1]![4];
   const currentAtrPct = currentPrice > 0 ? (currentAtr / currentPrice) * 100 : 0;
 
-  // Rolling average ATR% over the last ~20 candles for relative comparison
-  const lookback = Math.min(20, candles1m.length - 15);
-  let atrSum = 0;
-  let atrCount = 0;
-  for (let i = lookback; i >= 2; i--) {
-    const slice = candles1m.slice(Math.max(0, candles1m.length - i - 13), candles1m.length - i + 1);
-    if (slice.length >= 2) {
-      const atr = calcAtr(slice, Math.min(14, slice.length - 1));
-      const price = slice[slice.length - 1]![4];
-      if (price > 0) {
-        atrSum += (atr / price) * 100;
-        atrCount++;
-      }
-    }
-  }
-  const avgAtrPct = atrCount > 0 ? atrSum / atrCount : currentAtrPct;
+  // Deferred-work #5: compare short-term volatility (ATR-14) against a
+  // genuinely longer-term baseline (ATR over REGIME_BASELINE_ATR_PERIOD). The
+  // previous baseline was a short, heavily-overlapping rolling window (~14
+  // candles sharing 13/14 with the current reading), which (a) under-detected
+  // SUSTAINED high/low volatility because the baseline rose and fell together
+  // with the current reading, and (b) was an O(n²) recompute. A single longer
+  // ATR is a real "normal volatility" reference — the current candle is only
+  // ~1/period of it, so a spike can't inflate its own baseline.
+  const baselineAtr = calcAtr(candles1m, REGIME_BASELINE_ATR_PERIOD);
+  const avgAtrPct = currentPrice > 0 ? (baselineAtr / currentPrice) * 100 : currentAtrPct;
   const ratio = avgAtrPct > 0 ? currentAtrPct / avgAtrPct : 1;
 
   // Volatility regime takes priority over trend regime — with a dead-band so a
