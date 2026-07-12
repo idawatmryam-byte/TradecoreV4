@@ -11,7 +11,11 @@
  * - Adaptive learning: blacklist + toxic-hour filter backed by PostgreSQL
  */
 
-import { binance as BinanceExchange, binanceusdm as BinanceUsdmExchange } from "ccxt";
+import {
+  binance as BinanceExchange,
+  binanceusdm as BinanceUsdmExchange,
+  AuthenticationError,
+} from "ccxt";
 import { db } from "@workspace/db";
 import {
   tradesTable,
@@ -328,7 +332,22 @@ class BotEngine {
     });
 
     if (testnet) {
-      ex.setSandboxMode(true);
+      // Paper trading reaches Binance two different ways, and they are NOT
+      // interchangeable — ccxt throws if you enable both:
+      //
+      //   spot    → setSandboxMode(true)     → testnet.binance.vision
+      //   futures → enableDemoTrading(true)  → demo-fapi.binance.com
+      //
+      // Binance retired the futures testnet (testnet.binancefuture.com), so
+      // ccxt now hard-rejects setSandboxMode on binanceusdm for every private
+      // call. Demo Trading is its replacement. Note the two environments issue
+      // SEPARATE API keys: spot-testnet keys will not authenticate against
+      // demo-fapi, and vice versa.
+      if (marketType === "futures") {
+        ex.enableDemoTrading(true);
+      } else {
+        ex.setSandboxMode(true);
+      }
     }
 
     this.exchange = ex;
@@ -723,10 +742,27 @@ class BotEngine {
     } catch (authErr: any) {
       this.credentialsVerified = false;
       this.exchange = null;
-      const code = authErr?.info?.code ?? authErr?.message ?? "unknown";
+
+      // Only a genuine credential rejection should be reported as one. This
+      // used to rewrite EVERY failure — network errors, and ccxt's NotSupported
+      // for the retired futures testnet — into "check your API keys", which
+      // sends you hunting for a credential problem that isn't there.
+      if (!(authErr instanceof AuthenticationError)) {
+        throw authErr;
+      }
+
+      // ccxt attaches `info` (the raw Binance error body) at runtime; it isn't
+      // on the typed AuthenticationError surface, hence the cast.
+      const code = (authErr as { info?: { code?: string } }).info?.code ?? authErr.message ?? "unknown";
+      const environment = config.testnet
+        ? config.marketType === "futures"
+          ? "Binance Futures Demo Trading (demo-fapi.binance.com)"
+          : "Binance spot testnet (testnet.binance.vision)"
+        : "Binance live";
       throw new Error(
         `Exchange authentication failed (Binance code ${code}). ` +
-          `Check BINANCE_API_KEY and BINANCE_API_SECRET match the selected environment (testnet=${config.testnet}).`
+          `The API key on the Settings page must be issued by ${environment} — ` +
+          `each environment issues its own keys and will reject another's.`,
       );
     }
 
