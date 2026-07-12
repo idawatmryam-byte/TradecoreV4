@@ -272,6 +272,11 @@ export function calcBollingerBands(
 // value hovering on a boundary (e.g. ADX oscillating around 20) can't flip the
 // regime — and therefore which strategies are eligible — every single tick.
 // Deferred-work #2: without this, regime whipsawed at 15s cadence live.
+// Deferred-work #4: half-width of the neutral no-trade band around the 1h
+// EMA50, as a % of the EMA50. Inside ±this, the macro filter reports neither
+// bullish nor bearish (chop) so no directional entry is forced. Tunable.
+const MACRO_BUFFER_PCT = 0.15;
+
 const REGIME_HYST = {
   strongEnter: 30, strongExit: 27, // strong_trend ADX band
   weakEnter: 20, weakExit: 17,     // weak_trend ADX band
@@ -430,10 +435,18 @@ export function buildSignalRow(
   ].filter(Boolean).length;
 
   // ── 1h macro filter ───────────────────────────────────────────────────────
+  // Deferred-work #4: a neutral dead-band around the 1h EMA50. Price sitting
+  // right on the EMA50 is the choppiest, least-tradeable macro state, yet a
+  // strict `close > ema50` flips the whole directional gate on/off tick to
+  // tick there. Requiring the close to be at least MACRO_BUFFER_PCT clear of
+  // the EMA50 to count as bullish/bearish means neither is true inside the
+  // band — a "no macro direction, don't force a side" zone.
   const closes1h = tf1h.map((c) => c[4]);
   const ema50_1h = calcEma(closes1h, 50);
-  const macroBullish = closes1h[closes1h.length - 1]! > ema50_1h;
-  const macroBearish = closes1h[closes1h.length - 1]! < ema50_1h;
+  const macroClose = closes1h[closes1h.length - 1]!;
+  const macroBand = ema50_1h * (MACRO_BUFFER_PCT / 100);
+  const macroBullish = macroClose > ema50_1h + macroBand;
+  const macroBearish = macroClose < ema50_1h - macroBand;
 
   // ── Market regime ─────────────────────────────────────────────────────────
   const regime = detectMarketRegime(tf1m, adxVal, previousRegime);
