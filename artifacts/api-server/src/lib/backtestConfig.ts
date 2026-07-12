@@ -65,6 +65,56 @@ export interface EffectiveBacktestConfig {
   };
 }
 
+/**
+ * Faithful mode (used by the backtest-validation harness): use each
+ * strategy's OWN configured stopLossPercent / takeProfitPercent /
+ * confidenceThreshold / riskPercent — exactly what the LIVE bot trades with
+ * — instead of flattening them all to one run-level value. This is the
+ * configuration path that actually reproduces live per-strategy behavior;
+ * the flat-override path below is the interactive UI's single-config sweep
+ * tool. Never touches the database (dbConfigs are already fresh clones).
+ */
+export function buildPerStrategyBacktestConfigs(
+  dbConfigs: Map<string, StrategyConfig>,
+): EffectiveBacktestConfig {
+  const configs = new Map<string, StrategyConfig>();
+  const summary: EffectiveStrategyConfigSummary[] = [];
+  const nameById = new Map(ALL_STRATEGIES.map((s) => [s.strategyId, s.strategyName]));
+
+  for (const [strategyId, dbConfig] of dbConfigs) {
+    configs.set(strategyId, { ...dbConfig });
+    summary.push({
+      strategyId,
+      strategyName: nameById.get(strategyId) ?? strategyId,
+      enabled: dbConfig.enabled,
+      db: {
+        stopLossPercent: dbConfig.stopLossPercent,
+        takeProfitPercent: dbConfig.takeProfitPercent,
+        confidenceThreshold: dbConfig.confidenceThreshold,
+        riskPercent: dbConfig.riskPercent,
+      },
+      effective: {
+        stopLossPercent: dbConfig.stopLossPercent,
+        takeProfitPercent: dbConfig.takeProfitPercent,
+        confidenceThreshold: dbConfig.confidenceThreshold,
+        riskPercent: dbConfig.riskPercent,
+      },
+      riskPercentSource: "strategy-config",
+    });
+  }
+
+  return {
+    configs,
+    summary,
+    runLevelOverrides: {
+      stopLossPercent: 0,
+      takeProfitPercent: 0,
+      confidenceThreshold: 0,
+      riskPercentOverride: null,
+    },
+  };
+}
+
 export function buildEffectiveBacktestConfigs(
   dbConfigs: Map<string, StrategyConfig>,
   params: Pick<BacktestParams, "stopLossPercent" | "takeProfitPercent" | "confidenceThreshold" | "riskPercent">,
