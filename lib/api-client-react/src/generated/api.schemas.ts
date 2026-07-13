@@ -728,6 +728,8 @@ export interface BacktestRunRequest {
      */
   leverage?: number;
   marginMode?: BacktestRunRequestMarginMode;
+  /** true (default): each strategy uses its own SL/TP/confidence, matching live. false: flatten every strategy to the run-level stopLossPercent/takeProfitPercent/confidenceThreshold (a single-config sweep). */
+  perStrategyConfigs?: boolean;
 }
 
 export type OptimizeRequestTimeframe = typeof OptimizeRequestTimeframe[keyof typeof OptimizeRequestTimeframe];

@@ -638,6 +638,7 @@ export const runBacktestBodyLeverageDefault = 1;
 export const runBacktestBodyLeverageMax = 125;
 
 export const runBacktestBodyMarginModeDefault = `isolated`;
+export const runBacktestBodyPerStrategyConfigsDefault = true;
 
 export const RunBacktestBody = zod.object({
   "symbols": zod.array(zod.string()),
@@ -656,7 +657,8 @@ export const RunBacktestBody = zod.object({
   "slippageRate": zod.number().default(runBacktestBodySlippageRateDefault),
   "marketType": zod.enum(['spot', 'futures']).default(runBacktestBodyMarketTypeDefault).describe('futures models isolated-margin liquidation (leverage affects liquidation risk only, not position size — matches live sizing).'),
   "leverage": zod.number().min(1).max(runBacktestBodyLeverageMax).default(runBacktestBodyLeverageDefault).describe('Futures leverage. Only affects liquidation risk in the backtest, not position size.'),
-  "marginMode": zod.enum(['isolated', 'cross']).default(runBacktestBodyMarginModeDefault)
+  "marginMode": zod.enum(['isolated', 'cross']).default(runBacktestBodyMarginModeDefault),
+  "perStrategyConfigs": zod.boolean().default(runBacktestBodyPerStrategyConfigsDefault).describe('true (default): each strategy uses its own SL\/TP\/confidence, matching live. false: flatten every strategy to the run-level stopLossPercent\/takeProfitPercent\/confidenceThreshold (a single-config sweep).')
 })
 
 export const RunBacktestResponse = zod.object({
