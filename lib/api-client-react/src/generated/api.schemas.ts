@@ -800,6 +800,12 @@ export interface BacktestRunRequest {
   rrRatio?: number;
   /** Faithful mode only: disable TP1 partials, break-even, and trailing stops so trades resolve only at the full SL or TP. Required to evaluate asymmetric-R:R styles, which the management layer otherwise clips at ~1R. */
   pureExits?: boolean;
+  /**
+     * Faithful mode only: multiply every strategy's maxHoldingSeconds (swing-profile test). Adaptive targets grow ~√hold, so per-trade moves get larger while the roughly-fixed per-trade fee shrinks in proportion. 1 = off.
+     * @minimum 0.1
+     * @maximum 100
+     */
+  holdMultiplier?: number;
 }
 
 export type OptimizeRequestTimeframe = typeof OptimizeRequestTimeframe[keyof typeof OptimizeRequestTimeframe];

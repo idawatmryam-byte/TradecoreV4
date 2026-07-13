@@ -54,6 +54,8 @@ async function main() {
   const rrRatio = Number(arg("rr", "0"));
   // Optional pure exits: --pure → no TP1/break-even/trailing (full SL/TP only)
   const pureExits = process.argv.includes("--pure");
+  // Optional swing profile: --hold 24 → every strategy's max hold × 24
+  const holdMultiplier = Number(arg("hold", "1"));
 
   const params: BacktestParams = {
     symbols,
@@ -73,6 +75,7 @@ async function main() {
     perStrategyConfigs: true, // ← faithful: each strategy uses its own config
     rrRatio,
     pureExits,
+    holdMultiplier,
     marketType,
     leverage,
   };

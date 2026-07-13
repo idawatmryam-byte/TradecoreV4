@@ -66,6 +66,8 @@ export interface EffectiveBacktestConfig {
     rrRatioOverride?: number;
     /** Faithful mode only: TP1/break-even/trailing disabled — trades resolve only at full SL/TP. */
     pureExits?: boolean;
+    /** Faithful mode only: every strategy's maxHoldingSeconds × this (swing-profile test). */
+    holdMultiplier?: number;
   };
 }
 
@@ -96,6 +98,14 @@ export function buildPerStrategyBacktestConfigs(
    *  only 3 take-profits in 788 trades. An asymmetric-R:R style cannot be
    *  evaluated with profit-clipping management active. */
   pureExits = false,
+  /** Optional swing-profile test: multiply every strategy's maxHoldingSeconds
+   *  (e.g. 24 → momentum's 1h hold becomes 24h). The volatility-adaptive
+   *  targets scale ~√hold automatically, so per-trade moves grow while the
+   *  ~fixed per-trade fee shrinks in proportion — the lever run 31 pointed
+   *  at: momentum/trend-pullback were gross-POSITIVE (+34/+50) under 1:3
+   *  pure exits, but the ~0.08/trade edge was 8× smaller than the fee.
+   *  1 (or ≤0) = off. */
+  holdMultiplier = 1,
 ): EffectiveBacktestConfig {
   const configs = new Map<string, StrategyConfig>();
   const summary: EffectiveStrategyConfigSummary[] = [];
@@ -116,6 +126,9 @@ export function buildPerStrategyBacktestConfigs(
         tp3Enabled: false,
         trailingStopMode: "none" as const,
         emergencyTrailingRMultiple: 0,
+      }),
+      ...(holdMultiplier > 0 && holdMultiplier !== 1 && {
+        maxHoldingSeconds: Math.round(dbConfig.maxHoldingSeconds * holdMultiplier),
       }),
     });
     summary.push({
@@ -148,6 +161,7 @@ export function buildPerStrategyBacktestConfigs(
       riskPercentOverride: null,
       rrRatioOverride: rrRatio > 0 ? rrRatio : undefined,
       pureExits: pureExits || undefined,
+      holdMultiplier: holdMultiplier > 0 && holdMultiplier !== 1 ? holdMultiplier : undefined,
     },
   };
 }

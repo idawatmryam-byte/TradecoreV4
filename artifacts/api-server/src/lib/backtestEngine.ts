@@ -77,6 +77,9 @@ export interface BacktestParams {
    *  only at the full SL or TP — required to evaluate asymmetric-R:R styles
    *  the management layer would otherwise clip at ~1R. */
   pureExits?: boolean;
+  /** Faithful mode only: multiply every strategy's maxHoldingSeconds (swing-
+   *  profile test — adaptive targets grow ~√hold, amortizing fees). 1 = off. */
+  holdMultiplier?: number;
 
   // ── Futures leverage modeling (spot is the default when unset) ─────────────
   /** "spot" (no leverage/liquidation) | "futures". Default "spot". */
@@ -537,6 +540,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
           Math.max(0, params.confidenceThreshold || 0),
           Math.max(0, params.rrRatio || 0),
           params.pureExits === true,
+          Math.max(0, params.holdMultiplier || 1),
         )
       : buildEffectiveBacktestConfigs(dbStrategyConfigs, params);
     const strategyConfigs = effectiveConfig.configs;
