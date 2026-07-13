@@ -124,7 +124,7 @@ function defaultForm(): RunFormState {
     startDate: isoDate(start),
     endDate: isoDate(end),
     startingBalance: 1000,
-    confidenceThreshold: 65,
+    confidenceThreshold: 0, // match-live default: 0 = each strategy's own threshold (a floor when raised)
     stopLossPercent: 1.5,
     takeProfitPercent: 2.5,
     riskPercent: 0, // 0 = use each strategy's own configured risk% (not a global override)
@@ -367,7 +367,16 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
             <input
               type="checkbox"
               checked={form.matchLive}
-              onChange={(e) => setForm((f) => ({ ...f, matchLive: e.target.checked }))}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  matchLive: e.target.checked,
+                  // Sensible default per mode: faithful runs use each
+                  // strategy's own threshold (0 = no floor); override mode
+                  // needs a real flat threshold.
+                  confidenceThreshold: e.target.checked ? 0 : 65,
+                }))
+              }
               className="mt-0.5"
             />
             <span className="text-xs">
@@ -386,15 +395,26 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
             {field("Daily Loss Limit ($)", "dailyLossLimitUsdt")}
           </div>
 
+          {/* Confidence: in match-live mode this is a FLOOR on top of each
+              strategy's own threshold (0 = fully faithful) — the lever for
+              a "high-conviction only" experiment without flattening SL/TP. */}
+          <div className="grid grid-cols-2 gap-3">
+            {field(
+              form.matchLive ? "Confidence floor (0 = each strategy's own)" : "Confidence Threshold",
+              "confidenceThreshold",
+            )}
+            <div />
+          </div>
+
           {/* Flat overrides — ignored when Match live is on */}
           <fieldset disabled={form.matchLive} className={cn("space-y-3 border-0 p-0 m-0", form.matchLive && "opacity-40")}>
             <div className="grid grid-cols-2 gap-3">
-              {field("Confidence Threshold", "confidenceThreshold")}
-              {field("Risk %", "riskPercent", "number", "0.1")}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
               {field("Stop Loss %", "stopLossPercent", "number", "0.1")}
               {field("Take Profit %", "takeProfitPercent", "number", "0.1")}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {field("Risk %", "riskPercent", "number", "0.1")}
+              <div />
             </div>
           </fieldset>
 

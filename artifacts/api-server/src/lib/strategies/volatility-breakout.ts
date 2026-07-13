@@ -100,7 +100,7 @@ export class VolatilityBreakoutStrategy implements Strategy {
 
     // Phase 5A: SL/TP is a fixed % from entry — no longer ATR- or
     // BB-middle-based. ATR/BB above remain squeeze/entry detection only.
-    const { slPrice, tpPrice } = computeAdaptiveSLTP(lastPrice, config, side, row.atrPercent);
+    const { slPrice, tpPrice } = computeAdaptiveSLTP(lastPrice, config, side, row.atrPercent, config.maxHoldingSeconds, row.candleMinutes);
 
     const qty = computeQty(balance, config.riskPercent, lastPrice, slPrice, positionSizeUsdt, 10, side);
     if (qty <= 0) return null;

@@ -524,7 +524,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     // write back to the database). See lib/backtestConfig.ts for the full
     // root-cause writeup. Checkpoint 3/3 is logged inside that function.
     const effectiveConfig = params.perStrategyConfigs
-      ? buildPerStrategyBacktestConfigs(dbStrategyConfigs)
+      ? buildPerStrategyBacktestConfigs(dbStrategyConfigs, Math.max(0, params.confidenceThreshold || 0))
       : buildEffectiveBacktestConfigs(dbStrategyConfigs, params);
     const strategyConfigs = effectiveConfig.configs;
 

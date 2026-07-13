@@ -87,7 +87,7 @@ export class TrendPullbackStrategy implements Strategy {
 
     // Phase 5A: SL/TP is a fixed % from entry. `atr` above is still used for
     // the pullback-zone entry condition — that's market-analysis, not exit calc.
-    const { slPrice, tpPrice } = computeAdaptiveSLTP(lastPrice, config, side, row.atrPercent);
+    const { slPrice, tpPrice } = computeAdaptiveSLTP(lastPrice, config, side, row.atrPercent, config.maxHoldingSeconds, row.candleMinutes);
 
     const qty = computeQty(balance, config.riskPercent, lastPrice, slPrice, positionSizeUsdt, 10, side);
     if (qty <= 0) return null;

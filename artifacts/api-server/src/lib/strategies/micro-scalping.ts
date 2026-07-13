@@ -82,7 +82,7 @@ export class MicroScalpingStrategy implements Strategy {
     if (confidence < config.confidenceThreshold) return null;
 
     // Phase 5A: SL/TP is a fixed % from entry, not ATR-derived.
-    const { slPrice, tpPrice } = computeAdaptiveSLTP(lastPrice, config, side, row.atrPercent);
+    const { slPrice, tpPrice } = computeAdaptiveSLTP(lastPrice, config, side, row.atrPercent, config.maxHoldingSeconds, row.candleMinutes);
 
     const qty = computeQty(balance, config.riskPercent, lastPrice, slPrice, positionSizeUsdt, 10, side);
     if (qty <= 0) return null;
