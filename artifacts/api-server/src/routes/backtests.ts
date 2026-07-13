@@ -177,6 +177,8 @@ router.post("/backtests/run", async (req, res) => {
   // single SL/TP. Only when explicitly false does the flat form override apply
   // (a single-config sweep). See backtestConfig.ts.
   const perStrategyConfigs = b.perStrategyConfigs !== false;
+  // Faithful-mode R:R reshape: TP = each strategy's own SL × ratio (0 = off).
+  const rrRatio = Math.max(0, Math.min(10, Number(b.rrRatio ?? 0) || 0));
 
   // Phase 6 audit Finding B fix: this exact route produced the bt6 scenario
   // — a takeProfitPercent (0.25%) smaller than round-trip trading costs,
@@ -250,6 +252,7 @@ router.post("/backtests/run", async (req, res) => {
     leverage,
     marginMode,
     perStrategyConfigs,
+    rrRatio,
   }, req.userId!).catch((err) => {
     logger.error({ err, runId: run.id }, "Background backtest error");
   });

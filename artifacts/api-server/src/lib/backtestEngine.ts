@@ -69,6 +69,10 @@ export interface BacktestParams {
    * (its flat form is a single-config sweep). See backtestConfig.ts.
    */
   perStrategyConfigs?: boolean;
+  /** Faithful mode only: reshape every strategy to TP = its own SL × this
+   *  ratio (e.g. 3 → 1:3 reward:risk), keeping all other per-strategy config
+   *  faithful. 0/undefined = off. */
+  rrRatio?: number;
 
   // ── Futures leverage modeling (spot is the default when unset) ─────────────
   /** "spot" (no leverage/liquidation) | "futures". Default "spot". */
@@ -524,7 +528,11 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     // write back to the database). See lib/backtestConfig.ts for the full
     // root-cause writeup. Checkpoint 3/3 is logged inside that function.
     const effectiveConfig = params.perStrategyConfigs
-      ? buildPerStrategyBacktestConfigs(dbStrategyConfigs, Math.max(0, params.confidenceThreshold || 0))
+      ? buildPerStrategyBacktestConfigs(
+          dbStrategyConfigs,
+          Math.max(0, params.confidenceThreshold || 0),
+          Math.max(0, params.rrRatio || 0),
+        )
       : buildEffectiveBacktestConfigs(dbStrategyConfigs, params);
     const strategyConfigs = effectiveConfig.configs;
 

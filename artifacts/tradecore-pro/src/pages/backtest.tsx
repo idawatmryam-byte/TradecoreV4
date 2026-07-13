@@ -112,6 +112,8 @@ interface RunFormState {
   leverage: number;
   /** true (default): each strategy uses its own SL/TP/confidence (matches live). */
   matchLive: boolean;
+  /** Faithful mode: TP = each strategy's own SL × this ratio (0 = off). */
+  rrRatio: number;
 }
 
 function defaultForm(): RunFormState {
@@ -134,6 +136,7 @@ function defaultForm(): RunFormState {
     marketType: "spot",
     leverage: 1,
     matchLive: true,
+    rrRatio: 0,
   };
 }
 
@@ -397,14 +400,27 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
 
           {/* Confidence: in match-live mode this is a FLOOR on top of each
               strategy's own threshold (0 = fully faithful) — the lever for
-              a "high-conviction only" experiment without flattening SL/TP. */}
+              a "high-conviction only" experiment without flattening SL/TP.
+              R:R ratio: reshape every strategy to TP = its own SL × ratio
+              (e.g. 3 → 1:3) without touching live configs. */}
           <div className="grid grid-cols-2 gap-3">
             {field(
               form.matchLive ? "Confidence floor (0 = each strategy's own)" : "Confidence Threshold",
               "confidenceThreshold",
             )}
-            <div />
+            {form.matchLive ? (
+              field("R:R ratio (0 = each strategy's own)", "rrRatio", "number", "0.5")
+            ) : (
+              <div />
+            )}
           </div>
+          {form.matchLive && form.rrRatio > 0 && (
+            <p className="text-[11px] text-muted-foreground -mt-2">
+              Every strategy's take-profit becomes its own stop-loss × {form.rrRatio} (1:{form.rrRatio} reward:risk).
+              Stops, risk %, and holding times stay per-strategy; the volatility cap preserves the ratio when it
+              shrinks targets. Live configs are not modified.
+            </p>
+          )}
 
           {/* Flat overrides — ignored when Match live is on */}
           <fieldset disabled={form.matchLive} className={cn("space-y-3 border-0 p-0 m-0", form.matchLive && "opacity-40")}>
