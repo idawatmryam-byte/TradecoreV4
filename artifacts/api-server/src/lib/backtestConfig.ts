@@ -64,6 +64,8 @@ export interface EffectiveBacktestConfig {
     riskPercentOverride: number | null; // null = "not overridden, using each strategy's own riskPercent"
     /** Faithful mode only: TP forced to SL × this ratio per strategy (0/undefined = off). */
     rrRatioOverride?: number;
+    /** Faithful mode only: TP1/break-even/trailing disabled — trades resolve only at full SL/TP. */
+    pureExits?: boolean;
   };
 }
 
@@ -86,6 +88,14 @@ export function buildPerStrategyBacktestConfigs(
    *  faithful. The volatility-adaptive cap downstream preserves the ratio
    *  when it shrinks targets. 0 = off (each strategy's own TP). */
   rrRatio = 0,
+  /** Optional pure-exit mode: disable TP1 partials, break-even, and ALL
+   *  trailing (normal + emergency) so trades resolve only at the full SL or
+   *  TP. Exists because the management layer clips winners at ~1R — measured:
+   *  in an rrRatio=3 run, 286 trailing exits averaged +1.19 while 370 stops
+   *  averaged −3.36, inverting the intended 1:3 into a realized 1:0.4 with
+   *  only 3 take-profits in 788 trades. An asymmetric-R:R style cannot be
+   *  evaluated with profit-clipping management active. */
+  pureExits = false,
 ): EffectiveBacktestConfig {
   const configs = new Map<string, StrategyConfig>();
   const summary: EffectiveStrategyConfigSummary[] = [];
@@ -98,6 +108,15 @@ export function buildPerStrategyBacktestConfigs(
       ...dbConfig,
       takeProfitPercent: effectiveTp,
       confidenceThreshold: effectiveConf,
+      // Pure-exit mode: tp1RMultiple 0 disables the TP1/BE ladder; trailing
+      // and emergency-trailing are zeroed independently to cover every arm
+      // path (see backtest/tradeManager trailing arming conditions).
+      ...(pureExits && {
+        tp1RMultiple: 0,
+        tp3Enabled: false,
+        trailingStopMode: "none" as const,
+        emergencyTrailingRMultiple: 0,
+      }),
     });
     summary.push({
       strategyId,
@@ -128,6 +147,7 @@ export function buildPerStrategyBacktestConfigs(
       confidenceThreshold: confidenceFloor,
       riskPercentOverride: null,
       rrRatioOverride: rrRatio > 0 ? rrRatio : undefined,
+      pureExits: pureExits || undefined,
     },
   };
 }

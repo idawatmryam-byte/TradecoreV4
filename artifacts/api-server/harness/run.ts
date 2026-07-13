@@ -52,6 +52,8 @@ async function main() {
   const leverage = Number(arg("leverage", "1"));
   // Optional faithful-mode R:R reshape: --rr 3 → TP = each strategy's SL × 3
   const rrRatio = Number(arg("rr", "0"));
+  // Optional pure exits: --pure → no TP1/break-even/trailing (full SL/TP only)
+  const pureExits = process.argv.includes("--pure");
 
   const params: BacktestParams = {
     symbols,
@@ -70,6 +72,7 @@ async function main() {
     riskPercent: 0,
     perStrategyConfigs: true, // ← faithful: each strategy uses its own config
     rrRatio,
+    pureExits,
     marketType,
     leverage,
   };

@@ -73,6 +73,10 @@ export interface BacktestParams {
    *  ratio (e.g. 3 → 1:3 reward:risk), keeping all other per-strategy config
    *  faithful. 0/undefined = off. */
   rrRatio?: number;
+  /** Faithful mode only: disable TP1/break-even/trailing so trades resolve
+   *  only at the full SL or TP — required to evaluate asymmetric-R:R styles
+   *  the management layer would otherwise clip at ~1R. */
+  pureExits?: boolean;
 
   // ── Futures leverage modeling (spot is the default when unset) ─────────────
   /** "spot" (no leverage/liquidation) | "futures". Default "spot". */
@@ -532,6 +536,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
           dbStrategyConfigs,
           Math.max(0, params.confidenceThreshold || 0),
           Math.max(0, params.rrRatio || 0),
+          params.pureExits === true,
         )
       : buildEffectiveBacktestConfigs(dbStrategyConfigs, params);
     const strategyConfigs = effectiveConfig.configs;
