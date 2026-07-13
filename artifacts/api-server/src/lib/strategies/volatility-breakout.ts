@@ -15,7 +15,7 @@
  * - Breakout candle is bearish
  * - Volume increasing
  */
-import { type Strategy, type StrategySignal, type StrategyConfig, type PositionSide, computeQty, computePercentSLTP } from "./base";
+import { type Strategy, type StrategySignal, type StrategyConfig, type PositionSide, computeQty, computeAdaptiveSLTP } from "./base";
 import { type MultiTimeframeCandles, type SignalRow, calcBollingerBands, calcAtr } from "../strategy";
 
 export class VolatilityBreakoutStrategy implements Strategy {
@@ -100,7 +100,7 @@ export class VolatilityBreakoutStrategy implements Strategy {
 
     // Phase 5A: SL/TP is a fixed % from entry — no longer ATR- or
     // BB-middle-based. ATR/BB above remain squeeze/entry detection only.
-    const { slPrice, tpPrice } = computePercentSLTP(lastPrice, config.stopLossPercent, config.takeProfitPercent, side);
+    const { slPrice, tpPrice } = computeAdaptiveSLTP(lastPrice, config, side, row.atrPercent);
 
     const qty = computeQty(balance, config.riskPercent, lastPrice, slPrice, positionSizeUsdt, 10, side);
     if (qty <= 0) return null;
