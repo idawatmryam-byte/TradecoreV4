@@ -700,7 +700,7 @@ export const runBacktestBodyRrRatioDefault = 0;
 export const runBacktestBodyRrRatioMin = 0;
 export const runBacktestBodyRrRatioMax = 10;
 
-
+export const runBacktestBodyPureExitsDefault = false;
 
 export const RunBacktestBody = zod.object({
   "symbols": zod.array(zod.string()),
@@ -721,7 +721,8 @@ export const RunBacktestBody = zod.object({
   "leverage": zod.number().min(1).max(runBacktestBodyLeverageMax).default(runBacktestBodyLeverageDefault).describe('Futures leverage. Only affects liquidation risk in the backtest, not position size.'),
   "marginMode": zod.enum(['isolated', 'cross']).default(runBacktestBodyMarginModeDefault),
   "perStrategyConfigs": zod.boolean().default(runBacktestBodyPerStrategyConfigsDefault).describe('true (default): each strategy uses its own SL\/TP\/confidence, matching live. false: flatten every strategy to the run-level stopLossPercent\/takeProfitPercent\/confidenceThreshold (a single-config sweep).'),
-  "rrRatio": zod.number().min(runBacktestBodyRrRatioMin).max(runBacktestBodyRrRatioMax).default(runBacktestBodyRrRatioDefault).describe('Faithful mode only: reshape every strategy to TP = its own SL × this ratio (e.g. 3 → 1:3 reward:risk), keeping everything else per-strategy. 0 = off. The volatility-adaptive cap preserves the ratio when it shrinks targets.')
+  "rrRatio": zod.number().min(runBacktestBodyRrRatioMin).max(runBacktestBodyRrRatioMax).default(runBacktestBodyRrRatioDefault).describe('Faithful mode only: reshape every strategy to TP = its own SL × this ratio (e.g. 3 → 1:3 reward:risk), keeping everything else per-strategy. 0 = off. The volatility-adaptive cap preserves the ratio when it shrinks targets.'),
+  "pureExits": zod.boolean().default(runBacktestBodyPureExitsDefault).describe('Faithful mode only: disable TP1 partials, break-even, and trailing stops so trades resolve only at the full SL or TP. Required to evaluate asymmetric-R:R styles, which the management layer otherwise clips at ~1R.')
 })
 
 export const RunBacktestResponse = zod.object({

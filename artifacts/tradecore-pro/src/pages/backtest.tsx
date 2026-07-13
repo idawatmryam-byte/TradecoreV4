@@ -114,6 +114,8 @@ interface RunFormState {
   matchLive: boolean;
   /** Faithful mode: TP = each strategy's own SL × this ratio (0 = off). */
   rrRatio: number;
+  /** Faithful mode: no TP1/break-even/trailing — full SL/TP only. */
+  pureExits: boolean;
 }
 
 function defaultForm(): RunFormState {
@@ -137,6 +139,7 @@ function defaultForm(): RunFormState {
     leverage: 1,
     matchLive: true,
     rrRatio: 0,
+    pureExits: false,
   };
 }
 
@@ -420,6 +423,25 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
               Stops, risk %, and holding times stay per-strategy; the volatility cap preserves the ratio when it
               shrinks targets. Live configs are not modified.
             </p>
+          )}
+
+          {form.matchLive && (
+            <label className="flex items-start gap-2 p-2.5 rounded border border-border bg-muted/30 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.pureExits}
+                onChange={(e) => setForm((f) => ({ ...f, pureExits: e.target.checked }))}
+                className="mt-0.5"
+              />
+              <span className="text-xs">
+                <span className="font-bold">Pure SL/TP exits — no TP1, break-even, or trailing</span>
+                <span className="block text-muted-foreground mt-0.5">
+                  Trades resolve only at the full stop or full target. Turn this ON when testing asymmetric R:R
+                  (e.g. 1:3) — the management layer otherwise clips winners at ~1R and the ratio never plays out.
+                  Live configs are not modified.
+                </span>
+              </span>
+            </label>
           )}
 
           {/* Flat overrides — ignored when Match live is on */}

@@ -1768,6 +1768,10 @@ components:
           maximum: 10
           default: 0
           description: "Faithful mode only: reshape every strategy to TP = its own SL × this ratio (e.g. 3 → 1:3 reward:risk), keeping everything else per-strategy. 0 = off. The volatility-adaptive cap preserves the ratio when it shrinks targets."
+        pureExits:
+          type: boolean
+          default: false
+          description: "Faithful mode only: disable TP1 partials, break-even, and trailing stops so trades resolve only at the full SL or TP. Required to evaluate asymmetric-R:R styles, which the management layer otherwise clips at ~1R."
 
     OptimizeRequest:
       type: object
