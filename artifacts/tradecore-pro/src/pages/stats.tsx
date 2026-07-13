@@ -1,9 +1,124 @@
-import { useGetStatsSummary, useGetDailyStats, useGetHourlyStats, getGetStatsSummaryQueryKey, getGetDailyStatsQueryKey, getGetHourlyStatsQueryKey } from "@workspace/api-client-react";
+import { useGetStatsSummary, useGetDailyStats, useGetHourlyStats, useGetDailyReport, getGetStatsSummaryQueryKey, getGetDailyStatsQueryKey, getGetHourlyStatsQueryKey, getGetDailyReportQueryKey } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui";
+import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
-import { BarChart2, Flame, TrendingDown, Target, Zap } from "lucide-react";
+import { BarChart2, Flame, TrendingDown, Target, Zap, FileText, Download } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Cell as PieCell } from 'recharts';
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+
+// ---------------------------------------------------------------------------
+// Daily trade report — same data the engine pushes to the alert webhook at
+// UTC midnight, on demand for any day, with a CSV download.
+// ---------------------------------------------------------------------------
+function DailyReportCard() {
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const params = { date };
+  const { data: report, isLoading } = useGetDailyReport(params, {
+    query: { queryKey: getGetDailyReportQueryKey(params) },
+  });
+
+  function downloadCsv() {
+    if (!report) return;
+    const header = "id,symbol,side,strategy,entryTime,exitTime,entryPrice,exitPrice,quantity,pnl,exitReason";
+    const rows = report.trades.map((t) =>
+      [t.id, t.symbol, t.side, t.strategyName ?? "", t.entryTime, t.exitTime ?? "", t.entryPrice, t.exitPrice ?? "", t.quantity, t.pnl ?? "", t.exitReason ?? ""].join(","),
+    );
+    const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `tradecore-daily-report-${report.date}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  const s = report?.summary;
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+          <FileText className="h-4 w-4 text-primary" /> Daily Trade Report
+        </CardTitle>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="bg-background border border-border rounded px-2 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+          <Button variant="outline" size="sm" onClick={downloadCsv} disabled={!report || report.trades.length === 0} className="gap-1">
+            <Download className="h-3 w-3" /> CSV
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading || !s ? (
+          <p className="text-xs font-mono text-muted-foreground">Loading…</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div>
+                <p className="text-[10px] font-mono text-muted-foreground uppercase">P&L</p>
+                <p className={cn("text-xl font-bold", s.totalPnl >= 0 ? "text-success" : "text-destructive")}>{formatCurrency(s.totalPnl, "always")}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-mono text-muted-foreground uppercase">Trades</p>
+                <p className="text-xl font-bold">{s.totalTrades} <span className="text-xs text-muted-foreground">({s.wins}W/{s.losses}L)</span></p>
+              </div>
+              <div>
+                <p className="text-[10px] font-mono text-muted-foreground uppercase">Win rate</p>
+                <p className="text-xl font-bold text-primary">{(s.winRate * 100).toFixed(0)}%</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-mono text-muted-foreground uppercase">Fees</p>
+                <p className="text-xl font-bold">{formatCurrency(s.totalFeesUsdt)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-mono text-muted-foreground uppercase">Open now</p>
+                <p className="text-xl font-bold">{s.openPositions}</p>
+              </div>
+            </div>
+
+            {s.totalTrades === 0 ? (
+              <p className="text-xs font-mono text-muted-foreground">No trades closed on {report!.date} (UTC).</p>
+            ) : (
+              <>
+                <div className="text-xs font-mono text-muted-foreground">
+                  exits — {Object.entries(report!.exitReasons).map(([k, v]) => `${k}: ${v}`).join(" · ")}
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs font-mono">
+                    <thead>
+                      <tr className="text-muted-foreground border-b border-border">
+                        <th className="text-left py-1 pr-3">Strategy</th>
+                        <th className="text-right py-1 pr-3">Trades</th>
+                        <th className="text-right py-1 pr-3">Wins</th>
+                        <th className="text-right py-1">P&L</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report!.byStrategy.sort((a, b) => b.pnl - a.pnl).map((row) => (
+                        <tr key={row.strategyName} className="border-b border-border/40">
+                          <td className="py-1 pr-3">{row.strategyName}</td>
+                          <td className="text-right py-1 pr-3">{row.trades}</td>
+                          <td className="text-right py-1 pr-3">{row.wins}</td>
+                          <td className={cn("text-right py-1", row.pnl >= 0 ? "text-success" : "text-destructive")}>{formatCurrency(row.pnl, "always")}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+            <p className="text-[10px] text-muted-foreground">
+              This report is also pushed automatically to your alert webhook at UTC midnight (Configuration → Alert Webhook URL).
+            </p>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export function Stats() {
   const { data: summary } = useGetStatsSummary({ query: { queryKey: getGetStatsSummaryQueryKey() } });
@@ -26,6 +141,8 @@ export function Stats() {
         </h1>
         <p className="text-muted-foreground text-sm mt-1">Deep dive into historical edge and execution metrics.</p>
       </div>
+
+      <DailyReportCard />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="bg-card">

@@ -24,6 +24,11 @@ export const BotStatusMode = {
 
 export interface BotStatus {
   running: boolean;
+  /**
+     * Free USDT on the connected exchange environment; null when the engine is stopped.
+     * @nullable
+     */
+  balanceUsdt?: number | null;
   dailyPnl: number;
   openPositions: number;
   totalTradesToday: number;
@@ -351,6 +356,63 @@ export interface DailyStats {
   openPositions: number;
   circuitBreakerHit: boolean;
   hourlyBreakdown?: HourlyStat[];
+}
+
+export type DailyReportSummary = {
+  totalTrades: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  totalPnl: number;
+  totalFeesUsdt: number;
+  bestTrade: number;
+  worstTrade: number;
+  openPositions: number;
+};
+
+export type DailyReportByStrategyItem = {
+  strategyName: string;
+  trades: number;
+  wins: number;
+  pnl: number;
+};
+
+export type DailyReportBySymbolItem = {
+  symbol: string;
+  trades: number;
+  wins: number;
+  pnl: number;
+};
+
+export type DailyReportExitReasons = {[key: string]: number};
+
+export type DailyReportTradesItem = {
+  id: number;
+  symbol: string;
+  side: string;
+  /** @nullable */
+  strategyName?: string | null;
+  entryTime: string;
+  /** @nullable */
+  exitTime?: string | null;
+  entryPrice: number;
+  /** @nullable */
+  exitPrice?: number | null;
+  quantity: number;
+  /** @nullable */
+  pnl?: number | null;
+  /** @nullable */
+  exitReason?: string | null;
+};
+
+export interface DailyReport {
+  date: string;
+  generatedAt: string;
+  summary: DailyReportSummary;
+  byStrategy: DailyReportByStrategyItem[];
+  bySymbol: DailyReportBySymbolItem[];
+  exitReasons: DailyReportExitReasons;
+  trades: DailyReportTradesItem[];
 }
 
 export interface BlacklistEntry {
@@ -896,6 +958,14 @@ export const GetTradesSource = {
   live: 'live',
   backtest: 'backtest',
 } as const;
+
+export type GetDailyReportParams = {
+/**
+ * UTC day, YYYY-MM-DD. Defaults to today.
+ * @pattern ^\d{4}-\d{2}-\d{2}$
+ */
+date?: string;
+};
 
 export type SetBinanceCredentialsBody = {
   apiKey: string;

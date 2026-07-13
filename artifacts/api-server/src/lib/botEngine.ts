@@ -42,6 +42,7 @@ import { TradeManager } from "./tradeManager";
 import { placeSellOco, cancelOco } from "./binanceOco";
 import { placeFuturesStopAndTakeProfit, closeFuturesPositionMarket, configureFuturesLeverage, getLiquidationPrice } from "./binanceFutures";
 import { stopTooCloseToLiquidation } from "./futuresMath";
+import { buildDailyReport, formatDailyReportText } from "./dailyReport";
 import {
   buildSymbolMarketMaps,
   unifiedFromPlainFallback,
@@ -91,6 +92,8 @@ export interface ScannerRow {
 
 export interface BotState {
   running: boolean;
+  /** Free USDT on the connected exchange environment; null when stopped/unknown. */
+  balanceUsdt: number | null;
   dailyPnl: number;
   openPositions: number;
   totalTradesToday: number;
@@ -148,6 +151,9 @@ class BotEngine {
    *  regime (and thus which strategies are eligible) can't flip every 15s
    *  scan tick on a metric hovering at a threshold. See detectMarketRegime. */
   private lastRegime: Map<string, MarketRegime> = new Map();
+  /** UTC day ("YYYY-MM-DD") the scan loop last saw — a change triggers the
+   *  daily-report webhook push for the day that just ended. */
+  private lastDailyReportDate: string | null = null;
 
   // Single-flight guard: prevents overlapping scan executions
   private scanning = false;
@@ -286,6 +292,7 @@ class BotEngine {
 
   private state: BotState = {
     running: false,
+    balanceUsdt: null,
     dailyPnl: 0,
     openPositions: 0,
     totalTradesToday: 0,
@@ -398,6 +405,7 @@ class BotEngine {
         this.cachedBalance = free;
         this.lastBalanceFetch = now;
       }
+      this.state.balanceUsdt = free; // keep the dashboard's balance current
     } catch {
       // Return cached value on transient failure
     }
@@ -764,9 +772,18 @@ class BotEngine {
     logger.info({ count: this.availableMarkets.size, mapped: this.symbolMaps.toUnified.size }, "Markets loaded");
 
     try {
-      await ex.fetchBalance();
+      // This call verifies credentials AND primes the balance — previously the
+      // result was discarded, so the user couldn't see their balance until
+      // the first sizing-time fetch. Surface it in state immediately.
+      const startupBal = await ex.fetchBalance();
+      const freeUsdt = Number((startupBal as any)?.["USDT"]?.free ?? (startupBal as any)?.total?.["USDT"] ?? 0);
+      if (freeUsdt > 0) {
+        this.cachedBalance = freeUsdt;
+        this.lastBalanceFetch = Date.now();
+      }
+      this.state.balanceUsdt = freeUsdt;
       this.credentialsVerified = true;
-      logger.info("Exchange credentials verified");
+      logger.info({ balanceUsdt: freeUsdt }, "Exchange credentials verified");
     } catch (authErr: any) {
       this.credentialsVerified = false;
       this.exchange = null;
@@ -876,6 +893,7 @@ class BotEngine {
     // first trades off the old one's cached balance.
     this.cachedBalance = 0;
     this.lastBalanceFetch = 0;
+    this.state.balanceUsdt = null;
     this.state.running = false;
     this.state.startedAt = null;
     logger.info("Bot engine stopped");
@@ -899,6 +917,21 @@ class BotEngine {
       this.state.lastScanAt = now.toISOString();
 
       await this.refreshDailyState(now);
+
+      // Daily trade report: on the first scan after UTC midnight, push the
+      // just-ended day's report to the user's alert webhook. Never blocks the
+      // scan — report failure only logs. The same report is available on
+      // demand via GET /reports/daily (lib/dailyReport.ts).
+      const todayUtc = now.toISOString().slice(0, 10);
+      if (this.lastDailyReportDate === null) {
+        this.lastDailyReportDate = todayUtc; // first scan of this run — nothing ended yet
+      } else if (this.lastDailyReportDate !== todayUtc) {
+        const endedDay = this.lastDailyReportDate;
+        this.lastDailyReportDate = todayUtc;
+        buildDailyReport(this.userId, endedDay)
+          .then((report) => this.sendAlert(formatDailyReportText(report, this.state.balanceUsdt)))
+          .catch((err) => logger.warn({ err, endedDay }, "Daily report push failed"));
+      }
 
       // Open trades are needed both for the circuit-breaker decision below
       // (which symbols still need exit-monitoring even when new entries are

@@ -75,6 +75,7 @@ export const GetAuthStatusResponse = zod.object({
  */
 export const GetBotStatusResponse = zod.object({
   "running": zod.boolean(),
+  "balanceUsdt": zod.number().nullish().describe('Free USDT on the connected exchange environment; null when the engine is stopped.'),
   "dailyPnl": zod.number(),
   "openPositions": zod.number(),
   "totalTradesToday": zod.number(),
@@ -93,6 +94,7 @@ export const GetBotStatusResponse = zod.object({
  */
 export const StartBotResponse = zod.object({
   "running": zod.boolean(),
+  "balanceUsdt": zod.number().nullish().describe('Free USDT on the connected exchange environment; null when the engine is stopped.'),
   "dailyPnl": zod.number(),
   "openPositions": zod.number(),
   "totalTradesToday": zod.number(),
@@ -111,6 +113,7 @@ export const StartBotResponse = zod.object({
  */
 export const StopBotResponse = zod.object({
   "running": zod.boolean(),
+  "balanceUsdt": zod.number().nullish().describe('Free USDT on the connected exchange environment; null when the engine is stopped.'),
   "dailyPnl": zod.number(),
   "openPositions": zod.number(),
   "totalTradesToday": zod.number(),
@@ -396,6 +399,60 @@ export const GetDailyStatsResponse = zod.object({
   "winRate": zod.number(),
   "isToxic": zod.boolean()
 })).optional()
+})
+
+
+/**
+ * Full report for one UTC calendar day — summary, per-strategy and per-symbol breakdowns, exit reasons, and every closed trade. The same report is pushed to the alert webhook automatically at UTC midnight for the day that just ended.
+ * @summary Get the daily trade report
+ */
+export const getDailyReportQueryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const GetDailyReportQueryParams = zod.object({
+  "date": zod.coerce.string().regex(getDailyReportQueryDateRegExp).optional().describe('UTC day, YYYY-MM-DD. Defaults to today.')
+})
+
+export const GetDailyReportResponse = zod.object({
+  "date": zod.string(),
+  "generatedAt": zod.coerce.date(),
+  "summary": zod.object({
+  "totalTrades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number(),
+  "totalPnl": zod.number(),
+  "totalFeesUsdt": zod.number(),
+  "bestTrade": zod.number(),
+  "worstTrade": zod.number(),
+  "openPositions": zod.number()
+}),
+  "byStrategy": zod.array(zod.object({
+  "strategyName": zod.string(),
+  "trades": zod.number(),
+  "wins": zod.number(),
+  "pnl": zod.number()
+})),
+  "bySymbol": zod.array(zod.object({
+  "symbol": zod.string(),
+  "trades": zod.number(),
+  "wins": zod.number(),
+  "pnl": zod.number()
+})),
+  "exitReasons": zod.record(zod.string(), zod.number()),
+  "trades": zod.array(zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "side": zod.string(),
+  "strategyName": zod.string().nullish(),
+  "entryTime": zod.coerce.date(),
+  "exitTime": zod.coerce.date().nullish(),
+  "entryPrice": zod.number(),
+  "exitPrice": zod.number().nullish(),
+  "quantity": zod.number(),
+  "pnl": zod.number().nullish(),
+  "exitReason": zod.string().nullish()
+}))
 })
 
 

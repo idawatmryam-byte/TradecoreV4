@@ -32,12 +32,14 @@ import type {
   BotConfig,
   BotConfigUpdate,
   BotStatus,
+  DailyReport,
   DailyStats,
   DeleteBacktest200,
   ErrorResponse,
   ExportBacktest200One,
   ExportBacktestParams,
   GetAuthStatus200,
+  GetDailyReportParams,
   GetTradesParams,
   HealthStatus,
   HourlyStat,
@@ -1442,6 +1444,91 @@ export function useGetDailyStats<TData = Awaited<ReturnType<typeof getDailyStats
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetDailyStatsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetDailyReportUrl = (params?: GetDailyReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/reports/daily?${stringifiedParams}` : `/api/reports/daily`
+}
+
+/**
+ * Full report for one UTC calendar day — summary, per-strategy and per-symbol breakdowns, exit reasons, and every closed trade. The same report is pushed to the alert webhook automatically at UTC midnight for the day that just ended.
+ * @summary Get the daily trade report
+ */
+export const getDailyReport = async (params?: GetDailyReportParams, options?: RequestInit): Promise<DailyReport> => {
+
+  return customFetch<DailyReport>(getGetDailyReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDailyReportQueryKey = (params?: GetDailyReportParams,) => {
+    return [
+    `/api/reports/daily`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetDailyReportQueryOptions = <TData = Awaited<ReturnType<typeof getDailyReport>>, TError = ErrorType<unknown>>(params?: GetDailyReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDailyReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDailyReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDailyReport>>> = ({ signal }) => getDailyReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDailyReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDailyReportQueryResult = NonNullable<Awaited<ReturnType<typeof getDailyReport>>>
+export type GetDailyReportQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the daily trade report
+ */
+
+export function useGetDailyReport<TData = Awaited<ReturnType<typeof getDailyReport>>, TError = ErrorType<unknown>>(
+ params?: GetDailyReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDailyReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDailyReportQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

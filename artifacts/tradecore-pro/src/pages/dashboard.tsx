@@ -82,7 +82,18 @@ export function Dashboard() {
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 gap-6 md:col-span-2">
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-3 gap-6">
+            <Card>
+              <CardContent className="p-6">
+                <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">Balance</p>
+                <p className={cn("text-3xl font-bold tracking-tight", bot?.balanceUsdt == null && "text-muted-foreground")}>
+                  {bot?.balanceUsdt == null ? "—" : formatCurrency(bot.balanceUsdt)}
+                </p>
+                {bot?.balanceUsdt != null && (
+                  <p className="text-[10px] font-mono text-muted-foreground mt-1 uppercase">USDT · {bot?.mode}</p>
+                )}
+              </CardContent>
+            </Card>
             <Card>
               <CardContent className="p-6">
                 <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">Today's PnL</p>
