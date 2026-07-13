@@ -792,6 +792,12 @@ export interface BacktestRunRequest {
   marginMode?: BacktestRunRequestMarginMode;
   /** true (default): each strategy uses its own SL/TP/confidence, matching live. false: flatten every strategy to the run-level stopLossPercent/takeProfitPercent/confidenceThreshold (a single-config sweep). */
   perStrategyConfigs?: boolean;
+  /**
+     * Faithful mode only: reshape every strategy to TP = its own SL × this ratio (e.g. 3 → 1:3 reward:risk), keeping everything else per-strategy. 0 = off. The volatility-adaptive cap preserves the ratio when it shrinks targets.
+     * @minimum 0
+     * @maximum 10
+     */
+  rrRatio?: number;
 }
 
 export type OptimizeRequestTimeframe = typeof OptimizeRequestTimeframe[keyof typeof OptimizeRequestTimeframe];

@@ -62,6 +62,8 @@ export interface EffectiveBacktestConfig {
     takeProfitPercent: number;
     confidenceThreshold: number;
     riskPercentOverride: number | null; // null = "not overridden, using each strategy's own riskPercent"
+    /** Faithful mode only: TP forced to SL × this ratio per strategy (0/undefined = off). */
+    rrRatioOverride?: number;
   };
 }
 
@@ -79,15 +81,23 @@ export function buildPerStrategyBacktestConfigs(
   /** Optional high-conviction floor: raises any strategy whose own
    *  confidenceThreshold is lower, never lowers one (0 = fully faithful). */
   confidenceFloor = 0,
+  /** Optional reward:risk reshape: TP = each strategy's own SL × this ratio
+   *  (e.g. 3 → 1:3), keeping the strategy's risk scale and everything else
+   *  faithful. The volatility-adaptive cap downstream preserves the ratio
+   *  when it shrinks targets. 0 = off (each strategy's own TP). */
+  rrRatio = 0,
 ): EffectiveBacktestConfig {
   const configs = new Map<string, StrategyConfig>();
   const summary: EffectiveStrategyConfigSummary[] = [];
   const nameById = new Map(ALL_STRATEGIES.map((s) => [s.strategyId, s.strategyName]));
 
   for (const [strategyId, dbConfig] of dbConfigs) {
+    const effectiveTp = rrRatio > 0 ? dbConfig.stopLossPercent * rrRatio : dbConfig.takeProfitPercent;
+    const effectiveConf = Math.max(dbConfig.confidenceThreshold, confidenceFloor);
     configs.set(strategyId, {
       ...dbConfig,
-      confidenceThreshold: Math.max(dbConfig.confidenceThreshold, confidenceFloor),
+      takeProfitPercent: effectiveTp,
+      confidenceThreshold: effectiveConf,
     });
     summary.push({
       strategyId,
@@ -101,8 +111,8 @@ export function buildPerStrategyBacktestConfigs(
       },
       effective: {
         stopLossPercent: dbConfig.stopLossPercent,
-        takeProfitPercent: dbConfig.takeProfitPercent,
-        confidenceThreshold: Math.max(dbConfig.confidenceThreshold, confidenceFloor),
+        takeProfitPercent: effectiveTp,
+        confidenceThreshold: effectiveConf,
         riskPercent: dbConfig.riskPercent,
       },
       riskPercentSource: "strategy-config",
@@ -117,6 +127,7 @@ export function buildPerStrategyBacktestConfigs(
       takeProfitPercent: 0,
       confidenceThreshold: confidenceFloor,
       riskPercentOverride: null,
+      rrRatioOverride: rrRatio > 0 ? rrRatio : undefined,
     },
   };
 }

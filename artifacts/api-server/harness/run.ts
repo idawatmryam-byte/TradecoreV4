@@ -50,6 +50,8 @@ async function main() {
   // Optional futures leverage modeling: --market futures --leverage 10
   const marketType = (arg("market", "spot") as "spot" | "futures");
   const leverage = Number(arg("leverage", "1"));
+  // Optional faithful-mode R:R reshape: --rr 3 → TP = each strategy's SL × 3
+  const rrRatio = Number(arg("rr", "0"));
 
   const params: BacktestParams = {
     symbols,
@@ -67,6 +69,7 @@ async function main() {
     dailyLossLimitUsdt: 100,
     riskPercent: 0,
     perStrategyConfigs: true, // ← faithful: each strategy uses its own config
+    rrRatio,
     marketType,
     leverage,
   };
