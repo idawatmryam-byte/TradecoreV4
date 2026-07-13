@@ -76,13 +76,19 @@ export interface EffectiveBacktestConfig {
  */
 export function buildPerStrategyBacktestConfigs(
   dbConfigs: Map<string, StrategyConfig>,
+  /** Optional high-conviction floor: raises any strategy whose own
+   *  confidenceThreshold is lower, never lowers one (0 = fully faithful). */
+  confidenceFloor = 0,
 ): EffectiveBacktestConfig {
   const configs = new Map<string, StrategyConfig>();
   const summary: EffectiveStrategyConfigSummary[] = [];
   const nameById = new Map(ALL_STRATEGIES.map((s) => [s.strategyId, s.strategyName]));
 
   for (const [strategyId, dbConfig] of dbConfigs) {
-    configs.set(strategyId, { ...dbConfig });
+    configs.set(strategyId, {
+      ...dbConfig,
+      confidenceThreshold: Math.max(dbConfig.confidenceThreshold, confidenceFloor),
+    });
     summary.push({
       strategyId,
       strategyName: nameById.get(strategyId) ?? strategyId,
@@ -96,7 +102,7 @@ export function buildPerStrategyBacktestConfigs(
       effective: {
         stopLossPercent: dbConfig.stopLossPercent,
         takeProfitPercent: dbConfig.takeProfitPercent,
-        confidenceThreshold: dbConfig.confidenceThreshold,
+        confidenceThreshold: Math.max(dbConfig.confidenceThreshold, confidenceFloor),
         riskPercent: dbConfig.riskPercent,
       },
       riskPercentSource: "strategy-config",
@@ -109,7 +115,7 @@ export function buildPerStrategyBacktestConfigs(
     runLevelOverrides: {
       stopLossPercent: 0,
       takeProfitPercent: 0,
-      confidenceThreshold: 0,
+      confidenceThreshold: confidenceFloor,
       riskPercentOverride: null,
     },
   };

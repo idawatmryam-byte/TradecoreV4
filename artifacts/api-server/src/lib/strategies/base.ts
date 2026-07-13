@@ -281,15 +281,22 @@ export function computeAdaptiveSLTP(
   entryPrice: number,
   cfg: StrategyConfig,
   side: PositionSide,
-  atrPercent1m: number,
+  atrPercentPerCandle: number,
   maxHoldingSeconds: number = cfg.maxHoldingSeconds,
+  candleMinutes: number = 1,
 ): { slPrice: number; tpPrice: number; slPercent: number; tpPercent: number; volCapped: boolean } {
   let tpPct = cfg.takeProfitPercent;
   let slPct = cfg.stopLossPercent;
   let volCapped = false;
 
-  if (atrPercent1m > 0 && maxHoldingSeconds > 0 && tpPct > 0) {
-    const reachablePct = atrPercent1m * Math.sqrt(maxHoldingSeconds / 60) * TARGET_REACH_K;
+  if (atrPercentPerCandle > 0 && maxHoldingSeconds > 0 && tpPct > 0) {
+    // Number of primary candles inside the holding window; range over N
+    // candles ≈ per-candle ATR% × √N. Normalizing by candleMinutes matters
+    // in coarse backtests, where the primary series is 5m/15m/… candles —
+    // treating their ATR as per-minute overestimated reachable moves ~√k and
+    // the cap silently never engaged (live always runs true 1m).
+    const holdCandles = maxHoldingSeconds / 60 / Math.max(1, candleMinutes);
+    const reachablePct = atrPercentPerCandle * Math.sqrt(holdCandles) * TARGET_REACH_K;
     if (reachablePct < tpPct) {
       const scale = reachablePct / tpPct;
       tpPct = reachablePct;

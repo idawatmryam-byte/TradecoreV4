@@ -73,6 +73,10 @@ export interface SignalRow {
   macdHistogram: number;
   /** ATR absolute value in quote currency (used for SL/TP calculation) */
   atrAbs: number;
+  /** Minutes per candle of the primary series atrPercent was computed on
+   *  (1 live; can be 5/15/… in coarse backtests). Lets volatility-scaled
+   *  target math normalize instead of assuming per-minute ATR. */
+  candleMinutes: number;
   /** Full indicator breakdown for structured logging and UI */
   votes: IndicatorVote[];
 }
@@ -575,6 +579,13 @@ export function buildSignalRow(
   const rawShortConf = Math.max(0, ((bearishScore - bullishScore * 0.5) / totalWeight) * 100);
   const shortConfidence = Math.round((macroBearish ? rawShortConf : rawShortConf * 0.7) * 10) / 10;
 
+  // Actual interval of the primary series, from its own timestamps — in a
+  // coarse backtest the "tf1m" slot carries 5m/15m/… candles, and volatility
+  // math that assumes per-minute ATR would overestimate reachable moves ~√k.
+  const candleMinutes = tf1m.length >= 2
+    ? Math.max(1, Math.round((tf1m[tf1m.length - 1]![0] - tf1m[tf1m.length - 2]![0]) / 60_000))
+    : 1;
+
   return {
     symbol,
     confidence,
@@ -590,6 +601,7 @@ export function buildSignalRow(
     adx: Math.round(adxVal * 10) / 10,
     macdHistogram: Math.round(macdHist * 1e8) / 1e8,
     atrAbs,
+    candleMinutes,
     votes,
   };
 }

@@ -76,5 +76,24 @@ const scalpLike = {
   expect("atr=0: uncapped, config used", r.volCapped === false && r.tpPercent === 3.0, true);
 }
 
+// ── Coarse-candle normalization (the 15m-backtest bug) ───────────────────────
+// On 15m candles, ATR% per candle ≈ √15 × the 1m value. Treating it as
+// per-minute overestimated reachable ~√15× and the cap never engaged.
+{
+  const atr15m = 0.6; // per-15m-candle ATR%, ≈ a calm 0.155%/1m symbol
+  const r = computeAdaptiveSLTP(100, momentumLike, "long", atr15m, 3600, 15);
+  const holdCandles = 3600 / 60 / 15; // 4 candles in the hour
+  const reachable = atr15m * Math.sqrt(holdCandles) * TARGET_REACH_K; // 1.8%
+  expect("15m candles: capped (old per-minute math left this uncapped)", r.volCapped, true);
+  approx("15m candles: tpPercent = atr×√(candles)×K (1.8)", r.tpPercent, reachable);
+}
+{
+  // Same volatility expressed on 1m candles must give ≈ the same answer as
+  // on 15m candles — the normalization makes the result timeframe-invariant.
+  const r1m = computeAdaptiveSLTP(100, momentumLike, "long", 0.6 / Math.sqrt(15), 3600, 1);
+  const r15m = computeAdaptiveSLTP(100, momentumLike, "long", 0.6, 3600, 15);
+  approx("timeframe-invariant: 1m and 15m expressions agree", r1m.tpPercent, r15m.tpPercent, 1e-9);
+}
+
 console.log(failures === 0 ? "\nAll assertions passed." : `\n${failures} assertion(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);
