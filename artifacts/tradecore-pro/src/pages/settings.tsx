@@ -190,7 +190,8 @@ export function Settings() {
         <CardContent className="space-y-5">
           <p className="text-xs text-muted-foreground">
             Spot trading is long-only, no leverage. Futures (USDⓈ-M) supports both long and short positions with
-            configurable leverage — losses can exceed your position size, so use with caution.
+            configurable leverage. In futures, Position Size is your <strong>margin per trade</strong> — notional
+            exposure = size × leverage — so losses can exceed your position size; use with caution.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">

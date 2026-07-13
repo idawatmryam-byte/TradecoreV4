@@ -401,13 +401,16 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     feeRate = DEFAULT_FEE_RATE, slippageRate = DEFAULT_SLIPPAGE_RATE,
   } = params;
 
-  // Futures leverage modeling. Leverage affects ONLY liquidation risk here,
-  // not position size — matching the live engine's notional-based sizing (see
-  // futuresMath.ts). Spot (default) leaves leverage at 1 → no liquidation and
-  // zero behavior change from before this feature.
+  // Futures leverage modeling — same semantics as the live engine:
+  //   sizing:      positionSizeUsdt is the MARGIN budget per trade, so the
+  //                notional cap = size × leverage (spot: they're identical).
+  //   liquidation: per-position isolated-margin liquidation price, with the
+  //                same distance-proportional entry guard (futuresMath.ts).
+  // Spot (default) leaves leverage at 1 → zero behavior change.
   const isFutures = params.marketType === "futures";
   const leverage = isFutures ? Math.max(1, Math.floor(params.leverage ?? 1)) : 1;
   const modelsLiquidation = isFutures && leverage > 1;
+  const notionalCapUsdt = params.positionSizeUsdt * leverage;
   let liquidationRejectedEntries = 0; // entries the live liquidation guard would refuse
 
   // Diagnostic checkpoint 1: exactly what runBacktest() received, before
@@ -843,7 +846,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       const row = buildSignalRow(symbol, mtf, symbolRegime.get(symbol));
       symbolRegime.set(symbol, row.regime);
       const signals = strategySelector.evaluateSymbol(
-        symbol, mtf, row, strategyConfigs, balance, params.positionSizeUsdt
+        symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt
       );
       if (signals.length === 0) continue;
       const bestSignal = signals[0]!;
@@ -913,7 +916,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       let liquidationPrice: number | undefined;
       if (modelsLiquidation) {
         liquidationPrice = estimateLiquidationPrice(fillPrice, bestSignal.side, leverage);
-        if (stopTooCloseToLiquidation(realSlPrice, liquidationPrice, bestSignal.side)) {
+        if (stopTooCloseToLiquidation(fillPrice, realSlPrice, liquidationPrice)) {
           liquidationRejectedEntries++;
           continue; // live would not open this trade
         }

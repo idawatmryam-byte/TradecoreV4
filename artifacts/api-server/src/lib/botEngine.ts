@@ -41,6 +41,7 @@ import { ExitManager, type OpenOrderIds } from "./exitManager";
 import { TradeManager } from "./tradeManager";
 import { placeSellOco, cancelOco } from "./binanceOco";
 import { placeFuturesStopAndTakeProfit, closeFuturesPositionMarket, configureFuturesLeverage, getLiquidationPrice } from "./binanceFutures";
+import { stopTooCloseToLiquidation } from "./futuresMath";
 import {
   buildSymbolMarketMaps,
   unifiedFromPlainFallback,
@@ -1148,8 +1149,17 @@ class BotEngine {
         // ── Stage 3: Signal (Phase 2 multi-strategy evaluation) ──────────────
         const balance = await this.getBalance();
 
+        // Futures sizing: positionSizeUsdt is the MARGIN budget per trade, so
+        // the notional cap is size × leverage (in spot they're the same
+        // thing). Without this, futures notional was capped identically to
+        // spot — every trade pinned at $positionSizeUsdt notional, actual
+        // risk ~7x below the configured riskPercent, and leverage had zero
+        // effect on P&L ("futures that trades like spot").
+        const notionalCapUsdt =
+          Number(config.positionSizeUsdt) *
+          (config.marketType === "futures" ? Math.max(1, config.leverage) : 1);
         let signals = strategySelector.evaluateSymbol(
-          symbol, mtf, row, strategyConfigs, balance, Number(config.positionSizeUsdt)
+          symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt
         );
         // Spot has no short-selling mechanism (buy-to-open is the only way to
         // enter) — strategies always evaluate both directions, so filter out
@@ -1417,13 +1427,10 @@ class BotEngine {
       if (isFutures) {
         liquidationPrice = await getLiquidationPrice(ex, market);
         if (liquidationPrice !== null) {
-          // Require at least a 5% buffer between SL and liquidation so normal
-          // price noise around the SL trigger can't cross into liquidation
-          // territory first.
-          const buffer = 1.05;
-          liquidationIsUnsafe = isShort
-            ? realSl > liquidationPrice / buffer
-            : realSl < liquidationPrice * buffer;
+          // Distance-proportional buffer (futuresMath.ts): liquidation must
+          // sit meaningfully farther from entry than the stop does. The old
+          // inline 5%-of-price version rejected EVERY entry at leverage ≳20x.
+          liquidationIsUnsafe = stopTooCloseToLiquidation(fillPrice, realSl, liquidationPrice);
         }
       }
 
@@ -1682,12 +1689,12 @@ class BotEngine {
     if (trade.marketType === "futures") {
       const liquidationPrice = await getLiquidationPrice(ex, market);
       if (liquidationPrice !== null) {
-        const isShort = trade.side === "sell";
         const currentStop = Number(trade.stopLoss);
-        const buffer = 1.05;
-        const liquidationIsUnsafe = isShort
-          ? currentStop > liquidationPrice / buffer
-          : currentStop < liquidationPrice * buffer;
+        // Same distance-proportional check as the entry guard (futuresMath.ts),
+        // measured from the position's entry against its CURRENT stop.
+        const liquidationIsUnsafe = stopTooCloseToLiquidation(
+          Number(trade.entryPrice), currentStop, liquidationPrice,
+        );
         if (liquidationIsUnsafe) {
           logger.error(
             { tradeId: trade.id, symbol: trade.symbol, currentStop, liquidationPrice },
