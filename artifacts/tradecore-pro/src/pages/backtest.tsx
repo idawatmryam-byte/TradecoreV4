@@ -348,8 +348,9 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
           </div>
           {form.marketType === "futures" && (
             <p className="text-[11px] text-muted-foreground -mt-2">
-              Leverage models liquidation risk only, not position size (matches the live engine). A stop too close to
-              the liquidation price is refused, exactly as the live bot would — so very high leverage may produce few or
+              In futures, Position Size is your <strong>margin per trade</strong> — notional exposure = size × leverage,
+              so wins and losses scale with leverage, and so does liquidation risk. A stop too close to the liquidation
+              price is refused, exactly as the live bot would — very high leverage with a wide stop may produce few or
               no trades.
             </p>
           )}

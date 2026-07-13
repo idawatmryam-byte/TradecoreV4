@@ -21,10 +21,19 @@
 export const MAINTENANCE_MARGIN_RATE = 0.004;
 
 /**
- * Require the stop-loss to sit at least this factor clear of the liquidation
- * price (5%). Matches the buffer the live engine enforces at entry.
+ * The liquidation price must be at least this many times FARTHER from entry
+ * than the stop is, so ordinary slippage/wick noise around a triggering stop
+ * cannot reach liquidation first (e.g. stop 1.5% away ⇒ liquidation must be
+ * ≥ 1.875% away).
+ *
+ * FIX (was 1.05 applied to the liquidation PRICE): the old check demanded the
+ * stop sit 5% OF PRICE clear of liquidation. At 25x leverage the entire
+ * liquidation distance is only ~3.6% of price, so the threshold landed ABOVE
+ * the entry and every conceivable stop failed — for leverage ≳ 20x the guard
+ * rejected 100% of entries (live and backtest both went silently tradeless).
+ * A buffer must scale with the stop DISTANCE, not with price.
  */
-export const LIQUIDATION_BUFFER = 1.05;
+export const LIQUIDATION_BUFFER = 1.25;
 
 /**
  * Estimate the isolated-margin liquidation price for a USDⓈ-M futures
@@ -50,18 +59,22 @@ export function estimateLiquidationPrice(
 /**
  * True when the stop is too close to (or beyond) the liquidation price for
  * safety — i.e. a normal move around the stop could cross into liquidation
- * first. For a long the stop must sit comfortably ABOVE liquidation; for a
- * short, comfortably BELOW. Same logic the live engine uses to reject an
- * unsafe entry (botEngine enterTrade), extracted here so backtest and live
- * agree. High leverage + a tight stop trips this — which is the point.
+ * first. Compares DISTANCES from entry (direction-agnostic): the liquidation
+ * distance must exceed the stop distance by LIQUIDATION_BUFFER. Used by the
+ * live entry guard, the live per-tick position monitor, and the backtest, so
+ * all three agree. A genuinely reckless combination (e.g. 50x with a 1.5%
+ * stop, where liquidation at ~1.6% sits inside the buffered stop) still
+ * trips this — which is the point.
  */
 export function stopTooCloseToLiquidation(
+  entryPrice: number,
   stopPrice: number,
   liquidationPrice: number,
-  side: "long" | "short",
-  buffer: number = LIQUIDATION_BUFFER,
+  bufferRatio: number = LIQUIDATION_BUFFER,
 ): boolean {
-  return side === "short"
-    ? stopPrice > liquidationPrice / buffer
-    : stopPrice < liquidationPrice * buffer;
+  const stopDist = Math.abs(entryPrice - stopPrice);
+  const liqDist = Math.abs(entryPrice - liquidationPrice);
+  if (!Number.isFinite(liqDist)) return false; // leverage ≤ 1 → liquidation unreachable
+  if (!(liqDist > 0)) return true;             // degenerate/unknown → treat as unsafe
+  return liqDist < stopDist * bufferRatio;
 }
