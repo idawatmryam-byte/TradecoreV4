@@ -255,6 +255,54 @@ export function computePercentSLTP(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Volatility-adaptive SL/TP  (data-driven fix)
+//
+// WHY: across 5 real-data backtests (2,237 trades; BTC/ETH/BNB/SOL/XRP, 1m),
+// 87–94% of exits were TIMEOUTS and only 14 take-profits ever hit — because
+// the configured %-targets were physically unreachable inside the holding
+// window. Example: BTC's 1m ATR ≈ 0.05%, so a 10-minute hold typically
+// ranges ~0.2%, while micro-scalping's TP sat at 1.2% — 6–8× farther than
+// the market moves in that window. Trades weren't losing to bad signals;
+// they timed out on random drift and bled fees (PF 0.33–0.59).
+//
+// FIX: treat each strategy's configured SL%/TP% as a CEILING, and scale both
+// down proportionally (risk:reward ratio preserved) to what the symbol's
+// measured volatility says is reachable within maxHoldingSeconds:
+//     reachable% ≈ ATR%(1m) × √(holdMinutes) × TARGET_REACH_K
+// (random-walk range scaling). The net reward:risk cost gate downstream then
+// automatically REJECTS setups whose reachable target can't clear round-trip
+// fees — the correct "no edge available at this volatility" outcome instead
+// of forcing a doomed trade. Shared by live + backtest via the strategies.
+// ─────────────────────────────────────────────────────────────────────────────
+/** Fraction-of-typical-range a target may occupy. Tunable against real data. */
+export const TARGET_REACH_K = 1.5;
+
+export function computeAdaptiveSLTP(
+  entryPrice: number,
+  cfg: StrategyConfig,
+  side: PositionSide,
+  atrPercent1m: number,
+  maxHoldingSeconds: number = cfg.maxHoldingSeconds,
+): { slPrice: number; tpPrice: number; slPercent: number; tpPercent: number; volCapped: boolean } {
+  let tpPct = cfg.takeProfitPercent;
+  let slPct = cfg.stopLossPercent;
+  let volCapped = false;
+
+  if (atrPercent1m > 0 && maxHoldingSeconds > 0 && tpPct > 0) {
+    const reachablePct = atrPercent1m * Math.sqrt(maxHoldingSeconds / 60) * TARGET_REACH_K;
+    if (reachablePct < tpPct) {
+      const scale = reachablePct / tpPct;
+      tpPct = reachablePct;
+      slPct = slPct * scale; // preserve the strategy's R:R character
+      volCapped = true;
+    }
+  }
+
+  const { slPrice, tpPrice } = computePercentSLTP(entryPrice, slPct, tpPct, side);
+  return { slPrice, tpPrice, slPercent: slPct, tpPercent: tpPct, volCapped };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Utility: compute position quantity from risk params
 // ─────────────────────────────────────────────────────────────────────────────
 export function computeQty(

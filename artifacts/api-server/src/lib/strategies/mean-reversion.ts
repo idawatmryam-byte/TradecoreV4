@@ -14,7 +14,7 @@
  * - ADX < 25
  * - Reversion begins: last 1m candle is bearish and lower than previous close
  */
-import { type Strategy, type StrategySignal, type StrategyConfig, type PositionSide, computeQty, computePercentSLTP } from "./base";
+import { type Strategy, type StrategySignal, type StrategyConfig, type PositionSide, computeQty, computeAdaptiveSLTP } from "./base";
 import { type MultiTimeframeCandles, type SignalRow, calcBollingerBands, calcVwap } from "../strategy";
 
 export class MeanReversionStrategy implements Strategy {
@@ -71,7 +71,7 @@ export class MeanReversionStrategy implements Strategy {
 
     // Phase 5A: SL/TP is a fixed % from entry — no longer ATR- or
     // Bollinger/VWAP-target-based. ATR/BB/VWAP above remain entry filters only.
-    const { slPrice, tpPrice } = computePercentSLTP(lastPrice, config.stopLossPercent, config.takeProfitPercent, side);
+    const { slPrice, tpPrice } = computeAdaptiveSLTP(lastPrice, config, side, row.atrPercent);
 
     const qty = computeQty(balance, config.riskPercent, lastPrice, slPrice, positionSizeUsdt, 10, side);
     if (qty <= 0) return null;

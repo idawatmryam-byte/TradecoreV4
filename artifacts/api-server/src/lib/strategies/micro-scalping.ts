@@ -17,7 +17,7 @@
  *
  * Tight percentage-based exits (Phase 5A), short holding times.
  */
-import { type Strategy, type StrategySignal, type StrategyConfig, type PositionSide, computeQty, computePercentSLTP } from "./base";
+import { type Strategy, type StrategySignal, type StrategyConfig, type PositionSide, computeQty, computeAdaptiveSLTP } from "./base";
 import { type MultiTimeframeCandles, type SignalRow, calcEma, calcMacd } from "../strategy";
 
 export class MicroScalpingStrategy implements Strategy {
@@ -82,7 +82,7 @@ export class MicroScalpingStrategy implements Strategy {
     if (confidence < config.confidenceThreshold) return null;
 
     // Phase 5A: SL/TP is a fixed % from entry, not ATR-derived.
-    const { slPrice, tpPrice } = computePercentSLTP(lastPrice, config.stopLossPercent, config.takeProfitPercent, side);
+    const { slPrice, tpPrice } = computeAdaptiveSLTP(lastPrice, config, side, row.atrPercent);
 
     const qty = computeQty(balance, config.riskPercent, lastPrice, slPrice, positionSizeUsdt, 10, side);
     if (qty <= 0) return null;

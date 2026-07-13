@@ -15,7 +15,7 @@
  * - MACD histogram negative
  * - ADX >= 20 on 5m
  */
-import { type Strategy, type StrategySignal, type StrategyConfig, type PositionSide, computeQty, computePercentSLTP } from "./base";
+import { type Strategy, type StrategySignal, type StrategyConfig, type PositionSide, computeQty, computeAdaptiveSLTP } from "./base";
 import { type MultiTimeframeCandles, type SignalRow, calcEma } from "../strategy";
 
 export class TrendPullbackStrategy implements Strategy {
@@ -87,7 +87,7 @@ export class TrendPullbackStrategy implements Strategy {
 
     // Phase 5A: SL/TP is a fixed % from entry. `atr` above is still used for
     // the pullback-zone entry condition — that's market-analysis, not exit calc.
-    const { slPrice, tpPrice } = computePercentSLTP(lastPrice, config.stopLossPercent, config.takeProfitPercent, side);
+    const { slPrice, tpPrice } = computeAdaptiveSLTP(lastPrice, config, side, row.atrPercent);
 
     const qty = computeQty(balance, config.riskPercent, lastPrice, slPrice, positionSizeUsdt, 10, side);
     if (qty <= 0) return null;
