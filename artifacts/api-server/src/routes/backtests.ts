@@ -181,6 +181,8 @@ router.post("/backtests/run", async (req, res) => {
   const rrRatio = Math.max(0, Math.min(10, Number(b.rrRatio ?? 0) || 0));
   // Faithful-mode pure exits: no TP1/break-even/trailing — full SL/TP only.
   const pureExits = b.pureExits === true;
+  // Faithful-mode swing profile: every strategy's maxHoldingSeconds × this.
+  const holdMultiplier = Math.max(0.1, Math.min(100, Number(b.holdMultiplier ?? 1) || 1));
 
   // Phase 6 audit Finding B fix: this exact route produced the bt6 scenario
   // — a takeProfitPercent (0.25%) smaller than round-trip trading costs,
@@ -256,6 +258,7 @@ router.post("/backtests/run", async (req, res) => {
     perStrategyConfigs,
     rrRatio,
     pureExits,
+    holdMultiplier,
   }, req.userId!).catch((err) => {
     logger.error({ err, runId: run.id }, "Background backtest error");
   });

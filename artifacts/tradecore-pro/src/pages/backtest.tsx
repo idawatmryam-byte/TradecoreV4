@@ -116,6 +116,8 @@ interface RunFormState {
   rrRatio: number;
   /** Faithful mode: no TP1/break-even/trailing — full SL/TP only. */
   pureExits: boolean;
+  /** Faithful mode: every strategy's max holding time × this (1 = off). */
+  holdMultiplier: number;
 }
 
 function defaultForm(): RunFormState {
@@ -140,6 +142,7 @@ function defaultForm(): RunFormState {
     matchLive: true,
     rrRatio: 0,
     pureExits: false,
+    holdMultiplier: 1,
   };
 }
 
@@ -417,6 +420,15 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
               <div />
             )}
           </div>
+          {form.matchLive && (
+            <div className="grid grid-cols-2 gap-3">
+              {field("Hold multiplier (1 = each strategy's own)", "holdMultiplier", "number", "1")}
+              <div className="text-[11px] text-muted-foreground self-center">
+                Multiplies every strategy's max holding time — e.g. 24 turns a 1h momentum hold into 24h (swing
+                profile). Targets scale with √hold, so bigger moves per trade amortize the fee. Live configs untouched.
+              </div>
+            </div>
+          )}
           {form.matchLive && form.rrRatio > 0 && (
             <p className="text-[11px] text-muted-foreground -mt-2">
               Every strategy's take-profit becomes its own stop-loss × {form.rrRatio} (1:{form.rrRatio} reward:risk).
