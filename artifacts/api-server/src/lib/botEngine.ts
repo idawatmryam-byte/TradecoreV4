@@ -41,6 +41,12 @@ import { ExitManager, type OpenOrderIds } from "./exitManager";
 import { TradeManager } from "./tradeManager";
 import { placeSellOco, cancelOco } from "./binanceOco";
 import { placeFuturesStopAndTakeProfit, closeFuturesPositionMarket, configureFuturesLeverage, getLiquidationPrice } from "./binanceFutures";
+import {
+  buildSymbolMarketMaps,
+  unifiedFromPlainFallback,
+  plainFromUnifiedFallback,
+  type SymbolMarketMaps,
+} from "./marketSymbols";
 import type {
   StageStatus,
   PipelineStage,
@@ -112,6 +118,10 @@ class BotEngine {
   // ExitManager/TradeManager's host callbacks for the same reason.
   private exchange: any = null;
   private availableMarkets: Set<string> = new Set();
+  /** Exact DB-symbol ⟷ unified-symbol maps, built from loadMarkets() at start(). */
+  private symbolMaps: SymbolMarketMaps | null = null;
+  /** Market type of the ACTIVE exchange connection (set at start()). */
+  private activeMarketType: "spot" | "futures" = "spot";
   private scannerData: Map<string, ScannerRow> = new Map();
   private openOrderIds: Map<number, OpenOrderIds> = new Map();
 
@@ -354,14 +364,21 @@ class BotEngine {
     return ex;
   }
 
-  /** Convert "BTCUSDT" → "BTC/USDT" for ccxt */
+  /**
+   * Convert a DB/config symbol ("BTCUSDT") to the ccxt unified symbol for the
+   * ACTIVE exchange — "BTC/USDT" on spot, "BTC/USDT:USDT" on USDⓈ-M futures.
+   * Resolved through the exact market.id maps built at start() (see
+   * marketSymbols.ts for the silent-zero-pairs bug the old hardcoded spot
+   * format caused in futures mode); format-rule fallback before markets load.
+   */
   private toMarket(symbol: string): string {
-    return symbol.replace(/USDT$/, "/USDT");
+    return this.symbolMaps?.toUnified.get(symbol)
+      ?? unifiedFromPlainFallback(symbol, this.activeMarketType);
   }
 
-  /** Convert "BTC/USDT" → "BTCUSDT" for DB/API */
+  /** Convert a ccxt unified symbol back to the DB/API symbol ("BTCUSDT"). */
   private fromMarket(market: string): string {
-    return market.replace("/", "");
+    return this.symbolMaps?.toPlain.get(market) ?? plainFromUnifiedFallback(market);
   }
 
   // ---------------------------------------------------------------------------
@@ -428,7 +445,13 @@ class BotEngine {
       connection: {
         connected: this.state.running && !!this.exchange && this.lastConnError === null,
         mode: this.state.mode,
-        exchange: this.state.mode === "testnet" ? "Binance Spot Testnet" : "Binance Spot",
+        // Label must reflect the ACTIVE market type — this used to say "Binance
+        // Spot Testnet" even when connected to futures Demo Trading, which
+        // made the zero-pairs bug (marketSymbols.ts) look like a spot session.
+        exchange:
+          this.activeMarketType === "futures"
+            ? this.state.mode === "testnet" ? "Binance Futures Demo (demo-fapi)" : "Binance USDⓈ-M Futures"
+            : this.state.mode === "testnet" ? "Binance Spot Testnet" : "Binance Spot",
         marketsLoaded: this.marketsLoaded,
         credentialsVerified: this.credentialsVerified,
         lastTickerFetchAt: this.lastTickerFetchAt,
@@ -727,13 +750,17 @@ class BotEngine {
     // reset required" safety pause would defeat its entire purpose.
     this.riskPaused = config.riskPaused;
     this.riskViolationCount = config.riskViolationCount;
-    const ex = await this.initExchange(config.testnet, config.marketType === "futures" ? "futures" : "spot");
+    this.activeMarketType = config.marketType === "futures" ? "futures" : "spot";
+    const ex = await this.initExchange(config.testnet, this.activeMarketType);
 
     logger.info("Loading Binance markets…");
     await ex.loadMarkets();
     this.availableMarkets = new Set(Object.keys(ex.markets));
     this.marketsLoaded = this.availableMarkets.size;
-    logger.info({ count: this.availableMarkets.size }, "Markets loaded");
+    // Exact DB-symbol ⟷ unified-symbol maps (spot "BTC/USDT" vs futures
+    // "BTC/USDT:USDT") — every toMarket()/fromMarket() resolves through these.
+    this.symbolMaps = buildSymbolMarketMaps(ex.markets);
+    logger.info({ count: this.availableMarkets.size, mapped: this.symbolMaps.toUnified.size }, "Markets loaded");
 
     try {
       await ex.fetchBalance();
@@ -788,9 +815,27 @@ class BotEngine {
 
     // Live market monitor: poll real tickers on a fast, independent cadence so
     // the dashboard shows real-time prices without waiting on the 15s scan.
-    this.monitoredMarkets = this.getPairs(config)
+    const configuredPairs = this.getPairs(config);
+    this.monitoredMarkets = configuredPairs
       .filter((s) => this.availableMarkets.has(this.toMarket(s)))
       .map((s) => this.toMarket(s));
+
+    // A configured-but-unscannable state must be LOUD, never silent: before
+    // the symbol-mapping fix (marketSymbols.ts) the engine ran for hours in
+    // futures mode scanning zero pairs with no error anywhere. If nothing
+    // survives the availability filter, alert and say exactly why.
+    if (configuredPairs.length > 0 && this.monitoredMarkets.length === 0) {
+      const envLabel = this.activeMarketType === "futures" ? "Binance USDⓈ-M futures" : "Binance spot";
+      const msg =
+        `⚠️ None of your ${configuredPairs.length} configured pairs (${configuredPairs.join(", ")}) ` +
+        `exist on ${envLabel} (${this.state.mode}). The bot is running but cannot scan or trade ` +
+        `anything until the pair list is fixed in Configuration.`;
+      logger.error({ configuredPairs, marketType: this.activeMarketType }, msg);
+      await this.sendAlert(msg);
+    } else if (this.monitoredMarkets.length < configuredPairs.length) {
+      const dropped = configuredPairs.filter((s) => !this.availableMarkets.has(this.toMarket(s)));
+      logger.warn({ dropped }, "Some configured pairs are not listed on this exchange/market type and will be skipped");
+    }
     await this.pollTickers();
     this.tickerTimer = setInterval(() => this.pollTickers(), 3000);
 
@@ -816,6 +861,20 @@ class BotEngine {
     this.lastTickerFetchAt = null;
     this.lastTickerLatencyMs = null;
     this.lastConnError = null;
+    // Tear down the exchange connection. initExchange() returns the cached
+    // instance when one exists, so WITHOUT this, changing market type
+    // (spot ⟷ futures) or credentials while stopped and then pressing Start
+    // silently reused the OLD connection — the config change never took
+    // effect. Stop → Start must always reconnect with the current config.
+    this.exchange = null;
+    this.credentialsVerified = false;
+    this.symbolMaps = null;
+    // The balance cache belongs to the torn-down connection's environment —
+    // spot testnet and futures demo are DIFFERENT accounts with different
+    // balances, so a restart into another environment must not size its
+    // first trades off the old one's cached balance.
+    this.cachedBalance = 0;
+    this.lastBalanceFetch = 0;
     this.state.running = false;
     this.state.startedAt = null;
     logger.info("Bot engine stopped");
