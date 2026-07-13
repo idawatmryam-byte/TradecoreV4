@@ -110,6 +110,8 @@ interface RunFormState {
   dailyLossLimitUsdt: number;
   marketType: "spot" | "futures";
   leverage: number;
+  /** true (default): each strategy uses its own SL/TP/confidence (matches live). */
+  matchLive: boolean;
 }
 
 function defaultForm(): RunFormState {
@@ -131,6 +133,7 @@ function defaultForm(): RunFormState {
     dailyLossLimitUsdt: 50,
     marketType: "spot",
     leverage: 1,
+    matchLive: true,
   };
 }
 
@@ -190,6 +193,7 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
         data: {
           ...(form as any),
           symbols,
+          perStrategyConfigs: form.matchLive,
           startDate: new Date(form.startDate).toISOString(),
           endDate: new Date(form.endDate).toISOString(),
         },
@@ -356,30 +360,44 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
             {field("Position Size (USDT)", "positionSizeUsdt")}
           </div>
 
-          {/* Strategy params */}
+          {/* Match-live toggle — governs whether each strategy uses its own
+              SL/TP/confidence (a real replay) or the flat overrides below. */}
+          <label className="flex items-start gap-2 p-2.5 rounded border border-border bg-muted/30 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.matchLive}
+              onChange={(e) => setForm((f) => ({ ...f, matchLive: e.target.checked }))}
+              className="mt-0.5"
+            />
+            <span className="text-xs">
+              <span className="font-bold">Match live — each strategy's own SL / TP / confidence</span>
+              <span className="block text-muted-foreground mt-0.5">
+                {form.matchLive
+                  ? "Recommended — replays exactly what the bot trades. The Confidence / Stop-Loss / Take-Profit / Risk fields below are ignored."
+                  : "Override mode — every strategy is flattened to the single Confidence / SL / TP / Risk below (a sweep, not a live replay)."}
+              </span>
+            </span>
+          </label>
+
+          {/* Run-level params — always apply, in either mode */}
           <div className="grid grid-cols-2 gap-3">
-            {field("Confidence Threshold", "confidenceThreshold")}
             {field("Max Open Positions", "maxOpenPositions")}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {field("Stop Loss %", "stopLossPercent", "number", "0.1")}
-            {field("Take Profit %", "takeProfitPercent", "number", "0.1")}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
             {field("Daily Loss Limit ($)", "dailyLossLimitUsdt")}
-            {field("Risk % (0 = use each strategy's own)", "riskPercent", "number", "0.1")}
           </div>
 
-          <div className="space-y-1">
-            <p className="text-[11px] text-muted-foreground">
-              Leave Risk % at 0 to keep each strategy's own configured risk% from the Strategies page.
-              Any other value overrides risk% for every strategy in this run.
-            </p>
-          </div>
+          {/* Flat overrides — ignored when Match live is on */}
+          <fieldset disabled={form.matchLive} className={cn("space-y-3 border-0 p-0 m-0", form.matchLive && "opacity-40")}>
+            <div className="grid grid-cols-2 gap-3">
+              {field("Confidence Threshold", "confidenceThreshold")}
+              {field("Risk %", "riskPercent", "number", "0.1")}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {field("Stop Loss %", "stopLossPercent", "number", "0.1")}
+              {field("Take Profit %", "takeProfitPercent", "number", "0.1")}
+            </div>
+          </fieldset>
 
-          <EffectiveConfigPreview form={form} />
+          {!form.matchLive && <EffectiveConfigPreview form={form} />}
 
           <Button type="submit" disabled={isPending || timeframeBlocks} className="w-full gap-2">
             <Play className="h-4 w-4" />

@@ -169,6 +169,11 @@ router.post("/backtests/run", async (req, res) => {
   const marketType = b.marketType === "futures" ? "futures" : "spot";
   const leverage = Math.max(1, Math.min(125, Math.floor(Number(b.leverage ?? 1)) || 1));
   const marginMode = b.marginMode === "cross" ? "cross" : "isolated";
+  // Faithful mode (default): each strategy uses its OWN SL/TP/confidence — what
+  // the live bot trades — instead of flattening every strategy to the form's
+  // single SL/TP. Only when explicitly false does the flat form override apply
+  // (a single-config sweep). See backtestConfig.ts.
+  const perStrategyConfigs = b.perStrategyConfigs !== false;
 
   // Phase 6 audit Finding B fix: this exact route produced the bt6 scenario
   // — a takeProfitPercent (0.25%) smaller than round-trip trading costs,
@@ -241,6 +246,7 @@ router.post("/backtests/run", async (req, res) => {
     marketType,
     leverage,
     marginMode,
+    perStrategyConfigs,
   }, req.userId!).catch((err) => {
     logger.error({ err, runId: run.id }, "Background backtest error");
   });
