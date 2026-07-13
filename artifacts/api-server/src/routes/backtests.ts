@@ -24,7 +24,7 @@ import { runBacktest, cancelBacktestRun, getTimeframeMs } from "../lib/backtestE
 import { runOptimization } from "../lib/optimizer";
 import { loadStrategyConfigs } from "../lib/strategyConfigLoader";
 import { buildEffectiveBacktestConfigs } from "../lib/backtestConfig";
-import { minViableTakeProfitPercent, DEFAULT_FEE_RATE, DEFAULT_SLIPPAGE_RATE } from "../lib/tradingCosts";
+import { minViableTakeProfitPercent, DEFAULT_FEE_RATE, FUTURES_FEE_RATE, DEFAULT_SLIPPAGE_RATE } from "../lib/tradingCosts";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -164,9 +164,12 @@ router.post("/backtests/run", async (req, res) => {
   const maxOpenPositions = Number(b.maxOpenPositions ?? 5);
   const dailyLossLimitUsdt = Number(b.dailyLossLimitUsdt ?? 50);
   const riskPercent = Number(b.riskPercent ?? 0);
-  const feeRate = Number(b.feeRate ?? DEFAULT_FEE_RATE);
-  const slippageRate = Number(b.slippageRate ?? DEFAULT_SLIPPAGE_RATE);
   const marketType = b.marketType === "futures" ? "futures" : "spot";
+  // Default the fee to the market being simulated: Binance USDⓈ-M taker is
+  // 0.05%, half of spot's 0.1% — assuming spot fees for a futures run
+  // overstates round-trip costs 2×. An explicit feeRate still wins.
+  const feeRate = Number(b.feeRate ?? (marketType === "futures" ? FUTURES_FEE_RATE : DEFAULT_FEE_RATE));
+  const slippageRate = Number(b.slippageRate ?? DEFAULT_SLIPPAGE_RATE);
   const leverage = Math.max(1, Math.min(125, Math.floor(Number(b.leverage ?? 1)) || 1));
   const marginMode = b.marginMode === "cross" ? "cross" : "isolated";
   // Faithful mode (default): each strategy uses its OWN SL/TP/confidence — what

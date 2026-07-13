@@ -13,6 +13,11 @@
 /** Binance spot taker fee, as a fraction (0.001 = 0.1%). */
 export const DEFAULT_FEE_RATE = 0.001;
 
+/** Binance USDⓈ-M futures taker fee (0.0005 = 0.05%) — half of spot. A
+ *  futures backtest that assumes the spot rate overstates round-trip costs
+ *  2×, which materially distorts profit factor at high trade counts. */
+export const FUTURES_FEE_RATE = 0.0005;
+
 /** Assumed slippage per fill, as a fraction (0.0005 = 0.05%). Applied on
  *  both entry and exit in the backtest simulation. */
 export const DEFAULT_SLIPPAGE_RATE = 0.0005;
