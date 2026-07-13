@@ -757,10 +757,21 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
           const finalSlicePnl = (isShort ? pos.entryPrice - exitPrice : exitPrice - pos.entryPrice) * exitQty - exitFees;
           const partialPnl = pos.partialExits.reduce((s, p) => s + p.pnl, 0);
           const partialFees = pos.partialExits.reduce((s, p) => s + p.fees, 0);
-          const pnl = finalSlicePnl + partialPnl; // NET total across every slice
+          // ACCOUNTING FIX: partial exits charge their pro-rata ENTRY-fee share
+          // (see the TP1/TP2 blocks), but the final slice never charged its
+          // own — every prior backtest overstated results by the unclosed
+          // share of entry fees (confirmed on a real 1,682-trade run: reported
+          // net −987.78 vs gross −252.72 − fees 1,377.60 = −1,630, a $642
+          // hole). Charge the remaining entry-fee share here so
+          // net = gross − totalFees holds exactly.
+          const entryFeeShareFinal = pos.qty > 0 ? pos.fees * (exitQty / pos.qty) : pos.fees;
+          const pnl = finalSlicePnl + partialPnl - entryFeeShareFinal; // NET total across every slice
           const grossPnl = (isShort ? pos.entryPrice - exitPrice : exitPrice - pos.entryPrice) * exitQty
             + pos.partialExits.reduce((s, p) => s + (isShort ? pos.entryPrice - p.price : p.price - pos.entryPrice) * p.qty, 0);
-          const totalFees = pos.fees + exitFees + partialFees;
+          // partialFees already contain the partials' entry-fee shares — summing
+          // the final slice's share (not the whole pos.fees) avoids the old
+          // double count and makes totalFees the exact all-in cost of the trade.
+          const totalFees = entryFeeShareFinal + exitFees + partialFees;
           const durationSeconds = Math.round((now.getTime() - pos.entryTime.getTime()) / 1000);
           // Note: this ratio is direction-agnostic — for a short, both
           // (tpPrice - entryPrice) and (entryPrice - plannedSlPrice) are
@@ -981,11 +992,13 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       const finalSlicePnl = (isShort ? pos.entryPrice - exitPrice : exitPrice - pos.entryPrice) * exitQty - exitFees;
       const partialPnl = pos.partialExits.reduce((s, p) => s + p.pnl, 0);
       const partialFees = pos.partialExits.reduce((s, p) => s + p.fees, 0);
-      const pnl = finalSlicePnl + partialPnl;
+      // Same entry-fee accounting fix as the main exit block above.
+      const entryFeeShareFinal = pos.qty > 0 ? pos.fees * (exitQty / pos.qty) : pos.fees;
+      const pnl = finalSlicePnl + partialPnl - entryFeeShareFinal;
       const grossPnl =
         (isShort ? pos.entryPrice - exitPrice : exitPrice - pos.entryPrice) * exitQty +
         pos.partialExits.reduce((s, p) => s + (isShort ? pos.entryPrice - p.price : p.price - pos.entryPrice) * p.qty, 0);
-      const totalFees = pos.fees + exitFees + partialFees;
+      const totalFees = entryFeeShareFinal + exitFees + partialFees;
       const riskReward =
         pos.entryPrice - pos.plannedSlPrice !== 0
           ? (pos.tpPrice - pos.entryPrice) / (pos.entryPrice - pos.plannedSlPrice)
