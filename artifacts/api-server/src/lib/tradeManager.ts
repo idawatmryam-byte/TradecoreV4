@@ -42,7 +42,9 @@ export interface StopReplacementResult {
 }
 
 export interface TradeManagerHost {
-  takerFee: number;
+  /** Current taker fee per side as a fraction (0.001 spot / 0.0005 futures);
+   *  a function so it reflects the engine's ACTIVE market type. */
+  takerFee: () => number;
   sendAlert(message: string): Promise<void>;
   /** Cancel whatever is currently resting for this trade (a true OCO order list, or the independent-orders fallback) without placing anything new. Used before a TP1/TP2 partial market-sell, since the resting protection reserves the entire remaining qty and would otherwise starve the sell of balance. Best-effort. */
   cancelProtection(ex: any, market: string, orderIds: OpenOrderIds | undefined): Promise<void>;
@@ -267,8 +269,9 @@ export class TradeManager {
       return orderIds;
     }
 
-    const entryFeeShare = entryPrice * qty * this.host.takerFee;
-    const exitFee = fillPrice * qty * this.host.takerFee;
+    const takerFee = this.host.takerFee();
+    const entryFeeShare = entryPrice * qty * takerFee;
+    const exitFee = fillPrice * qty * takerFee;
     const fees = entryFeeShare + exitFee;
     const pnl = (isShort ? entryPrice - fillPrice : fillPrice - entryPrice) * qty - fees;
     const newRemaining = remaining - qty;

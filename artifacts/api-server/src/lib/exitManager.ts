@@ -41,8 +41,9 @@ export interface OpenOrderIds {
 }
 
 export interface ExitManagerHost {
-  /** Binance spot taker fee, e.g. 0.001 for 0.1% per side. */
-  readonly takerFee: number;
+  /** Current taker fee per side as a fraction (0.001 spot / 0.0005 futures).
+   *  A function so it always reflects the engine's ACTIVE market type. */
+  readonly takerFee: () => number;
   sendAlert(message: string): Promise<void>;
   setCooldown(symbol: string, minutes: number): void;
   recordHourlyStat(now: Date, pnl: number, win: boolean): Promise<void>;
@@ -365,7 +366,8 @@ export class ExitManager {
     const holdingSeconds = Math.max(0, Math.round((now.getTime() - new Date(trade.entryTime).getTime()) / 1000));
 
     // ── Validation: fees, slippage, gross vs. net P/L for THIS (final) leg ────
-    const legFeesUsdt = entryPrice * qty * this.host.takerFee + exitPrice * qty * this.host.takerFee;
+    const takerFee = this.host.takerFee();
+    const legFeesUsdt = entryPrice * qty * takerFee + exitPrice * qty * takerFee;
     const legGrossPnl = (exitPrice - entryPrice) * qty * direction;
     const legNetPnl = legGrossPnl - legFeesUsdt;
 

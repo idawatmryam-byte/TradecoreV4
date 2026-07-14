@@ -35,6 +35,7 @@ import {
   type IndicatorVote,
 } from "./strategy";
 import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig, type PositionSide } from "./strategies";
+import { DEFAULT_FEE_RATE, FUTURES_FEE_RATE } from "./tradingCosts";
 import { loadStrategyConfigs } from "./strategyConfigLoader";
 import { ExitManager, type OpenOrderIds } from "./exitManager";
 import { TradeManager } from "./tradeManager";
@@ -181,8 +182,13 @@ class BotEngine {
   private readonly STRATEGY_CONFIG_CACHE_MS = 60_000;
 
   // ── Phase 2.5: Risk management protection ───────────────────────────────────
-  /** Binance spot taker fee: 0.1% per side */
-  private readonly BINANCE_TAKER_FEE = 0.001;
+  /** Taker fee per side for the ACTIVE market type — spot 0.1%, futures 0.05%
+   *  (half). Used by ExitManager/TradeManager P&L accounting. Previously
+   *  hardcoded to the spot rate, which overstated fees ~2× on every futures
+   *  trade and disagreed with the backtest's futures fee. */
+  private get activeTakerFee(): number {
+    return this.activeMarketType === "futures" ? FUTURES_FEE_RATE : DEFAULT_FEE_RATE;
+  }
   /** How many consecutive risk violations before trading is paused */
   private readonly MAX_RISK_VIOLATIONS = 3;
   private riskViolationCount = 0;
@@ -193,7 +199,7 @@ class BotEngine {
   // side effects (alerts, cooldowns, hourly stats, risk-pause bookkeeping) via
   // this host interface.
   private readonly exitManager = new ExitManager({
-    takerFee: this.BINANCE_TAKER_FEE,
+    takerFee: () => this.activeTakerFee,
     sendAlert: (message: string) => this.sendAlert(message),
     setCooldown: (symbol: string, minutes: number) => this.setCooldown(symbol, minutes),
     recordHourlyStat: (now: Date, pnl: number, win: boolean) => this.recordHourlyStat(now, pnl, win),
@@ -229,7 +235,7 @@ class BotEngine {
   // TradeManager only ever narrows risk (raises SL) or partially reduces size —
   // it never fully closes a trade; ExitManager still owns that (see above).
   private readonly tradeManager = new TradeManager({
-    takerFee: this.BINANCE_TAKER_FEE,
+    takerFee: () => this.activeTakerFee,
     sendAlert: (message: string) => this.sendAlert(message),
     cancelProtection: async (ex, market, orderIds) => {
       if (!orderIds) return;
