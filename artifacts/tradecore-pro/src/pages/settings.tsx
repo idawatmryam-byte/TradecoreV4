@@ -116,6 +116,7 @@ export function Settings() {
     pairs: "BTCUSDT,ETHUSDT",
     testnet: true,
     backtestMode: false,
+    highFrequencyTestMode: false,
     alertWebhookUrl: "",
   });
 
@@ -135,6 +136,7 @@ export function Settings() {
         pairs: config.pairs.join(", "),
         testnet: config.testnet,
         backtestMode: config.backtestMode,
+        highFrequencyTestMode: config.highFrequencyTestMode,
         alertWebhookUrl: config.alertWebhookUrl ?? "",
       });
     }
@@ -316,11 +318,32 @@ export function Settings() {
                   </Label>
                   <p className="text-xs text-muted-foreground font-mono">Execute trades using paper money.</p>
                 </div>
-                <Switch 
-                  checked={formData.testnet} 
-                  onCheckedChange={(v) => handleChange('testnet', v)} 
+                <Switch
+                  checked={formData.testnet}
+                  onCheckedChange={(v) => handleChange('testnet', v)}
                 />
               </div>
+
+              {/* High-frequency test mode — testnet only. Kept out of sight on
+                  live keys since the engine ignores it there anyway. */}
+              {formData.testnet && (
+                <div className="flex items-center justify-between p-3 border border-warning/40 rounded-md bg-warning/5">
+                  <div className="space-y-0.5 pr-3">
+                    <Label className="text-sm font-bold flex items-center gap-2">
+                      <TestTube2 className="h-4 w-4 text-warning" /> High-Frequency Test Mode
+                    </Label>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      Forces the engine to trade a lot (no cooldown/confidence floor,
+                      fast exits, breaker off) to generate data and surface bugs.
+                      Not a profitable setup — testnet only.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={formData.highFrequencyTestMode}
+                    onCheckedChange={(v) => handleChange('highFrequencyTestMode', v)}
+                  />
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

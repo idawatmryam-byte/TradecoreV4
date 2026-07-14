@@ -1341,7 +1341,7 @@ components:
 
     BotConfig:
       type: object
-      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, confidenceThreshold, stopLossPercent, takeProfitPercent, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, marketType, leverage, marginMode]
+      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, confidenceThreshold, stopLossPercent, takeProfitPercent, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode]
       properties:
         marketType:
           type: string
@@ -1386,6 +1386,9 @@ components:
           type: boolean
         backtestMode:
           type: boolean
+        highFrequencyTestMode:
+          type: boolean
+          description: "Testnet/demo only: when on, the live engine overrides its turnover-limiting gates (cooldown, confidence floor, toxic hours, max positions, daily-loss breaker, max holding time) to generate a high volume of trades for end-to-end testing. Ignored on real-money keys. Not a profitable configuration."
         alertWebhookUrl:
           type: string
           nullable: true
@@ -1455,6 +1458,9 @@ components:
           type: boolean
         backtestMode:
           type: boolean
+        highFrequencyTestMode:
+          type: boolean
+          description: "Testnet/demo only: when on, the live engine overrides its turnover-limiting gates to generate a high volume of trades for end-to-end testing. Ignored on real-money keys."
         alertWebhookUrl:
           type: string
           nullable: true

@@ -59,6 +59,7 @@ function mapConfig(c: typeof botConfigTable.$inferSelect) {
     pairs:                     c.pairs.split(",").map((p: string) => p.trim()).filter(Boolean),
     testnet:                   c.testnet,
     backtestMode:              c.backtestMode,
+    highFrequencyTestMode:     c.highFrequencyTestMode,
     alertWebhookUrl:           c.alertWebhookUrl ?? null,
   };
 }
@@ -102,6 +103,7 @@ router.put("/config", async (req, res): Promise<void> => {
       ...(u.pairs                     !== undefined && { pairs:                      u.pairs.join(",") }),
       ...(u.testnet                   !== undefined && { testnet:                    u.testnet }),
       ...(u.backtestMode              !== undefined && { backtestMode:               u.backtestMode }),
+      ...(u.highFrequencyTestMode     !== undefined && { highFrequencyTestMode:      u.highFrequencyTestMode }),
       ...(u.alertWebhookUrl           !== undefined && { alertWebhookUrl:            u.alertWebhookUrl ?? null }),
     })
     .where(eq(botConfigTable.id, existing.id))

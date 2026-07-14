@@ -147,6 +147,19 @@ class BotEngine {
 
   // Symbol cooldowns: symbol → expiry timestamp (ms)
   private symbolCooldowns: Map<string, number> = new Map();
+
+  /**
+   * High-frequency test mode, resolved fresh each scan from loadConfig()
+   * (config.highFrequencyTestMode && config.testnet). When true the engine
+   * relaxes its turnover-limiting gates to generate lots of trades for
+   * end-to-end testing on Demo Trading. Read by getStrategyConfigs() and
+   * isToxicHour(), both of which run after loadConfig() within a scan.
+   */
+  private highFreqActive = false;
+  // Test-mode caps — deliberately aggressive so the engine actually churns.
+  private readonly HF_MAX_HOLD_SECONDS = 600;      // force fast position cycling
+  private readonly HF_MAX_OPEN_POSITIONS = 30;     // allow every pair open at once
+  private readonly HF_MAX_CONCURRENT_PER_STRAT = 10;
   /** Last resolved market regime per symbol — feeds regime hysteresis so the
    *  regime (and thus which strategies are eligible) can't flip every 15s
    *  scan tick on a metric hovering at a threshold. See detectMarketRegime. */
@@ -433,7 +446,28 @@ class BotEngine {
     }
     this.strategyConfigs = await loadStrategyConfigs(this.userId);
     this.lastStrategyConfigLoad = now;
-    return this.strategyConfigs;
+    return this.highFreqStrategyConfigs(this.strategyConfigs);
+  }
+
+  /**
+   * In high-frequency test mode, cap every strategy's max holding time so
+   * positions cycle fast, drop its cooldown to zero, and widen its concurrency
+   * cap — the per-strategy half of applyHighFreqOverrides(). Returns the map
+   * unchanged when the mode is off. (this.highFreqActive is set by loadConfig,
+   * which every scan runs before this.)
+   */
+  private highFreqStrategyConfigs(configs: Map<string, StrategyConfig>): Map<string, StrategyConfig> {
+    if (!this.highFreqActive) return configs;
+    const out = new Map<string, StrategyConfig>();
+    for (const [id, cfg] of configs) {
+      out.set(id, {
+        ...cfg,
+        maxHoldingSeconds: Math.min(cfg.maxHoldingSeconds, this.HF_MAX_HOLD_SECONDS),
+        cooldownMinutes: 0,
+        maxConcurrentPositions: Math.max(cfg.maxConcurrentPositions, this.HF_MAX_CONCURRENT_PER_STRAT),
+      });
+    }
+    return out;
   }
 
   // ---------------------------------------------------------------------------
@@ -940,7 +974,10 @@ class BotEngine {
     }
     this.scanning = true;
     try {
-      const config = await this.loadConfig();
+      // Effective config for this scan = stored settings + high-frequency test
+      // overrides (a no-op unless highFrequencyTestMode is on AND on testnet).
+      // This also sets this.highFreqActive for getStrategyConfigs/isToxicHour.
+      const config = this.applyHighFreqOverrides(await this.loadConfig());
       const ex = await this.initExchange(config.testnet, config.marketType === "futures" ? "futures" : "spot");
       const now = new Date();
       this.state.lastScanAt = now.toISOString();
@@ -2127,6 +2164,8 @@ class BotEngine {
   }
 
   private async isToxicHour(hour: number): Promise<boolean> {
+    // Test mode wants volume above all — never sit out an hour.
+    if (this.highFreqActive) return false;
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]!;
     const rows = await db
       .select()
@@ -2184,11 +2223,37 @@ class BotEngine {
       .filter(Boolean);
   }
 
+  /**
+   * Raw config row — the user's stored settings, no test-mode overrides. Routes
+   * (GET/PUT /config) MUST use this so the UI edits real values. The scan path
+   * calls applyHighFreqOverrides() on top of this to get the effective config.
+   */
   async loadConfig() {
     const rows = await db.select().from(botConfigTable).where(eq(botConfigTable.userId, this.userId)).limit(1);
     if (rows.length > 0) return rows[0]!;
     const [inserted] = await db.insert(botConfigTable).values({ userId: this.userId }).returning();
     return inserted!;
+  }
+
+  /**
+   * High-frequency TEST mode (Demo Trading only). Real-money keys never take
+   * this path — it is gated on `testnet` so it is impossible to churn a live
+   * account. When active, override the config fields that throttle trade
+   * volume so the live engine produces enough trades/day to surface bugs and
+   * generate data. Called at the top of each scan; per-strategy holding time /
+   * cooldown / concurrency are handled in getStrategyConfigs(); toxic-hour
+   * skips in isToxicHour(). Both read this.highFreqActive, which this sets.
+   */
+  private applyHighFreqOverrides<T extends typeof botConfigTable.$inferSelect>(row: T): T {
+    this.highFreqActive = row.highFrequencyTestMode && row.testnet;
+    if (!this.highFreqActive) return row;
+    return {
+      ...row,
+      cooldownMinutes: 0,                    // re-enter a symbol immediately after exit
+      confidenceThreshold: 0,                // take every signal, weak ones included
+      maxOpenPositions: this.HF_MAX_OPEN_POSITIONS,
+      dailyLossLimitUsdt: "1000000000",      // circuit breaker effectively off
+    };
   }
 
   // ---------------------------------------------------------------------------
