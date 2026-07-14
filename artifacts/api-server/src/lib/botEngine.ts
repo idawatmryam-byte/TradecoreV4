@@ -1685,36 +1685,62 @@ class BotEngine {
         "Trade entered"
       );
 
-      const [trade] = await db
-        .insert(tradesTable)
-        .values({
-          userId: this.userId,
-          symbol,
-          side: openSide,
-          marketType: config.marketType,
-          ...(isFutures && { leverage: effectiveLeverage, marginMode: config.marginMode }),
-          ...(liquidationPrice !== null && { liquidationPrice: liquidationPrice.toFixed(8) }),
-          entryPrice: fillPrice.toFixed(8),
-          quantity: filledQty.toFixed(8),
-          status: "open",
-          confidence: row.confidence.toFixed(2),
-          stopLoss: slPrice.toFixed(8),
-          takeProfit: tpPrice.toFixed(8),
-          entryTime: now,
-          ...(strategyId   && { strategyId }),
-          ...(strategyName && { strategyName }),
-          // Phase 4A: preserve the strategy's original signal-time SL/TP/qty
-          // (before entry-slippage adjustment) so ExitManager can validate
-          // planned vs. actual at close time.
-          plannedStopLoss: entry.slPrice.toFixed(8),
-          plannedTakeProfit: entry.tpPrice.toFixed(8),
-          plannedQuantity: entry.qty.toFixed(8),
-          // Phase 4B: trade-management ladder
-          remainingQuantity: filledQty.toFixed(8),
-          ...(tp1Price > 0 && { tp1Price: tp1Price.toFixed(8), tp1Quantity: tp1Qty.toFixed(8) }),
-          ...(tp2Price > 0 && { tp2Price: tp2Price.toFixed(8), tp2Quantity: tp2Qty.toFixed(8) }),
-        })
-        .returning();
+      // RELIABILITY: the market order above ALREADY FILLED — a position now
+      // exists on the exchange. If this DB write fails, the engine has an
+      // untracked position it can neither protect (place SL/TP) nor exit, and
+      // it would only be discovered on the next startup reconcile. Rather than
+      // leave an orphaned, unprotected position, flatten it immediately —
+      // mirroring the SL/TP risk-guard above — and surface it to the user.
+      let trade: typeof tradesTable.$inferSelect | undefined;
+      try {
+        [trade] = await db
+          .insert(tradesTable)
+          .values({
+            userId: this.userId,
+            symbol,
+            side: openSide,
+            marketType: config.marketType,
+            ...(isFutures && { leverage: effectiveLeverage, marginMode: config.marginMode }),
+            ...(liquidationPrice !== null && { liquidationPrice: liquidationPrice.toFixed(8) }),
+            entryPrice: fillPrice.toFixed(8),
+            quantity: filledQty.toFixed(8),
+            status: "open",
+            confidence: row.confidence.toFixed(2),
+            stopLoss: slPrice.toFixed(8),
+            takeProfit: tpPrice.toFixed(8),
+            entryTime: now,
+            ...(strategyId   && { strategyId }),
+            ...(strategyName && { strategyName }),
+            // Phase 4A: preserve the strategy's original signal-time SL/TP/qty
+            // (before entry-slippage adjustment) so ExitManager can validate
+            // planned vs. actual at close time.
+            plannedStopLoss: entry.slPrice.toFixed(8),
+            plannedTakeProfit: entry.tpPrice.toFixed(8),
+            plannedQuantity: entry.qty.toFixed(8),
+            // Phase 4B: trade-management ladder
+            remainingQuantity: filledQty.toFixed(8),
+            ...(tp1Price > 0 && { tp1Price: tp1Price.toFixed(8), tp1Quantity: tp1Qty.toFixed(8) }),
+            ...(tp2Price > 0 && { tp2Price: tp2Price.toFixed(8), tp2Quantity: tp2Qty.toFixed(8) }),
+          })
+          .returning();
+      } catch (dbErr) {
+        logger.error({ err: dbErr, symbol, filledQty },
+          "DB insert failed after fill — closing the untracked position to protect capital");
+        try {
+          const closeQty = parseFloat(ex.amountToPrecision(market, filledQty));
+          const closeParams = isFutures ? { reduceOnly: true } : undefined;
+          await ex.createOrder(market, "market", closeSide, closeQty, undefined, closeParams);
+        } catch (closeErr) {
+          logger.error({ err: closeErr, symbol, filledQty },
+            "Failed to close untracked position after DB failure — MANUAL INTERVENTION REQUIRED");
+        }
+        this.sendAlert(
+          `🚨 ${side.toUpperCase()} ${symbol} filled at ${fillPrice.toFixed(6)} but could NOT be recorded ` +
+          `(database error). The engine attempted to close it immediately. Please verify on Binance that no ` +
+          `position remains open.`,
+        ).catch(() => {});
+        return { entered: false, reason: "Order filled but DB write failed — position closed to avoid an untracked/unprotected position" };
+      }
 
       let tpOrderId = "";
       let slOrderId = "";
@@ -1792,6 +1818,21 @@ class BotEngine {
             ? "WARN: both TP and SL placement failed — price-based exit monitoring only"
             : "Partial exchange protection — price-based exit monitoring supplementing"
       );
+
+      // RELIABILITY: a filled position whose STOP-LOSS could not be placed on
+      // the exchange is a capital risk. The software price-monitor (ExitManager)
+      // still closes it each scan, but a fast move between scans could blow past
+      // the stop before that runs. Alert the user immediately so they can verify
+      // or close it on the exchange — a missing take-profit alone is not a risk
+      // (nothing to lose), so this fires only when the stop is the one missing.
+      if (!slOrderId) {
+        this.sendAlert(
+          `🚨 STOP-LOSS NOT PLACED — ${side.toUpperCase()} ${symbol} filled at ${fillPrice.toFixed(6)}, ` +
+          `but the exchange stop-loss order could not be placed. The engine will monitor price and close ` +
+          `near ${slPrice.toFixed(6)} on each scan (~${config.scanIntervalSeconds}s), but a fast move between ` +
+          `scans is unprotected. Verify or close this position manually on Binance if needed.`,
+        ).catch((e) => logger.warn({ err: e, tradeId: trade!.id }, "Failed to send stop-not-placed alert"));
+      }
 
       return {
         entered: true,
