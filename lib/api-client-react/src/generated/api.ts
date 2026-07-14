@@ -21,11 +21,9 @@ import type {
 
 import type {
   BacktestDetail,
-  BacktestRequest,
   BacktestRun,
   BacktestRunRequest,
   BacktestStarted,
-  BacktestStatus,
   BinanceCredentialsStatus,
   BlacklistEntry,
   BlockingSummary,
@@ -676,155 +674,6 @@ export const useStopBot = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getStopBotMutationOptions(options));
     }
-
-export const getStartBacktestUrl = () => {
-
-
-
-
-  return `/api/bot/backtest`
-}
-
-/**
- * Fetches historical Binance candles and simulates the strategy. Runs in the background.
- * @summary Start a backtest
- */
-export const startBacktest = async (backtestRequest: BacktestRequest, options?: RequestInit): Promise<BacktestStatus> => {
-
-  return customFetch<BacktestStatus>(getStartBacktestUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(backtestRequest)
-  }
-);}
-
-
-
-
-export const getStartBacktestMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startBacktest>>, TError,{data: BodyType<BacktestRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof startBacktest>>, TError,{data: BodyType<BacktestRequest>}, TContext> => {
-
-const mutationKey = ['startBacktest'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startBacktest>>, {data: BodyType<BacktestRequest>}> = (props) => {
-          const {data} = props ?? {};
-
-          return  startBacktest(data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type StartBacktestMutationResult = NonNullable<Awaited<ReturnType<typeof startBacktest>>>
-    export type StartBacktestMutationBody = BodyType<BacktestRequest>
-    export type StartBacktestMutationError = ErrorType<unknown>
-
-    /**
- * @summary Start a backtest
- */
-export const useStartBacktest = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startBacktest>>, TError,{data: BodyType<BacktestRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof startBacktest>>,
-        TError,
-        {data: BodyType<BacktestRequest>},
-        TContext
-      > => {
-      return useMutation(getStartBacktestMutationOptions(options));
-    }
-
-export const getGetBacktestStatusUrl = () => {
-
-
-
-
-  return `/api/bot/backtest/status`
-}
-
-/**
- * Returns the current backtest run status and progress
- * @summary Get backtest progress
- */
-export const getBacktestStatus = async ( options?: RequestInit): Promise<BacktestStatus> => {
-
-  return customFetch<BacktestStatus>(getGetBacktestStatusUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getGetBacktestStatusQueryKey = () => {
-    return [
-    `/api/bot/backtest/status`
-    ] as const;
-    }
-
-
-export const getGetBacktestStatusQueryOptions = <TData = Awaited<ReturnType<typeof getBacktestStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBacktestStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetBacktestStatusQueryKey();
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBacktestStatus>>> = ({ signal }) => getBacktestStatus({ signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBacktestStatus>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetBacktestStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getBacktestStatus>>>
-export type GetBacktestStatusQueryError = ErrorType<unknown>
-
-
-/**
- * @summary Get backtest progress
- */
-
-export function useGetBacktestStatus<TData = Awaited<ReturnType<typeof getBacktestStatus>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBacktestStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getGetBacktestStatusQueryOptions(options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
 
 export const getGetScannerDataUrl = () => {
 

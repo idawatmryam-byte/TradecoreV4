@@ -127,42 +127,6 @@ export const StopBotResponse = zod.object({
 
 
 /**
- * Fetches historical Binance candles and simulates the strategy. Runs in the background.
- * @summary Start a backtest
- */
-export const startBacktestBodyDaysMax = 30;
-
-
-
-export const StartBacktestBody = zod.object({
-  "days": zod.number().min(1).max(startBacktestBodyDaysMax).describe('Number of historical days to backtest')
-})
-
-export const StartBacktestResponse = zod.object({
-  "running": zod.boolean(),
-  "progress": zod.number().describe('0-100 percentage'),
-  "pairsTotal": zod.number(),
-  "pairsDone": zod.number(),
-  "tradesFound": zod.number(),
-  "error": zod.string().nullish()
-})
-
-
-/**
- * Returns the current backtest run status and progress
- * @summary Get backtest progress
- */
-export const GetBacktestStatusResponse = zod.object({
-  "running": zod.boolean(),
-  "progress": zod.number().describe('0-100 percentage'),
-  "pairsTotal": zod.number(),
-  "pairsDone": zod.number(),
-  "tradesFound": zod.number(),
-  "error": zod.string().nullish()
-})
-
-
-/**
  * Returns current scanner rows for all watched pairs
  * @summary Get live scanner table
  */
