@@ -303,7 +303,7 @@ export function Strategies() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Strategies</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          6 specialized algorithms running in parallel, each tuned for a specific market regime.
+          {totalCount > 0 ? `${totalCount} specialized algorithms` : "Specialized algorithms"} running in parallel, each tuned for a specific market regime.
         </p>
       </div>
 

@@ -42,8 +42,8 @@ export function Trades() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <History className="h-6 w-6 text-primary" /> Trade Log
@@ -51,29 +51,31 @@ export function Trades() {
           <p className="text-muted-foreground text-sm mt-1">Complete history of all executed algorithmic trades.</p>
         </div>
 
-        <div className="flex items-center gap-2 bg-card p-1 rounded-md border">
-          <Filter className="h-4 w-4 text-muted-foreground ml-2 mr-1" />
-          <Button 
-            variant={filter === undefined ? "secondary" : "ghost"} 
-            size="sm" 
+        {/* Filter pill: full-width and horizontally scrollable on phones so the
+            five controls never overflow the page; inline auto-width from small up. */}
+        <div className="flex items-center gap-2 bg-card p-1 rounded-md border w-full sm:w-auto overflow-x-auto">
+          <Filter className="h-4 w-4 text-muted-foreground ml-2 mr-1 shrink-0" />
+          <Button
+            variant={filter === undefined ? "secondary" : "ghost"}
+            size="sm"
             onClick={() => setFilter(undefined)}
-            className="text-xs uppercase tracking-wider font-mono h-7"
+            className="text-xs uppercase tracking-wider font-mono h-7 shrink-0"
           >
             All
           </Button>
-          <Button 
-            variant={filter === 'open' ? "secondary" : "ghost"} 
-            size="sm" 
+          <Button
+            variant={filter === 'open' ? "secondary" : "ghost"}
+            size="sm"
             onClick={() => setFilter('open')}
-            className="text-xs uppercase tracking-wider font-mono h-7"
+            className="text-xs uppercase tracking-wider font-mono h-7 shrink-0"
           >
             Open
           </Button>
-          <Button 
-            variant={filter === 'closed' ? "secondary" : "ghost"} 
-            size="sm" 
+          <Button
+            variant={filter === 'closed' ? "secondary" : "ghost"}
+            size="sm"
             onClick={() => setFilter('closed')}
-            className="text-xs uppercase tracking-wider font-mono h-7"
+            className="text-xs uppercase tracking-wider font-mono h-7 shrink-0"
           >
             Closed
           </Button>
@@ -81,7 +83,7 @@ export function Trades() {
             variant={filter === 'stopped' ? "secondary" : "ghost"}
             size="sm"
             onClick={() => setFilter('stopped')}
-            className="text-xs uppercase tracking-wider font-mono h-7"
+            className="text-xs uppercase tracking-wider font-mono h-7 shrink-0"
           >
             Stopped
           </Button>
@@ -90,7 +92,7 @@ export function Trades() {
             size="sm"
             onClick={downloadCsv}
             disabled={!trades || trades.length === 0}
-            className="text-xs uppercase tracking-wider font-mono h-7 gap-1 ml-1"
+            className="text-xs uppercase tracking-wider font-mono h-7 gap-1 ml-1 shrink-0"
           >
             <Download className="h-3 w-3" /> CSV
           </Button>
@@ -99,7 +101,7 @@ export function Trades() {
 
       <Card>
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="min-w-[720px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Time</TableHead>
