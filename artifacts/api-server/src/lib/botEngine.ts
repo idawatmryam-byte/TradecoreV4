@@ -1089,8 +1089,22 @@ class BotEngine {
         const notionalCapUsdt =
           Number(config.positionSizeUsdt) *
           (config.marketType === "futures" ? Math.max(1, config.leverage) : 1);
+        // Dollar risk model (Phase 8): when enabled, the strategy's %-based
+        // SL/TP/size are overridden with the levels the user's fixed max-loss /
+        // target-profit imply — same planner the backtest uses (parity).
+        const dollarRisk =
+          config.riskModel === "dollar"
+            ? {
+                marketType: config.marketType as "spot" | "futures",
+                tradeAmountUsdt: Number(config.positionSizeUsdt),
+                leverage: config.marketType === "futures" ? Math.max(1, config.leverage) : 1,
+                maxLossUsdt: Number(config.maxLossUsdt),
+                targetProfitUsdt: Number(config.targetProfitUsdt),
+                feeRate: this.activeTakerFee,
+              }
+            : undefined;
         let signals = strategySelector.evaluateSymbol(
-          symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt
+          symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt, dollarRisk
         );
         // Spot has no short-selling mechanism (buy-to-open is the only way to
         // enter) — strategies always evaluate both directions, so filter out

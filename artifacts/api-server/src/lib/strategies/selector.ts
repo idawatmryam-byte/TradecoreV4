@@ -13,6 +13,7 @@
 import { type Strategy, type StrategySignal, type StrategyConfig } from "./base";
 import { type MultiTimeframeCandles, type SignalRow, unifyConfidence } from "../strategy";
 import { netRewardRisk, MIN_VIABLE_REWARD_RISK } from "../tradingCosts";
+import { type DollarRiskConfig, planDollarRisk } from "../dollarRisk";
 
 export class StrategySelector {
   private strategies: Strategy[];
@@ -32,6 +33,13 @@ export class StrategySelector {
     configs: Map<string, StrategyConfig>,
     balance: number,
     positionSizeUsdt: number,
+    /**
+     * When set, the engine is in DOLLAR risk mode: the strategy still decides
+     * DIRECTION and entry timing, but its %-based SL/TP/qty are overridden by
+     * the dollar-based plan (fixed max-loss / target-profit → SL price, TP
+     * price and size). Shared by live + backtest so both size identically.
+     */
+    dollarRisk?: DollarRiskConfig,
   ): StrategySignal[] {
     const signals: StrategySignal[] = [];
 
@@ -44,6 +52,26 @@ export class StrategySelector {
       try {
         const signal = strategy.evaluate(symbol, mtf, row, config, balance, positionSizeUsdt);
         if (!signal) continue;
+
+        // ── Dollar risk model override ──────────────────────────────────────
+        // Replace the strategy's %-based stop/target/size with the levels the
+        // user's fixed dollar risk implies. Reject the signal (parity with
+        // live + backtest) if the dollar config can't place a safe stop —
+        // e.g. fees exceed the max loss, or a leveraged stop would sit beyond
+        // liquidation. The netRewardRisk gate below then runs on these levels.
+        if (dollarRisk) {
+          const plan = planDollarRisk(signal.entryPrice, signal.side, dollarRisk);
+          if (!plan.feasible || !plan.safe || plan.qty <= 0) {
+            console.warn(
+              `[selector] ${strategy.strategyId} rejected on ${symbol}: dollar risk not placeable ` +
+                `(${plan.warnings[0] ?? "invalid plan"})`,
+            );
+            continue;
+          }
+          signal.suggestedSL = plan.slPrice;
+          signal.suggestedTP = plan.tpPrice;
+          signal.qty = plan.qty;
+        }
 
         // Confidence unification (deferred-work #1): blend the strategy's own
         // setup-quality confidence with the 12-indicator market-structure
@@ -94,10 +122,11 @@ export class StrategySelector {
     configs: Map<string, StrategyConfig>,
     balance: number,
     positionSizeUsdt: number,
+    dollarRisk?: DollarRiskConfig,
   ): StrategySignal[] {
     const all: StrategySignal[] = [];
     for (const { symbol, mtf, row } of symbolData) {
-      all.push(...this.evaluateSymbol(symbol, mtf, row, configs, balance, positionSizeUsdt));
+      all.push(...this.evaluateSymbol(symbol, mtf, row, configs, balance, positionSizeUsdt, dollarRisk));
     }
     all.sort((a, b) => b.confidence - a.confidence);
     return all;

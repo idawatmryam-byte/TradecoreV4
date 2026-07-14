@@ -110,6 +110,10 @@ interface RunFormState {
   dailyLossLimitUsdt: number;
   marketType: "spot" | "futures";
   leverage: number;
+  /** "percent" (default) or "dollar" — dollar sizes trades from maxLossUsdt/targetProfitUsdt (same planner as live). */
+  riskModel: "percent" | "dollar";
+  maxLossUsdt: number;
+  targetProfitUsdt: number;
   /** true (default): each strategy uses its own SL/TP/confidence (matches live). */
   matchLive: boolean;
   /** Faithful mode: TP = each strategy's own SL × this ratio (0 = off). */
@@ -141,6 +145,9 @@ function defaultForm(): RunFormState {
     dailyLossLimitUsdt: 50,
     marketType: "spot",
     leverage: 1,
+    riskModel: "percent",
+    maxLossUsdt: 5,
+    targetProfitUsdt: 10,
     matchLive: true,
     rrRatio: 0,
     pureExits: false,
@@ -476,8 +483,44 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
             </span>
           </label>
 
-          {/* Flat overrides — ignored when Match live is on */}
-          <fieldset disabled={form.matchLive} className={cn("space-y-3 border-0 p-0 m-0", form.matchLive && "opacity-40")}>
+          {/* Risk model — dollar mode overrides SL/TP/size for ALL strategies
+              (same planner as live), regardless of Match-live. */}
+          <div className="space-y-2 rounded border border-border p-3">
+            <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Risk Model</label>
+            <select
+              value={form.riskModel}
+              onChange={(e) => setForm((f) => ({ ...f, riskModel: e.target.value as "percent" | "dollar" }))}
+              className="w-full bg-background border border-border rounded px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="percent">Percentage of price (per-strategy SL/TP)</option>
+              <option value="dollar">Fixed dollars ($ risk / $ target — same as live dollar mode)</option>
+            </select>
+            {form.riskModel === "dollar" && (() => {
+              const isFut = form.marketType === "futures";
+              const notional = form.positionSizeUsdt * (isFut ? Math.max(1, form.leverage) : 1);
+              const fee = isFut ? 0.0005 : 0.001;
+              const rtFees = notional * fee * 2;
+              const slPct = notional > 0 ? Math.max(0, (form.maxLossUsdt - rtFees) / notional) * 100 : 0;
+              const tpPct = notional > 0 ? (form.targetProfitUsdt + rtFees) / notional * 100 : 0;
+              const rr = form.maxLossUsdt > 0 ? form.targetProfitUsdt / form.maxLossUsdt : 0;
+              return (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    {field("Max Loss (USDT)", "maxLossUsdt", "number", "0.5")}
+                    {field("Target Profit (USDT)", "targetProfitUsdt", "number", "0.5")}
+                  </div>
+                  <p className="text-[11px] font-mono text-muted-foreground">
+                    On ${notional.toFixed(0)} notional → stop ≈ {slPct.toFixed(2)}% · target ≈ {tpPct.toFixed(2)}% ·
+                    R:R {rr.toFixed(2)}:1 · fees ≈ ${rtFees.toFixed(2)}. These dollar amounts override every strategy's
+                    SL/TP/size — exactly what the live engine does in dollar mode.
+                  </p>
+                </>
+              );
+            })()}
+          </div>
+
+          {/* Flat overrides — ignored when Match live is on or in dollar mode */}
+          <fieldset disabled={form.matchLive || form.riskModel === "dollar"} className={cn("space-y-3 border-0 p-0 m-0", (form.matchLive || form.riskModel === "dollar") && "opacity-40")}>
             <div className="grid grid-cols-2 gap-3">
               {field("Stop Loss %", "stopLossPercent", "number", "0.1")}
               {field("Take Profit %", "takeProfitPercent", "number", "0.1")}
