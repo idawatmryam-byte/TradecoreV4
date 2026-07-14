@@ -37,3 +37,36 @@ export const hourlyStatsTable = pgTable("hourly_stats", {
 export const insertHourlyStatSchema = createInsertSchema(hourlyStatsTable).omit({ id: true, createdAt: true });
 export type InsertHourlyStat = z.infer<typeof insertHourlyStatSchema>;
 export type HourlyStat = typeof hourlyStatsTable.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Post-trade analysis — the engine's persistent memory of WHY each closed
+// trade turned out the way it did. Generated deterministically from the
+// recorded trade facts the moment a trade closes (see lib/tradeAnalysis.ts);
+// no assumptions, no fabrication. The derived columns (outcome, rMultiple,
+// grade) are stored so patterns can be aggregated with plain SQL; `findings`
+// holds the itemised factual points and `summary` the readable explanation.
+// ---------------------------------------------------------------------------
+export const tradeAnalysesTable = pgTable("trade_analyses", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  tradeId: integer("trade_id").notNull(),
+  /** "win" | "loss" | "breakeven" — sign of net P&L. */
+  outcome: text("outcome").notNull(),
+  /** Realized reward:risk in R units = net P&L ÷ planned dollar risk. */
+  rMultiple: numeric("r_multiple", { precision: 10, scale: 4 }),
+  /** Evidence-based execution grade A–F (entry conviction, exit quality,
+   *  risk adherence, cost drag) — NOT a prediction, a scorecard of what happened. */
+  grade: text("grade"),
+  /** JSON array of factual findings, one per analysed dimension. */
+  findings: text("findings").notNull(),
+  /** Human-readable one-paragraph explanation of the outcome. */
+  summary: text("summary").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  unique("trade_analyses_user_trade_unique").on(t.userId, t.tradeId),
+  index("trade_analyses_user_idx").on(t.userId),
+]);
+
+export const insertTradeAnalysisSchema = createInsertSchema(tradeAnalysesTable).omit({ id: true, createdAt: true });
+export type InsertTradeAnalysis = z.infer<typeof insertTradeAnalysisSchema>;
+export type TradeAnalysis = typeof tradeAnalysesTable.$inferSelect;

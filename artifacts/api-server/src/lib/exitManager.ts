@@ -51,6 +51,10 @@ export interface ExitManagerHost {
   recordRiskViolation(tradeId: number, symbol: string, detail: string): void;
   /** Called after a validated close that was NOT a risk violation, to reset any streak. */
   recordCleanClose(): void;
+  /** Called after every close (the trade row is fully written) so the host can
+   *  generate + persist the post-trade analysis. Best-effort — must never
+   *  throw back into the close path. */
+  onTradeClosed(tradeId: number): void;
 }
 
 export interface ExitOutcome {
@@ -484,6 +488,10 @@ export class ExitManager {
     }
 
     logger.info({ symbol: trade.symbol, netPnl: netPnl.toFixed(4), exitReason }, "Trade closed");
+
+    // Generate + persist the post-trade analysis (best-effort; the host swallows
+    // its own errors so a failure here can never affect the actual close).
+    this.host.onTradeClosed(trade.id);
 
     return { closed: true, exitReason, exitPrice, pnl: netPnl };
   }

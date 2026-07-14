@@ -23,7 +23,9 @@ import {
   blacklistTable,
   hourlyStatsTable,
   tradePartialExitsTable,
+  tradeAnalysesTable,
 } from "@workspace/db";
+import { analyzeTrade } from "./tradeAnalysis";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { getBinanceCredentials } from "./binanceCredentials";
@@ -228,6 +230,13 @@ class BotEngine {
         this.riskViolationCount = 0;
         this.persistRiskPauseState().catch(() => {});
       }
+    },
+    onTradeClosed: (tradeId: number) => {
+      // Best-effort, off the close path: generate + persist the post-trade
+      // analysis into the engine's persistent memory. Never throws back.
+      this.recordTradeAnalysis(tradeId).catch((err) =>
+        logger.warn({ err, tradeId }, "Post-trade analysis failed"),
+      );
     },
   });
 
@@ -2094,6 +2103,40 @@ class BotEngine {
       ));
     if (rows.length === 0) return false;
     return rows.reduce((sum, r) => sum + Number(r.pnl), 0) < 0;
+  }
+
+  /**
+   * Post-trade analysis → persistent memory. Re-reads the just-closed trade row
+   * (so it sees the final written exit values), runs the deterministic,
+   * evidence-based analyzer, and upserts the structured report into
+   * trade_analyses. Purely derived from recorded facts — no fabrication.
+   */
+  private async recordTradeAnalysis(tradeId: number): Promise<void> {
+    const [trade] = await db.select().from(tradesTable).where(eq(tradesTable.id, tradeId)).limit(1);
+    if (!trade || trade.status === "open") return;
+    const a = analyzeTrade(trade);
+    await db
+      .insert(tradeAnalysesTable)
+      .values({
+        userId: this.userId,
+        tradeId,
+        outcome: a.outcome,
+        rMultiple: a.rMultiple != null ? a.rMultiple.toFixed(4) : null,
+        grade: a.grade,
+        findings: JSON.stringify(a.findings),
+        summary: a.summary,
+      })
+      .onConflictDoUpdate({
+        target: [tradeAnalysesTable.userId, tradeAnalysesTable.tradeId],
+        set: {
+          outcome: a.outcome,
+          rMultiple: a.rMultiple != null ? a.rMultiple.toFixed(4) : null,
+          grade: a.grade,
+          findings: JSON.stringify(a.findings),
+          summary: a.summary,
+        },
+      });
+    logger.info({ tradeId, outcome: a.outcome, grade: a.grade, rMultiple: a.rMultiple }, "Post-trade analysis recorded");
   }
 
   private async recordHourlyStat(now: Date, pnl: number, win: boolean): Promise<void> {
