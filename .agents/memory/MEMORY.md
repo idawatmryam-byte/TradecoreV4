@@ -1,1 +1,0 @@
-- [TradeCore Pro architecture](tradecore-pro-arch.md) — Phase 1 engine: 12-indicator MTF voting, ADX Wilder-sum/period fix, api-zod export collision, reentrancy guard pattern.
