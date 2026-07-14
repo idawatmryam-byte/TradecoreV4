@@ -1,7 +1,8 @@
 import { Link, useLocation } from "wouter";
-import { Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert, Layers, LogOut } from "lucide-react";
+import { Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert, Layers, LogOut, Menu, X } from "lucide-react";
 import { useGetBotStatus, useHealthCheck, getGetBotStatusQueryKey, getHealthCheckQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
+import { useState, useEffect } from "react";
 
 const NAV_ITEMS = [
   { href: "/", label: "Cockpit", icon: Activity },
@@ -15,12 +16,18 @@ const NAV_ITEMS = [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
   const { data: botStatus } = useGetBotStatus({
     query: { refetchInterval: 5000, queryKey: getGetBotStatusQueryKey() }
   });
   const { data: health, isError: healthError } = useHealthCheck({
     query: { refetchInterval: 15000, queryKey: getHealthCheckQueryKey() }
   });
+
+  // Auto-close the mobile drawer after navigating so it never lingers over the page.
+  useEffect(() => { setMobileOpen(false); }, [location]);
+
+  const online = botStatus?.running && !healthError;
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
@@ -29,9 +36,33 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-[100dvh] bg-background text-foreground flex-col md:flex-row">
-      {/* Sidebar */}
-      <aside className="w-full md:w-64 border-r bg-card/30 flex flex-col">
-        <div className="p-6 border-b flex items-center gap-3">
+      {/* Mobile top bar — compact brand + status + menu toggle (hidden on desktop) */}
+      <header className="md:hidden sticky top-0 z-30 flex items-center justify-between border-b bg-card/70 backdrop-blur px-4 py-3">
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded bg-primary/20 flex items-center justify-center border border-primary/50">
+            <Activity className="h-4 w-4 text-primary" />
+          </div>
+          <span className="font-bold tracking-tight leading-none">TradeCore Pro</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className={cn("h-2 w-2 rounded-full", online ? "bg-success" : "bg-destructive")} />
+          <button
+            onClick={() => setMobileOpen((o) => !o)}
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileOpen}
+            className="p-1 -mr-1 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
+      </header>
+
+      {/* Sidebar (desktop) / collapsible drawer (mobile) */}
+      <aside className={cn(
+        "w-full md:w-64 border-r bg-card/30 flex-col md:flex",
+        mobileOpen ? "flex" : "hidden",
+      )}>
+        <div className="hidden md:flex p-6 border-b items-center gap-3">
           <div className="h-8 w-8 rounded bg-primary/20 flex items-center justify-center border border-primary/50">
             <Activity className="h-5 w-5 text-primary" />
           </div>
@@ -111,7 +142,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             CIRCUIT BREAKER ENGAGED: DAILY LOSS LIMIT REACHED. NEW ENTRIES HALTED — EXISTING POSITIONS STILL MONITORED.
           </div>
         )}
-        <div className="flex-1 overflow-auto p-6 md:p-8">
+        <div className="flex-1 overflow-auto p-4 sm:p-6 md:p-8">
           {children}
         </div>
       </main>
