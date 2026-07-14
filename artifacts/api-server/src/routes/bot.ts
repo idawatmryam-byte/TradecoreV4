@@ -1,6 +1,5 @@
 import { Router, type IRouter } from "express";
 import { getOrCreateEngine } from "../lib/engineRegistry";
-import { StartBacktestBody, GetBacktestStatusResponse, StartBacktestResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
@@ -30,29 +29,6 @@ router.post("/bot/stop", async (req, res): Promise<void> => {
   await engine.stop();
   req.log.info({ userId: req.userId }, "Bot stopped via API");
   res.json(engine.getState());
-});
-
-router.post("/bot/backtest", async (req, res): Promise<void> => {
-  const body = StartBacktestBody.safeParse(req.body);
-  if (!body.success) {
-    res.status(400).json({ error: body.error.message });
-    return;
-  }
-
-  const engine = getOrCreateEngine(req.userId!);
-  if (engine.getBacktestStatus().running) {
-    res.status(409).json({ error: "Backtest already running" });
-    return;
-  }
-
-  // Fire-and-forget; progress tracked via GET /bot/backtest/status
-  await engine.startBacktest(body.data.days);
-  req.log.info({ days: body.data.days, userId: req.userId }, "Backtest started via API");
-  res.status(202).json(StartBacktestResponse.parse(engine.getBacktestStatus()));
-});
-
-router.get("/bot/backtest/status", async (req, res): Promise<void> => {
-  res.json(GetBacktestStatusResponse.parse(getOrCreateEngine(req.userId!).getBacktestStatus()));
 });
 
 // Reset the risk pause that is triggered after 3 consecutive risk violations.

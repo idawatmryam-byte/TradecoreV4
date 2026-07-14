@@ -299,26 +299,6 @@ export interface Trade {
   trailingStopMode?: string | null;
 }
 
-export interface BacktestRequest {
-  /**
-     * Number of historical days to backtest
-     * @minimum 1
-     * @maximum 30
-     */
-  days: number;
-}
-
-export interface BacktestStatus {
-  running: boolean;
-  /** 0-100 percentage */
-  progress: number;
-  pairsTotal: number;
-  pairsDone: number;
-  tradesFound: number;
-  /** @nullable */
-  error?: string | null;
-}
-
 export type StatsSummaryStreakType = typeof StatsSummaryStreakType[keyof typeof StatsSummaryStreakType];
 
 

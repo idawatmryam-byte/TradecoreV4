@@ -219,40 +219,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/BotStatus"
 
-  /bot/backtest:
-    post:
-      operationId: startBacktest
-      tags: [bot]
-      summary: Start a backtest
-      description: Fetches historical Binance candles and simulates the strategy. Runs in the background.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/BacktestRequest"
-      responses:
-        "202":
-          description: Backtest started
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/BacktestStatus"
-
-  /bot/backtest/status:
-    get:
-      operationId: getBacktestStatus
-      tags: [bot]
-      summary: Get backtest progress
-      description: Returns the current backtest run status and progress
-      responses:
-        "200":
-          description: Backtest status
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/BacktestStatus"
-
   /scanner:
     get:
       operationId: getScannerData
@@ -1124,34 +1090,6 @@ components:
         trailingStopActive:
           type: boolean
         trailingStopMode:
-          type: ["string", "null"]
-
-    BacktestRequest:
-      type: object
-      required: [days]
-      properties:
-        days:
-          type: integer
-          minimum: 1
-          maximum: 30
-          description: Number of historical days to backtest
-
-    BacktestStatus:
-      type: object
-      required: [running, progress, pairsTotal, pairsDone, tradesFound]
-      properties:
-        running:
-          type: boolean
-        progress:
-          type: number
-          description: 0-100 percentage
-        pairsTotal:
-          type: integer
-        pairsDone:
-          type: integer
-        tradesFound:
-          type: integer
-        error:
           type: ["string", "null"]
 
     StatsSummary:
