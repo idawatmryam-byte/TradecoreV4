@@ -44,6 +44,7 @@ interface EditState {
   confidenceThreshold: string;
   stopLossPercent: string;
   takeProfitPercent: string;
+  maxHoldingSeconds: string;
   maxConcurrentPositions: string;
   cooldownMinutes: string;
 }
@@ -58,6 +59,7 @@ function StrategyCard({ strategy, onSaved }: { strategy: StrategyInfo; onSaved: 
     confidenceThreshold:    String(strategy.config.confidenceThreshold),
     stopLossPercent:        String(strategy.config.stopLossPercent),
     takeProfitPercent:      String(strategy.config.takeProfitPercent),
+    maxHoldingSeconds:      String(strategy.config.maxHoldingSeconds),
     maxConcurrentPositions: String(strategy.config.maxConcurrentPositions),
     cooldownMinutes:        String(strategy.config.cooldownMinutes),
   });
@@ -82,6 +84,7 @@ function StrategyCard({ strategy, onSaved }: { strategy: StrategyInfo; onSaved: 
         confidenceThreshold:    Number(form.confidenceThreshold),
         stopLossPercent:        Number(form.stopLossPercent),
         takeProfitPercent:      Number(form.takeProfitPercent),
+        maxHoldingSeconds:      Number(form.maxHoldingSeconds),
         maxConcurrentPositions: Number(form.maxConcurrentPositions),
         cooldownMinutes:        Number(form.cooldownMinutes),
       },
@@ -155,6 +158,7 @@ function StrategyCard({ strategy, onSaved }: { strategy: StrategyInfo; onSaved: 
                   ['confidenceThreshold', 'Min Confidence'],
                   ['stopLossPercent', 'Stop Loss %'],
                   ['takeProfitPercent', 'Take Profit %'],
+                  ['maxHoldingSeconds', 'Max Hold (sec)'],
                   ['maxConcurrentPositions', 'Max Concurrent'],
                   ['cooldownMinutes', 'Cooldown (min)'],
                 ] as [keyof Omit<EditState, 'enabled'>, string][]
