@@ -1279,7 +1279,7 @@ components:
 
     BotConfig:
       type: object
-      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, confidenceThreshold, stopLossPercent, takeProfitPercent, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode]
+      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, confidenceThreshold, riskModel, stopLossPercent, takeProfitPercent, maxLossUsdt, targetProfitUsdt, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode]
       properties:
         marketType:
           type: string
@@ -1306,12 +1306,22 @@ components:
           type: number
         confidenceThreshold:
           type: integer
+        riskModel:
+          type: string
+          enum: [percent, dollar]
+          description: "How SL/TP are decided. 'percent': SL/TP are a % of price (stopLossPercent/takeProfitPercent) and size comes from riskPercent/positionSizeUsdt. 'dollar': SL/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt/targetProfitUsdt)."
         stopLossPercent:
           type: number
-          description: "Stop-loss distance as a % below entry price (Phase 5A — replaces atrMultiplierSl)"
+          description: "Stop-loss distance as a % below entry price (used when riskModel = percent)"
         takeProfitPercent:
           type: number
-          description: "Take-profit distance as a % above entry price (Phase 5A — replaces atrMultiplierTp)"
+          description: "Take-profit distance as a % above entry price (used when riskModel = percent)"
+        maxLossUsdt:
+          type: number
+          description: "Dollar mode: max dollars to lose on one trade (net of fees)"
+        targetProfitUsdt:
+          type: number
+          description: "Dollar mode: desired dollar profit on one trade (net of fees)"
         cooldownMinutes:
           type: integer
         scanIntervalSeconds:
@@ -1371,6 +1381,10 @@ components:
           type: integer
           minimum: 0
           maximum: 100
+        riskModel:
+          type: string
+          enum: [percent, dollar]
+          description: "percent = %-based SL/TP + riskPercent sizing; dollar = fixed max-loss/target-profit sizing (maxLossUsdt/targetProfitUsdt)."
         stopLossPercent:
           type: number
           minimum: 0.01
@@ -1380,6 +1394,16 @@ components:
           minimum: 0.3
           maximum: 100
           description: "Must clear round-trip trading costs (~0.3% at default fee/slippage assumptions) — see lib/tradingCosts.ts. A lower value is a guaranteed net loss on every winning trade, confirmed empirically in the Phase 6 audit."
+        maxLossUsdt:
+          type: number
+          minimum: 0.01
+          maximum: 1000000
+          description: "Dollar mode: max dollars to lose on one trade (net of fees)."
+        targetProfitUsdt:
+          type: number
+          minimum: 0.01
+          maximum: 1000000
+          description: "Dollar mode: desired dollar profit on one trade (net of fees)."
         cooldownMinutes:
           type: integer
           minimum: 0
@@ -1702,6 +1726,19 @@ components:
           type: string
           enum: [isolated, cross]
           default: isolated
+        riskModel:
+          type: string
+          enum: [percent, dollar]
+          default: percent
+          description: "dollar = size each trade from a fixed max-loss/target-profit (maxLossUsdt/targetProfitUsdt) using the SAME planner as the live engine, so the backtest reflects live dollar-model trading. percent (default) = %-based SL/TP as before."
+        maxLossUsdt:
+          type: number
+          minimum: 0.01
+          description: "Dollar mode only: max dollars to lose per trade (net of fees)."
+        targetProfitUsdt:
+          type: number
+          minimum: 0.01
+          description: "Dollar mode only: desired dollar profit per trade (net of fees)."
         perStrategyConfigs:
           type: boolean
           default: true

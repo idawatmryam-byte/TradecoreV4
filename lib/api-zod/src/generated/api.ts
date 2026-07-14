@@ -474,8 +474,11 @@ export const GetConfigResponse = zod.object({
   "maxPortfolioRiskPercent": zod.number().describe('Maximum % of total balance across all open positions'),
   "dailyLossLimitUsdt": zod.number(),
   "confidenceThreshold": zod.number(),
-  "stopLossPercent": zod.number().describe('Stop-loss distance as a % below entry price (Phase 5A — replaces atrMultiplierSl)'),
-  "takeProfitPercent": zod.number().describe('Take-profit distance as a % above entry price (Phase 5A — replaces atrMultiplierTp)'),
+  "riskModel": zod.enum(['percent', 'dollar']).describe('How SL\/TP are decided. \'percent\': SL\/TP are a % of price (stopLossPercent\/takeProfitPercent) and size comes from riskPercent\/positionSizeUsdt. \'dollar\': SL\/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt\/targetProfitUsdt).'),
+  "stopLossPercent": zod.number().describe('Stop-loss distance as a % below entry price (used when riskModel = percent)'),
+  "takeProfitPercent": zod.number().describe('Take-profit distance as a % above entry price (used when riskModel = percent)'),
+  "maxLossUsdt": zod.number().describe('Dollar mode: max dollars to lose on one trade (net of fees)'),
+  "targetProfitUsdt": zod.number().describe('Dollar mode: desired dollar profit on one trade (net of fees)'),
   "cooldownMinutes": zod.number(),
   "scanIntervalSeconds": zod.number(),
   "pairs": zod.array(zod.string()),
@@ -512,6 +515,12 @@ export const updateConfigBodyStopLossPercentMax = 20;
 export const updateConfigBodyTakeProfitPercentMin = 0.3;
 export const updateConfigBodyTakeProfitPercentMax = 100;
 
+export const updateConfigBodyMaxLossUsdtMin = 0.01;
+export const updateConfigBodyMaxLossUsdtMax = 1000000;
+
+export const updateConfigBodyTargetProfitUsdtMin = 0.01;
+export const updateConfigBodyTargetProfitUsdtMax = 1000000;
+
 export const updateConfigBodyCooldownMinutesMin = 0;
 export const updateConfigBodyCooldownMinutesMax = 1440;
 
@@ -530,8 +539,11 @@ export const UpdateConfigBody = zod.object({
   "maxPortfolioRiskPercent": zod.number().min(updateConfigBodyMaxPortfolioRiskPercentMin).max(updateConfigBodyMaxPortfolioRiskPercentMax).optional(),
   "dailyLossLimitUsdt": zod.number().min(updateConfigBodyDailyLossLimitUsdtMin).optional().describe('Stored as a positive magnitude; the circuit breaker trips when dailyPnl <= -this value.'),
   "confidenceThreshold": zod.number().min(updateConfigBodyConfidenceThresholdMin).max(updateConfigBodyConfidenceThresholdMax).optional(),
+  "riskModel": zod.enum(['percent', 'dollar']).optional().describe('percent = %-based SL\/TP + riskPercent sizing; dollar = fixed max-loss\/target-profit sizing (maxLossUsdt\/targetProfitUsdt).'),
   "stopLossPercent": zod.number().min(updateConfigBodyStopLossPercentMin).max(updateConfigBodyStopLossPercentMax).optional(),
   "takeProfitPercent": zod.number().min(updateConfigBodyTakeProfitPercentMin).max(updateConfigBodyTakeProfitPercentMax).optional().describe('Must clear round-trip trading costs (~0.3% at default fee\/slippage assumptions) — see lib\/tradingCosts.ts. A lower value is a guaranteed net loss on every winning trade, confirmed empirically in the Phase 6 audit.'),
+  "maxLossUsdt": zod.number().min(updateConfigBodyMaxLossUsdtMin).max(updateConfigBodyMaxLossUsdtMax).optional().describe('Dollar mode: max dollars to lose on one trade (net of fees).'),
+  "targetProfitUsdt": zod.number().min(updateConfigBodyTargetProfitUsdtMin).max(updateConfigBodyTargetProfitUsdtMax).optional().describe('Dollar mode: desired dollar profit on one trade (net of fees).'),
   "cooldownMinutes": zod.number().min(updateConfigBodyCooldownMinutesMin).max(updateConfigBodyCooldownMinutesMax).optional(),
   "scanIntervalSeconds": zod.number().min(updateConfigBodyScanIntervalSecondsMin).max(updateConfigBodyScanIntervalSecondsMax).optional(),
   "pairs": zod.array(zod.string()).optional(),
@@ -551,8 +563,11 @@ export const UpdateConfigResponse = zod.object({
   "maxPortfolioRiskPercent": zod.number().describe('Maximum % of total balance across all open positions'),
   "dailyLossLimitUsdt": zod.number(),
   "confidenceThreshold": zod.number(),
-  "stopLossPercent": zod.number().describe('Stop-loss distance as a % below entry price (Phase 5A — replaces atrMultiplierSl)'),
-  "takeProfitPercent": zod.number().describe('Take-profit distance as a % above entry price (Phase 5A — replaces atrMultiplierTp)'),
+  "riskModel": zod.enum(['percent', 'dollar']).describe('How SL\/TP are decided. \'percent\': SL\/TP are a % of price (stopLossPercent\/takeProfitPercent) and size comes from riskPercent\/positionSizeUsdt. \'dollar\': SL\/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt\/targetProfitUsdt).'),
+  "stopLossPercent": zod.number().describe('Stop-loss distance as a % below entry price (used when riskModel = percent)'),
+  "takeProfitPercent": zod.number().describe('Take-profit distance as a % above entry price (used when riskModel = percent)'),
+  "maxLossUsdt": zod.number().describe('Dollar mode: max dollars to lose on one trade (net of fees)'),
+  "targetProfitUsdt": zod.number().describe('Dollar mode: desired dollar profit on one trade (net of fees)'),
   "cooldownMinutes": zod.number(),
   "scanIntervalSeconds": zod.number(),
   "pairs": zod.array(zod.string()),
@@ -662,6 +677,11 @@ export const runBacktestBodyLeverageDefault = 1;
 export const runBacktestBodyLeverageMax = 125;
 
 export const runBacktestBodyMarginModeDefault = `isolated`;
+export const runBacktestBodyRiskModelDefault = `percent`;
+export const runBacktestBodyMaxLossUsdtMin = 0.01;
+
+export const runBacktestBodyTargetProfitUsdtMin = 0.01;
+
 export const runBacktestBodyPerStrategyConfigsDefault = true;
 export const runBacktestBodyRrRatioDefault = 0;
 export const runBacktestBodyRrRatioMin = 0;
@@ -696,6 +716,9 @@ export const RunBacktestBody = zod.object({
   "marketType": zod.enum(['spot', 'futures']).default(runBacktestBodyMarketTypeDefault).describe('futures models isolated-margin liquidation (leverage affects liquidation risk only, not position size — matches live sizing).'),
   "leverage": zod.number().min(1).max(runBacktestBodyLeverageMax).default(runBacktestBodyLeverageDefault).describe('Futures leverage. Only affects liquidation risk in the backtest, not position size.'),
   "marginMode": zod.enum(['isolated', 'cross']).default(runBacktestBodyMarginModeDefault),
+  "riskModel": zod.enum(['percent', 'dollar']).default(runBacktestBodyRiskModelDefault).describe('dollar = size each trade from a fixed max-loss\/target-profit (maxLossUsdt\/targetProfitUsdt) using the SAME planner as the live engine, so the backtest reflects live dollar-model trading. percent (default) = %-based SL\/TP as before.'),
+  "maxLossUsdt": zod.number().min(runBacktestBodyMaxLossUsdtMin).optional().describe('Dollar mode only: max dollars to lose per trade (net of fees).'),
+  "targetProfitUsdt": zod.number().min(runBacktestBodyTargetProfitUsdtMin).optional().describe('Dollar mode only: desired dollar profit per trade (net of fees).'),
   "perStrategyConfigs": zod.boolean().default(runBacktestBodyPerStrategyConfigsDefault).describe('true (default): each strategy uses its own SL\/TP\/confidence, matching live. false: flatten every strategy to the run-level stopLossPercent\/takeProfitPercent\/confidenceThreshold (a single-config sweep).'),
   "rrRatio": zod.number().min(runBacktestBodyRrRatioMin).max(runBacktestBodyRrRatioMax).default(runBacktestBodyRrRatioDefault).describe('Faithful mode only: reshape every strategy to TP = its own SL × this ratio (e.g. 3 → 1:3 reward:risk), keeping everything else per-strategy. 0 = off. The volatility-adaptive cap preserves the ratio when it shrinks targets.'),
   "pureExits": zod.boolean().default(runBacktestBodyPureExitsDefault).describe('Faithful mode only: disable TP1 partials, break-even, and trailing stops so trades resolve only at the full SL or TP. Required to evaluate asymmetric-R:R styles, which the management layer otherwise clips at ~1R.'),

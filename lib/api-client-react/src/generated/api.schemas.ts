@@ -432,6 +432,17 @@ export const BotConfigMarginMode = {
   cross: 'cross',
 } as const;
 
+/**
+ * How SL/TP are decided. 'percent': SL/TP are a % of price (stopLossPercent/takeProfitPercent) and size comes from riskPercent/positionSizeUsdt. 'dollar': SL/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt/targetProfitUsdt).
+ */
+export type BotConfigRiskModel = typeof BotConfigRiskModel[keyof typeof BotConfigRiskModel];
+
+
+export const BotConfigRiskModel = {
+  percent: 'percent',
+  dollar: 'dollar',
+} as const;
+
 export interface BotConfig {
   /** Spot (no leverage, long-only) or USDⓈ-M Futures (leveraged, long+short) */
   marketType: BotConfigMarketType;
@@ -447,10 +458,16 @@ export interface BotConfig {
   maxPortfolioRiskPercent: number;
   dailyLossLimitUsdt: number;
   confidenceThreshold: number;
-  /** Stop-loss distance as a % below entry price (Phase 5A — replaces atrMultiplierSl) */
+  /** How SL/TP are decided. 'percent': SL/TP are a % of price (stopLossPercent/takeProfitPercent) and size comes from riskPercent/positionSizeUsdt. 'dollar': SL/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt/targetProfitUsdt). */
+  riskModel: BotConfigRiskModel;
+  /** Stop-loss distance as a % below entry price (used when riskModel = percent) */
   stopLossPercent: number;
-  /** Take-profit distance as a % above entry price (Phase 5A — replaces atrMultiplierTp) */
+  /** Take-profit distance as a % above entry price (used when riskModel = percent) */
   takeProfitPercent: number;
+  /** Dollar mode: max dollars to lose on one trade (net of fees) */
+  maxLossUsdt: number;
+  /** Dollar mode: desired dollar profit on one trade (net of fees) */
+  targetProfitUsdt: number;
   cooldownMinutes: number;
   scanIntervalSeconds: number;
   pairs: string[];
@@ -476,6 +493,17 @@ export type BotConfigUpdateMarginMode = typeof BotConfigUpdateMarginMode[keyof t
 export const BotConfigUpdateMarginMode = {
   isolated: 'isolated',
   cross: 'cross',
+} as const;
+
+/**
+ * percent = %-based SL/TP + riskPercent sizing; dollar = fixed max-loss/target-profit sizing (maxLossUsdt/targetProfitUsdt).
+ */
+export type BotConfigUpdateRiskModel = typeof BotConfigUpdateRiskModel[keyof typeof BotConfigUpdateRiskModel];
+
+
+export const BotConfigUpdateRiskModel = {
+  percent: 'percent',
+  dollar: 'dollar',
 } as const;
 
 export interface BotConfigUpdate {
@@ -518,6 +546,8 @@ export interface BotConfigUpdate {
      * @maximum 100
      */
   confidenceThreshold?: number;
+  /** percent = %-based SL/TP + riskPercent sizing; dollar = fixed max-loss/target-profit sizing (maxLossUsdt/targetProfitUsdt). */
+  riskModel?: BotConfigUpdateRiskModel;
   /**
      * @minimum 0.01
      * @maximum 20
@@ -529,6 +559,18 @@ export interface BotConfigUpdate {
      * @maximum 100
      */
   takeProfitPercent?: number;
+  /**
+     * Dollar mode: max dollars to lose on one trade (net of fees).
+     * @minimum 0.01
+     * @maximum 1000000
+     */
+  maxLossUsdt?: number;
+  /**
+     * Dollar mode: desired dollar profit on one trade (net of fees).
+     * @minimum 0.01
+     * @maximum 1000000
+     */
+  targetProfitUsdt?: number;
   /**
      * @minimum 0
      * @maximum 1440
@@ -744,6 +786,17 @@ export const BacktestRunRequestMarginMode = {
   cross: 'cross',
 } as const;
 
+/**
+ * dollar = size each trade from a fixed max-loss/target-profit (maxLossUsdt/targetProfitUsdt) using the SAME planner as the live engine, so the backtest reflects live dollar-model trading. percent (default) = %-based SL/TP as before.
+ */
+export type BacktestRunRequestRiskModel = typeof BacktestRunRequestRiskModel[keyof typeof BacktestRunRequestRiskModel];
+
+
+export const BacktestRunRequestRiskModel = {
+  percent: 'percent',
+  dollar: 'dollar',
+} as const;
+
 export interface BacktestRunRequest {
   symbols: string[];
   timeframe: BacktestRunRequestTimeframe;
@@ -774,6 +827,18 @@ export interface BacktestRunRequest {
      */
   leverage?: number;
   marginMode?: BacktestRunRequestMarginMode;
+  /** dollar = size each trade from a fixed max-loss/target-profit (maxLossUsdt/targetProfitUsdt) using the SAME planner as the live engine, so the backtest reflects live dollar-model trading. percent (default) = %-based SL/TP as before. */
+  riskModel?: BacktestRunRequestRiskModel;
+  /**
+     * Dollar mode only: max dollars to lose per trade (net of fees).
+     * @minimum 0.01
+     */
+  maxLossUsdt?: number;
+  /**
+     * Dollar mode only: desired dollar profit per trade (net of fees).
+     * @minimum 0.01
+     */
+  targetProfitUsdt?: number;
   /** true (default): each strategy uses its own SL/TP/confidence, matching live. false: flatten every strategy to the run-level stopLossPercent/takeProfitPercent/confidenceThreshold (a single-config sweep). */
   perStrategyConfigs?: boolean;
   /**

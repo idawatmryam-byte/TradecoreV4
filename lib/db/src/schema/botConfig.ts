@@ -22,11 +22,30 @@ export const botConfigTable = pgTable("bot_config", {
   // ── Signal / confidence ────────────────────────────────────────────────────
   confidenceThreshold: integer("confidence_threshold").notNull().default(55),
 
+  // ── Risk model: how SL/TP are decided ──────────────────────────────────────
+  /**
+   * "percent" (legacy): SL/TP are a % distance of PRICE from entry (the
+   *   stopLossPercent/takeProfitPercent below), and position size comes from
+   *   riskPercent/positionSizeUsdt.
+   * "dollar": the user instead states a fixed MAX DOLLAR LOSS and a DESIRED
+   *   DOLLAR PROFIT per trade; the engine derives the SL price, TP price and
+   *   the exact price-distance %s from those dollar amounts and the position's
+   *   notional (positionSizeUsdt for spot, positionSizeUsdt × leverage for
+   *   futures). See lib/dollarRisk.ts — one planner shared by live + backtest.
+   */
+  riskModel: text("risk_model").notNull().default("percent"), // percent | dollar
+
   // ── Stop-loss / take-profit (Phase 5A: percentage-based, replaces ATR) ─────
-  /** Stop-loss distance as a % below entry price */
+  /** Stop-loss distance as a % below entry price (used when riskModel = "percent"). */
   stopLossPercent: numeric("stop_loss_percent", { precision: 5, scale: 2 }).notNull().default("1.5"),
-  /** Take-profit distance as a % above entry price */
+  /** Take-profit distance as a % above entry price (used when riskModel = "percent"). */
   takeProfitPercent: numeric("take_profit_percent", { precision: 5, scale: 2 }).notNull().default("2.5"),
+
+  // ── Dollar-based risk model (used when riskModel = "dollar") ────────────────
+  /** Maximum dollars the user is willing to LOSE on one trade (net of fees). */
+  maxLossUsdt: numeric("max_loss_usdt", { precision: 12, scale: 2 }).notNull().default("5"),
+  /** Desired dollar PROFIT target for one trade (net of fees). */
+  targetProfitUsdt: numeric("target_profit_usdt", { precision: 12, scale: 2 }).notNull().default("10"),
 
   // ── Trade cooldown ─────────────────────────────────────────────────────────
   /** Minutes to wait before re-entering a symbol after an exit */

@@ -36,6 +36,7 @@ import { ensureCandles, loadCandles } from "./historicalData";
 import { logger } from "./logger";
 import { MIN_VIABLE_TAKE_PROFIT_PERCENT, DEFAULT_FEE_RATE, DEFAULT_SLIPPAGE_RATE } from "./tradingCosts";
 import { estimateLiquidationPrice, stopTooCloseToLiquidation } from "./futuresMath";
+import { type DollarRiskConfig, type RiskModel } from "./dollarRisk";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -109,6 +110,19 @@ export interface BacktestParams {
   /** Reserved for future cross-margin modeling; backtest currently models
    *  isolated-margin liquidation regardless. */
   marginMode?: "isolated" | "cross";
+
+  // ── Dollar-based risk model (Phase 8) ──────────────────────────────────────
+  /**
+   * "percent" (default): SL/TP come from stopLossPercent/takeProfitPercent.
+   * "dollar": the strategy's %-based SL/TP/size are overridden by the fixed
+   * max-loss / target-profit plan (lib/dollarRisk.ts) — the SAME planner the
+   * live engine uses, so a dollar-model backtest reflects live trading exactly.
+   */
+  riskModel?: RiskModel;
+  /** Dollar mode only: max dollars to lose per trade (net of fees). */
+  maxLossUsdt?: number;
+  /** Dollar mode only: desired dollar profit per trade (net of fees). */
+  targetProfitUsdt?: number;
 }
 
 interface PartialExitRecord {
@@ -447,6 +461,21 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
   const modelsLiquidation = isFutures && leverage > 1;
   const notionalCapUsdt = params.positionSizeUsdt * leverage;
   let liquidationRejectedEntries = 0; // entries the live liquidation guard would refuse
+
+  // Dollar risk model (Phase 8): when enabled, override each signal's %-based
+  // SL/TP/size with the fixed max-loss / target-profit plan — identical planner
+  // to the live engine (parity), threaded into strategySelector.evaluateSymbol.
+  const dollarRisk: DollarRiskConfig | undefined =
+    params.riskModel === "dollar"
+      ? {
+          marketType: isFutures ? "futures" : "spot",
+          tradeAmountUsdt: params.positionSizeUsdt,
+          leverage,
+          maxLossUsdt: params.maxLossUsdt ?? 0,
+          targetProfitUsdt: params.targetProfitUsdt ?? 0,
+          feeRate,
+        }
+      : undefined;
 
   // Diagnostic checkpoint 1: exactly what runBacktest() received, before
   // anything else touches it. Compare against the route's log of what the
@@ -956,7 +985,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       const row = buildSignalRow(symbol, mtf, symbolRegime.get(symbol));
       symbolRegime.set(symbol, row.regime);
       let signals = strategySelector.evaluateSymbol(
-        symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt
+        symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt, dollarRisk
       );
       // PARITY FIX: spot has no short-selling mechanism — the live engine drops
       // short signals in spot mode (botEngine.ts), so the backtest must too, or

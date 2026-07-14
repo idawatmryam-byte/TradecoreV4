@@ -25,6 +25,7 @@ import { runOptimization } from "../lib/optimizer";
 import { loadStrategyConfigs } from "../lib/strategyConfigLoader";
 import { buildEffectiveBacktestConfigs } from "../lib/backtestConfig";
 import { minViableTakeProfitPercent, DEFAULT_FEE_RATE, FUTURES_FEE_RATE, DEFAULT_SLIPPAGE_RATE, DEFAULT_MAKER_FEE_RATE, FUTURES_MAKER_FEE_RATE } from "../lib/tradingCosts";
+import { planDollarRiskFractions } from "../lib/dollarRisk";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -182,6 +183,12 @@ router.post("/backtests/run", async (req, res) => {
   const makerEntryFillWindowMinutes = Math.max(1, Math.min(1440, Number(b.makerEntryFillWindowMinutes ?? 30) || 30));
   const leverage = Math.max(1, Math.min(125, Math.floor(Number(b.leverage ?? 1)) || 1));
   const marginMode = b.marginMode === "cross" ? "cross" : "isolated";
+  // Dollar risk model (Phase 8): size each trade from a fixed max-loss/target-
+  // profit using the same planner as live. Percent (default) leaves behavior
+  // unchanged. maxLossUsdt/targetProfitUsdt only matter in dollar mode.
+  const riskModel = b.riskModel === "dollar" ? "dollar" : "percent";
+  const maxLossUsdt = Math.max(0, Number(b.maxLossUsdt ?? 0) || 0);
+  const targetProfitUsdt = Math.max(0, Number(b.targetProfitUsdt ?? 0) || 0);
   // Faithful mode (default): each strategy uses its OWN SL/TP/confidence — what
   // the live bot trades — instead of flattening every strategy to the form's
   // single SL/TP. Only when explicitly false does the flat form override apply
@@ -200,11 +207,30 @@ router.post("/backtests/run", async (req, res) => {
   // 30/30 take-profit exits were net losers with identical P&L). Reject
   // rather than silently run a backtest that can't possibly be profitable
   // regardless of strategy quality.
-  const minViableTp = minViableTakeProfitPercent(feeRate, slippageRate);
-  if (takeProfitPercent < minViableTp) {
-    return res.status(400).json({
-      error: `takeProfitPercent (${takeProfitPercent}%) is below round-trip trading costs (${minViableTp.toFixed(3)}% at feeRate=${feeRate}, slippageRate=${slippageRate}) — every winning trade would still be a net loss. Raise takeProfitPercent or lower feeRate/slippageRate.`,
+  // In percent mode the run-level takeProfitPercent must clear round-trip costs;
+  // in dollar mode SL/TP come from the dollar plan instead, so skip this check
+  // and validate the dollar plan below.
+  if (riskModel === "percent") {
+    const minViableTp = minViableTakeProfitPercent(feeRate, slippageRate);
+    if (takeProfitPercent < minViableTp) {
+      return res.status(400).json({
+        error: `takeProfitPercent (${takeProfitPercent}%) is below round-trip trading costs (${minViableTp.toFixed(3)}% at feeRate=${feeRate}, slippageRate=${slippageRate}) — every winning trade would still be a net loss. Raise takeProfitPercent or lower feeRate/slippageRate.`,
+      });
+    }
+  } else {
+    // Dollar mode: reject up-front (with the concrete fix) rather than silently
+    // producing a tradeless run when the plan can't place a safe stop.
+    if (!(maxLossUsdt > 0) || !(targetProfitUsdt > 0)) {
+      return res.status(400).json({ error: "Dollar risk model requires maxLossUsdt and targetProfitUsdt to be greater than 0." });
+    }
+    const plan = planDollarRiskFractions({
+      marketType, tradeAmountUsdt: positionSizeUsdt, leverage, maxLossUsdt, targetProfitUsdt, feeRate,
     });
+    if (!plan.feasible || !plan.safe) {
+      return res.status(400).json({
+        error: plan.suggestion ?? plan.warnings[0] ?? "Dollar risk plan is not placeable with these settings.",
+      });
+    }
   }
 
   // Phase 6 audit Finding A/E: maxHoldingSeconds shorter than (or close to)
@@ -268,6 +294,9 @@ router.post("/backtests/run", async (req, res) => {
     marketType,
     leverage,
     marginMode,
+    riskModel,
+    maxLossUsdt,
+    targetProfitUsdt,
     perStrategyConfigs,
     rrRatio,
     pureExits,
