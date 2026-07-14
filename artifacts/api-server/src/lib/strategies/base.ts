@@ -207,6 +207,27 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
     emergencyTrailingRMultiple: 0, emergencyTrailingPercent: 0.25,
     exitPriority: ["stop_loss", "take_profit", "timeout"],
   },
+  scalp_reversion: {
+    // OFF by default — this is an intraday-scalping EXPERIMENT. Enable it (and
+    // optionally disable the swing strategies) to test the scalping thesis in
+    // isolation. 1:2 R:R, tight stop, ~15-min max hold, fast re-entry, pure
+    // SL/TP/timeout exits (no TP1/trailing) so the raw signal is easy to read.
+    // Pair with maker entries in the backtest for realistic scalper fees.
+    enabled: false,
+    riskPercent: 1.0,
+    confidenceThreshold: 50,
+    stopLossPercent: 0.35,
+    takeProfitPercent: 0.7, // 1:2 R:R (adaptive cap preserves the ratio)
+    maxHoldingSeconds: 900, // 15-minute time-stop
+    maxConcurrentPositions: 4,
+    cooldownMinutes: 2, // scalping re-enters quickly
+    tp1RMultiple: 0, tp1ClosePercent: 50,
+    tp3Enabled: false, tp2RMultiple: 1.5, tp2ClosePercent: 20, tp3RMultiple: 2.0,
+    trailingStopMode: "none", trailingStopAtrMultiplier: 0.5, trailingStopPercent: 0.2,
+    trailingAfterTp1Only: true,
+    emergencyTrailingRMultiple: 0, emergencyTrailingPercent: 0.2,
+    exitPriority: ["stop_loss", "take_profit", "timeout"],
+  },
   volatility_breakout: {
     enabled: true,
     riskPercent: 1.0,

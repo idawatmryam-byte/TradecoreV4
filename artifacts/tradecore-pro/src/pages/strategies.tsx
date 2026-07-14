@@ -25,6 +25,7 @@ const STRATEGY_ICONS: Record<string, React.ElementType> = {
   vwap_reversion:      Target,
   micro_scalping:      Zap,
   volatility_breakout: BarChart3,
+  scalp_reversion:     Waves,
 };
 
 const REGIME_COLORS: Record<string, string> = {

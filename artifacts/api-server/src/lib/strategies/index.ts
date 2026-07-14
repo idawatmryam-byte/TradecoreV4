@@ -9,6 +9,7 @@ export { MeanReversionStrategy } from "./mean-reversion";
 export { VwapReversionStrategy } from "./vwap-reversion";
 export { MicroScalpingStrategy } from "./micro-scalping";
 export { VolatilityBreakoutStrategy } from "./volatility-breakout";
+export { ScalpReversionStrategy } from "./scalp-reversion";
 
 import { StrategySelector } from "./selector";
 import { MomentumBreakoutStrategy } from "./momentum-breakout";
@@ -17,6 +18,7 @@ import { MeanReversionStrategy } from "./mean-reversion";
 import { VwapReversionStrategy } from "./vwap-reversion";
 import { MicroScalpingStrategy } from "./micro-scalping";
 import { VolatilityBreakoutStrategy } from "./volatility-breakout";
+import { ScalpReversionStrategy } from "./scalp-reversion";
 
 /** Canonical ordered list of all strategies (by priority for tie-breaking) */
 export const ALL_STRATEGIES = [
@@ -26,6 +28,7 @@ export const ALL_STRATEGIES = [
   new MeanReversionStrategy(),
   new VwapReversionStrategy(),
   new MicroScalpingStrategy(),
+  new ScalpReversionStrategy(),
 ];
 
 /** Singleton selector used by both botEngine and backtestEngine */
