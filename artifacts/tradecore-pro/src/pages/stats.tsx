@@ -127,9 +127,11 @@ export function Stats() {
 
   const isProfit = (summary?.totalPnl ?? 0) >= 0;
 
+  // summary.winRate is a 0–1 fraction (wins/total from the stats route) — the
+  // old code treated it as 0–100, which skewed the pie to ~all-losses.
   const pieData = summary ? [
-    { name: 'Wins', value: summary.winRate * summary.totalTrades / 100 },
-    { name: 'Losses', value: (100 - summary.winRate) * summary.totalTrades / 100 }
+    { name: 'Wins', value: summary.winRate * summary.totalTrades },
+    { name: 'Losses', value: (1 - summary.winRate) * summary.totalTrades }
   ] : [];
   const PIE_COLORS = ['hsl(140, 100%, 45%)', 'hsl(350, 100%, 60%)'];
 
@@ -157,7 +159,7 @@ export function Stats() {
           <CardContent className="p-6">
             <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">Win Rate</p>
             <p className="text-3xl font-bold tracking-tight text-primary">
-              {formatPercent(summary?.winRate)}
+              {formatPercent((summary?.winRate ?? 0) * 100)}
             </p>
           </CardContent>
         </Card>
@@ -250,7 +252,7 @@ export function Stats() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                <span className="text-3xl font-bold text-foreground">{formatPercent(summary?.winRate)}</span>
+                <span className="text-3xl font-bold text-foreground">{formatPercent((summary?.winRate ?? 0) * 100)}</span>
                 <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mt-1">Win Rate</span>
               </div>
             </div>

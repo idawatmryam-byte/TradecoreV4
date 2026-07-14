@@ -147,10 +147,14 @@ export function MarketMonitor() {
               <tr key={t.symbol} className="border-b border-border/30 hover:bg-muted/30">
                 <td className="p-3 font-bold">{t.symbol}</td>
                 <td className="p-3 text-right font-mono">{formatNumber(t.last, 4)}</td>
+                {/* Binance futures Demo Trading doesn't populate bid/ask in its
+                    ticker feed — show a dash instead of a misleading 0.0000. */}
                 <td className="p-3 text-right font-mono text-xs text-muted-foreground">
-                  {formatNumber(t.bid, 4)} / {formatNumber(t.ask, 4)}
+                  {t.bid > 0 || t.ask > 0 ? `${formatNumber(t.bid, 4)} / ${formatNumber(t.ask, 4)}` : "—"}
                 </td>
-                <td className="p-3 text-right font-mono text-xs">{formatNumber(t.spreadPercent, 3)}%</td>
+                <td className="p-3 text-right font-mono text-xs">
+                  {t.bid > 0 || t.ask > 0 ? `${formatNumber(t.spreadPercent, 3)}%` : "—"}
+                </td>
                 <td className={cn(
                   "p-3 text-right font-mono",
                   t.changePercent >= 0 ? "text-success" : "text-destructive"

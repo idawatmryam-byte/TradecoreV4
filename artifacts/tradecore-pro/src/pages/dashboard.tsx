@@ -106,7 +106,9 @@ export function Dashboard() {
               <CardContent className="p-6">
                 <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">Win Rate</p>
                 <p className={cn("text-3xl font-bold tracking-tight", statusUnknown ? "text-muted-foreground" : "text-primary")}>
-                  {statusUnknown ? "—" : formatPercent(bot?.winRateToday)}
+                  {/* winRateToday is a 0–1 fraction; formatPercent expects 0–100
+                      (bug: a 100% day displayed as "1.00%") */}
+                  {statusUnknown ? "—" : formatPercent((bot?.winRateToday ?? 0) * 100)}
                 </p>
               </CardContent>
             </Card>
@@ -241,7 +243,14 @@ export function Dashboard() {
           </CardHeader>
           <div className="overflow-auto p-0 flex-1">
             {trades?.map(trade => {
-              const isProfit = (trade.pnl ?? 0) >= 0;
+              // An open trade has no realized pnl yet (the old code showed a
+              // misleading flat $0.00) — compute LIVE unrealized P&L from the
+              // scanner's last price, side-aware: a short profits as price falls.
+              const lastPrice = scanner?.find((r) => r.symbol === trade.symbol)?.lastPrice;
+              const qty = trade.remainingQuantity ?? trade.quantity;
+              const direction = trade.side === 'sell' ? -1 : 1;
+              const unrealized = lastPrice != null ? (lastPrice - trade.entryPrice) * qty * direction : null;
+              const isProfit = (unrealized ?? trade.pnl ?? 0) >= 0;
               return (
                 <div key={trade.id} className="border-b border-border/50 p-4 hover:bg-muted/30 transition-colors">
                   <div className="flex justify-between items-start mb-2">
@@ -254,8 +263,11 @@ export function Dashboard() {
                     <div className={cn("text-right font-mono font-bold", isProfit ? "text-success" : "text-destructive")}>
                       <div className="flex items-center justify-end gap-1">
                         {isProfit ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                        {formatCurrency(trade.pnl, "always")}
+                        {unrealized != null ? formatCurrency(unrealized, "always") : "—"}
                       </div>
+                      {unrealized != null && (
+                        <span className="block text-[9px] font-normal text-muted-foreground uppercase">unrealized</span>
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs font-mono text-muted-foreground mt-3">
