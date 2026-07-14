@@ -14,6 +14,17 @@
  * - 1h macro bearish
  *
  * Percentage-based stop and take-profit (Phase 5A).
+ *
+ * REGIME GATE (evidence-based, post-parity-diagnosis): this strategy is now
+ * restricted to `strong_trend` ONLY (previously it also fired in `weak_trend`).
+ * A breakout's edge is trend continuation; in a weak/ambiguous trend the same
+ * "break of the 20-bar high" is overwhelmingly a FALSE breakout that reverses
+ * (a bull/bear trap), which is exactly why the earlier all-regime version ran a
+ * ~22% win rate and bled (backtest 35: 65 trades, −$238). Requiring a genuine
+ * strong trend (regime = strong_trend already implies ADX past the strong-enter
+ * band) keeps only breakouts with real momentum behind them. This is a
+ * TIGHTENING — fewer, higher-quality trades — measured against the −23% broad
+ * baseline; it is not a frequency knob.
  */
 import { type Strategy, type StrategySignal, type StrategyConfig, type PositionSide, computeQty, computeAdaptiveSLTP } from "./base";
 import { type MultiTimeframeCandles, type SignalRow } from "../strategy";
@@ -21,7 +32,7 @@ import { type MultiTimeframeCandles, type SignalRow } from "../strategy";
 export class MomentumBreakoutStrategy implements Strategy {
   readonly strategyId = "momentum_breakout";
   readonly strategyName = "Momentum Breakout";
-  readonly supportedRegimes = ["strong_trend", "weak_trend"] as const;
+  readonly supportedRegimes = ["strong_trend"] as const;
 
   evaluate(
     symbol: string,
