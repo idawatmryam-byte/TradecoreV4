@@ -482,10 +482,20 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     // ── Phase 1: Download candles (0–40%) ────────────────────────────────────
     logger.info({ runId, symbols, timeframe }, "Backtest: downloading candles");
 
-    const WARMUP = 51; // candle windows need 51 bars
+    // PARITY FIX: match the LIVE engine's window size. The live scanner passes
+    // 100 candles per timeframe into buildSignalRow (fetchOHLCV(..., 100)),
+    // whereas the backtest previously used 51-bar windows. Recursive indicators
+    // (EMA50, Wilder ATR/RSI) seed differently at 51 vs 100 bars, so the two
+    // engines could compute different values on identical prices — enough to
+    // flip macroBullish / regime near a boundary. Using 100 in both makes them
+    // agree.
+    const WARMUP = 100; // candle windows are 100 bars, matching live
     const warmupMs = WARMUP * tfMs;
-    // Minimum 3-day warmup so EMA50(1h) has ≥ 51 hourly bars available
-    const downloadStart = startMs - Math.max(warmupMs * 3, 3 * DAY_MS);
+    // Preroll must give the coarsest aggregated series (1h) ≥ WARMUP bars before
+    // the first real candle, or getAggregatedWindow null-falls-back to the 1m
+    // window early in the run. WARMUP=100 hourly bars ≈ 100h; a 6-day floor
+    // (144h) leaves comfortable margin.
+    const downloadStart = startMs - Math.max(warmupMs * 3, 6 * DAY_MS);
 
     for (let i = 0; i < symbols.length; i++) {
       if (cancelledRuns.has(runId)) throw new Error("cancelled");
