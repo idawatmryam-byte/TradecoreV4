@@ -903,6 +903,13 @@ class BotEngine {
       const signalsByStrategy: Record<string, number> = {};
       const regimeCounts: Record<string, number> = {};
 
+      // Positions opened DURING this scan. `openTrades` is a snapshot taken at
+      // scan start, so without this the per-strategy concurrency cap and the
+      // portfolio-risk cap would both read stale counts — two symbols signalling
+      // for the same strategy in one scan could each pass and breach the limit.
+      // maxOpenPositions is already safe (it uses the live this.state counter).
+      const enteredThisScan: Array<{ strategyId?: string; riskUsdt: number }> = [];
+
       for (const result of candleResults) {
         const symbol = result.symbol;
         const ts = now.toISOString();
@@ -1108,7 +1115,11 @@ class BotEngine {
         };
 
         // ── Stage 4 (cont.): post-signal risk checks ─────────────────────────
-        const stratOpenCount = openTrades.filter((t) => t.strategyId === bestSignal.strategyId).length;
+        // Count both already-open positions (snapshot) AND ones opened earlier
+        // in THIS scan, so the cap can't be breached within a single scan.
+        const stratOpenCount =
+          openTrades.filter((t) => t.strategyId === bestSignal.strategyId).length +
+          enteredThisScan.filter((e) => e.strategyId === bestSignal.strategyId).length;
         const maxConcurrent = stratConfig?.maxConcurrentPositions ?? 2;
         const concurrentOk = stratOpenCount < maxConcurrent;
         const qtyOk = bestSignal.qty > 0;
@@ -1148,10 +1159,13 @@ class BotEngine {
         // position's life — plus this candidate's own risk, capped against a
         // % of balance. maxOpenPositions above only caps a position COUNT;
         // this is the only check that caps actual dollar exposure.
-        const existingRiskUsdt = openTrades.reduce((sum, t) => {
-          const qty = Number(t.remainingQuantity ?? t.quantity);
-          return sum + Math.abs(Number(t.entryPrice) - Number(t.stopLoss)) * qty;
-        }, 0);
+        const existingRiskUsdt =
+          openTrades.reduce((sum, t) => {
+            const qty = Number(t.remainingQuantity ?? t.quantity);
+            return sum + Math.abs(Number(t.entryPrice) - Number(t.stopLoss)) * qty;
+          }, 0) +
+          // Include risk from positions opened earlier in this same scan.
+          enteredThisScan.reduce((sum, e) => sum + e.riskUsdt, 0);
         const candidateRiskUsdt = Math.abs(bestSignal.entryPrice - bestSignal.suggestedSL) * bestSignal.qty;
         const maxPortfolioRiskUsdt = balance * (Number(config.maxPortfolioRiskPercent) / 100);
         const portfolioRiskOk = existingRiskUsdt + candidateRiskUsdt <= maxPortfolioRiskUsdt;
@@ -1194,7 +1208,11 @@ class BotEngine {
           symbol, row, entry, config, now, bestSignal.side,
           bestSignal.strategyId, bestSignal.strategyName, stratConfig,
         );
-        if (entered) this.state.openPositions++;
+        if (entered) {
+          this.state.openPositions++;
+          // Track for the same-scan concurrency + portfolio-risk accounting above.
+          enteredThisScan.push({ strategyId: bestSignal.strategyId, riskUsdt: candidateRiskUsdt });
+        }
         this.scannerData.set(symbol, {
           ...row,
           status: entered ? "entered" : "skipped",
