@@ -189,10 +189,11 @@ async function main() {
     );
   }
 
-  // Emit the window the harness runner should backtest over: leave a 3.5-day
-  // pre-roll (the engine's downloadStart look-back is startDate − 3 days) so
-  // every timeframe is fully warmed up at the first tradeable candle.
-  const runStart = new Date(startMs + Math.floor(3.5 * 24 * 60) * MINUTE_MS);
+  // Emit the window the harness runner should backtest over: leave a 6.5-day
+  // pre-roll (the engine's downloadStart look-back is startDate − 6 days, since
+  // WARMUP is now 100 bars) so every timeframe — including 100 hourly bars for
+  // EMA50(1h) — is fully warmed up at the first tradeable candle.
+  const runStart = new Date(startMs + Math.floor(6.5 * 24 * 60) * MINUTE_MS);
   const runEnd = new Date(alignedEnd);
   console.log("\nBacktest window to use (fully warmed up):");
   console.log(`  START=${runStart.toISOString()}`);
