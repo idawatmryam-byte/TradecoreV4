@@ -40,7 +40,7 @@ export function Memory() {
                 {blacklist?.map((entry) => (
                   <TableRow key={entry.symbol}>
                     <TableCell className="font-bold text-destructive">{entry.symbol}</TableCell>
-                    <TableCell className="font-mono">{formatPercent(entry.winRate)}</TableCell>
+                    <TableCell className="font-mono">{formatPercent(entry.winRate * 100)}</TableCell>
                     <TableCell className="font-mono">{entry.tradeCount}</TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">
                       {formatDate(entry.expiresAt)}

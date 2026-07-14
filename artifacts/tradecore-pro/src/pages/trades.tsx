@@ -1,17 +1,45 @@
 import { useGetTrades, getGetTradesQueryKey, type GetTradesStatus } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge, Button } from "@/components/ui";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
-import { History, ArrowUpRight, ArrowDownRight, Filter, WifiOff } from "lucide-react";
+import { History, ArrowUpRight, ArrowDownRight, Filter, WifiOff, Download } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
+// Fetch the API's maximum so the CSV export covers as much history as one
+// request allows (the on-screen table simply scrolls).
+const FETCH_LIMIT = 500;
+
 export function Trades() {
   const [filter, setFilter] = useState<GetTradesStatus | undefined>(undefined);
-  
+
   const { data: trades, isLoading, isError } = useGetTrades(
-    { status: filter, limit: 100 },
-    { query: { refetchInterval: 10000, queryKey: getGetTradesQueryKey({ status: filter, limit: 100 }) } }
+    { status: filter, limit: FETCH_LIMIT },
+    { query: { refetchInterval: 10000, queryKey: getGetTradesQueryKey({ status: filter, limit: FETCH_LIMIT }) } }
   );
+
+  // Everything the Trade type exposes, one row per trade — analysis-ready.
+  function downloadCsv() {
+    if (!trades || trades.length === 0) return;
+    const cols = [
+      "id", "symbol", "side", "status", "entryTime", "exitTime", "entryPrice", "exitPrice",
+      "quantity", "remainingQuantity", "pnl", "grossPnl", "feesUsdt", "slippageUsdt",
+      "stopLoss", "takeProfit", "plannedStopLoss", "plannedTakeProfit", "confidence",
+      "exitReason", "holdingSeconds", "tp1Filled", "tp2Filled", "breakEvenActive",
+      "trailingStopActive", "trailingStopMode", "isBacktest",
+    ] as const;
+    const esc = (v: unknown) => {
+      if (v == null) return "";
+      const s = String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = trades.map((t) => cols.map((c) => esc((t as unknown as Record<string, unknown>)[c])).join(","));
+    const blob = new Blob([[cols.join(","), ...rows].join("\n")], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `tradecore-trades-${filter ?? "all"}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -49,13 +77,22 @@ export function Trades() {
           >
             Closed
           </Button>
-          <Button 
-            variant={filter === 'stopped' ? "secondary" : "ghost"} 
-            size="sm" 
+          <Button
+            variant={filter === 'stopped' ? "secondary" : "ghost"}
+            size="sm"
             onClick={() => setFilter('stopped')}
             className="text-xs uppercase tracking-wider font-mono h-7"
           >
             Stopped
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={downloadCsv}
+            disabled={!trades || trades.length === 0}
+            className="text-xs uppercase tracking-wider font-mono h-7 gap-1 ml-1"
+          >
+            <Download className="h-3 w-3" /> CSV
           </Button>
         </div>
       </div>
