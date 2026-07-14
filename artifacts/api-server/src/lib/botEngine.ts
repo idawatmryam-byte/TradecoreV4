@@ -1094,6 +1094,15 @@ class BotEngine {
       // max-holding-time exit check below and for entry evaluation further down.
       const strategyConfigs = await this.getStrategyConfigs();
 
+      // ── Scan diagnostics accumulators ────────────────────────────────────
+      // Aggregate funnel for the end-of-scan structured summary log — answers
+      // "why did/didn't the engine trade this scan" at a glance, without
+      // reading 700 per-symbol trace lines. signalsByStrategy counts EVERY
+      // qualifying signal each strategy produced (not just the winner), so a
+      // strategy that never fires is visible as an absent/zero entry.
+      const signalsByStrategy: Record<string, number> = {};
+      const regimeCounts: Record<string, number> = {};
+
       for (const result of candleResults) {
         const symbol = result.symbol;
         const ts = now.toISOString();
@@ -1146,6 +1155,7 @@ class BotEngine {
         // 15s scan cadence. Store the resolved regime back for the next tick.
         const row = buildSignalRow(symbol, mtf, this.lastRegime.get(symbol));
         this.lastRegime.set(symbol, row.regime);
+        regimeCounts[row.regime] = (regimeCounts[row.regime] ?? 0) + 1;
         marketStage.status = "pass";
         marketStage.detail = `Fetched 5 timeframes · last price ${row.lastPrice}`;
 
@@ -1266,6 +1276,9 @@ class BotEngine {
         // all 6 strategy files.
         if (config.marketType !== "futures") {
           signals = signals.filter((s) => s.side === "long");
+        }
+        for (const s of signals) {
+          signalsByStrategy[s.strategyId] = (signalsByStrategy[s.strategyId] ?? 0) + 1;
         }
 
         if (signals.length === 0) {
@@ -1400,6 +1413,45 @@ class BotEngine {
           record("BLOCKED", "Order", reason, bestSignal.confidence);
         }
       }
+
+      // ── End-of-scan structured funnel summary ────────────────────────────
+      // ONE line per scan that shows the whole pipeline: how many symbols were
+      // scanned, the regime split, how many signals each strategy produced,
+      // and — for every symbol that did NOT enter — the exact stage+reason it
+      // was blocked (tallied from the per-symbol decision trace). This is the
+      // primary "why isn't it trading?" diagnostic: if `entered` is 0 for
+      // hours, this line names the culprit (e.g. all "range" regime so the
+      // trend strategies never fired, or every candidate on cooldown).
+      const decisions = Array.from(this.symbolDecisions.values());
+      const entered = decisions.filter((d) => d.finalDecision === "ENTERED").length;
+      const blockedBy: Record<string, number> = {};
+      for (const d of decisions) {
+        if (d.finalDecision === "ENTERED") continue;
+        const key = `${d.blockStage ?? "?"}: ${d.blockReason ?? "unknown"}`;
+        blockedBy[key] = (blockedBy[key] ?? 0) + 1;
+      }
+      const totalSignals = Object.values(signalsByStrategy).reduce((a, b) => a + b, 0);
+      const topReason = Object.entries(blockedBy).sort((a, b) => b[1] - a[1])[0];
+      const topBlock = topReason ? `${topReason[0]} (${topReason[1]})` : "none";
+      logger.info(
+        {
+          scanId: now.toISOString(),
+          marketType: this.activeMarketType,
+          symbolsScanned: pairs.length,
+          symbolsEvaluated: decisions.length,
+          openPositions: this.state.openPositions,
+          maxOpenPositions: config.maxOpenPositions,
+          regimeCounts,
+          signalsByStrategy,
+          totalSignals,
+          entered,
+          blockedBy,
+          circuitBreakerActive: this.state.circuitBreakerActive,
+          riskPaused: this.riskPaused,
+        },
+        `SCAN_SUMMARY — ${pairs.length} scanned · ${totalSignals} signals · ${entered} entered` +
+          (entered === 0 ? ` · TOP BLOCK: ${topBlock}` : ""),
+      );
 
       await this.updateBlacklist(pairs, now, blacklisted);
     } catch (err) {
