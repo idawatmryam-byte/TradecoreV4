@@ -1690,8 +1690,29 @@ class BotEngine {
             : `market ${openSide.toUpperCase()} filled, partial exchange protection`,
       };
     } catch (err) {
+      const message = String((err as Error)?.message ?? err);
+      // Binance -2027: "Exceeded the maximum allowable position at current
+      // leverage" — the exchange's per-symbol position cap for the account's
+      // leverage bracket is full. Retrying next scan is guaranteed to fail
+      // identically until a position on this symbol closes (or leverage is
+      // lowered), and observed live it re-fired the same doomed order every
+      // scan for 10+ minutes. Put the SYMBOL on a short cooldown so the engine
+      // spends those scans on coins it can actually trade. The condition
+      // clears when positions cycle, so keep the cooldown modest.
+      if (message.includes('"code":-2027') || message.includes("-2027")) {
+        this.setCooldown(symbol, 10);
+        logger.warn(
+          { symbol, leverage: config.leverage },
+          "Entry rejected by exchange position cap (-2027) — symbol on 10m cooldown. " +
+            "Lowering leverage raises Binance's per-symbol position limit.",
+        );
+        return {
+          entered: false,
+          reason: `Exchange position cap at ${config.leverage}x leverage (Binance -2027) — symbol cooled down 10m; lower leverage to raise the cap`,
+        };
+      }
       logger.error({ err, symbol }, "Failed to enter trade");
-      return { entered: false, reason: `Order placement failed: ${String((err as Error)?.message ?? err)}` };
+      return { entered: false, reason: `Order placement failed: ${message}` };
     }
   }
 
