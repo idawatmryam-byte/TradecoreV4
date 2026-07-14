@@ -517,6 +517,7 @@ export const GetConfigResponse = zod.object({
   "pairs": zod.array(zod.string()),
   "testnet": zod.boolean(),
   "backtestMode": zod.boolean(),
+  "highFrequencyTestMode": zod.boolean().describe('Testnet\/demo only: when on, the live engine overrides its turnover-limiting gates (cooldown, confidence floor, toxic hours, max positions, daily-loss breaker, max holding time) to generate a high volume of trades for end-to-end testing. Ignored on real-money keys. Not a profitable configuration.'),
   "alertWebhookUrl": zod.string().nullish().describe('Discord \/ Telegram \/ Slack incoming-webhook URL for risk alerts')
 })
 
@@ -572,6 +573,7 @@ export const UpdateConfigBody = zod.object({
   "pairs": zod.array(zod.string()).optional(),
   "testnet": zod.boolean().optional(),
   "backtestMode": zod.boolean().optional(),
+  "highFrequencyTestMode": zod.boolean().optional().describe('Testnet\/demo only: when on, the live engine overrides its turnover-limiting gates to generate a high volume of trades for end-to-end testing. Ignored on real-money keys.'),
   "alertWebhookUrl": zod.string().nullish().describe('Discord \/ Telegram \/ Slack incoming-webhook URL for risk alerts')
 })
 
@@ -592,6 +594,7 @@ export const UpdateConfigResponse = zod.object({
   "pairs": zod.array(zod.string()),
   "testnet": zod.boolean(),
   "backtestMode": zod.boolean(),
+  "highFrequencyTestMode": zod.boolean().describe('Testnet\/demo only: when on, the live engine overrides its turnover-limiting gates (cooldown, confidence floor, toxic hours, max positions, daily-loss breaker, max holding time) to generate a high volume of trades for end-to-end testing. Ignored on real-money keys. Not a profitable configuration.'),
   "alertWebhookUrl": zod.string().nullish().describe('Discord \/ Telegram \/ Slack incoming-webhook URL for risk alerts')
 })
 

@@ -476,6 +476,8 @@ export interface BotConfig {
   pairs: string[];
   testnet: boolean;
   backtestMode: boolean;
+  /** Testnet/demo only: when on, the live engine overrides its turnover-limiting gates (cooldown, confidence floor, toxic hours, max positions, daily-loss breaker, max holding time) to generate a high volume of trades for end-to-end testing. Ignored on real-money keys. Not a profitable configuration. */
+  highFrequencyTestMode: boolean;
   /** Discord / Telegram / Slack incoming-webhook URL for risk alerts */
   alertWebhookUrl?: string | null;
 }
@@ -560,6 +562,8 @@ export interface BotConfigUpdate {
   pairs?: string[];
   testnet?: boolean;
   backtestMode?: boolean;
+  /** Testnet/demo only: when on, the live engine overrides its turnover-limiting gates to generate a high volume of trades for end-to-end testing. Ignored on real-money keys. */
+  highFrequencyTestMode?: boolean;
   /** Discord / Telegram / Slack incoming-webhook URL for risk alerts */
   alertWebhookUrl?: string | null;
 }

@@ -38,6 +38,18 @@ export const botConfigTable = pgTable("bot_config", {
   testnet: boolean("testnet").notNull().default(true),
   backtestMode: boolean("backtest_mode").notNull().default(false),
 
+  /**
+   * High-frequency TEST mode (testnet/demo only — the engine ignores this flag
+   * on live keys). When on, the live engine overrides its turnover-limiting
+   * gates to generate a high volume of trades for end-to-end testing: no
+   * post-trade cooldown, no confidence floor, no toxic-hour skips, a very high
+   * open-position cap, the daily-loss circuit breaker effectively disabled, and
+   * every strategy's max holding time capped short so positions cycle quickly.
+   * This is for shaking out bugs and producing data on Demo Trading — it is NOT
+   * a profitable trading configuration and has no effect on real-money keys.
+   */
+  highFrequencyTestMode: boolean("high_frequency_test_mode").notNull().default(false),
+
   // ── Futures trading (long + short) ─────────────────────────────────────────
   /** "spot" (long-only, buy-to-open) | "futures" (long+short, leveraged). */
   marketType: text("market_type").notNull().default("spot"), // spot | futures
