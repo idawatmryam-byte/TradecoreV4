@@ -945,11 +945,29 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       // Phase 2: multi-strategy evaluation — pass current balance for risk-based sizing
       const row = buildSignalRow(symbol, mtf, symbolRegime.get(symbol));
       symbolRegime.set(symbol, row.regime);
-      const signals = strategySelector.evaluateSymbol(
+      let signals = strategySelector.evaluateSymbol(
         symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt
       );
+      // PARITY FIX: spot has no short-selling mechanism — the live engine drops
+      // short signals in spot mode (botEngine.ts), so the backtest must too, or
+      // a spot backtest takes sell trades that live could never place.
+      if (!isFutures) {
+        signals = signals.filter((s) => s.side === "long");
+      }
       if (signals.length === 0) continue;
       const bestSignal = signals[0]!;
+
+      // PARITY FIX: the live engine caps each strategy at its configured
+      // maxConcurrentPositions (default 2) — see botEngine.ts "Strategy
+      // Concurrency" check. The backtest previously enforced only the global
+      // maxOpenPositions and one-position-per-symbol, so a single dominant
+      // strategy could stack up to maxOpenPositions concurrently — trades the
+      // live engine would refuse. This systematically overstated results for
+      // single-strategy-heavy runs (e.g. Trend Pullback carrying a backtest).
+      const bestStratCfg = strategyConfigs.get(bestSignal.strategyId);
+      const stratMaxConcurrent = bestStratCfg?.maxConcurrentPositions ?? 2;
+      const stratOpenCount = openPositions.filter((p) => p.strategyId === bestSignal.strategyId).length;
+      if (stratOpenCount >= stratMaxConcurrent) continue;
 
       // Phase 5A: SL distance is now a direct % of entry (stopLossPercent),
       // set deterministically by computePercentSLTP() — there's no more ATR-
