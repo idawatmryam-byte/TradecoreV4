@@ -24,7 +24,7 @@ import { runBacktest, cancelBacktestRun, getTimeframeMs } from "../lib/backtestE
 import { runOptimization } from "../lib/optimizer";
 import { loadStrategyConfigs } from "../lib/strategyConfigLoader";
 import { buildEffectiveBacktestConfigs } from "../lib/backtestConfig";
-import { minViableTakeProfitPercent, DEFAULT_FEE_RATE, FUTURES_FEE_RATE, DEFAULT_SLIPPAGE_RATE } from "../lib/tradingCosts";
+import { minViableTakeProfitPercent, DEFAULT_FEE_RATE, FUTURES_FEE_RATE, DEFAULT_SLIPPAGE_RATE, DEFAULT_MAKER_FEE_RATE, FUTURES_MAKER_FEE_RATE } from "../lib/tradingCosts";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -170,6 +170,16 @@ router.post("/backtests/run", async (req, res) => {
   // overstates round-trip costs 2×. An explicit feeRate still wins.
   const feeRate = Number(b.feeRate ?? (marketType === "futures" ? FUTURES_FEE_RATE : DEFAULT_FEE_RATE));
   const slippageRate = Number(b.slippageRate ?? DEFAULT_SLIPPAGE_RATE);
+  // Maker modeling is a single opt-in. When OFF, every fill is taker exactly
+  // as before (makerFeeRate === feeRate) so existing baselines are unchanged.
+  // When ON: entries post as maker limits (honest fill/miss) AND passive exits
+  // (take-profit limits) are charged the maker rate. An explicit makerFeeRate
+  // always wins.
+  const makerEntry = b.makerEntry === true;
+  const makerFeeRate = b.makerFeeRate !== undefined
+    ? Number(b.makerFeeRate)
+    : (makerEntry ? (marketType === "futures" ? FUTURES_MAKER_FEE_RATE : DEFAULT_MAKER_FEE_RATE) : feeRate);
+  const makerEntryFillWindowMinutes = Math.max(1, Math.min(1440, Number(b.makerEntryFillWindowMinutes ?? 30) || 30));
   const leverage = Math.max(1, Math.min(125, Math.floor(Number(b.leverage ?? 1)) || 1));
   const marginMode = b.marginMode === "cross" ? "cross" : "isolated";
   // Faithful mode (default): each strategy uses its OWN SL/TP/confidence — what
@@ -251,6 +261,9 @@ router.post("/backtests/run", async (req, res) => {
     dailyLossLimitUsdt,
     riskPercent,
     feeRate,
+    makerFeeRate,
+    makerEntry,
+    makerEntryFillWindowMinutes,
     slippageRate,
     marketType,
     leverage,

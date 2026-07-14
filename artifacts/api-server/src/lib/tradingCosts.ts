@@ -18,6 +18,19 @@ export const DEFAULT_FEE_RATE = 0.001;
  *  2×, which materially distorts profit factor at high trade counts. */
 export const FUTURES_FEE_RATE = 0.0005;
 
+/** Binance spot MAKER fee (0.001 = 0.1%). At the base VIP-0 tier Binance
+ *  charges the same maker and taker rate on spot, so a maker fill saves
+ *  nothing on spot unless BNB discount / a higher VIP tier applies. */
+export const DEFAULT_MAKER_FEE_RATE = 0.001;
+
+/** Binance USDⓈ-M futures MAKER fee (0.0002 = 0.02%) — 40% of the 0.05%
+ *  taker rate. This is the real lever: a resting limit (post-only entry, or
+ *  a take-profit limit) that the market fills into pays maker, not taker.
+ *  Modeling it honestly requires ALSO modeling that a maker entry only fills
+ *  if price actually trades through the limit (see backtestEngine makerEntry)
+ *  — charging the lower fee while assuming every limit fills is a fiction. */
+export const FUTURES_MAKER_FEE_RATE = 0.0002;
+
 /** Assumed slippage per fill, as a fraction (0.0005 = 0.05%). Applied on
  *  both entry and exit in the backtest simulation. */
 export const DEFAULT_SLIPPAGE_RATE = 0.0005;

@@ -118,6 +118,8 @@ interface RunFormState {
   pureExits: boolean;
   /** Faithful mode: every strategy's max holding time × this (1 = off). */
   holdMultiplier: number;
+  /** Model entries as post-only maker limits (honest fill/miss) + maker-rate TP exits. */
+  makerEntry: boolean;
 }
 
 function defaultForm(): RunFormState {
@@ -143,6 +145,7 @@ function defaultForm(): RunFormState {
     rrRatio: 0,
     pureExits: false,
     holdMultiplier: 1,
+    makerEntry: false,
   };
 }
 
@@ -455,6 +458,23 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
               </span>
             </label>
           )}
+
+          <label className="flex items-start gap-2 p-2.5 rounded border border-border bg-muted/30 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.makerEntry}
+              onChange={(e) => setForm((f) => ({ ...f, makerEntry: e.target.checked }))}
+              className="mt-0.5"
+            />
+            <span className="text-xs">
+              <span className="font-bold">Maker entries + maker-rate TP exits (realistic fees)</span>
+              <span className="block text-muted-foreground mt-0.5">
+                Post entries as limit orders (0.02% maker vs 0.05% taker on futures) instead of paying taker on
+                every fill. Honest fill modeling: a limit that price never trades back to is a MISSED entry, so
+                you also lose some trades — this shows whether an edge survives real achievable fees.
+              </span>
+            </span>
+          </label>
 
           {/* Flat overrides — ignored when Match live is on */}
           <fieldset disabled={form.matchLive} className={cn("space-y-3 border-0 p-0 m-0", form.matchLive && "opacity-40")}>

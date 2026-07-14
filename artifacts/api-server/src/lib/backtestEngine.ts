@@ -57,8 +57,27 @@ export interface BacktestParams {
   dailyLossLimitUsdt: number;
   /** % of balance to risk per trade (0 = fixed positionSizeUsdt) */
   riskPercent?: number;
-  /** Binance taker fee, default 0.1% */
+  /** Binance taker fee, default 0.1% (spot) / 0.05% (futures). Charged on
+   *  aggressive fills: market entries, stop-losses, timeouts, liquidations. */
   feeRate?: number;
+  /** Binance MAKER fee, default 0.1% (spot) / 0.02% (futures). Charged on
+   *  PASSIVE fills — take-profit limit exits always, and maker entries when
+   *  makerEntry is on. Defaults to feeRate when unset (no maker benefit). */
+  makerFeeRate?: number;
+  /**
+   * Model entries as post-only MAKER limit orders instead of taker markets.
+   * HONEST fill modeling: the limit rests at the signal price and only fills
+   * if a LATER candle trades through it within makerEntryFillWindowMinutes;
+   * if price never comes back, the trade is SKIPPED (a missed entry). On fill
+   * there is no adverse entry slippage (you were the passive side) and the
+   * maker fee applies. This trades cheaper/better fills AGAINST missed trades
+   * — charging maker fees while still filling every signal at market would be
+   * a free lunch that manufactures a false edge. Default false (taker entry).
+   */
+  makerEntry?: boolean;
+  /** How long a maker-entry limit rests before it's cancelled unfilled.
+   *  Default 30 min. Only used when makerEntry is on. */
+  makerEntryFillWindowMinutes?: number;
   /** Slippage fraction, default 0.05% */
   slippageRate?: number;
   /**
@@ -411,6 +430,11 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     symbols, timeframe, startDate, endDate, startingBalance,
     feeRate = DEFAULT_FEE_RATE, slippageRate = DEFAULT_SLIPPAGE_RATE,
   } = params;
+  // Maker fee defaults to taker when unset (i.e. no maker benefit) so existing
+  // callers are unchanged. Passive fills (TP limits; maker entries) use it.
+  const makerFeeRate = params.makerFeeRate ?? feeRate;
+  const makerEntry = params.makerEntry ?? false;
+  const makerEntryFillWindowMs = (params.makerEntryFillWindowMinutes ?? 30) * 60_000;
 
   // Futures leverage modeling — same semantics as the live engine:
   //   sizing:      positionSizeUsdt is the MARGIN budget per trade, so the
@@ -579,6 +603,13 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     const equityTimeSeries: Array<{ ts: Date; balance: number; drawdown: number }> = [];
 
     const openPositions: OpenPosition[] = [];
+    // Maker-entry mode only: resting limit orders awaiting a fill. Keyed by
+    // symbol (at most one pending per symbol, same as one position per symbol).
+    // Each holds the fully-built position (priced/fee'd as a maker fill) plus
+    // the limit price it's waiting on and the timestamp it expires unfilled.
+    interface PendingEntry { limitPrice: number; side: PositionSide; expiresAtMs: number; pos: OpenPosition; }
+    const pendingEntries: Map<string, PendingEntry> = new Map();
+    let makerEntriesMissed = 0; // limits that expired without ever filling
     let dailyPnl = 0;
     let lastDailyReset = startDate.toISOString().split("T")[0]!;
     // Audit finding: the backtest previously had NO cooldown modeling at all
@@ -650,8 +681,11 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
             const fillP = pos.tp1Price * (isShort ? 1 + slippageRate : 1 - slippageRate);
             const qty = Math.min(pos.tp1Qty, pos.remainingQty);
             if (qty > 0) {
-              const entryFeeShare = pos.entryPrice * qty * feeRate;
-              const exitFee = fillP * qty * feeRate;
+              // Pro-rate the ACTUAL entry fee paid (pos.fees) by this slice's
+              // share — correct whether the entry was maker or taker — and
+              // charge the TP1 limit exit at the maker rate.
+              const entryFeeShare = pos.qty > 0 ? pos.fees * (qty / pos.qty) : 0;
+              const exitFee = fillP * qty * makerFeeRate;
               const fees = entryFeeShare + exitFee;
               const pnl = (isShort ? pos.entryPrice - fillP : fillP - pos.entryPrice) * qty - fees;
               pos.partialExits.push({ reason: "tp1", qty, price: fillP, fees, pnl, time: now });
@@ -670,8 +704,8 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
             const fillP = pos.tp2Price * (isShort ? 1 + slippageRate : 1 - slippageRate);
             const qty = Math.min(pos.tp2Qty, pos.remainingQty);
             if (qty > 0) {
-              const entryFeeShare = pos.entryPrice * qty * feeRate;
-              const exitFee = fillP * qty * feeRate;
+              const entryFeeShare = pos.qty > 0 ? pos.fees * (qty / pos.qty) : 0;
+              const exitFee = fillP * qty * makerFeeRate;
               const fees = entryFeeShare + exitFee;
               const pnl = (isShort ? pos.entryPrice - fillP : fillP - pos.entryPrice) * qty - fees;
               pos.partialExits.push({ reason: "tp2", qty, price: fillP, fees, pnl, time: now });
@@ -770,7 +804,12 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         if (chosen && chosen.exitPrice > 0) {
           const { reason: exitReason, exitPrice } = chosen;
           const exitQty = pos.remainingQty;
-          const exitFees = exitPrice * exitQty * feeRate;
+          // A take-profit is a resting LIMIT the market fills into → maker fee.
+          // A stop / trailing / break-even / timeout / liquidation is an
+          // aggressive market close → taker fee. (Equal when makerFeeRate is
+          // unset, so this is a no-op for non-maker runs.)
+          const exitFeeRate = exitReason === "take_profit" ? makerFeeRate : feeRate;
+          const exitFees = exitPrice * exitQty * exitFeeRate;
           const finalSlicePnl = (isShort ? pos.entryPrice - exitPrice : exitPrice - pos.entryPrice) * exitQty - exitFees;
           const partialPnl = pos.partialExits.reduce((s, p) => s + p.pnl, 0);
           const partialFees = pos.partialExits.reduce((s, p) => s + p.fees, 0);
@@ -846,13 +885,46 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       const drawdown = peakBalance > 0 ? (peakBalance - balance) / peakBalance : 0;
       equityTimeSeries.push({ ts: now, balance, drawdown });
 
+      // ── Maker-entry: resolve any resting limit for this symbol ────────────
+      // Runs BEFORE the entry section (which may place a new one), and only on
+      // candles strictly after placement, so a signal candle can never fill
+      // its own limit — no look-ahead. A long limit fills when a later bar's
+      // low trades down to it; a short limit when a high trades up to it. On
+      // fill the position enters at the limit price (no adverse slippage — we
+      // were passive). If it never trades through before expiry, the entry is
+      // MISSED, not filled — the honest cost of posting maker instead of taker.
+      const pending = pendingEntries.get(symbol);
+      if (pending) {
+        const filled = pending.side === "short" ? high >= pending.limitPrice : low <= pending.limitPrice;
+        if (now.getTime() >= pending.expiresAtMs) {
+          pendingEntries.delete(symbol);
+          makerEntriesMissed++;
+        } else if (filled) {
+          // Only take it if there's still room and the day isn't halted —
+          // exactly the gates the immediate-entry path applies below.
+          const roomToOpen =
+            openPositions.length < params.maxOpenPositions &&
+            dailyPnl > -Math.abs(params.dailyLossLimitUsdt) &&
+            !openPositions.some((p) => p.symbol === symbol);
+          if (roomToOpen) {
+            pending.pos.entryTime = now; // holding time starts at the fill, not placement
+            openPositions.push(pending.pos);
+          } else {
+            makerEntriesMissed++;
+          }
+          pendingEntries.delete(symbol);
+        }
+      }
+
       // ── Entry signal ──────────────────────────────────────────────────────
       const circuitBreakerActive = dailyPnl <= -Math.abs(params.dailyLossLimitUsdt);
       const atMaxPositions = openPositions.length >= params.maxOpenPositions;
       const alreadyInSymbol = openPositions.some((p) => p.symbol === symbol);
       const onCooldown = (symbolCooldownExpiry.get(symbol) ?? 0) > now.getTime();
+      // Don't stack a second resting limit on a symbol that already has one.
+      const hasPendingEntry = pendingEntries.has(symbol);
 
-      if (circuitBreakerActive || atMaxPositions || alreadyInSymbol || onCooldown) continue;
+      if (circuitBreakerActive || atMaxPositions || alreadyInSymbol || onCooldown || hasPendingEntry) continue;
 
       // Build 51-candle windows for each timeframe at this timestamp
       const primaryWindow = candles.slice(idx - WARMUP, idx + 1);
@@ -891,12 +963,18 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       const slDistancePercent =
         (Math.abs(bestSignal.entryPrice - bestSignal.suggestedSL) / bestSignal.entryPrice) * 100;
 
-      // Entry slippage direction mirrors the real fill mechanics: a long
-      // BUYs to open (pays slightly more), a short SELLs to open (receives
-      // slightly less) — same convention botEngine.ts uses for live fills.
-      const fillPrice = bestSignal.entryPrice * (isShortSignal ? 1 - slippageRate : 1 + slippageRate);
-      const entryFees = fillPrice * bestSignal.qty * feeRate;
-      const entrySlippage = (fillPrice - bestSignal.entryPrice) * bestSignal.qty;
+      // Entry fill mechanics:
+      //   taker (default): cross the spread now — adverse slippage, taker fee.
+      //     A long BUYs to open (pays slightly more), a short SELLs to open
+      //     (receives slightly less) — same convention botEngine.ts uses live.
+      //   maker (makerEntry): post a limit AT the signal price — no adverse
+      //     slippage (we're the passive side), maker fee — but it only becomes
+      //     a position if a later bar trades through it (handled above).
+      const fillPrice = makerEntry
+        ? bestSignal.entryPrice
+        : bestSignal.entryPrice * (isShortSignal ? 1 - slippageRate : 1 + slippageRate);
+      const entryFees = fillPrice * bestSignal.qty * (makerEntry ? makerFeeRate : feeRate);
+      const entrySlippage = makerEntry ? 0 : (fillPrice - bestSignal.entryPrice) * bestSignal.qty;
 
       // Diagnostic: the actual stopLossPercent/takeProfitPercent/confidenceThreshold/
       // riskPercent this specific strategy used to produce this specific trade — the
@@ -961,7 +1039,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
           )
         : { tp1Price: 0, tp1Qty: 0, tp2Price: 0, tp2Qty: 0 };
 
-      openPositions.push({
+      const newPos: OpenPosition = {
         symbol,
         entryPrice: fillPrice,
         slPrice: realSlPrice,
@@ -989,7 +1067,20 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         trailingStopActive: false,
         partialExits: [],
         side: bestSignal.side,
-      });
+      };
+
+      if (makerEntry) {
+        // Post the limit and wait — it fills on a later bar (or expires). See
+        // the pending-resolution block above.
+        pendingEntries.set(symbol, {
+          limitPrice: fillPrice,
+          side: bestSignal.side,
+          expiresAtMs: now.getTime() + makerEntryFillWindowMs,
+          pos: newPos,
+        });
+      } else {
+        openPositions.push(newPos);
+      }
     }
 
     // ── Close remaining open positions at last candle close ────────────────────
@@ -1045,6 +1136,13 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         partialExits: pos.partialExits,
         side: pos.side,
       });
+    }
+
+    if (makerEntry) {
+      logger.info(
+        { runId, makerEntry: true, makerFeeRate, makerEntriesMissed, filled: allTrades.length },
+        `Backtest maker-entry mode: ${makerEntriesMissed} limit entries expired unfilled (price never traded back to them) — the honest cost of posting maker instead of taker.`,
+      );
     }
 
     // ── Phase 5: Persist results (90–100%) ────────────────────────────────────
