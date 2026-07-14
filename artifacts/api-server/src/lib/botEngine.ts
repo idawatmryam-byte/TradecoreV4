@@ -532,7 +532,36 @@ class BotEngine {
     this.tickerPolling = true;
     const start = Date.now();
     try {
-      const tickers = (await ex.fetchTickers(this.monitoredMarkets)) as Record<string, any>;
+      // Fetch 24h tickers for ONLY the monitored pairs.
+      //
+      // Why not a single fetchTickers() call on futures: ccxt's binanceusdm
+      // fetchTickers ignores the symbol list entirely and calls the
+      // fapiPublic /ticker/24hr endpoint with no filter — pulling the full
+      // 24h stats for all ~400 USDⓈ-M markets (request weight 40, a large
+      // payload) and then discarding all but our handful. Against the slow
+      // demo-fapi server that heavy response was the bulk of the multi-second
+      // monitor latency shown on the dashboard. Fetching each monitored
+      // symbol individually (weight 1, tiny payload) in parallel sends only
+      // what we actually display and cuts both the payload and the rate-limit
+      // weight to the number of pairs (9, not 400). Spot's fetchTickers DOES
+      // filter server-side (it forwards a symbols= array), so keep the single
+      // call there — it's already minimal.
+      let tickers: Record<string, any>;
+      if (this.activeMarketType === "futures") {
+        const results = await Promise.all(
+          this.monitoredMarkets.map(async (market) => {
+            try {
+              return [market, await ex.fetchTicker(market)] as const;
+            } catch (err) {
+              logger.warn({ err, market }, "Per-symbol ticker fetch failed");
+              return [market, null] as const;
+            }
+          }),
+        );
+        tickers = Object.fromEntries(results.filter((r) => r[1] != null));
+      } else {
+        tickers = (await ex.fetchTickers(this.monitoredMarkets)) as Record<string, any>;
+      }
       this.lastTickerLatencyMs = Date.now() - start;
       for (const [market, t] of Object.entries(tickers)) {
         const symbol = this.fromMarket(market);
