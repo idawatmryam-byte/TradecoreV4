@@ -8,6 +8,17 @@ import { Settings as SettingsIcon, Save, TestTube2, KeyRound, Trash2, TrendingUp
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils";
+
+// Quick-pick universe for the coin picker — 24 liquid USDT markets. Any pair
+// not on this list can still be typed into the box below; unavailable symbols
+// are dropped by the engine at scan time (it only trades listed markets).
+const COIN_UNIVERSE = [
+  "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT",
+  "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT", "LTCUSDT", "TRXUSDT",
+  "ATOMUSDT", "UNIUSDT", "NEARUSDT", "APTUSDT", "ARBUSDT", "OPUSDT",
+  "INJUSDT", "SUIUSDT", "TIAUSDT", "FILUSDT", "SEIUSDT", "AAVEUSDT",
+];
 
 function BinanceCredentialsCard() {
   const { data: status, isLoading } = useGetBinanceCredentials({ query: { queryKey: getGetBinanceCredentialsQueryKey() } });
@@ -302,12 +313,55 @@ export function Settings() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Pairs (comma-separated)</Label>
-              <Input 
-                type="text" 
-                value={formData.pairs} 
-                onChange={(e) => handleChange('pairs', e.target.value)} 
-              />
+              {(() => {
+                const selected = formData.pairs
+                  .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+                const toggle = (sym: string) => {
+                  const set = new Set(selected);
+                  set.has(sym) ? set.delete(sym) : set.add(sym);
+                  handleChange('pairs', Array.from(set).join(", "));
+                };
+                return (
+                  <>
+                    <Label>
+                      Coins / Markets
+                      <span className="text-muted-foreground font-normal">
+                        {selected.length > 0 ? ` · ${selected.length} selected` : ""}
+                      </span>
+                    </Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {COIN_UNIVERSE.map((sym) => {
+                        const on = selected.includes(sym);
+                        return (
+                          <button
+                            type="button"
+                            key={sym}
+                            onClick={() => toggle(sym)}
+                            className={cn(
+                              "px-2 py-1 rounded text-xs font-mono border transition-colors",
+                              on
+                                ? "border-primary bg-primary/15 text-primary"
+                                : "border-border text-muted-foreground hover:border-primary/50",
+                            )}
+                          >
+                            {sym.replace("USDT", "")}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <Input
+                      type="text"
+                      value={formData.pairs}
+                      onChange={(e) => handleChange('pairs', e.target.value)}
+                      placeholder="Click coins above, or type any pair(s), comma-separated"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Tip: more coins = more trade opportunities per day. Symbols not
+                      listed on your selected market type are skipped automatically.
+                    </p>
+                  </>
+                );
+              })()}
             </div>
             
             <div className="pt-4 mt-4 border-t border-border space-y-4">
