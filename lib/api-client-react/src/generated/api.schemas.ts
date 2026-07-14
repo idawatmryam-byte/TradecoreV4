@@ -810,6 +810,16 @@ export interface BacktestRunRequest {
      * @maximum 100
      */
   holdMultiplier?: number;
+  /** Model entries as post-only MAKER limit orders instead of taker markets. The limit rests at the signal price and only becomes a position if a later candle trades through it within makerEntryFillWindowMinutes; otherwise the entry is MISSED. On fill there is no adverse entry slippage and the maker fee applies; take-profit exits (resting limits) are also charged the maker rate. Trades cheaper/better fills against missed trades — the honest way to test whether an edge survives real fees. */
+  makerEntry?: boolean;
+  /** Maker fee for passive fills (default when makerEntry is on: 0.0002 futures / 0.001 spot). Ignored unless makerEntry is on. Defaults to feeRate otherwise, so non-maker runs are unchanged. */
+  makerFeeRate?: number;
+  /**
+     * How long a maker-entry limit rests before it's cancelled unfilled. Only used when makerEntry is on.
+     * @minimum 1
+     * @maximum 1440
+     */
+  makerEntryFillWindowMinutes?: number;
 }
 
 export type OptimizeRequestTimeframe = typeof OptimizeRequestTimeframe[keyof typeof OptimizeRequestTimeframe];

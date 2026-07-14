@@ -56,6 +56,11 @@ async function main() {
   const pureExits = process.argv.includes("--pure");
   // Optional swing profile: --hold 24 → every strategy's max hold × 24
   const holdMultiplier = Number(arg("hold", "1"));
+  // Optional maker-fee modeling: --maker-entry posts entries as limits (honest
+  // fill/miss), --maker-fee overrides the maker rate, --maker-window the rest time.
+  const makerEntry = process.argv.includes("--maker-entry");
+  const makerFeeRate = arg("maker-fee") ? Number(arg("maker-fee")) : undefined;
+  const makerEntryFillWindowMinutes = Number(arg("maker-window", "30"));
 
   const params: BacktestParams = {
     symbols,
@@ -78,6 +83,9 @@ async function main() {
     holdMultiplier,
     marketType,
     leverage,
+    makerEntry,
+    ...(makerFeeRate !== undefined && { makerFeeRate }),
+    makerEntryFillWindowMinutes,
   };
 
   const [run] = await db

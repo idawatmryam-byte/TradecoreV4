@@ -1784,6 +1784,19 @@ components:
           maximum: 100
           default: 1
           description: "Faithful mode only: multiply every strategy's maxHoldingSeconds (swing-profile test). Adaptive targets grow ~√hold, so per-trade moves get larger while the roughly-fixed per-trade fee shrinks in proportion. 1 = off."
+        makerEntry:
+          type: boolean
+          default: false
+          description: "Model entries as post-only MAKER limit orders instead of taker markets. The limit rests at the signal price and only becomes a position if a later candle trades through it within makerEntryFillWindowMinutes; otherwise the entry is MISSED. On fill there is no adverse entry slippage and the maker fee applies; take-profit exits (resting limits) are also charged the maker rate. Trades cheaper/better fills against missed trades — the honest way to test whether an edge survives real fees."
+        makerFeeRate:
+          type: number
+          description: "Maker fee for passive fills (default when makerEntry is on: 0.0002 futures / 0.001 spot). Ignored unless makerEntry is on. Defaults to feeRate otherwise, so non-maker runs are unchanged."
+        makerEntryFillWindowMinutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+          default: 30
+          description: "How long a maker-entry limit rests before it's cancelled unfilled. Only used when makerEntry is on."
 
     OptimizeRequest:
       type: object

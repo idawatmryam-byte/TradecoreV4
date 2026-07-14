@@ -708,6 +708,10 @@ export const runBacktestBodyHoldMultiplierDefault = 1;
 export const runBacktestBodyHoldMultiplierMin = 0.1;
 export const runBacktestBodyHoldMultiplierMax = 100;
 
+export const runBacktestBodyMakerEntryDefault = false;
+export const runBacktestBodyMakerEntryFillWindowMinutesDefault = 30;
+export const runBacktestBodyMakerEntryFillWindowMinutesMax = 1440;
+
 
 
 export const RunBacktestBody = zod.object({
@@ -731,7 +735,10 @@ export const RunBacktestBody = zod.object({
   "perStrategyConfigs": zod.boolean().default(runBacktestBodyPerStrategyConfigsDefault).describe('true (default): each strategy uses its own SL\/TP\/confidence, matching live. false: flatten every strategy to the run-level stopLossPercent\/takeProfitPercent\/confidenceThreshold (a single-config sweep).'),
   "rrRatio": zod.number().min(runBacktestBodyRrRatioMin).max(runBacktestBodyRrRatioMax).default(runBacktestBodyRrRatioDefault).describe('Faithful mode only: reshape every strategy to TP = its own SL × this ratio (e.g. 3 → 1:3 reward:risk), keeping everything else per-strategy. 0 = off. The volatility-adaptive cap preserves the ratio when it shrinks targets.'),
   "pureExits": zod.boolean().default(runBacktestBodyPureExitsDefault).describe('Faithful mode only: disable TP1 partials, break-even, and trailing stops so trades resolve only at the full SL or TP. Required to evaluate asymmetric-R:R styles, which the management layer otherwise clips at ~1R.'),
-  "holdMultiplier": zod.number().min(runBacktestBodyHoldMultiplierMin).max(runBacktestBodyHoldMultiplierMax).default(runBacktestBodyHoldMultiplierDefault).describe('Faithful mode only: multiply every strategy\'s maxHoldingSeconds (swing-profile test). Adaptive targets grow ~√hold, so per-trade moves get larger while the roughly-fixed per-trade fee shrinks in proportion. 1 = off.')
+  "holdMultiplier": zod.number().min(runBacktestBodyHoldMultiplierMin).max(runBacktestBodyHoldMultiplierMax).default(runBacktestBodyHoldMultiplierDefault).describe('Faithful mode only: multiply every strategy\'s maxHoldingSeconds (swing-profile test). Adaptive targets grow ~√hold, so per-trade moves get larger while the roughly-fixed per-trade fee shrinks in proportion. 1 = off.'),
+  "makerEntry": zod.boolean().default(runBacktestBodyMakerEntryDefault).describe('Model entries as post-only MAKER limit orders instead of taker markets. The limit rests at the signal price and only becomes a position if a later candle trades through it within makerEntryFillWindowMinutes; otherwise the entry is MISSED. On fill there is no adverse entry slippage and the maker fee applies; take-profit exits (resting limits) are also charged the maker rate. Trades cheaper\/better fills against missed trades — the honest way to test whether an edge survives real fees.'),
+  "makerFeeRate": zod.number().optional().describe('Maker fee for passive fills (default when makerEntry is on: 0.0002 futures \/ 0.001 spot). Ignored unless makerEntry is on. Defaults to feeRate otherwise, so non-maker runs are unchanged.'),
+  "makerEntryFillWindowMinutes": zod.number().min(1).max(runBacktestBodyMakerEntryFillWindowMinutesMax).default(runBacktestBodyMakerEntryFillWindowMinutesDefault).describe('How long a maker-entry limit rests before it\'s cancelled unfilled. Only used when makerEntry is on.')
 })
 
 export const RunBacktestResponse = zod.object({
