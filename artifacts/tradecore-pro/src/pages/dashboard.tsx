@@ -5,12 +5,29 @@ import { Power, Square, Activity, TrendingUp, AlertTriangle, ArrowUpRight, Arrow
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { BlockingBanner, MarketMonitor, DecisionPanel } from "@/components/verification";
+import { type ReactNode } from "react";
 
 function ProgressBar({ value, colorClass }: { value: number, colorClass: string }) {
   return (
     <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
       <div className={cn("h-full transition-all duration-500", colorClass)} style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
     </div>
+  );
+}
+
+/** Compact KPI tile — scales its type/padding down on small screens so a row of
+ *  these stays readable on a phone instead of overflowing. */
+function Stat({ label, value, valueClass, sub }: {
+  label: string; value: ReactNode; valueClass?: string; sub?: ReactNode;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-4 sm:p-6">
+        <p className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider mb-1.5 sm:mb-2">{label}</p>
+        <p className={cn("text-2xl sm:text-3xl font-bold tracking-tight tabular-nums truncate", valueClass)}>{value}</p>
+        {sub}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -32,13 +49,13 @@ export function Dashboard() {
   const handleStop = () => stopBot.mutate(undefined, { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() }) });
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      
+    <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
+
       {/* Hero Control Panel */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6">
         <Card className="md:col-span-2 relative overflow-hidden bg-card/50 border-primary/20 backdrop-blur">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
-          <CardContent className="p-8 flex flex-col justify-between h-full relative z-10">
+          <CardContent className="p-6 sm:p-8 flex flex-col justify-between h-full gap-6 relative z-10">
             <div>
               <h2 className="text-sm font-mono text-muted-foreground uppercase tracking-widest mb-1">Trading Engine</h2>
               <div className="flex items-center gap-3 mb-6">
@@ -46,31 +63,31 @@ export function Dashboard() {
                   {bot?.running && !statusUnknown && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>}
                   <span className={cn("relative inline-flex rounded-full h-3 w-3", statusUnknown ? "bg-muted-foreground" : bot?.running ? "bg-success" : "bg-destructive")}></span>
                 </span>
-                <span className="text-2xl font-bold tracking-tight">
+                <span className="text-xl sm:text-2xl font-bold tracking-tight">
                   {statusUnknown ? "STATUS UNKNOWN" : bot?.running ? "SYSTEM ACTIVE" : "SYSTEM STANDBY"}
                 </span>
               </div>
               {botError && (
-                <div className="flex items-center gap-2 mb-4 text-xs font-mono text-destructive">
-                  <WifiOff className="h-3.5 w-3.5" />
-                  Can't reach the API — this is NOT a confirmed idle state. Open positions may still exist.
+                <div className="flex items-start gap-2 mb-4 text-xs font-mono text-destructive">
+                  <WifiOff className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>Can't reach the API — this is NOT a confirmed idle state. Open positions may still exist.</span>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center gap-4">
-              <Button 
-                size="lg" 
-                className={cn("w-40 font-mono tracking-wider font-bold transition-all", bot?.running ? "opacity-50 cursor-not-allowed" : "bg-success text-success-foreground hover:bg-success/90")}
+            <div className="flex items-center gap-3 sm:gap-4">
+              <Button
+                size="lg"
+                className={cn("flex-1 sm:flex-none sm:w-40 font-mono tracking-wider font-bold transition-all", bot?.running ? "opacity-50 cursor-not-allowed" : "bg-success text-success-foreground hover:bg-success/90")}
                 onClick={handleStart}
                 disabled={bot?.running || startBot.isPending}
               >
                 <Power className="mr-2 h-4 w-4" /> START
               </Button>
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 variant="destructive"
-                className={cn("w-40 font-mono tracking-wider font-bold transition-all", !bot?.running ? "opacity-50 cursor-not-allowed" : "")}
+                className={cn("flex-1 sm:flex-none sm:w-40 font-mono tracking-wider font-bold transition-all", !bot?.running ? "opacity-50 cursor-not-allowed" : "")}
                 onClick={handleStop}
                 disabled={!bot?.running || stopBot.isPending}
               >
@@ -80,57 +97,38 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 gap-6 md:col-span-2">
-          <div className="grid grid-cols-3 gap-6">
-            <Card>
-              <CardContent className="p-6">
-                <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">Balance</p>
-                <p className={cn("text-3xl font-bold tracking-tight", bot?.balanceUsdt == null && "text-muted-foreground")}>
-                  {bot?.balanceUsdt == null ? "—" : formatCurrency(bot.balanceUsdt)}
-                </p>
-                {bot?.balanceUsdt != null && (
-                  <p className="text-[10px] font-mono text-muted-foreground mt-1 uppercase">USDT · {bot?.mode}</p>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">Today's PnL</p>
-                <p className={cn("text-3xl font-bold tracking-tight", statusUnknown ? "text-muted-foreground" : (bot?.dailyPnl ?? 0) >= 0 ? "text-success" : "text-destructive")}>
-                  {statusUnknown ? "—" : formatCurrency(bot?.dailyPnl, "always")}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">Win Rate</p>
-                <p className={cn("text-3xl font-bold tracking-tight", statusUnknown ? "text-muted-foreground" : "text-primary")}>
-                  {/* winRateToday is a 0–1 fraction; formatPercent expects 0–100
-                      (bug: a 100% day displayed as "1.00%") */}
-                  {statusUnknown ? "—" : formatPercent((bot?.winRateToday ?? 0) * 100)}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-          <div className="grid grid-cols-2 gap-6">
-            <Card>
-              <CardContent className="p-6">
-                <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">Open Positions</p>
-                <p className={cn("text-3xl font-bold tracking-tight", statusUnknown && "text-muted-foreground")}>
-                  {statusUnknown ? "—" : (bot?.openPositions ?? 0)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">Total Trades</p>
-                <p className={cn("text-3xl font-bold tracking-tight", statusUnknown && "text-muted-foreground")}>
-                  {statusUnknown ? "—" : (bot?.totalTradesToday ?? 0)}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+        {/* Quick Stats — 2-up on phones, 3-up from small screens, within the
+            right half on desktop. Reuses <Stat> so type/padding scale down. */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6 md:col-span-2">
+          <Stat
+            label="Balance"
+            valueClass={bot?.balanceUsdt == null ? "text-muted-foreground" : undefined}
+            value={bot?.balanceUsdt == null ? "—" : formatCurrency(bot.balanceUsdt)}
+            sub={bot?.balanceUsdt != null && (
+              <p className="text-[10px] font-mono text-muted-foreground mt-1 uppercase truncate">USDT · {bot?.mode}</p>
+            )}
+          />
+          <Stat
+            label="Today's PnL"
+            valueClass={statusUnknown ? "text-muted-foreground" : (bot?.dailyPnl ?? 0) >= 0 ? "text-success" : "text-destructive"}
+            value={statusUnknown ? "—" : formatCurrency(bot?.dailyPnl, "always")}
+          />
+          {/* winRateToday is a 0–1 fraction; formatPercent expects 0–100. */}
+          <Stat
+            label="Win Rate"
+            valueClass={statusUnknown ? "text-muted-foreground" : "text-primary"}
+            value={statusUnknown ? "—" : formatPercent((bot?.winRateToday ?? 0) * 100)}
+          />
+          <Stat
+            label="Open Positions"
+            valueClass={statusUnknown ? "text-muted-foreground" : undefined}
+            value={statusUnknown ? "—" : (bot?.openPositions ?? 0)}
+          />
+          <Stat
+            label="Total Trades"
+            valueClass={statusUnknown ? "text-muted-foreground" : undefined}
+            value={statusUnknown ? "—" : (bot?.totalTradesToday ?? 0)}
+          />
         </div>
       </div>
 
@@ -138,13 +136,13 @@ export function Dashboard() {
       <BlockingBanner />
 
       {/* Verification: live market data + full strategy decision pipeline */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
         <MarketMonitor />
         <DecisionPanel />
       </div>
 
       {/* Main Content Area */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
         
         {/* Scanner Table */}
         <Card className="xl:col-span-2 flex flex-col">
