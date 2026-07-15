@@ -39,10 +39,13 @@ router.get("/stats/summary", async (req, res): Promise<void> => {
   const bestTrade = pnls.length > 0 ? Math.max(...pnls) : 0;
   const worstTrade = pnls.length > 0 ? Math.min(...pnls) : 0;
 
-  // Current streak
+  // Current streak — walk newest→oldest (closed is ascending for drawdown, so
+  // iterate in reverse) so this reflects the MOST RECENT run of wins/losses,
+  // not the streak at the very start of history.
   let streakCurrent = 0;
   let streakType: "win" | "loss" | "none" = "none";
-  for (const t of closed) {
+  for (let i = closed.length - 1; i >= 0; i--) {
+    const t = closed[i]!;
     const p = Number(t.pnl ?? 0);
     if (streakType === "none") {
       streakType = p > 0 ? "win" : "loss";
