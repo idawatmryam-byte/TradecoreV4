@@ -306,7 +306,39 @@ export class ExitManager {
       const order = trade.marketType === "futures"
         ? await closeFuturesPositionMarket(ex, market, isShort ? "sell" : "buy", closeQty)
         : await ex.createOrder(market, "market", isShort ? "buy" : "sell", closeQty);
-      const fillPrice = order.average ?? order.price ?? (touched ? sl : tp);
+
+      // Determine the REAL fill price. The old fallback here was
+      // `order.average ?? order.price ?? (touched ? sl : tp)` — but Binance
+      // futures (testnet especially) often returns a market order with NO
+      // average/price in the create response, so every TIMEOUT close (touched
+      // = false) fell through to `tp` and was recorded as a full take-profit
+      // win that never happened. Observed live: 51/51 "wins", each pinned at
+      // exactly the planned TP price, all exitReason=timeout. A market close
+      // says nothing about where price is, so the honest chain is: the
+      // order's own fill → re-fetch the order for its fill → the current
+      // market price. Only a touched level may fall back to that level
+      // (price demonstrably reached it); a timeout with everything unknown
+      // falls back to entry (bounded drift error, not a fabricated +13% win).
+      let fillPrice: number | null = order.average ?? order.price ?? null;
+      if (fillPrice == null && order.id != null) {
+        try {
+          const fetched = await ex.fetchOrder(String(order.id), market);
+          fillPrice = fetched?.average ?? fetched?.price ?? null;
+        } catch { /* fall through to ticker */ }
+      }
+      if (fillPrice == null) {
+        try {
+          const ticker = await ex.fetchTicker(market);
+          fillPrice = ticker?.last ?? ticker?.close ?? null;
+        } catch { /* fall through to last resort */ }
+      }
+      if (fillPrice == null) {
+        fillPrice = touched ? (reasonOverride === "stop_loss" ? sl : tp) : Number(trade.entryPrice);
+        logger.error(
+          { symbol: trade.symbol, tradeId: trade.id, reason: reasonOverride, fallbackPrice: fillPrice },
+          "Protective close: no fill price from order, fetchOrder, or ticker — recorded P&L is an approximation",
+        );
+      }
       logger.warn(
         { symbol: trade.symbol, tradeId: trade.id, fillPrice, reason: reasonOverride },
         "Protective market close executed",
