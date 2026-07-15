@@ -1,4 +1,4 @@
-import { useGetStatsSummary, useGetDailyStats, useGetHourlyStats, useGetDailyReport, getGetStatsSummaryQueryKey, getGetDailyStatsQueryKey, getGetHourlyStatsQueryKey, getGetDailyReportQueryKey } from "@workspace/api-client-react";
+import { useGetStatsSummary, useGetHourlyStats, useGetDailyReport, getGetStatsSummaryQueryKey, getGetHourlyStatsQueryKey, getGetDailyReportQueryKey } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
@@ -122,7 +122,6 @@ function DailyReportCard() {
 
 export function Stats() {
   const { data: summary } = useGetStatsSummary({ query: { queryKey: getGetStatsSummaryQueryKey() } });
-  const { data: daily } = useGetDailyStats({ query: { queryKey: getGetDailyStatsQueryKey() } });
   const { data: hourly } = useGetHourlyStats({ query: { queryKey: getGetHourlyStatsQueryKey() } });
 
   const isProfit = (summary?.totalPnl ?? 0) >= 0;
@@ -168,8 +167,10 @@ export function Stats() {
             <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
               <TrendingDown className="h-3 w-3 text-destructive" /> Max Drawdown
             </p>
+            {/* maxDrawdown is a non-negative magnitude; render it as a loss
+                (−$X) rather than "always" which prints a misleading "+$X". */}
             <p className="text-3xl font-bold tracking-tight text-destructive">
-              {formatCurrency(summary?.maxDrawdown, "always")}
+              {formatCurrency(summary?.maxDrawdown ? -summary.maxDrawdown : summary?.maxDrawdown)}
             </p>
           </CardContent>
         </Card>
