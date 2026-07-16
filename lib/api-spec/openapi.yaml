@@ -1739,10 +1739,13 @@ components:
           type: number
           minimum: 0.01
           description: "Dollar mode only: desired dollar profit per trade (net of fees)."
+        onlyStrategyId:
+          type: string
+          description: "Test ONE strategy in isolation: it is force-enabled (even if disabled for live) and all others disabled for this run, using its own saved config (SL/TP or dollar plan). Omit to run every enabled strategy."
         perStrategyConfigs:
           type: boolean
           default: true
-          description: "true (default): each strategy uses its own SL/TP/confidence, matching live. false: flatten every strategy to the run-level stopLossPercent/takeProfitPercent/confidenceThreshold (a single-config sweep)."
+          description: "true (default): each strategy uses its own SL/TP/confidence, matching live. false: flatten every strategy to the run-level stopLossPercent/takeProfitPercent/confidenceThreshold (a single-config sweep). Ignored (forced true) when onlyStrategyId is set."
         rrRatio:
           type: number
           minimum: 0

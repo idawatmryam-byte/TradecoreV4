@@ -839,7 +839,9 @@ export interface BacktestRunRequest {
      * @minimum 0.01
      */
   targetProfitUsdt?: number;
-  /** true (default): each strategy uses its own SL/TP/confidence, matching live. false: flatten every strategy to the run-level stopLossPercent/takeProfitPercent/confidenceThreshold (a single-config sweep). */
+  /** Test ONE strategy in isolation: it is force-enabled (even if disabled for live) and all others disabled for this run, using its own saved config (SL/TP or dollar plan). Omit to run every enabled strategy. */
+  onlyStrategyId?: string;
+  /** true (default): each strategy uses its own SL/TP/confidence, matching live. false: flatten every strategy to the run-level stopLossPercent/takeProfitPercent/confidenceThreshold (a single-config sweep). Ignored (forced true) when onlyStrategyId is set. */
   perStrategyConfigs?: boolean;
   /**
      * Faithful mode only: reshape every strategy to TP = its own SL × this ratio (e.g. 3 → 1:3 reward:risk), keeping everything else per-strategy. 0 = off. The volatility-adaptive cap preserves the ratio when it shrinks targets.
