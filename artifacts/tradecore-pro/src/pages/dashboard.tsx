@@ -1,7 +1,7 @@
 import { useGetBotStatus, useGetScannerData, useStartBot, useStopBot, getGetBotStatusQueryKey, getGetScannerDataQueryKey, getGetTradesQueryKey } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
-import { Power, Square, Activity, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, WifiOff, X, Loader2 } from "lucide-react";
+import { Power, Square, Activity, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, WifiOff, X, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
@@ -37,6 +37,64 @@ function formatHeld(seconds: number): string {
   return `${(seconds / 3600).toFixed(1)}h`;
 }
 
+/**
+ * Minimizable cockpit panel. Every dashboard section wraps in one of these —
+ * a slim title bar with a chevron; clicking it collapses the panel to just
+ * the bar. Collapsed/expanded state persists per panel in localStorage, so
+ * the cockpit layout survives reloads.
+ */
+function CollapsibleSection({ id, title, icon: Icon, right, defaultOpen = true, children }: {
+  id: string;
+  title: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  /** Extra header content (e.g. a live count) — shown even while collapsed. */
+  right?: ReactNode;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const storageKey = `cockpit-panel:${id}`;
+  const [open, setOpen] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem(storageKey);
+      return stored == null ? defaultOpen : stored === "1";
+    } catch { return defaultOpen; }
+  });
+  const toggle = () => setOpen((o) => {
+    const next = !o;
+    try { localStorage.setItem(storageKey, next ? "1" : "0"); } catch { /* private mode */ }
+    return next;
+  });
+  return (
+    <section>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        className={cn(
+          "w-full flex items-center justify-between gap-3 rounded-md border border-border bg-card px-4 py-2.5 text-left transition-colors hover:bg-muted/40",
+          open && "rounded-b-none border-b-0",
+        )}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {Icon && <Icon className="h-4 w-4 text-primary shrink-0" />}
+          <span className="text-sm font-mono tracking-wider uppercase font-semibold truncate">{title}</span>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          {right}
+          {open
+            ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        </div>
+      </button>
+      {open && (
+        <div className="rounded-b-md border border-t-0 border-border overflow-hidden">
+          {children}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function ProgressBar({ value, colorClass }: { value: number, colorClass: string }) {
   return (
     <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
@@ -58,6 +116,132 @@ function Stat({ label, value, valueClass, sub }: {
         {sub}
       </CardContent>
     </Card>
+  );
+}
+
+/** The Open Positions panel body — full trade status per open position plus
+ *  the two-step manual close. Rendered full-width at the top of the cockpit. */
+function PositionsPanel({ positions, error, loading, confirmingClose, closingId, onArmClose, onClose }: {
+  positions: ActivePosition[] | undefined;
+  error: boolean;
+  loading: boolean;
+  confirmingClose: number | null;
+  closingId: number | null;
+  onArmClose: (tradeId: number | null) => void;
+  onClose: (tradeId: number, symbol: string) => void;
+}) {
+  return (
+    <div className="bg-card">
+      {positions && positions.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 p-3">
+          {positions.map((p) => {
+            const isProfit = p.unrealizedPnl >= 0;
+            const isClosing = closingId === p.tradeId;
+            const isConfirming = confirmingClose === p.tradeId;
+            return (
+              <div key={p.tradeId} className="rounded-lg border border-border/60 p-4 bg-background/40 hover:bg-muted/20 transition-colors">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-lg">{p.symbol}</span>
+                    <Badge variant={p.side === "long" ? "success" : "destructive"} className="h-5 px-1.5 text-[10px]">
+                      {p.side}{p.marketType === "futures" && p.leverage ? ` ${p.leverage}×` : ""}
+                    </Badge>
+                    {p.breakEvenActive && <Badge variant="outline" className="h-5 px-1.5 text-[10px]">BE</Badge>}
+                    {p.trailingStopActive && <Badge variant="outline" className="h-5 px-1.5 text-[10px]">TRAIL</Badge>}
+                    {p.tp1Filled && <Badge variant="outline" className="h-5 px-1.5 text-[10px] text-success">TP1 ✓</Badge>}
+                  </div>
+                  <div className={cn("text-right font-mono font-bold", isProfit ? "text-success" : "text-destructive")}>
+                    <div className="flex items-center justify-end gap-1">
+                      {isProfit ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                      {formatCurrency(p.unrealizedPnl, "always")}
+                    </div>
+                    <span className="block text-[9px] font-normal text-muted-foreground uppercase">
+                      {p.unrealizedPnlPercent >= 0 ? "+" : ""}{p.unrealizedPnlPercent.toFixed(2)}% unrealized
+                    </span>
+                  </div>
+                </div>
+                {p.strategyName && (
+                  <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-2">
+                    {p.strategyName} · held {formatHeld(p.holdingSeconds)}
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-2 text-xs font-mono text-muted-foreground">
+                  <div>
+                    <span className="block opacity-50 uppercase mb-0.5">Entry → Now</span>
+                    <span className="text-foreground">
+                      {formatNumber(p.entryPrice, 4)} → {formatNumber(p.currentPrice, 4)}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="block opacity-50 uppercase mb-0.5">Size</span>
+                    <span className="text-foreground">{formatNumber(p.remainingQuantity, 4)}</span>
+                  </div>
+                  <div>
+                    <span className="block opacity-50 uppercase mb-0.5">Stop Loss</span>
+                    <span className="text-destructive">{formatNumber(p.stopLossPrice, 4)}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="block opacity-50 uppercase mb-0.5">Take Profit</span>
+                    <span className="text-success">
+                      {p.tp1Price != null && !p.tp1Filled
+                        ? `${formatNumber(p.tp1Price, 4)} / ${formatNumber(p.takeProfitPrice, 4)}`
+                        : formatNumber(p.takeProfitPrice, 4)}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  {isConfirming ? (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="flex-1 h-8 text-xs gap-1.5"
+                        disabled={isClosing}
+                        onClick={() => onClose(p.tradeId, p.symbol)}
+                      >
+                        {isClosing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                        Confirm close at market
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8 text-xs" disabled={isClosing} onClick={() => onArmClose(null)}>
+                        Keep
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full h-8 text-xs gap-1.5 text-muted-foreground hover:text-destructive hover:border-destructive/50"
+                      onClick={() => onArmClose(p.tradeId)}
+                    >
+                      <X className="h-3.5 w-3.5" /> Close Position
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {error && (
+        <div className="p-8 text-center text-destructive flex flex-col items-center justify-center">
+          <WifiOff className="h-8 w-8 mb-3 opacity-50" />
+          <p className="font-mono text-sm uppercase tracking-wider">Unable to load positions</p>
+          <p className="text-xs text-muted-foreground mt-1 normal-case">Open positions may still exist — check the exchange directly.</p>
+        </div>
+      )}
+      {!error && loading && (
+        <div className="p-8 text-center text-muted-foreground">
+          <p className="font-mono text-sm uppercase tracking-wider">Loading positions…</p>
+        </div>
+      )}
+      {!error && !loading && (!positions || positions.length === 0) && (
+        <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center">
+          <AlertTriangle className="h-8 w-8 mb-3 opacity-20" />
+          <p className="font-mono text-sm uppercase tracking-wider">No active positions</p>
+          <p className="text-xs mt-1 normal-case">Trades opened by the engine appear here with live P&L and controls.</p>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -119,8 +303,43 @@ export function Dashboard() {
   return (
     <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
 
+      {/* Open Positions — pinned to the top of the cockpit */}
+      <CollapsibleSection
+        id="positions"
+        title="Open Positions"
+        icon={TrendingUp}
+        right={
+          <span className="text-xs font-mono text-muted-foreground">
+            {positions?.length ?? 0} open
+          </span>
+        }
+      >
+        <PositionsPanel
+          positions={positions}
+          error={!!tradesError}
+          loading={tradesLoading}
+          confirmingClose={confirmingClose}
+          closingId={closingId}
+          onArmClose={setConfirmingClose}
+          onClose={closePosition}
+        />
+      </CollapsibleSection>
+
       {/* Hero Control Panel */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6">
+      <CollapsibleSection
+        id="engine"
+        title="Trading Engine"
+        icon={Power}
+        right={
+          <span className={cn(
+            "text-xs font-mono font-bold",
+            statusUnknown ? "text-muted-foreground" : bot?.running ? "text-success" : "text-destructive",
+          )}>
+            {statusUnknown ? "UNKNOWN" : bot?.running ? "ACTIVE" : "STANDBY"}
+          </span>
+        }
+      >
+      <div className="p-3 sm:p-4 grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6">
         <Card className="md:col-span-2 relative overflow-hidden bg-card/50 border-primary/20 backdrop-blur">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
           <CardContent className="p-6 sm:p-8 flex flex-col justify-between h-full gap-6 relative z-10">
@@ -199,35 +418,37 @@ export function Dashboard() {
           />
         </div>
       </div>
+      </CollapsibleSection>
 
       {/* Why is / isn't it trading — exact blocking condition */}
       <BlockingBanner />
 
       {/* Verification: live market data + full strategy decision pipeline */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
-        <MarketMonitor />
-        <DecisionPanel />
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 items-start">
+        <CollapsibleSection id="market-monitor" title="Market Monitor" icon={Activity}>
+          <div className="p-3"><MarketMonitor /></div>
+        </CollapsibleSection>
+        <CollapsibleSection id="decision-panel" title="Decision Pipeline" icon={Activity}>
+          <div className="p-3"><DecisionPanel /></div>
+        </CollapsibleSection>
       </div>
 
-      {/* Main Content Area */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
-        
-        {/* Scanner Table */}
-        <Card className="xl:col-span-2 flex flex-col">
-          <CardHeader className="flex flex-row items-center justify-between py-4 border-b border-border/50">
-            <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm font-mono tracking-wider uppercase">Live Market Scanner</CardTitle>
-            </div>
-            <div className="text-xs text-muted-foreground font-mono flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-              </span>
-              Scanning {scanner?.length || 0} pairs
-            </div>
-          </CardHeader>
-          <div className="overflow-auto flex-1">
+      {/* Scanner Table */}
+      <CollapsibleSection
+        id="scanner"
+        title="Live Market Scanner"
+        icon={Activity}
+        right={
+          <span className="text-xs text-muted-foreground font-mono flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+            </span>
+            Scanning {scanner?.length || 0} pairs
+          </span>
+        }
+      >
+          <div className="overflow-auto bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -297,125 +518,7 @@ export function Dashboard() {
               </TableBody>
             </Table>
           </div>
-        </Card>
-
-        {/* Open Positions */}
-        <Card className="flex flex-col">
-          <CardHeader className="py-4 border-b border-border/50">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm font-mono tracking-wider uppercase">Open Positions</CardTitle>
-            </div>
-          </CardHeader>
-          <div className="overflow-auto p-0 flex-1">
-            {positions?.map((p) => {
-              const isProfit = p.unrealizedPnl >= 0;
-              const isClosing = closingId === p.tradeId;
-              const isConfirming = confirmingClose === p.tradeId;
-              return (
-                <div key={p.tradeId} className="border-b border-border/50 p-4 hover:bg-muted/30 transition-colors">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-lg">{p.symbol}</span>
-                      <Badge variant={p.side === "long" ? "success" : "destructive"} className="h-5 px-1.5 text-[10px]">
-                        {p.side}{p.marketType === "futures" && p.leverage ? ` ${p.leverage}×` : ""}
-                      </Badge>
-                      {p.breakEvenActive && <Badge variant="outline" className="h-5 px-1.5 text-[10px]">BE</Badge>}
-                      {p.trailingStopActive && <Badge variant="outline" className="h-5 px-1.5 text-[10px]">TRAIL</Badge>}
-                      {p.tp1Filled && <Badge variant="outline" className="h-5 px-1.5 text-[10px] text-success">TP1 ✓</Badge>}
-                    </div>
-                    <div className={cn("text-right font-mono font-bold", isProfit ? "text-success" : "text-destructive")}>
-                      <div className="flex items-center justify-end gap-1">
-                        {isProfit ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                        {formatCurrency(p.unrealizedPnl, "always")}
-                      </div>
-                      <span className="block text-[9px] font-normal text-muted-foreground uppercase">
-                        {p.unrealizedPnlPercent >= 0 ? "+" : ""}{p.unrealizedPnlPercent.toFixed(2)}% unrealized
-                      </span>
-                    </div>
-                  </div>
-                  {p.strategyName && (
-                    <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-2">
-                      {p.strategyName} · held {formatHeld(p.holdingSeconds)}
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-2 text-xs font-mono text-muted-foreground">
-                    <div>
-                      <span className="block opacity-50 uppercase mb-0.5">Entry → Now</span>
-                      <span className="text-foreground">
-                        {formatNumber(p.entryPrice, 4)} → {formatNumber(p.currentPrice, 4)}
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span className="block opacity-50 uppercase mb-0.5">Size</span>
-                      <span className="text-foreground">{formatNumber(p.remainingQuantity, 4)}</span>
-                    </div>
-                    <div>
-                      <span className="block opacity-50 uppercase mb-0.5">Stop Loss</span>
-                      <span className="text-destructive">{formatNumber(p.stopLossPrice, 4)}</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="block opacity-50 uppercase mb-0.5">Take Profit</span>
-                      <span className="text-success">
-                        {p.tp1Price != null && !p.tp1Filled
-                          ? `${formatNumber(p.tp1Price, 4)} / ${formatNumber(p.takeProfitPrice, 4)}`
-                          : formatNumber(p.takeProfitPrice, 4)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    {isConfirming ? (
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="flex-1 h-8 text-xs gap-1.5"
-                          disabled={isClosing}
-                          onClick={() => closePosition(p.tradeId, p.symbol)}
-                        >
-                          {isClosing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
-                          Confirm close at market
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-8 text-xs" disabled={isClosing} onClick={() => setConfirmingClose(null)}>
-                          Keep
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full h-8 text-xs gap-1.5 text-muted-foreground hover:text-destructive hover:border-destructive/50"
-                        onClick={() => setConfirmingClose(p.tradeId)}
-                      >
-                        <X className="h-3.5 w-3.5" /> Close Position
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-            {tradesError && (
-              <div className="p-8 text-center text-destructive flex flex-col items-center justify-center h-full">
-                <WifiOff className="h-8 w-8 mb-3 opacity-50" />
-                <p className="font-mono text-sm uppercase tracking-wider">Unable to load positions</p>
-                <p className="text-xs text-muted-foreground mt-1 normal-case">Open positions may still exist — check the exchange directly.</p>
-              </div>
-            )}
-            {!tradesError && tradesLoading && (
-              <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center h-full">
-                <p className="font-mono text-sm uppercase tracking-wider">Loading positions…</p>
-              </div>
-            )}
-            {!tradesError && !tradesLoading && (!positions || positions.length === 0) && (
-              <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center h-full">
-                <AlertTriangle className="h-8 w-8 mb-3 opacity-20" />
-                <p className="font-mono text-sm uppercase tracking-wider">No active positions</p>
-              </div>
-            )}
-          </div>
-        </Card>
-
-      </div>
+      </CollapsibleSection>
     </div>
   );
 }
