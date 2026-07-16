@@ -1,10 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   createChart, CandlestickSeries, LineStyle,
   type IChartApi, type ISeriesApi, type IPriceLine, type UTCTimestamp,
 } from "lightweight-charts";
-import { Loader2 } from "lucide-react";
+import { Loader2, Maximize2, Minimize2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 /**
  * Live candlestick chart for one open position (tap a position card to open).
@@ -45,6 +46,14 @@ export function PositionChart(props: PositionChartProps) {
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const priceLinesRef = useRef<IPriceLine[]>([]);
   const fittedRef = useRef(false);
+  const [expanded, setExpanded] = useState(false);
+  // Levels the autoscaler must keep in view — updated whenever props change,
+  // read by the autoscaleInfoProvider installed at chart creation.
+  const levelsRef = useRef<number[]>([]);
+  levelsRef.current = [
+    props.entryPrice, props.stopLossPrice, props.takeProfitPrice,
+    ...(props.tp1Price != null && !props.tp1Filled ? [props.tp1Price] : []),
+  ].filter((v) => Number.isFinite(v) && v > 0);
 
   const { data, isLoading, isError } = useQuery<{ candles: RawCandle[] }>({
     queryKey: ["market-candles", props.symbol, props.marketType],
@@ -74,6 +83,22 @@ export function PositionChart(props: PositionChartProps) {
       upColor: COLORS.up, downColor: COLORS.down,
       wickUpColor: COLORS.up, wickDownColor: COLORS.down,
       borderVisible: false,
+      // The position's SL/TP often sit OUTSIDE the candles' own price range
+      // (a wide stop, a far target). Default autoscaling fits candles only,
+      // which silently pushed those lines off-screen — extend the scale to
+      // always include every level, so SL/TP/entry are visible at a glance.
+      autoscaleInfoProvider: (original: () => any) => {
+        const res = original();
+        const levels = levelsRef.current;
+        if (!res?.priceRange || levels.length === 0) return res;
+        return {
+          ...res,
+          priceRange: {
+            minValue: Math.min(res.priceRange.minValue, ...levels),
+            maxValue: Math.max(res.priceRange.maxValue, ...levels),
+          },
+        };
+      },
     });
     chartRef.current = chart;
     seriesRef.current = series;
@@ -122,14 +147,30 @@ export function PositionChart(props: PositionChartProps) {
   }, [props.entryPrice, props.stopLossPrice, props.takeProfitPrice, props.tp1Price, props.tp1Filled, props.side, data]);
 
   return (
-    <div className="mt-3 rounded-md border border-border/60 bg-background/60 overflow-hidden">
+    <div
+      className={cn(
+        "mt-3 rounded-md border border-border/60 bg-background/60 overflow-hidden",
+        // Maximized: the chart takes over the screen (backdrop + big canvas).
+        expanded && "fixed inset-2 sm:inset-6 z-[90] mt-0 bg-background shadow-2xl border-primary/40 flex flex-col",
+      )}
+    >
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/40 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
         <span>{props.symbol} · 1m · live</span>
-        <span>
-          {props.side} {props.quantity} @ {props.entryPrice}
-        </span>
+        <div className="flex items-center gap-3">
+          <span>
+            {props.side} {props.quantity} @ {props.entryPrice}
+          </span>
+          <button
+            type="button"
+            aria-label={expanded ? "Minimize chart" : "Maximize chart"}
+            onClick={() => setExpanded((v) => !v)}
+            className="rounded p-1 hover:bg-muted/50 hover:text-foreground transition-colors"
+          >
+            {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          </button>
+        </div>
       </div>
-      <div className="relative h-56 sm:h-64">
+      <div className={cn("relative", expanded ? "flex-1" : "h-56 sm:h-64")}>
         <div ref={containerRef} className="absolute inset-0" />
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center">

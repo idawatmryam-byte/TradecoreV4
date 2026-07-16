@@ -1418,7 +1418,7 @@ class BotEngine {
       }
 
       const rawQty = entry.qty;
-      const qty = parseFloat(ex.amountToPrecision(market, rawQty));
+      let qty = parseFloat(ex.amountToPrecision(market, rawQty));
       let effectiveLeverage = config.leverage;
 
       if (isFutures) {
@@ -1431,6 +1431,26 @@ class BotEngine {
         effectiveLeverage = await configureFuturesLeverage(
           ex, market, config.leverage, config.marginMode === "cross" ? "cross" : "isolated",
         );
+
+        // Sizing was computed as notional = margin budget × CONFIGURED
+        // leverage. If this symbol clamped leverage down (e.g. 70x → 25x on
+        // INJ), keeping that notional would require notional/effectiveLev of
+        // margin — silently overspending the user's per-trade budget. Scale
+        // the quantity down proportionally instead: margin stays within
+        // budget, and the dollar risk/target shrink in the same proportion
+        // (always ≤ planned — the safe direction).
+        if (effectiveLeverage < config.leverage && config.leverage > 0) {
+          const scaled = qty * (effectiveLeverage / config.leverage);
+          const rescaledQty = parseFloat(ex.amountToPrecision(market, scaled));
+          logger.info(
+            { symbol, configuredLeverage: config.leverage, effectiveLeverage, qty, rescaledQty },
+            "Leverage clamped for this symbol — position scaled down to keep margin within the per-trade budget",
+          );
+          qty = rescaledQty;
+          if (!(qty > 0)) {
+            return { entered: false, reason: `Position too small after leverage clamp (${config.leverage}x → ${effectiveLeverage}x)` };
+          }
+        }
 
         // Margin-sufficiency pre-check: previously this relied entirely on
         // Binance rejecting the order if the required margin didn't fit —
