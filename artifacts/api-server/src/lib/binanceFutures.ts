@@ -46,6 +46,54 @@ export interface FuturesStopTpResult {
  * treat that as "no exchange-side protection yet" and retry, same handling
  * as an OCO placement failure on spot.
  */
+/**
+ * Place ONE reduceOnly trigger order (STOP_MARKET or TAKE_PROFIT_MARKET),
+ * trying the raw fapi endpoint first and falling back to ccxt's UNIFIED
+ * createOrder on any failure. WHY THE FALLBACK EXISTS: on Binance Demo
+ * Trading the unified path is verifiably routed to demo-fapi (market entries
+ * fill through it), while the raw implicit call was observed failing for
+ * every stop/take-profit placement — with the "no stop, no position" rule,
+ * that turned into every entry being flattened immediately ("NO TRADE
+ * EXECUTED — Stop-loss placement failed" on the cockpit). The unified call
+ * expresses the exact same order (type + stopPrice + reduceOnly), so prod
+ * behavior is unchanged when the raw path works.
+ */
+async function placeReduceOnlyTrigger(
+  ex: any,
+  market: string,
+  closingSide: "SELL" | "BUY",
+  preciseQty: string,
+  type: "STOP_MARKET" | "TAKE_PROFIT_MARKET",
+  triggerPrice: string,
+): Promise<string> {
+  if (typeof ex.fapiPrivatePostOrder === "function") {
+    try {
+      const order = await ex.fapiPrivatePostOrder({
+        symbol: ex.market(market).id,
+        side: closingSide,
+        type,
+        quantity: preciseQty,
+        stopPrice: triggerPrice,
+        reduceOnly: "true",
+      });
+      const id = String(order?.orderId ?? "");
+      if (id) return id;
+    } catch (err) {
+      logger.warn({ err, market, type }, `Raw futures ${type} placement failed — retrying via unified createOrder`);
+    }
+  }
+  try {
+    const order = await ex.createOrder(
+      market, type, closingSide.toLowerCase(), Number(preciseQty), undefined,
+      { stopPrice: Number(triggerPrice), reduceOnly: true },
+    );
+    return String(order?.id ?? "");
+  } catch (err) {
+    logger.error({ err, market, type }, `Futures ${type} placement failed on BOTH raw and unified paths`);
+    return "";
+  }
+}
+
 export async function placeFuturesStopAndTakeProfit(
   ex: any,
   market: string,
@@ -54,45 +102,15 @@ export async function placeFuturesStopAndTakeProfit(
   slPrice: number,
   tpPrice: number,
 ): Promise<FuturesStopTpResult | null> {
-  if (typeof ex.fapiPrivatePostOrder !== "function") {
-    logger.warn({ market }, "ccxt build has no fapiPrivatePostOrder — cannot place futures stop/take-profit orders");
-    return null;
-  }
-
   const closingSide = positionSide === "buy" ? "SELL" : "BUY";
-  const marketId = ex.market(market).id;
   const preciseQty = ex.amountToPrecision(market, qty);
 
-  let slOrderId = "";
-  let tpOrderId = "";
-
-  try {
-    const slOrder = await ex.fapiPrivatePostOrder({
-      symbol: marketId,
-      side: closingSide,
-      type: "STOP_MARKET",
-      quantity: preciseQty,
-      stopPrice: ex.priceToPrecision(market, slPrice),
-      reduceOnly: "true",
-    });
-    slOrderId = String(slOrder?.orderId ?? "");
-  } catch (err) {
-    logger.error({ err, market, positionSide }, "Futures STOP_MARKET placement failed");
-  }
-
-  try {
-    const tpOrder = await ex.fapiPrivatePostOrder({
-      symbol: marketId,
-      side: closingSide,
-      type: "TAKE_PROFIT_MARKET",
-      quantity: preciseQty,
-      stopPrice: ex.priceToPrecision(market, tpPrice),
-      reduceOnly: "true",
-    });
-    tpOrderId = String(tpOrder?.orderId ?? "");
-  } catch (err) {
-    logger.error({ err, market, positionSide }, "Futures TAKE_PROFIT_MARKET placement failed");
-  }
+  const slOrderId = await placeReduceOnlyTrigger(
+    ex, market, closingSide, preciseQty, "STOP_MARKET", ex.priceToPrecision(market, slPrice),
+  );
+  const tpOrderId = await placeReduceOnlyTrigger(
+    ex, market, closingSide, preciseQty, "TAKE_PROFIT_MARKET", ex.priceToPrecision(market, tpPrice),
+  );
 
   if (!slOrderId && !tpOrderId) return null;
   return { slOrderId, tpOrderId };
