@@ -111,18 +111,67 @@ export async function closeFuturesPositionMarket(
 }
 
 /**
+ * Per-symbol max leverage, cached per exchange instance (one instance per
+ * user). Brackets are effectively static for an account, and this sits on
+ * the entry hot path, so it must not re-query the exchange on every scan.
+ */
+const maxLeverageCache = new WeakMap<object, Map<string, number>>();
+
+/**
+ * Resolves the highest leverage Binance actually allows for `market`, or
+ * null if it can't be determined (caller must then not clamp).
+ *
+ * `market.limits.leverage` is NOT usable here: ccxt builds binanceusdm
+ * markets from `exchangeInfo`, which carries no leverage data, so that
+ * object is always `{}` for every USDⓈ-M symbol. The only source of truth
+ * is the leverage-bracket endpoint (`fetchMarketLeverageTiers` → private
+ * /fapi/v1/leverageBracket), whose top tier holds the symbol's max.
+ */
+async function resolveMaxLeverage(ex: any, market: string): Promise<number | null> {
+  let perExchange = maxLeverageCache.get(ex);
+  if (!perExchange) {
+    perExchange = new Map();
+    maxLeverageCache.set(ex, perExchange);
+  }
+  const cached = perExchange.get(market);
+  if (cached !== undefined) return cached;
+
+  // Kept as a fast path for any exchange/ccxt version that does populate it.
+  const fromLimits = Number(ex.market(market)?.limits?.leverage?.max ?? 0);
+  if (fromLimits > 0) {
+    perExchange.set(market, fromLimits);
+    return fromLimits;
+  }
+
+  try {
+    const tiers: any[] = await ex.fetchMarketLeverageTiers(market);
+    const max = Math.max(
+      0,
+      ...(tiers ?? []).map((t) => Number(t?.maxLeverage ?? 0)).filter((n) => Number.isFinite(n) && n > 0),
+    );
+    if (max > 0) {
+      perExchange.set(market, max);
+      return max;
+    }
+    logger.warn({ market }, "Leverage brackets returned no usable maxLeverage — cannot clamp leverage");
+  } catch (err) {
+    logger.warn({ err, market }, "Failed to fetch leverage brackets — cannot clamp leverage");
+  }
+  return null;
+}
+
+/**
  * Sets leverage and margin mode for a symbol before opening a position.
  * Best-effort: Binance rejects a margin-mode call with "no need to change"
  * if it's already set to that mode — treated as success, not an error.
  *
  * Binance caps max leverage per symbol (varies widely — a major pair may
- * allow 125x, a low-cap altcoin often caps at 20x or less). Previously this
- * sent the user's configured leverage straight to `setLeverage` and let
- * Binance reject the call if it was too high — failing the whole entry
- * attempt instead of trading at the highest leverage actually available.
- * Clamp against ccxt's market limits (populated by loadMarkets()) first,
- * and return the leverage actually applied so the caller can size margin
- * and record the trade against the real value, not the requested one.
+ * allow 125x, a low-cap altcoin often caps at 20x or less). Sending a
+ * too-high value makes `setLeverage` throw -4028 and fails the whole entry
+ * instead of trading at the highest leverage actually available, so clamp
+ * to the symbol's real bracket max first. Returns the leverage actually
+ * applied so the caller sizes margin and records the trade against the real
+ * value, not the requested one.
  */
 export async function configureFuturesLeverage(
   ex: any,
@@ -130,8 +179,8 @@ export async function configureFuturesLeverage(
   leverage: number,
   marginMode: "isolated" | "cross",
 ): Promise<number> {
-  const maxAllowed = Number(ex.market(market)?.limits?.leverage?.max ?? 0);
-  const effectiveLeverage = maxAllowed > 0 ? Math.min(leverage, maxAllowed) : leverage;
+  const maxAllowed = await resolveMaxLeverage(ex, market);
+  const effectiveLeverage = maxAllowed !== null ? Math.min(leverage, maxAllowed) : leverage;
   if (effectiveLeverage < leverage) {
     logger.warn(
       { market, requestedLeverage: leverage, maxAllowed, effectiveLeverage },
@@ -144,7 +193,26 @@ export async function configureFuturesLeverage(
   } catch (err) {
     logger.debug({ err, market, marginMode }, "setMarginMode no-op (likely already set to this mode)");
   }
-  await ex.setLeverage(effectiveLeverage, market);
+
+  try {
+    await ex.setLeverage(effectiveLeverage, market);
+  } catch (err) {
+    // -4028 = "Leverage N is not valid". Only reachable if the bracket max
+    // was unavailable or has since tightened, so drop the cached value and
+    // retry once against a fresh bracket read rather than failing the entry.
+    if (!String((err as Error)?.message ?? "").includes("-4028")) throw err;
+
+    maxLeverageCache.get(ex)?.delete(market);
+    const refreshedMax = await resolveMaxLeverage(ex, market);
+    if (refreshedMax === null || refreshedMax >= effectiveLeverage) throw err;
+
+    logger.warn(
+      { market, rejectedLeverage: effectiveLeverage, refreshedMax },
+      "Exchange rejected leverage (-4028) — retrying at this symbol's refreshed maximum",
+    );
+    await ex.setLeverage(refreshedMax, market);
+    return refreshedMax;
+  }
   return effectiveLeverage;
 }
 
