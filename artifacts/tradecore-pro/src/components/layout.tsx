@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert, Layers, LogOut, Menu, X } from "lucide-react";
+import { Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert, Layers, LogOut, Menu, X, UserCircle2 } from "lucide-react";
 import { useGetBotStatus, useHealthCheck, getGetBotStatusQueryKey, getHealthCheckQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: "/memory", label: "Memory Core", icon: BrainCircuit },
   { href: "/backtest", label: "Backtesting", icon: FlaskConical },
   { href: "/settings", label: "Configuration", icon: Settings },
+  { href: "/account", label: "Account", icon: UserCircle2 },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {

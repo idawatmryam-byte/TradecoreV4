@@ -1,10 +1,15 @@
-import { Router, type IRouter, type Response } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
+import { randomBytes } from "node:crypto";
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { usersTable, userIdentitiesTable } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
 import { createSessionToken, getAuthenticatedUserId, SESSION_COOKIE_NAME } from "../middleware/auth";
 import { hashPassword, verifyPassword } from "../lib/passwordHash";
 import { validateEnv } from "../lib/env";
+import {
+  googleEnabled, appleEnabled, googleAuthUrl, appleAuthUrl,
+  exchangeGoogleCode, exchangeAppleCode, type OAuthIdentity,
+} from "../lib/oauth";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -112,6 +117,137 @@ router.post("/auth/logout", (req, res) => {
 router.get("/auth/status", async (req, res) => {
   const userId = await getAuthenticatedUserId(req);
   res.json({ authenticated: userId !== null });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Social sign-in (Google / Apple) — server-side authorization-code flow.
+// Providers are OPTIONAL: each activates only when its env vars are set (see
+// lib/oauth.ts for setup); the frontend calls /auth/providers to know which
+// buttons to render. CSRF protection: a random state value is set as a
+// short-lived signed-origin cookie before redirecting out, and must round-trip
+// exactly on the callback.
+// ═════════════════════════════════════════════════════════════════════════════
+
+const OAUTH_STATE_COOKIE = "tradecore_oauth_state";
+
+function setOauthStateCookie(res: Response, state: string): void {
+  const { nodeEnv } = validateEnv();
+  res.cookie(OAUTH_STATE_COOKIE, state, {
+    httpOnly: true,
+    secure: nodeEnv === "production",
+    // Apple's form_post callback is a cross-site POST — "none" (with secure)
+    // is required for the cookie to accompany it. Google's GET redirect works
+    // under "lax", but one setting must serve both; "none" requires HTTPS,
+    // which production always is. Dev (http) falls back to lax + insecure.
+    sameSite: nodeEnv === "production" ? "none" : "lax",
+    path: "/",
+    maxAge: 10 * 60 * 1000,
+  });
+}
+
+/** Which social sign-in buttons the login page should render. */
+router.get("/auth/providers", (_req, res) => {
+  res.json({ google: googleEnabled(), apple: appleEnabled() });
+});
+
+/**
+ * Resolve an OAuth identity to a local user id, creating the account on first
+ * sign-in. Keyed on the provider's stable subject id (never email). New
+ * accounts get a unique username derived from the email/name and NO password —
+ * they can add one later on the Account page.
+ */
+async function findOrCreateOauthUser(identity: OAuthIdentity): Promise<number> {
+  const [existing] = await db
+    .select()
+    .from(userIdentitiesTable)
+    .where(and(
+      eq(userIdentitiesTable.provider, identity.provider),
+      eq(userIdentitiesTable.providerUserId, identity.providerUserId),
+    ));
+  if (existing) return existing.userId;
+
+  const base = (identity.email?.split("@")[0] ?? identity.displayName ?? identity.provider)
+    .replace(/[^a-zA-Z0-9_.\- ]/g, "")
+    .slice(0, 48) || identity.provider;
+  let username = base;
+  for (let i = 2; ; i++) {
+    const [taken] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.username, username));
+    if (!taken) break;
+    username = `${base}${i}`;
+  }
+
+  const [user] = await db
+    .insert(usersTable)
+    .values({
+      username,
+      passwordHash: null,
+      email: identity.email,
+      displayName: identity.displayName,
+    })
+    .returning();
+  await db.insert(userIdentitiesTable).values({
+    userId: user!.id,
+    provider: identity.provider,
+    providerUserId: identity.providerUserId,
+    email: identity.email,
+  });
+  logger.info({ userId: user!.id, provider: identity.provider }, "AUTH_OAUTH_ACCOUNT_CREATED");
+  return user!.id;
+}
+
+/** Shared callback tail: verify state, resolve the user, set the session
+ *  cookie, and redirect into the app (the SPA re-checks /auth/status). */
+async function completeOauthLogin(
+  req: Request,
+  res: Response,
+  provider: "google" | "apple",
+  code: unknown,
+  state: unknown,
+): Promise<void> {
+  const cookieState = (req.cookies as Record<string, string> | undefined)?.[OAUTH_STATE_COOKIE];
+  res.clearCookie(OAUTH_STATE_COOKIE, { path: "/" });
+  if (typeof code !== "string" || !code || typeof state !== "string" || !state || state !== cookieState) {
+    logger.warn({ provider, ip: req.ip, hasCookie: !!cookieState }, "AUTH_OAUTH_STATE_MISMATCH");
+    res.redirect("/?auth_error=oauth_state");
+    return;
+  }
+  try {
+    const identity = provider === "google" ? await exchangeGoogleCode(code) : await exchangeAppleCode(code);
+    const userId = await findOrCreateOauthUser(identity);
+    logger.info({ userId, provider, ip: req.ip }, "AUTH_OAUTH_LOGIN_SUCCESS");
+    setSessionCookie(res, userId);
+    res.redirect("/");
+  } catch (err) {
+    logger.error({ err, provider }, "AUTH_OAUTH_LOGIN_FAILED");
+    res.redirect("/?auth_error=oauth_failed");
+  }
+}
+
+router.get("/auth/google", (_req, res) => {
+  if (!googleEnabled()) { res.status(404).json({ error: "Google sign-in is not configured" }); return; }
+  const state = randomBytes(16).toString("hex");
+  setOauthStateCookie(res, state);
+  res.redirect(googleAuthUrl(state));
+});
+
+router.get("/auth/google/callback", async (req, res) => {
+  if (!googleEnabled()) { res.status(404).json({ error: "Google sign-in is not configured" }); return; }
+  await completeOauthLogin(req, res, "google", req.query.code, req.query.state);
+});
+
+router.get("/auth/apple", (_req, res) => {
+  if (!appleEnabled()) { res.status(404).json({ error: "Apple sign-in is not configured" }); return; }
+  const state = randomBytes(16).toString("hex");
+  setOauthStateCookie(res, state);
+  res.redirect(appleAuthUrl(state));
+});
+
+// Apple delivers the callback as a form POST (response_mode=form_post) —
+// express.urlencoded is mounted globally in app.ts, so req.body has the params.
+router.post("/auth/apple/callback", async (req, res) => {
+  if (!appleEnabled()) { res.status(404).json({ error: "Apple sign-in is not configured" }); return; }
+  const body = req.body as Record<string, unknown>;
+  await completeOauthLogin(req, res, "apple", body.code, body.state);
 });
 
 export default router;
