@@ -20,54 +20,10 @@ const COIN_UNIVERSE = [
   "INJUSDT", "SUIUSDT", "TIAUSDT", "FILUSDT", "SEIUSDT", "AAVEUSDT",
 ];
 
-// ── Dollar risk-model preview ────────────────────────────────────────────────
-// Mirrors the server's lib/dollarRisk.ts planDollarRiskFractions() so the user
-// sees EXACTLY what a dollar-model trade will risk/target before saving. The
-// SL/TP price distances and the liquidation distance are all fractions of entry
-// that depend only on the dollar amounts, the notional and leverage — never on
-// the coin's price — so this browser-side preview is exact (see dollarRisk.ts).
-const MAINTENANCE_MARGIN_RATE = 0.004;
-const LIQUIDATION_BUFFER = 1.25;
-const SPOT_TAKER_FEE = 0.001;
-const FUTURES_TAKER_FEE = 0.0005;
-
-function previewDollarRisk(input: {
-  marketType: "spot" | "futures";
-  tradeAmountUsdt: number;
-  leverage: number;
-  maxLossUsdt: number;
-  targetProfitUsdt: number;
-}) {
-  const isFutures = input.marketType === "futures";
-  const leverage = isFutures ? Math.max(1, input.leverage) : 1;
-  const feeRate = isFutures ? FUTURES_TAKER_FEE : SPOT_TAKER_FEE;
-  const margin = Math.max(0, input.tradeAmountUsdt);
-  const notional = margin * (isFutures ? leverage : 1);
-  const roundTripFees = notional * feeRate * 2;
-  const maxLoss = Math.max(0, input.maxLossUsdt);
-  const targetProfit = Math.max(0, input.targetProfitUsdt);
-
-  const grossLoss = maxLoss - roundTripFees;
-  const grossGain = targetProfit + roundTripFees;
-  const feasible = notional > 0 && grossLoss > 0;
-  const slPercent = feasible ? (grossLoss / notional) * 100 : 0;
-  const tpPercent = notional > 0 ? (grossGain / notional) * 100 : 0;
-  const rewardRisk = maxLoss > 0 ? targetProfit / maxLoss : 0;
-
-  const liquidationPercent = isFutures && leverage > 1 ? Math.max(0, 1 / leverage - MAINTENANCE_MARGIN_RATE) * 100 : null;
-  const safe = liquidationPercent === null ? true : feasible && liquidationPercent >= slPercent * LIQUIDATION_BUFFER;
-
-  const warnings: string[] = [];
-  if (notional <= 0) warnings.push("Trade amount is zero.");
-  if (!feasible && notional > 0)
-    warnings.push(`Round-trip fees (~$${roundTripFees.toFixed(2)}) meet/exceed your max loss ($${maxLoss.toFixed(2)}). Raise max loss or lower trade amount/leverage.`);
-  if (liquidationPercent !== null && !safe && feasible)
-    warnings.push("Stop would sit at/beyond the liquidation price. Reduce leverage, raise the trade amount, or lower the max loss.");
-  if (rewardRisk > 0 && rewardRisk < 0.5)
-    warnings.push(`Reward:risk is ${rewardRisk.toFixed(2)} — the engine rejects trades below 0.5. Raise the target or lower the max loss.`);
-
-  return { isFutures, leverage, notional, roundTripFees, slPercent, tpPercent, rewardRisk, liquidationPercent, safe, feasible, warnings };
-}
+// NOTE: how each strategy TRADES (dollar risk/target, stop & target levels,
+// position size, hold time) is configured per strategy on the Strategies
+// page. This page holds only account-level settings and the safety limits
+// that protect the WHOLE account across every strategy.
 
 function BinanceCredentialsCard() {
   const { data: status, isLoading } = useGetBinanceCredentials({ query: { queryKey: getGetBinanceCredentialsQueryKey() } });
@@ -166,15 +122,8 @@ export function Settings() {
     marketType: "spot" as "spot" | "futures",
     leverage: 1,
     marginMode: "isolated" as "isolated" | "cross",
-    positionSizeUsdt: 10,
     maxOpenPositions: 5,
     dailyLossLimitUsdt: -10,
-    confidenceThreshold: 65,
-    riskModel: "percent" as "percent" | "dollar",
-    stopLossPercent: 1.5,
-    takeProfitPercent: 2.5,
-    maxLossUsdt: 5,
-    targetProfitUsdt: 10,
     scanIntervalSeconds: 15,
     pairs: "BTCUSDT,ETHUSDT",
     testnet: true,
@@ -189,15 +138,8 @@ export function Settings() {
         marketType: config.marketType,
         leverage: config.leverage,
         marginMode: config.marginMode,
-        positionSizeUsdt: config.positionSizeUsdt,
         maxOpenPositions: config.maxOpenPositions,
         dailyLossLimitUsdt: config.dailyLossLimitUsdt,
-        confidenceThreshold: config.confidenceThreshold,
-        riskModel: config.riskModel,
-        stopLossPercent: config.stopLossPercent,
-        takeProfitPercent: config.takeProfitPercent,
-        maxLossUsdt: config.maxLossUsdt,
-        targetProfitUsdt: config.targetProfitUsdt,
         scanIntervalSeconds: config.scanIntervalSeconds,
         pairs: config.pairs.join(", "),
         testnet: config.testnet,
@@ -242,9 +184,12 @@ export function Settings() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <SettingsIcon className="h-6 w-6 text-primary" /> Engine Configuration
+          <SettingsIcon className="h-6 w-6 text-primary" /> Account & Safety
         </h1>
-        <p className="text-muted-foreground text-sm mt-1">Adjust core trading parameters and risk management rules.</p>
+        <p className="text-muted-foreground text-sm mt-1">
+          Account-level settings and the safety limits that protect your whole account.
+          How each strategy trades — dollar risk, targets, hold time — lives on the Strategies page.
+        </p>
       </div>
 
       <BinanceCredentialsCard />
@@ -301,142 +246,17 @@ export function Settings() {
         </CardContent>
       </Card>
 
-      {/* ── Risk Model: percentage vs fixed-dollar ─────────────────────────── */}
-      {(() => {
-        const isDollar = formData.riskModel === "dollar";
-        const p = previewDollarRisk({
-          marketType: formData.marketType,
-          tradeAmountUsdt: formData.positionSizeUsdt,
-          leverage: formData.leverage,
-          maxLossUsdt: formData.maxLossUsdt,
-          targetProfitUsdt: formData.targetProfitUsdt,
-        });
-        const stat = (label: string, value: string, tone?: "good" | "bad") => (
-          <div className="rounded-md border border-border bg-muted/20 p-3">
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</div>
-            <div className={cn("mt-1 font-mono text-sm font-bold",
-              tone === "good" && "text-success", tone === "bad" && "text-destructive")}>{value}</div>
-          </div>
-        );
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-primary" /> Risk Model
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>How to set Stop Loss & Take Profit</Label>
-                  <Select value={formData.riskModel} onValueChange={(v) => handleChange("riskModel", v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="dollar">Fixed dollars ($ risk / $ target)</SelectItem>
-                      <SelectItem value="percent">Percentage of price</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <p className="text-xs text-muted-foreground md:pt-6">
-                  {isDollar
-                    ? "You choose the dollars to risk and the dollars to aim for. The engine works out the position size, the exact stop-loss and take-profit prices, the reward:risk, fees, and (futures) the liquidation distance."
-                    : "Stop-loss and take-profit are set as a % of price movement from entry; position size comes from Position Size / risk %."}
-                </p>
-              </div>
-
-              {isDollar ? (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Max Loss per Trade (USDT)</Label>
-                      <Input type="number" step="0.5" min={0} value={formData.maxLossUsdt}
-                        onChange={(e) => handleChange("maxLossUsdt", Number(e.target.value))} />
-                      <p className="text-[11px] text-muted-foreground">The most you'll lose if the stop is hit (fees included).</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Target Profit per Trade (USDT)</Label>
-                      <Input type="number" step="0.5" min={0} value={formData.targetProfitUsdt}
-                        onChange={(e) => handleChange("targetProfitUsdt", Number(e.target.value))} />
-                      <p className="text-[11px] text-muted-foreground">The profit you're aiming for at the take-profit (fees included).</p>
-                    </div>
-                  </div>
-
-                  {/* Live trade preview — exact, price-independent */}
-                  <div className="rounded-lg border border-border p-4 space-y-3 bg-background/40">
-                    <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                      Trade Preview {p.isFutures ? `· ${p.leverage}× futures` : "· spot"}
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                      {stat("Notional Exposure", `$${p.notional.toFixed(2)}`)}
-                      {stat("You Risk", `$${formData.maxLossUsdt.toFixed(2)}`, "bad")}
-                      {stat("You Aim For", `$${formData.targetProfitUsdt.toFixed(2)}`, "good")}
-                      {stat("Stop distance", p.feasible ? `${p.slPercent.toFixed(2)}%` : "—")}
-                      {stat("Target distance", `${p.tpPercent.toFixed(2)}%`)}
-                      {stat("Reward : Risk", p.rewardRisk > 0 ? `${p.rewardRisk.toFixed(2)} : 1` : "—",
-                        p.rewardRisk >= 1 ? "good" : p.rewardRisk > 0 && p.rewardRisk < 0.5 ? "bad" : undefined)}
-                      {stat("Est. round-trip fees", `$${p.roundTripFees.toFixed(2)}`)}
-                      {p.liquidationPercent !== null &&
-                        stat("Liquidation distance", `${p.liquidationPercent.toFixed(2)}%`, p.safe ? undefined : "bad")}
-                      {p.liquidationPercent !== null &&
-                        stat("Stop vs liquidation", p.safe ? "SAFE" : "UNSAFE", p.safe ? "good" : "bad")}
-                    </div>
-                    {p.warnings.length > 0 && (
-                      <ul className="space-y-1 pt-1">
-                        {p.warnings.map((w, i) => (
-                          <li key={i} className="text-[11px] text-destructive flex gap-1.5">
-                            <span>⚠</span><span>{w}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {p.warnings.length === 0 && p.feasible && (
-                      <p className="text-[11px] text-success">✓ Placeable — the engine will risk about ${formData.maxLossUsdt.toFixed(2)} to make ${formData.targetProfitUsdt.toFixed(2)} on each trade.</p>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    These same dollar amounts apply to every coin: the engine converts them into the right stop/target
-                    price for each entry. Set the notional with <strong>Position Size</strong> below
-                    ({p.isFutures ? "margin × leverage" : "your spot order size"}).
-                  </p>
-                </>
-              ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Stop Loss % (of price)</Label>
-                    <Input type="number" step="0.1" value={formData.stopLossPercent}
-                      onChange={(e) => handleChange("stopLossPercent", Number(e.target.value))} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Take Profit % (of price)</Label>
-                    <Input type="number" step="0.1" value={formData.takeProfitPercent}
-                      onChange={(e) => handleChange("takeProfitPercent", Number(e.target.value))} />
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })()}
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-mono tracking-wider uppercase">Risk & Sizing</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
-            <div className="space-y-2">
-              <Label>Position Size (USDT){isFutures ? " — margin per trade" : ""}</Label>
-              <Input
-                type="number"
-                value={formData.positionSizeUsdt}
-                onChange={(e) => handleChange('positionSizeUsdt', Number(e.target.value))}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                {isFutures
-                  ? "Margin committed per trade. Notional exposure = size × leverage."
-                  : "USDT spent per trade (the position's notional)."}
-              </p>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Account-wide limits that apply across ALL strategies — the final safety net.
+              Per-trade amounts, dollar risk and targets are set per strategy on the
+              <strong> Strategies</strong> page.
+            </p>
             <div className="space-y-2">
               <Label>Max Open Positions</Label>
               <Input 
@@ -461,14 +281,6 @@ export function Settings() {
             <CardTitle className="text-sm font-mono tracking-wider uppercase">Strategy & Environment</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
-            <div className="space-y-2">
-              <Label>Confidence Threshold (1-100)</Label>
-              <Input 
-                type="number" 
-                value={formData.confidenceThreshold} 
-                onChange={(e) => handleChange('confidenceThreshold', Number(e.target.value))} 
-              />
-            </div>
             <div className="space-y-2">
               {(() => {
                 const selected = formData.pairs

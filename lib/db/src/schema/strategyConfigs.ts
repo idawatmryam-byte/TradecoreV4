@@ -13,6 +13,20 @@ export const strategyConfigsTable = pgTable("strategy_configs", {
   strategyId: text("strategy_id").notNull(),
   strategyName: text("strategy_name").notNull(),
   enabled: boolean("enabled").notNull().default(true),
+
+  // ── Dollar trade plan (the PRIMARY per-strategy controls in the UI) ────────
+  // When maxLossUsdt AND targetProfitUsdt are set, this strategy trades the
+  // dollar risk model (lib/dollarRisk.ts): the engine derives SL/TP prices and
+  // position size from these three numbers, overriding the legacy %-based
+  // fields below. NULL = legacy behavior (percent SL/TP + riskPercent sizing),
+  // preserving existing installs until the user saves the new form.
+  /** Spot: notional per trade. Futures: MARGIN per trade (notional = × leverage). */
+  tradeAmountUsdt: numeric("trade_amount_usdt", { precision: 12, scale: 2 }),
+  /** Max dollars to lose on one trade (net of fees). */
+  maxLossUsdt: numeric("max_loss_usdt", { precision: 12, scale: 2 }),
+  /** Desired dollar profit for one trade (net of fees). */
+  targetProfitUsdt: numeric("target_profit_usdt", { precision: 12, scale: 2 }),
+
   /** % of account balance to risk per trade */
   riskPercent: numeric("risk_percent", { precision: 5, scale: 2 }).notNull().default("1.0"),
   /** Minimum confidence score to enter (0–100) */

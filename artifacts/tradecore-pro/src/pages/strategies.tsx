@@ -3,8 +3,10 @@ import {
   useGetStrategies,
   useUpdateStrategyConfig,
   useGetStrategySignals,
+  useGetConfig,
   getGetStrategiesQueryKey,
   getGetStrategySignalsQueryKey,
+  getGetConfigQueryKey,
   type StrategyInfo,
 } from '@workspace/api-client-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +16,36 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import { TrendingUp, Target, Waves, Zap, ArrowUpDown, BarChart3, Edit2, X, Check, RefreshCw, Flame } from 'lucide-react';
+import { TrendingUp, Target, Waves, Zap, ArrowUpDown, BarChart3, Edit2, X, Check, RefreshCw, Flame, ChevronDown, ChevronUp } from 'lucide-react';
+
+/** Account context the dollar-plan preview needs (from Configuration). */
+interface AccountCtx {
+  marketType: 'spot' | 'futures';
+  leverage: number;
+  fallbackTradeAmount: number;
+}
+
+/**
+ * Mirrors the server's dollar planner (lib/dollarRisk.ts) so the card can
+ * show exactly what a trade will look like BEFORE saving: notional, the
+ * stop/target price distances the dollars imply, R:R, and fees. All price-
+ * independent fractions — see dollarRisk.ts for why this is exact.
+ */
+function previewPlan(ctx: AccountCtx, tradeAmount: number, maxLoss: number, target: number) {
+  const isFutures = ctx.marketType === 'futures';
+  const leverage = isFutures ? Math.max(1, ctx.leverage) : 1;
+  const feeRate = isFutures ? 0.0005 : 0.001;
+  const notional = Math.max(0, tradeAmount) * leverage;
+  const rtFees = notional * feeRate * 2;
+  const grossLoss = maxLoss - rtFees;
+  const feasible = notional > 0 && grossLoss > 0;
+  const slPct = feasible ? (grossLoss / notional) * 100 : 0;
+  const tpPct = notional > 0 ? ((target + rtFees) / notional) * 100 : 0;
+  const rr = maxLoss > 0 ? target / maxLoss : 0;
+  const liqPct = isFutures && leverage > 1 ? Math.max(0, 1 / leverage - 0.004) * 100 : null;
+  const safe = liqPct === null ? true : feasible && liqPct >= slPct * 1.25;
+  return { notional, rtFees, slPct, tpPct, rr, feasible, safe };
+}
 
 // ── Strategy icon mapping ───────────────────────────────────────────────────
 
@@ -40,6 +71,9 @@ const REGIME_COLORS: Record<string, string> = {
 
 interface EditState {
   enabled: boolean;
+  tradeAmountUsdt: string;
+  maxLossUsdt: string;
+  targetProfitUsdt: string;
   riskPercent: string;
   confidenceThreshold: string;
   stopLossPercent: string;
@@ -51,10 +85,14 @@ interface EditState {
 
 // ── Strategy card ──────────────────────────────────────────────────────────
 
-function StrategyCard({ strategy, onSaved }: { strategy: StrategyInfo; onSaved: () => void }) {
+function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx: AccountCtx; onSaved: () => void }) {
   const [editing, setEditing] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [form, setForm] = useState<EditState>({
     enabled:                strategy.config.enabled,
+    tradeAmountUsdt:        strategy.config.tradeAmountUsdt != null ? String(strategy.config.tradeAmountUsdt) : String(ctx.fallbackTradeAmount),
+    maxLossUsdt:            strategy.config.maxLossUsdt != null ? String(strategy.config.maxLossUsdt) : '',
+    targetProfitUsdt:       strategy.config.targetProfitUsdt != null ? String(strategy.config.targetProfitUsdt) : '',
     riskPercent:            String(strategy.config.riskPercent),
     confidenceThreshold:    String(strategy.config.confidenceThreshold),
     stopLossPercent:        String(strategy.config.stopLossPercent),
@@ -75,11 +113,27 @@ function StrategyCard({ strategy, onSaved }: { strategy: StrategyInfo; onSaved: 
   const winRatePct = perf.winRate != null ? (perf.winRate * 100).toFixed(1) + '%' : '—';
   const pnlColor = perf.totalPnl >= 0 ? 'text-success' : 'text-destructive';
 
+  // The dollar plan is active when both dollar fields hold positive numbers.
+  const maxLossNum = Number(form.maxLossUsdt);
+  const targetNum = Number(form.targetProfitUsdt);
+  const tradeAmountNum = Number(form.tradeAmountUsdt) || ctx.fallbackTradeAmount;
+  const dollarPlanActive = maxLossNum > 0 && targetNum > 0;
+  const preview = dollarPlanActive ? previewPlan(ctx, tradeAmountNum, maxLossNum, targetNum) : null;
+
+  const savedDollarPlan =
+    strategy.config.maxLossUsdt != null && strategy.config.maxLossUsdt > 0 &&
+    strategy.config.targetProfitUsdt != null && strategy.config.targetProfitUsdt > 0;
+
   function handleSave() {
     mutate({
       id: strategy.strategyId,
       data: {
         enabled:                form.enabled,
+        // Empty dollar fields save as null → the strategy reverts to the
+        // legacy %-based model (advanced section).
+        tradeAmountUsdt:        Number(form.tradeAmountUsdt) > 0 ? Number(form.tradeAmountUsdt) : null,
+        maxLossUsdt:            maxLossNum > 0 ? maxLossNum : null,
+        targetProfitUsdt:       targetNum > 0 ? targetNum : null,
         riskPercent:            Number(form.riskPercent),
         confidenceThreshold:    Number(form.confidenceThreshold),
         stopLossPercent:        Number(form.stopLossPercent),
@@ -151,28 +205,82 @@ function StrategyCard({ strategy, onSaved }: { strategy: StrategyInfo; onSaved: 
         {/* Config display or edit form */}
         {editing ? (
           <div className="space-y-3 border rounded-lg p-3 bg-muted/20">
+            {/* ── The trade plan: three dollar numbers + hold time ─────────── */}
             <div className="grid grid-cols-2 gap-3">
-              {(
-                [
-                  ['riskPercent', 'Risk %'],
-                  ['confidenceThreshold', 'Min Confidence'],
-                  ['stopLossPercent', 'Stop Loss %'],
-                  ['takeProfitPercent', 'Take Profit %'],
-                  ['maxHoldingSeconds', 'Max Hold (sec)'],
-                  ['maxConcurrentPositions', 'Max Concurrent'],
-                  ['cooldownMinutes', 'Cooldown (min)'],
-                ] as [keyof Omit<EditState, 'enabled'>, string][]
-              ).map(([key, label]) => (
-                <div key={key}>
-                  <Label className="text-xs">{label}</Label>
-                  <Input
-                    className="h-7 text-xs mt-1"
-                    value={form[key]}
-                    onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-                  />
-                </div>
-              ))}
+              <div>
+                <Label className="text-xs">Trade Amount ($)</Label>
+                <Input className="h-7 text-xs mt-1" inputMode="decimal" value={form.tradeAmountUsdt}
+                  onChange={(e) => setForm((f) => ({ ...f, tradeAmountUsdt: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-xs">Max Hold (sec)</Label>
+                <Input className="h-7 text-xs mt-1" inputMode="numeric" value={form.maxHoldingSeconds}
+                  onChange={(e) => setForm((f) => ({ ...f, maxHoldingSeconds: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-xs">Max Loss ($)</Label>
+                <Input className="h-7 text-xs mt-1" inputMode="decimal" placeholder="e.g. 5" value={form.maxLossUsdt}
+                  onChange={(e) => setForm((f) => ({ ...f, maxLossUsdt: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-xs">Target Profit ($)</Label>
+                <Input className="h-7 text-xs mt-1" inputMode="decimal" placeholder="e.g. 10" value={form.targetProfitUsdt}
+                  onChange={(e) => setForm((f) => ({ ...f, targetProfitUsdt: e.target.value }))} />
+              </div>
             </div>
+
+            {preview ? (
+              <p className={cn('text-[10px] font-mono leading-relaxed',
+                preview.feasible && preview.safe ? 'text-muted-foreground' : 'text-destructive')}>
+                {preview.feasible
+                  ? <>Risk ${maxLossNum} to make ${targetNum} on ${preview.notional.toFixed(0)} notional
+                      · stop ≈ {preview.slPct.toFixed(2)}% · target ≈ {preview.tpPct.toFixed(2)}%
+                      · R:R {preview.rr.toFixed(2)}:1 · fees ≈ ${preview.rtFees.toFixed(2)}
+                      {!preview.safe && ' · ⚠ STOP BEYOND LIQUIDATION — lower leverage or max loss'}</>
+                  : <>⚠ Fees (${preview.rtFees.toFixed(2)}) meet/exceed the max loss — raise Max Loss or lower Trade Amount/leverage.</>}
+              </p>
+            ) : (
+              <p className="text-[10px] font-mono text-muted-foreground">
+                Leave Max Loss / Target empty to use the advanced %-based model below.
+              </p>
+            )}
+
+            {/* ── Advanced (rarely needed) ─────────────────────────────────── */}
+            <button
+              type="button"
+              className="w-full flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground py-1"
+              onClick={() => setShowAdvanced((v) => !v)}
+            >
+              <span>Advanced</span>
+              {showAdvanced ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            </button>
+            {showAdvanced && (
+              <div className="grid grid-cols-2 gap-3 border-t border-border/50 pt-3">
+                {(
+                  [
+                    ['confidenceThreshold', 'Min Confidence'],
+                    ['maxConcurrentPositions', 'Max Concurrent'],
+                    ['cooldownMinutes', 'Cooldown (min)'],
+                    ['riskPercent', 'Risk % (legacy)'],
+                    ['stopLossPercent', 'Stop Loss % (legacy)'],
+                    ['takeProfitPercent', 'Take Profit % (legacy)'],
+                  ] as [keyof Omit<EditState, 'enabled'>, string][]
+                ).map(([key, label]) => (
+                  <div key={key}>
+                    <Label className="text-xs">{label}</Label>
+                    <Input
+                      className="h-7 text-xs mt-1"
+                      value={form[key]}
+                      onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+                <p className="col-span-2 text-[10px] text-muted-foreground">
+                  The legacy % fields only apply while Max Loss / Target above are empty.
+                </p>
+              </div>
+            )}
+
             <div className="flex gap-2 justify-end">
               <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setEditing(false)}>
                 <X className="h-3 w-3 mr-1" /> Cancel
@@ -180,6 +288,19 @@ function StrategyCard({ strategy, onSaved }: { strategy: StrategyInfo; onSaved: 
               <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={isPending}>
                 <Check className="h-3 w-3 mr-1" /> {isPending ? 'Saving…' : 'Save'}
               </Button>
+            </div>
+          </div>
+        ) : savedDollarPlan ? (
+          <div className="text-[11px] text-muted-foreground space-y-1">
+            <div className="font-mono">
+              Risk <span className="text-destructive font-semibold">${strategy.config.maxLossUsdt}</span>
+              {' → make '}<span className="text-success font-semibold">${strategy.config.targetProfitUsdt}</span>
+              {' · '}<span className="text-foreground">${strategy.config.tradeAmountUsdt ?? ctx.fallbackTradeAmount}</span>/trade
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              <span>Hold: <span className="text-foreground font-mono">{Math.round(strategy.config.maxHoldingSeconds / 60)}m</span></span>
+              <span>Conf: <span className="text-foreground font-mono">{strategy.config.confidenceThreshold}</span></span>
+              <span>Max: <span className="text-foreground font-mono">{strategy.config.maxConcurrentPositions}</span></span>
             </div>
           </div>
         ) : (
@@ -291,6 +412,12 @@ export function Strategies() {
   const { data: strategies, isLoading, refetch } = useGetStrategies({
     query: { refetchInterval: 30_000, queryKey: getGetStrategiesQueryKey() }
   });
+  const { data: config } = useGetConfig({ query: { queryKey: getGetConfigQueryKey() } });
+  const ctx: AccountCtx = {
+    marketType: config?.marketType ?? 'spot',
+    leverage: config?.leverage ?? 1,
+    fallbackTradeAmount: config?.positionSizeUsdt ?? 50,
+  };
 
   const activeCount   = strategies?.filter((s) => s.config.enabled).length ?? 0;
   const totalCount    = strategies?.length ?? 0;
@@ -348,7 +475,7 @@ export function Strategies() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {(strategies ?? []).map((strategy) => (
-            <StrategyCard key={strategy.strategyId} strategy={strategy} onSaved={refetch} />
+            <StrategyCard key={strategy.strategyId} strategy={strategy} ctx={ctx} onSaved={refetch} />
           ))}
         </div>
       )}

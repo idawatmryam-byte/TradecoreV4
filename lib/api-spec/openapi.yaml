@@ -1833,6 +1833,15 @@ components:
           type: string
         enabled:
           type: boolean
+        tradeAmountUsdt:
+          type: ["number", "null"]
+          description: "Dollar trade plan: spot notional / futures margin per trade. null → global positionSizeUsdt."
+        maxLossUsdt:
+          type: ["number", "null"]
+          description: "Dollar trade plan: max dollars to lose on one trade (net of fees). With targetProfitUsdt set, this strategy trades the dollar risk model."
+        targetProfitUsdt:
+          type: ["number", "null"]
+          description: "Dollar trade plan: desired dollar profit for one trade (net of fees)."
         riskPercent:
           type: number
           description: "% of account balance to risk per trade"
@@ -1857,6 +1866,15 @@ components:
       properties:
         enabled:
           type: boolean
+        tradeAmountUsdt:
+          type: ["number", "null"]
+          description: "null clears the field (fall back to global positionSizeUsdt)."
+        maxLossUsdt:
+          type: ["number", "null"]
+          description: "null clears the dollar plan (strategy reverts to %-based SL/TP)."
+        targetProfitUsdt:
+          type: ["number", "null"]
+          description: "null clears the dollar plan (strategy reverts to %-based SL/TP)."
         riskPercent:
           type: number
         confidenceThreshold:

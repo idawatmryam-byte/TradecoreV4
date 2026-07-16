@@ -36,7 +36,8 @@ import { ensureCandles, loadCandles } from "./historicalData";
 import { logger } from "./logger";
 import { MIN_VIABLE_TAKE_PROFIT_PERCENT, DEFAULT_FEE_RATE, DEFAULT_SLIPPAGE_RATE } from "./tradingCosts";
 import { estimateLiquidationPrice, stopTooCloseToLiquidation } from "./futuresMath";
-import { type DollarRiskConfig, type RiskModel } from "./dollarRisk";
+import { type RiskModel } from "./dollarRisk";
+import { type DollarRiskContext } from "./strategies/selector";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -462,20 +463,20 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
   const notionalCapUsdt = params.positionSizeUsdt * leverage;
   let liquidationRejectedEntries = 0; // entries the live liquidation guard would refuse
 
-  // Dollar risk model (Phase 8): when enabled, override each signal's %-based
-  // SL/TP/size with the fixed max-loss / target-profit plan — identical planner
-  // to the live engine (parity), threaded into strategySelector.evaluateSymbol.
-  const dollarRisk: DollarRiskConfig | undefined =
-    params.riskModel === "dollar"
-      ? {
-          marketType: isFutures ? "futures" : "spot",
-          tradeAmountUsdt: params.positionSizeUsdt,
-          leverage,
-          maxLossUsdt: params.maxLossUsdt ?? 0,
-          targetProfitUsdt: params.targetProfitUsdt ?? 0,
-          feeRate,
-        }
-      : undefined;
+  // Dollar-risk context (always passed — parity with the live engine): a
+  // strategy carrying its own trade plan trades the dollar model with those
+  // numbers; otherwise the run-level dollar config applies when riskModel =
+  // "dollar"; otherwise legacy %-based behavior.
+  const dollarRisk: DollarRiskContext = {
+    marketType: isFutures ? "futures" : "spot",
+    leverage,
+    feeRate,
+    globalTradeAmountUsdt: params.positionSizeUsdt,
+    ...(params.riskModel === "dollar" && {
+      globalMaxLossUsdt: params.maxLossUsdt ?? 0,
+      globalTargetProfitUsdt: params.targetProfitUsdt ?? 0,
+    }),
+  };
 
   // Diagnostic checkpoint 1: exactly what runBacktest() received, before
   // anything else touches it. Compare against the route's log of what the

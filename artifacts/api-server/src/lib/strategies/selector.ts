@@ -15,6 +15,51 @@ import { type MultiTimeframeCandles, type SignalRow, unifyConfidence } from "../
 import { netRewardRisk, MIN_VIABLE_REWARD_RISK } from "../tradingCosts";
 import { type DollarRiskConfig, planDollarRisk } from "../dollarRisk";
 
+/**
+ * Account-level context for dollar-risk resolution, passed by both engines
+ * (live + backtest) on every evaluation. The GLOBAL dollar numbers are only
+ * set when the account's riskModel is "dollar"; per-strategy plans work
+ * regardless, since they carry their own numbers.
+ */
+export interface DollarRiskContext {
+  marketType: "spot" | "futures";
+  leverage: number;
+  feeRate: number;
+  /** Fallback trade amount when a strategy doesn't set its own (global positionSizeUsdt). */
+  globalTradeAmountUsdt: number;
+  /** Account-level dollar plan — set only when riskModel = "dollar". */
+  globalMaxLossUsdt?: number;
+  globalTargetProfitUsdt?: number;
+}
+
+/** Per-strategy plan wins; account-level dollar mode is the fallback; null = legacy %. */
+function resolveDollarPlan(
+  config: StrategyConfig,
+  ctx: DollarRiskContext | undefined,
+): DollarRiskConfig | null {
+  if (!ctx) return null;
+  const base = { marketType: ctx.marketType, leverage: ctx.leverage, feeRate: ctx.feeRate };
+  if (config.maxLossUsdt != null && config.maxLossUsdt > 0 &&
+      config.targetProfitUsdt != null && config.targetProfitUsdt > 0) {
+    return {
+      ...base,
+      tradeAmountUsdt: config.tradeAmountUsdt ?? ctx.globalTradeAmountUsdt,
+      maxLossUsdt: config.maxLossUsdt,
+      targetProfitUsdt: config.targetProfitUsdt,
+    };
+  }
+  if (ctx.globalMaxLossUsdt != null && ctx.globalMaxLossUsdt > 0 &&
+      ctx.globalTargetProfitUsdt != null && ctx.globalTargetProfitUsdt > 0) {
+    return {
+      ...base,
+      tradeAmountUsdt: ctx.globalTradeAmountUsdt,
+      maxLossUsdt: ctx.globalMaxLossUsdt,
+      targetProfitUsdt: ctx.globalTargetProfitUsdt,
+    };
+  }
+  return null;
+}
+
 export class StrategySelector {
   private strategies: Strategy[];
 
@@ -34,12 +79,14 @@ export class StrategySelector {
     balance: number,
     positionSizeUsdt: number,
     /**
-     * When set, the engine is in DOLLAR risk mode: the strategy still decides
-     * DIRECTION and entry timing, but its %-based SL/TP/qty are overridden by
-     * the dollar-based plan (fixed max-loss / target-profit → SL price, TP
-     * price and size). Shared by live + backtest so both size identically.
+     * When set, dollar-risk resolution is ACTIVE: each strategy's own
+     * tradeAmountUsdt/maxLossUsdt/targetProfitUsdt (per-strategy trade plan,
+     * the primary Strategies-page controls) — or, as fallback, the global
+     * dollar config when the account-level riskModel is "dollar" — overrides
+     * the strategy's %-based SL/TP/qty with the dollar-derived plan.
+     * Shared by live + backtest so both size identically.
      */
-    dollarRisk?: DollarRiskConfig,
+    dollarRisk?: DollarRiskContext,
   ): StrategySignal[] {
     const signals: StrategySignal[] = [];
 
@@ -55,12 +102,17 @@ export class StrategySelector {
 
         // ── Dollar risk model override ──────────────────────────────────────
         // Replace the strategy's %-based stop/target/size with the levels the
-        // user's fixed dollar risk implies. Reject the signal (parity with
-        // live + backtest) if the dollar config can't place a safe stop —
-        // e.g. fees exceed the max loss, or a leveraged stop would sit beyond
-        // liquidation. The netRewardRisk gate below then runs on these levels.
-        if (dollarRisk) {
-          const plan = planDollarRisk(signal.entryPrice, signal.side, dollarRisk);
+        // fixed dollar risk implies. Resolution order:
+        //   1. the strategy's OWN dollar plan (maxLossUsdt + targetProfitUsdt
+        //      both set), using its own tradeAmountUsdt when present;
+        //   2. else the account-level dollar config (riskModel = "dollar");
+        //   3. else no override (legacy %-based behavior).
+        // Reject the signal if the plan can't place a safe stop — fees exceed
+        // the max loss, or a leveraged stop would sit beyond liquidation.
+        // The netRewardRisk gate below then runs on the resolved levels.
+        const resolved = resolveDollarPlan(config, dollarRisk);
+        if (resolved) {
+          const plan = planDollarRisk(signal.entryPrice, signal.side, resolved);
           if (!plan.feasible || !plan.safe || plan.qty <= 0) {
             console.warn(
               `[selector] ${strategy.strategyId} rejected on ${symbol}: dollar risk not placeable ` +
@@ -122,7 +174,7 @@ export class StrategySelector {
     configs: Map<string, StrategyConfig>,
     balance: number,
     positionSizeUsdt: number,
-    dollarRisk?: DollarRiskConfig,
+    dollarRisk?: DollarRiskContext,
   ): StrategySignal[] {
     const all: StrategySignal[] = [];
     for (const { symbol, mtf, row } of symbolData) {

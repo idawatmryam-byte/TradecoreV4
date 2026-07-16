@@ -143,7 +143,16 @@ router.put("/strategies/:id", async (req, res) => {
     }
     return null;
   };
+  // Dollar trade plan: numbers validate against bounds; explicit null CLEARS
+  // the field (strategy falls back to legacy %-based behavior).
+  const nullableNumField = (key: string, min: number, max: number, label: string): string | null => {
+    if (b[key] === undefined || b[key] === null) return null;
+    return numField(key, min, max, label);
+  };
   const validationErrors = [
+    nullableNumField("tradeAmountUsdt", 1, 1_000_000, "tradeAmountUsdt"),
+    nullableNumField("maxLossUsdt", 0.01, 1_000_000, "maxLossUsdt"),
+    nullableNumField("targetProfitUsdt", 0.01, 1_000_000, "targetProfitUsdt"),
     numField("riskPercent", 0.01, 10, "riskPercent"),
     numField("confidenceThreshold", 0, 100, "confidenceThreshold"),
     numField("stopLossPercent", 0.01, 20, "stopLossPercent"),
@@ -198,6 +207,9 @@ router.put("/strategies/:id", async (req, res) => {
         strategyId,
         strategyName: strategy.strategyName,
         enabled:                b.enabled                !== undefined ? Boolean(b.enabled) : d.enabled,
+        tradeAmountUsdt:        b.tradeAmountUsdt  !== undefined ? (b.tradeAmountUsdt  === null ? null : String(b.tradeAmountUsdt))  : null,
+        maxLossUsdt:            b.maxLossUsdt      !== undefined ? (b.maxLossUsdt      === null ? null : String(b.maxLossUsdt))      : null,
+        targetProfitUsdt:       b.targetProfitUsdt !== undefined ? (b.targetProfitUsdt === null ? null : String(b.targetProfitUsdt)) : null,
         riskPercent:            String(b.riskPercent            ?? d.riskPercent),
         confidenceThreshold:    Number(b.confidenceThreshold    ?? d.confidenceThreshold),
         stopLossPercent:        String(b.stopLossPercent        ?? d.stopLossPercent),
@@ -223,6 +235,9 @@ router.put("/strategies/:id", async (req, res) => {
         target: [strategyConfigsTable.userId, strategyConfigsTable.strategyId],
         set: {
           enabled:                b.enabled                !== undefined ? Boolean(b.enabled) : undefined,
+          tradeAmountUsdt:        b.tradeAmountUsdt  !== undefined ? (b.tradeAmountUsdt  === null ? null : String(b.tradeAmountUsdt))  : undefined,
+          maxLossUsdt:            b.maxLossUsdt      !== undefined ? (b.maxLossUsdt      === null ? null : String(b.maxLossUsdt))      : undefined,
+          targetProfitUsdt:       b.targetProfitUsdt !== undefined ? (b.targetProfitUsdt === null ? null : String(b.targetProfitUsdt)) : undefined,
           riskPercent:            b.riskPercent            !== undefined ? String(b.riskPercent) : undefined,
           confidenceThreshold:    b.confidenceThreshold    !== undefined ? Number(b.confidenceThreshold) : undefined,
           stopLossPercent:        b.stopLossPercent        !== undefined ? String(b.stopLossPercent) : undefined,

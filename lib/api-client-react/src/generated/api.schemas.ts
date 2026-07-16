@@ -915,6 +915,21 @@ export interface BacktestStarted {
 export interface StrategyConfig {
   strategyId: string;
   enabled: boolean;
+  /**
+     * Dollar trade plan: spot notional / futures margin per trade. null → global positionSizeUsdt.
+     * @nullable
+     */
+  tradeAmountUsdt?: number | null;
+  /**
+     * Dollar trade plan: max dollars to lose on one trade (net of fees). With targetProfitUsdt set, this strategy trades the dollar risk model.
+     * @nullable
+     */
+  maxLossUsdt?: number | null;
+  /**
+     * Dollar trade plan: desired dollar profit for one trade (net of fees).
+     * @nullable
+     */
+  targetProfitUsdt?: number | null;
   /** % of account balance to risk per trade */
   riskPercent: number;
   /** Minimum confidence score 0–100 required to enter */
@@ -930,6 +945,21 @@ export interface StrategyConfig {
 
 export interface StrategyConfigUpdate {
   enabled?: boolean;
+  /**
+     * null clears the field (fall back to global positionSizeUsdt).
+     * @nullable
+     */
+  tradeAmountUsdt?: number | null;
+  /**
+     * null clears the dollar plan (strategy reverts to %-based SL/TP).
+     * @nullable
+     */
+  maxLossUsdt?: number | null;
+  /**
+     * null clears the dollar plan (strategy reverts to %-based SL/TP).
+     * @nullable
+     */
+  targetProfitUsdt?: number | null;
   riskPercent?: number;
   confidenceThreshold?: number;
   stopLossPercent?: number;
