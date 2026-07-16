@@ -303,28 +303,6 @@ export function Dashboard() {
   return (
     <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
 
-      {/* Open Positions — pinned to the top of the cockpit */}
-      <CollapsibleSection
-        id="positions"
-        title="Open Positions"
-        icon={TrendingUp}
-        right={
-          <span className="text-xs font-mono text-muted-foreground">
-            {positions?.length ?? 0} open
-          </span>
-        }
-      >
-        <PositionsPanel
-          positions={positions}
-          error={!!tradesError}
-          loading={tradesLoading}
-          confirmingClose={confirmingClose}
-          closingId={closingId}
-          onArmClose={setConfirmingClose}
-          onClose={closePosition}
-        />
-      </CollapsibleSection>
-
       {/* Hero Control Panel */}
       <CollapsibleSection
         id="engine"
@@ -419,6 +397,29 @@ export function Dashboard() {
         </div>
       </div>
       </CollapsibleSection>
+
+      {/* Open Positions — pinned to the top of the cockpit */}
+      <CollapsibleSection
+        id="positions"
+        title="Open Positions"
+        icon={TrendingUp}
+        right={
+          <span className="text-xs font-mono text-muted-foreground">
+            {positions?.length ?? 0} open
+          </span>
+        }
+      >
+        <PositionsPanel
+          positions={positions}
+          error={!!tradesError}
+          loading={tradesLoading}
+          confirmingClose={confirmingClose}
+          closingId={closingId}
+          onArmClose={setConfirmingClose}
+          onClose={closePosition}
+        />
+      </CollapsibleSection>
+
 
       {/* Why is / isn't it trading — exact blocking condition */}
       <BlockingBanner />
