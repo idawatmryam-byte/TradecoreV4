@@ -12,7 +12,7 @@ const NAV_ITEMS = [
   { href: "/strategies", label: "Strategies", icon: Layers },
   { href: "/memory", label: "Memory Core", icon: BrainCircuit },
   { href: "/backtest", label: "Backtesting", icon: FlaskConical },
-  { href: "/settings", label: "Configuration", icon: Settings },
+  { href: "/settings", label: "Account & Safety", icon: Settings },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {

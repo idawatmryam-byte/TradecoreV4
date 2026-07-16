@@ -883,6 +883,9 @@ export const GetStrategiesResponseItem = zod.object({
   "config": zod.object({
   "strategyId": zod.string(),
   "enabled": zod.boolean(),
+  "tradeAmountUsdt": zod.number().nullish().describe('Dollar trade plan: spot notional \/ futures margin per trade. null → global positionSizeUsdt.'),
+  "maxLossUsdt": zod.number().nullish().describe('Dollar trade plan: max dollars to lose on one trade (net of fees). With targetProfitUsdt set, this strategy trades the dollar risk model.'),
+  "targetProfitUsdt": zod.number().nullish().describe('Dollar trade plan: desired dollar profit for one trade (net of fees).'),
   "riskPercent": zod.number().describe('% of account balance to risk per trade'),
   "confidenceThreshold": zod.number().describe('Minimum confidence score 0–100 required to enter'),
   "stopLossPercent": zod.number().describe('Stop-loss distance as a % below entry price (Phase 5A — replaces atrMultiplierSl)'),
@@ -938,6 +941,9 @@ export const updateStrategyConfigBodyTakeProfitPercentMin = 0.3;
 
 export const UpdateStrategyConfigBody = zod.object({
   "enabled": zod.boolean().optional(),
+  "tradeAmountUsdt": zod.number().nullish().describe('null clears the field (fall back to global positionSizeUsdt).'),
+  "maxLossUsdt": zod.number().nullish().describe('null clears the dollar plan (strategy reverts to %-based SL\/TP).'),
+  "targetProfitUsdt": zod.number().nullish().describe('null clears the dollar plan (strategy reverts to %-based SL\/TP).'),
   "riskPercent": zod.number().optional(),
   "confidenceThreshold": zod.number().optional(),
   "stopLossPercent": zod.number().optional(),

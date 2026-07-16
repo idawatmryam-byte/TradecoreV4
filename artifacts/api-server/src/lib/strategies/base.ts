@@ -13,6 +13,18 @@ import type { MultiTimeframeCandles, SignalRow, MarketRegime } from "../strategy
 export interface StrategyConfig {
   strategyId: string;
   enabled: boolean;
+
+  // ── Dollar trade plan (primary UI controls) ──────────────────────────────
+  // When maxLossUsdt AND targetProfitUsdt are set (> 0), this strategy trades
+  // the dollar risk model: SL/TP prices and size derive from these numbers
+  // (lib/dollarRisk.ts), overriding the %-based fields below. null = legacy.
+  /** Spot: notional per trade. Futures: MARGIN per trade. null → global positionSizeUsdt. */
+  tradeAmountUsdt: number | null;
+  /** Max dollars to lose on one trade (net of fees). */
+  maxLossUsdt: number | null;
+  /** Desired dollar profit for one trade (net of fees). */
+  targetProfitUsdt: number | null;
+
   /** % of account balance to risk per trade */
   riskPercent: number;
   /** Minimum confidence score to enter (0–100) */
@@ -123,6 +135,7 @@ export interface Strategy {
 export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "strategyId">> = {
   momentum_breakout: {
     enabled: true,
+    tradeAmountUsdt: null, maxLossUsdt: null, targetProfitUsdt: null,
     riskPercent: 1.0,
     confidenceThreshold: 70,
     stopLossPercent: 1.5,
@@ -139,6 +152,7 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
   },
   trend_pullback: {
     enabled: true,
+    tradeAmountUsdt: null, maxLossUsdt: null, targetProfitUsdt: null,
     riskPercent: 1.2,
     confidenceThreshold: 65,
     stopLossPercent: 1.5,
@@ -156,6 +170,7 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
   },
   mean_reversion: {
     enabled: true,
+    tradeAmountUsdt: null, maxLossUsdt: null, targetProfitUsdt: null,
     riskPercent: 0.8,
     confidenceThreshold: 60,
     stopLossPercent: 1.0,
@@ -174,6 +189,7 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
   },
   vwap_reversion: {
     enabled: true,
+    tradeAmountUsdt: null, maxLossUsdt: null, targetProfitUsdt: null,
     riskPercent: 0.75,
     confidenceThreshold: 60,
     stopLossPercent: 1.2,
@@ -190,6 +206,7 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
   },
   micro_scalping: {
     enabled: true,
+    tradeAmountUsdt: null, maxLossUsdt: null, targetProfitUsdt: null,
     riskPercent: 0.5,
     confidenceThreshold: 65,
     stopLossPercent: 0.8,
@@ -214,6 +231,7 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
     // SL/TP/timeout exits (no TP1/trailing) so the raw signal is easy to read.
     // Pair with maker entries in the backtest for realistic scalper fees.
     enabled: false,
+    tradeAmountUsdt: null, maxLossUsdt: null, targetProfitUsdt: null,
     riskPercent: 1.0,
     confidenceThreshold: 50,
     stopLossPercent: 0.35,
@@ -230,6 +248,7 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
   },
   volatility_breakout: {
     enabled: true,
+    tradeAmountUsdt: null, maxLossUsdt: null, targetProfitUsdt: null,
     riskPercent: 1.0,
     confidenceThreshold: 68,
     stopLossPercent: 1.5,

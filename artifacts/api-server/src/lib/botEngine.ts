@@ -1167,20 +1167,21 @@ class BotEngine {
         const notionalCapUsdt =
           Number(config.positionSizeUsdt) *
           (config.marketType === "futures" ? Math.max(1, config.leverage) : 1);
-        // Dollar risk model (Phase 8): when enabled, the strategy's %-based
-        // SL/TP/size are overridden with the levels the user's fixed max-loss /
-        // target-profit imply — same planner the backtest uses (parity).
-        const dollarRisk =
-          config.riskModel === "dollar"
-            ? {
-                marketType: config.marketType as "spot" | "futures",
-                tradeAmountUsdt: Number(config.positionSizeUsdt),
-                leverage: config.marketType === "futures" ? Math.max(1, config.leverage) : 1,
-                maxLossUsdt: Number(config.maxLossUsdt),
-                targetProfitUsdt: Number(config.targetProfitUsdt),
-                feeRate: this.activeTakerFee,
-              }
-            : undefined;
+        // Dollar-risk context (always passed): a strategy carrying its OWN
+        // trade plan (tradeAmount/maxLoss/target on the Strategies page)
+        // trades the dollar model with those numbers; otherwise the global
+        // dollar config applies when riskModel = "dollar"; otherwise legacy
+        // %-based behavior. Same resolution the backtest uses (parity).
+        const dollarRisk = {
+          marketType: config.marketType as "spot" | "futures",
+          leverage: config.marketType === "futures" ? Math.max(1, config.leverage) : 1,
+          feeRate: this.activeTakerFee,
+          globalTradeAmountUsdt: Number(config.positionSizeUsdt),
+          ...(config.riskModel === "dollar" && {
+            globalMaxLossUsdt: Number(config.maxLossUsdt),
+            globalTargetProfitUsdt: Number(config.targetProfitUsdt),
+          }),
+        };
         let signals = strategySelector.evaluateSymbol(
           symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt, dollarRisk
         );
