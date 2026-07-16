@@ -1211,9 +1211,48 @@ class BotEngine {
           continue;
         }
 
-        // Best signal is first (selector.evaluateSymbol sorts by confidence descending)
-        const bestSignal = signals[0]!;
-        const stratConfig = strategyConfigs.get(bestSignal.strategyId);
+        // ── Fair per-strategy allocation ─────────────────────────────────────
+        // Every enabled strategy evaluates this symbol independently; the
+        // selector already returned their qualifying signals sorted by
+        // confidence. Rather than only ever considering the single best one —
+        // which let a dominant strategy at its concurrency cap BLOCK the whole
+        // symbol and starve the others of trades/data — walk the list and take
+        // the highest-confidence signal whose OWN strategy still has budget and
+        // a valid size. Only one position per symbol is possible (futures
+        // one-way mode), so this fairly hands the symbol to the best strategy
+        // that can actually act, instead of skipping the symbol entirely.
+        let bestSignal: (typeof signals)[number] | undefined;
+        let stratConfig: StrategyConfig | undefined;
+        let stratOpenCount = 0;
+        let maxConcurrent = 0;
+        const cappedStrategies: string[] = [];
+        for (const cand of signals) {
+          const cfg = strategyConfigs.get(cand.strategyId);
+          const openCount =
+            openTrades.filter((t) => t.strategyId === cand.strategyId).length +
+            enteredThisScan.filter((e) => e.strategyId === cand.strategyId).length;
+          const maxC = cfg?.maxConcurrentPositions ?? 2;
+          if (openCount >= maxC) { cappedStrategies.push(cand.strategyName); continue; }
+          if (!(cand.qty > 0)) continue;
+          bestSignal = cand; stratConfig = cfg; stratOpenCount = openCount; maxConcurrent = maxC;
+          break;
+        }
+
+        if (!bestSignal) {
+          // Every strategy that signalled this symbol is at its own concurrency
+          // cap (or couldn't be sized) — nothing to do, but say which.
+          const reason = cappedStrategies.length > 0
+            ? `All signalling strategies at their concurrency cap (${[...new Set(cappedStrategies)].join(", ")})`
+            : "No signal could be sized (insufficient balance for min order size)";
+          this.scannerData.set(symbol, { ...row, status: "skipped" });
+          signalStage.status = "pass";
+          signalStage.detail = `${signals.length} signal(s), none actionable — ${reason}`;
+          riskStage.status = "fail";
+          riskStage.detail = `Blocked: ${reason}`;
+          record("BLOCKED", "Risk Checks", reason, signals[0]!.confidence);
+          continue;
+        }
+
         signalStage.status = "pass";
         signalStage.detail = `${bestSignal.strategyName} signal @ ${bestSignal.confidence.toFixed(0)}% — ${bestSignal.entryReason}`;
         signalStage.data = {
@@ -1221,45 +1260,10 @@ class BotEngine {
           confidence: bestSignal.confidence, regime: bestSignal.regime, entryReason: bestSignal.entryReason,
           netRewardRisk: bestSignal.netRewardRisk,
         };
-
-        // ── Stage 4 (cont.): post-signal risk checks ─────────────────────────
-        // Count both already-open positions (snapshot) AND ones opened earlier
-        // in THIS scan, so the cap can't be breached within a single scan.
-        const stratOpenCount =
-          openTrades.filter((t) => t.strategyId === bestSignal.strategyId).length +
-          enteredThisScan.filter((e) => e.strategyId === bestSignal.strategyId).length;
-        const maxConcurrent = stratConfig?.maxConcurrentPositions ?? 2;
-        const concurrentOk = stratOpenCount < maxConcurrent;
-        const qtyOk = bestSignal.qty > 0;
         preChecks.push(
-          { name: "Strategy Concurrency", passed: concurrentOk, detail: `${stratOpenCount}/${maxConcurrent} open for ${bestSignal.strategyName}` },
-          { name: "Position Size", passed: qtyOk, detail: qtyOk ? `Qty ${bestSignal.qty}` : "Computed quantity is 0 — insufficient balance for min order size" },
+          { name: "Strategy Concurrency", passed: true, detail: `${stratOpenCount}/${maxConcurrent} open for ${bestSignal.strategyName}` },
+          { name: "Position Size", passed: true, detail: `Qty ${bestSignal.qty}` },
         );
-
-        if (!concurrentOk) {
-          logger.info(
-            { symbol, strategyId: bestSignal.strategyId, stratOpenCount, maxConcurrent },
-            "Strategy at max concurrent positions — skipping"
-          );
-          this.scannerData.set(symbol, {
-            ...row, status: "skipped",
-            strategyId: bestSignal.strategyId, strategyName: bestSignal.strategyName, side: bestSignal.side,
-          });
-          riskStage.status = "fail";
-          riskStage.detail = `Blocked: ${bestSignal.strategyName} at max concurrent positions (${stratOpenCount}/${maxConcurrent})`;
-          record("BLOCKED", "Risk Checks", `${bestSignal.strategyName} at max concurrent positions`, bestSignal.confidence);
-          continue;
-        }
-        if (!qtyOk) {
-          this.scannerData.set(symbol, {
-            ...row, status: "skipped",
-            strategyId: bestSignal.strategyId, strategyName: bestSignal.strategyName, side: bestSignal.side,
-          });
-          riskStage.status = "fail";
-          riskStage.detail = "Blocked: position size resolves to 0 (insufficient balance for min order size)";
-          record("BLOCKED", "Risk Checks", "Insufficient balance for minimum order size", bestSignal.confidence);
-          continue;
-        }
 
         // Portfolio risk check (maxPortfolioRiskPercent): aggregate $ risk
         // across every open position — using each trade's CURRENT stop, since

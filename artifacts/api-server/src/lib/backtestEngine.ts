@@ -1014,19 +1014,20 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         signals = signals.filter((s) => s.side === "long");
       }
       if (signals.length === 0) continue;
-      const bestSignal = signals[0]!;
 
-      // PARITY FIX: the live engine caps each strategy at its configured
-      // maxConcurrentPositions (default 2) — see botEngine.ts "Strategy
-      // Concurrency" check. The backtest previously enforced only the global
-      // maxOpenPositions and one-position-per-symbol, so a single dominant
-      // strategy could stack up to maxOpenPositions concurrently — trades the
-      // live engine would refuse. This systematically overstated results for
-      // single-strategy-heavy runs (e.g. Trend Pullback carrying a backtest).
-      const bestStratCfg = strategyConfigs.get(bestSignal.strategyId);
-      const stratMaxConcurrent = bestStratCfg?.maxConcurrentPositions ?? 2;
-      const stratOpenCount = openPositions.filter((p) => p.strategyId === bestSignal.strategyId).length;
-      if (stratOpenCount >= stratMaxConcurrent) continue;
+      // PARITY with botEngine's fair per-strategy allocation: take the
+      // highest-confidence signal whose OWN strategy still has concurrency
+      // budget, instead of only signals[0] — so a dominant strategy at its cap
+      // doesn't block other strategies from trading this symbol. Each strategy
+      // works its own maxConcurrentPositions budget independently.
+      let bestSignal: (typeof signals)[number] | undefined;
+      for (const cand of signals) {
+        const cfg = strategyConfigs.get(cand.strategyId);
+        const maxC = cfg?.maxConcurrentPositions ?? 2;
+        const open = openPositions.filter((p) => p.strategyId === cand.strategyId).length;
+        if (open < maxC) { bestSignal = cand; break; }
+      }
+      if (!bestSignal) continue; // every signalling strategy is at its cap
 
       // Phase 5A: SL distance is now a direct % of entry (stopLossPercent),
       // set deterministically by computePercentSLTP() — there's no more ATR-
