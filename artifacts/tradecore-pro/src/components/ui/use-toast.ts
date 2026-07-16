@@ -6,7 +6,14 @@ import type {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+/** How long a toast stays up before dismissing itself. Destructive (error)
+ *  toasts stay longer — the user may need to read/act on the message. */
+const TOAST_AUTO_DISMISS_MS = 5000
+const TOAST_AUTO_DISMISS_DESTRUCTIVE_MS = 10000
+/** Removal from the DOM shortly after dismiss (was ~16 minutes, which —
+ *  combined with the renderer not filtering dismissed toasts — made every
+ *  toast permanent until the next one replaced it). */
+const TOAST_REMOVE_DELAY = 300
 
 type ToasterToast = ToastProps & {
   id: string
@@ -160,6 +167,12 @@ function toast({ ...props }: Toast) {
       },
     },
   })
+
+  // Auto-dismiss — the X button (Toaster) is for dismissing sooner.
+  setTimeout(
+    dismiss,
+    props.variant === "destructive" ? TOAST_AUTO_DISMISS_DESTRUCTIVE_MS : TOAST_AUTO_DISMISS_MS,
+  )
 
   return {
     id: id,
