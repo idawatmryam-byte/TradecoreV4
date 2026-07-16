@@ -343,7 +343,15 @@ class BotEngine {
 
   private async initExchange(testnet: boolean, marketType: "spot" | "futures"): Promise<any> {
     if (this.exchange) return this.exchange;
+    const ex = await this.buildExchange(testnet, marketType);
+    this.exchange = ex;
+    return ex;
+  }
 
+  /** Construct (without caching) an exchange client for the given market
+   *  type. Used by initExchange, and directly by closeTradeManually when the
+   *  trade's market type differs from whatever the engine is running. */
+  private async buildExchange(testnet: boolean, marketType: "spot" | "futures"): Promise<any> {
     const credentials = await getBinanceCredentials(this.userId);
     if (!credentials) {
       throw new Error(
@@ -380,7 +388,6 @@ class BotEngine {
       }
     }
 
-    this.exchange = ex;
     return ex;
   }
 
@@ -1666,19 +1673,35 @@ class BotEngine {
             : "Partial exchange protection — price-based exit monitoring supplementing"
       );
 
-      // RELIABILITY: a filled position whose STOP-LOSS could not be placed on
-      // the exchange is a capital risk. The software price-monitor (ExitManager)
-      // still closes it each scan, but a fast move between scans could blow past
-      // the stop before that runs. Alert the user immediately so they can verify
-      // or close it on the exchange — a missing take-profit alone is not a risk
-      // (nothing to lose), so this fires only when the stop is the one missing.
+      // RISK RULE: no stop, no position. A filled position whose STOP-LOSS
+      // could not be placed on the exchange has unbounded downside the moment
+      // the engine stops or lags — the software price-monitor only runs while
+      // the scan loop does. The old behavior (alert + software monitoring)
+      // was observed failing live: a position whose protection was missing
+      // sat unmonitored for 3 days after the engine went offline and blew
+      // ~5× past its planned risk. Now the position is flattened immediately
+      // (through the same validated close path, so the record and post-trade
+      // analysis are still written), and the entry reports why.
       if (!slOrderId) {
+        logger.error(
+          { tradeId: trade!.id, symbol, tpOrderId: tpOrderId || "none" },
+          "STOP-LOSS placement failed after fill — flattening immediately (no stop, no position)",
+        );
+        const outcome = await this.exitManager.closeManually(
+          ex, trade!, market, now, Number(config.cooldownMinutes), "emergency_stop",
+          { tpOrderId, slOrderId: "", ...(ocoOrderListId && { ocoOrderListId }) },
+        );
+        this.openOrderIds.delete(trade!.id);
         this.sendAlert(
-          `🚨 STOP-LOSS NOT PLACED — ${side.toUpperCase()} ${symbol} filled at ${fillPrice.toFixed(6)}, ` +
-          `but the exchange stop-loss order could not be placed. The engine will monitor price and close ` +
-          `near ${slPrice.toFixed(6)} on each scan (~${config.scanIntervalSeconds}s), but a fast move between ` +
-          `scans is unprotected. Verify or close this position manually on Binance if needed.`,
+          `🚨 ${side.toUpperCase()} ${symbol} filled at ${fillPrice.toFixed(6)} but the exchange STOP-LOSS could not ` +
+          `be placed. Position was ${outcome.closed ? "flattened immediately (no stop, no position)" : "NOT closed — close it manually on Binance NOW"}.`,
         ).catch((e) => logger.warn({ err: e, tradeId: trade!.id }, "Failed to send stop-not-placed alert"));
+        return {
+          entered: false,
+          reason: outcome.closed
+            ? "Stop-loss placement failed — position flattened immediately (no stop, no position)"
+            : "Stop-loss placement failed AND the protective flatten failed — manual intervention required",
+        };
       }
 
       return {
@@ -1819,14 +1842,25 @@ class BotEngine {
 
     try {
       const config = await this.loadConfig();
-      this.activeMarketType = (trade.marketType === "futures" ? "futures" : "spot");
-      const ex = await this.initExchange(config.testnet, this.activeMarketType);
+      const tradeMarketType = trade.marketType === "futures" ? "futures" : "spot";
+      // Use the engine's live connection when it matches the trade's market;
+      // otherwise build a DEDICATED client for this close. Never reuse a spot
+      // client to close a futures trade (or vice versa), and never mutate the
+      // engine's own activeMarketType/exchange for a one-off user action.
+      const ex = this.exchange && this.activeMarketType === tradeMarketType
+        ? this.exchange
+        : await this.buildExchange(config.testnet, tradeMarketType);
       // Precision helpers inside the close path need market metadata; a
       // freshly created on-demand connection hasn't loaded it yet.
       if (!ex.markets || Object.keys(ex.markets).length === 0) {
         await ex.loadMarkets();
       }
-      const market = this.toMarket(trade.symbol);
+      // symbolMaps was built for the engine's ACTIVE market type — only valid
+      // here when the trade is on that same market; otherwise use the
+      // format-rule fallback for the trade's own market type.
+      const market = this.exchange && this.activeMarketType === tradeMarketType
+        ? this.toMarket(trade.symbol)
+        : unifiedFromPlainFallback(trade.symbol, tradeMarketType);
       const orderIds = this.openOrderIds.get(trade.id);
       const outcome = await this.exitManager.closeManually(
         ex, trade, market, new Date(), Number(config.cooldownMinutes), "manual", orderIds,
@@ -1885,19 +1919,28 @@ class BotEngine {
     } else {
       logger.info({ count: openTrades.length }, "Startup reconciliation: verifying exchange state for open trades");
 
-      // Futures Phase: the "DB says open but exchange balance doesn't back
-      // it" check below is inherently spot-shaped — it reads the SPOT wallet's
-      // base-asset balance, which has nothing to do with a futures position
-      // (margin-backed, tracked via fetchPositions, not a wallet balance of
-      // the coin itself). For futures, skip straight to re-verifying/
-      // re-placing resting orders — still a real safety net, just narrower
-      // than spot's until a futures-native missing-position check is added.
+      // Verify each DB-open trade is actually backed by the exchange, in the
+      // market-appropriate way: spot positions live in the wallet balance;
+      // futures positions are margin-backed and tracked via fetchPositions.
+      // The futures check was previously MISSING entirely ("skip straight to
+      // re-placing resting orders") — so a futures position that closed or
+      // was LIQUIDATED while the bot was down stayed "open" in the DB
+      // forever, un-closeable (every reduceOnly close for it is rejected)
+      // and re-alerting as "unprotected" on every restart. Observed live.
       let balance: any;
       if (marketType === "spot") {
         try {
           balance = await ex.fetchBalance();
         } catch (err) {
           logger.error({ err }, "Startup reconciliation: fetchBalance failed — cannot verify open trades against the exchange this cycle; will retry protective-order recovery only, using tracked quantities");
+        }
+      }
+      let futuresPositions: any[] | null = null;
+      if (marketType === "futures") {
+        try {
+          futuresPositions = await ex.fetchPositions();
+        } catch (err) {
+          logger.error({ err }, "Startup reconciliation: fetchPositions failed — cannot verify futures trades against the exchange this cycle; will retry protective-order recovery only");
         }
       }
 
@@ -1912,6 +1955,16 @@ class BotEngine {
 
           if (total + tolerance < trackedQty) {
             await this.reconcileMissingPosition(trade, market, trackedQty, total);
+            continue;
+          }
+        }
+
+        if (futuresPositions && trade.marketType === "futures") {
+          const live = futuresPositions.find(
+            (p) => p.symbol === market && Math.abs(Number(p.contracts ?? 0)) > 0,
+          );
+          if (!live) {
+            await this.reconcileMissingPosition(trade, market, trackedQty, 0);
             continue;
           }
         }
