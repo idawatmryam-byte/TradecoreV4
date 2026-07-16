@@ -68,6 +68,18 @@ import type {
 // ccxt OHLCV candle: [timestamp, open, high, low, close, volume]
 type Candle = [number, number, number, number, number, number];
 
+// Keyless ccxt clients for PUBLIC market data (chart candles) — shared across
+// all engines, created lazily. Used when an engine has no live authenticated
+// connection of the right market type (candles need no credentials).
+const publicClients: Partial<Record<"spot" | "futures", any>> = {};
+function publicDataClient(marketType: "spot" | "futures"): any {
+  if (!publicClients[marketType]) {
+    const ExchangeClass = marketType === "futures" ? BinanceUsdmExchange : BinanceExchange;
+    publicClients[marketType] = new ExchangeClass({ options: { defaultType: marketType } });
+  }
+  return publicClients[marketType];
+}
+
 export interface ScannerRow {
   symbol: string;
   confidence: number;
@@ -486,6 +498,28 @@ class BotEngine {
 
   getScannerData(): ScannerRow[] {
     return Array.from(this.scannerData.values());
+  }
+
+  /**
+   * Recent 1m candles for the position chart (dashboard). Uses the engine's
+   * LIVE exchange connection when available — the exact feed trades are
+   * priced against — and falls back to a keyless public client (candles are
+   * public data) so the chart still works while the engine is stopped.
+   */
+  async getRecentCandles(
+    symbol: string,
+    timeframe: string,
+    limit: number,
+    marketType: "spot" | "futures",
+  ): Promise<Candle[]> {
+    if (this.exchange && this.activeMarketType === marketType) {
+      return this.exchange.fetchOHLCV(this.toMarket(symbol), timeframe, undefined, limit);
+    }
+    const ex = publicDataClient(marketType);
+    if (!ex.markets || Object.keys(ex.markets).length === 0) {
+      await ex.loadMarkets();
+    }
+    return ex.fetchOHLCV(unifiedFromPlainFallback(symbol, marketType), timeframe, undefined, limit);
   }
 
   // ── Live market monitor ─────────────────────────────────────────────────────
