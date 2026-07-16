@@ -572,6 +572,7 @@ class BotEngine {
     const reasons = Array.from(byReason.values())
       .map((r) => ({ ...r, count: r.symbols.length }))
       .sort((a, b) => b.count - a.count);
+    const orderStageFailures = reasons.filter((r) => r.stage === "Order");
 
     // Engine-wide block takes precedence in the headline.
     let globalBlock: string | null = null;
@@ -584,6 +585,20 @@ class BotEngine {
     } else if (decisions.length > 0 && entered === 0 && reasons.length === 1) {
       // Every evaluated symbol blocked for the same single reason.
       globalBlock = `All ${decisions.length} pairs blocked: ${reasons[0]!.reason}`;
+    } else if (entered === 0 && orderStageFailures.length > 0) {
+      // A symbol only reaches the Order stage once a strategy has already
+      // produced a qualifying signal and it has cleared every risk gate — so
+      // an Order-stage failure means a trade the engine WANTED to take was
+      // rejected by the exchange. That is categorically more urgent than the
+      // benign "no signal" reason, which is normal and always outnumbers it
+      // (most symbols are signal-less on any given scan), and would otherwise
+      // bury this at the bottom of a count-sorted list while the headline
+      // claimed nothing was wrong. Surfaced live: every entry failed with
+      // Binance -4028 for 12h while the cockpit still read "trading active".
+      const worst = orderStageFailures[0]!;
+      globalBlock =
+        `Entries are reaching the exchange and being rejected — ` +
+        `${worst.reason} (${worst.symbols.join(", ")})`;
     }
 
     return {
