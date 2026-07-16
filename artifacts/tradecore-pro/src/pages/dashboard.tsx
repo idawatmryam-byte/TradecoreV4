@@ -1,11 +1,41 @@
-import { useGetBotStatus, useGetScannerData, useGetTrades, useStartBot, useStopBot, getGetBotStatusQueryKey, getGetScannerDataQueryKey, getGetTradesQueryKey } from "@workspace/api-client-react";
+import { useGetBotStatus, useGetScannerData, useStartBot, useStopBot, getGetBotStatusQueryKey, getGetScannerDataQueryKey, getGetTradesQueryKey } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
-import { Power, Square, Activity, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, WifiOff } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { Power, Square, Activity, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, WifiOff, X, Loader2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/use-toast";
 import { BlockingBanner, MarketMonitor, DecisionPanel } from "@/components/verification";
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+
+/** Live per-position feed from GET /trades/monitor/active — entry vs current
+ *  price, the actual SL/TP levels, and unrealized P&L, refreshed every 5s. */
+interface ActivePosition {
+  tradeId: number;
+  symbol: string;
+  side: "long" | "short";
+  strategyName: string | null;
+  marketType: string;
+  leverage: number | null;
+  entryPrice: number;
+  currentPrice: number;
+  stopLossPrice: number;
+  takeProfitPrice: number;
+  tp1Price: number | null;
+  remainingQuantity: number;
+  unrealizedPnl: number;
+  unrealizedPnlPercent: number;
+  breakEvenActive: boolean;
+  trailingStopActive: boolean;
+  tp1Filled: boolean;
+  holdingSeconds: number;
+}
+
+function formatHeld(seconds: number): string {
+  if (seconds < 90) return `${Math.max(0, Math.round(seconds))}s`;
+  if (seconds < 5400) return `${Math.round(seconds / 60)}m`;
+  return `${(seconds / 3600).toFixed(1)}h`;
+}
 
 function ProgressBar({ value, colorClass }: { value: number, colorClass: string }) {
   return (
@@ -33,10 +63,48 @@ function Stat({ label, value, valueClass, sub }: {
 
 export function Dashboard() {
   const queryClient = useQueryClient();
-  
+  const { toast } = useToast();
+
   const { data: bot, isLoading: botLoading, isError: botError } = useGetBotStatus({ query: { refetchInterval: 5000, queryKey: getGetBotStatusQueryKey() } });
   const { data: scanner, isLoading: scannerLoading, isError: scannerError } = useGetScannerData({ query: { refetchInterval: 15000, queryKey: getGetScannerDataQueryKey() } });
-  const { data: trades, isLoading: tradesLoading, isError: tradesError } = useGetTrades({ status: 'open', limit: 10 }, { query: { refetchInterval: 10000, queryKey: getGetTradesQueryKey({ status: 'open', limit: 10 }) } });
+  const { data: positions, isLoading: tradesLoading, isError: tradesError } = useQuery<ActivePosition[]>({
+    queryKey: ["trades-monitor-active"],
+    refetchInterval: 5000,
+    queryFn: async () => {
+      const res = await fetch("/api/trades/monitor/active", { credentials: "same-origin" });
+      if (!res.ok) throw new Error("monitor fetch failed");
+      return res.json();
+    },
+  });
+
+  // Two-step close: first tap arms the confirm, second tap fires it.
+  const [confirmingClose, setConfirmingClose] = useState<number | null>(null);
+  const [closingId, setClosingId] = useState<number | null>(null);
+
+  async function closePosition(tradeId: number, symbol: string) {
+    setClosingId(tradeId);
+    try {
+      const res = await fetch(`/api/trades/${tradeId}/close`, { method: "POST", credentials: "same-origin" });
+      const data = await res.json().catch(() => null);
+      if (res.ok) {
+        const pnl = typeof data?.pnl === "number" ? data.pnl : null;
+        toast({
+          title: `${symbol} closed`,
+          description: pnl != null ? `Realized P&L: ${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}` : "Position closed at market.",
+        });
+        queryClient.invalidateQueries({ queryKey: ["trades-monitor-active"] });
+        queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetTradesQueryKey() });
+      } else {
+        toast({ title: "Close failed", description: data?.error ?? "Could not close the position.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Close failed", description: "Couldn't reach the server.", variant: "destructive" });
+    } finally {
+      setClosingId(null);
+      setConfirmingClose(null);
+    }
+  }
 
   // Distinguish "genuinely flat/idle" from "can't reach the API" — otherwise
   // a failed fetch renders identically to a real 0-position, 0-PnL bot.
@@ -240,43 +308,88 @@ export function Dashboard() {
             </div>
           </CardHeader>
           <div className="overflow-auto p-0 flex-1">
-            {trades?.map(trade => {
-              // An open trade has no realized pnl yet (the old code showed a
-              // misleading flat $0.00) — compute LIVE unrealized P&L from the
-              // scanner's last price, side-aware: a short profits as price falls.
-              const lastPrice = scanner?.find((r) => r.symbol === trade.symbol)?.lastPrice;
-              const qty = trade.remainingQuantity ?? trade.quantity;
-              const direction = trade.side === 'sell' ? -1 : 1;
-              const unrealized = lastPrice != null ? (lastPrice - trade.entryPrice) * qty * direction : null;
-              const isProfit = (unrealized ?? trade.pnl ?? 0) >= 0;
+            {positions?.map((p) => {
+              const isProfit = p.unrealizedPnl >= 0;
+              const isClosing = closingId === p.tradeId;
+              const isConfirming = confirmingClose === p.tradeId;
               return (
-                <div key={trade.id} className="border-b border-border/50 p-4 hover:bg-muted/30 transition-colors">
+                <div key={p.tradeId} className="border-b border-border/50 p-4 hover:bg-muted/30 transition-colors">
                   <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-lg">{trade.symbol}</span>
-                      <Badge variant={trade.side === 'buy' ? 'success' : 'destructive'} className="h-5 px-1.5 text-[10px]">
-                        {trade.side}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-lg">{p.symbol}</span>
+                      <Badge variant={p.side === "long" ? "success" : "destructive"} className="h-5 px-1.5 text-[10px]">
+                        {p.side}{p.marketType === "futures" && p.leverage ? ` ${p.leverage}×` : ""}
                       </Badge>
+                      {p.breakEvenActive && <Badge variant="outline" className="h-5 px-1.5 text-[10px]">BE</Badge>}
+                      {p.trailingStopActive && <Badge variant="outline" className="h-5 px-1.5 text-[10px]">TRAIL</Badge>}
+                      {p.tp1Filled && <Badge variant="outline" className="h-5 px-1.5 text-[10px] text-success">TP1 ✓</Badge>}
                     </div>
                     <div className={cn("text-right font-mono font-bold", isProfit ? "text-success" : "text-destructive")}>
                       <div className="flex items-center justify-end gap-1">
                         {isProfit ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                        {unrealized != null ? formatCurrency(unrealized, "always") : "—"}
+                        {formatCurrency(p.unrealizedPnl, "always")}
                       </div>
-                      {unrealized != null && (
-                        <span className="block text-[9px] font-normal text-muted-foreground uppercase">unrealized</span>
-                      )}
+                      <span className="block text-[9px] font-normal text-muted-foreground uppercase">
+                        {p.unrealizedPnlPercent >= 0 ? "+" : ""}{p.unrealizedPnlPercent.toFixed(2)}% unrealized
+                      </span>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs font-mono text-muted-foreground mt-3">
+                  {p.strategyName && (
+                    <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-2">
+                      {p.strategyName} · held {formatHeld(p.holdingSeconds)}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2 text-xs font-mono text-muted-foreground">
                     <div>
-                      <span className="block opacity-50 uppercase mb-0.5">Entry Price</span>
-                      <span className="text-foreground">{formatNumber(trade.entryPrice, 4)}</span>
+                      <span className="block opacity-50 uppercase mb-0.5">Entry → Now</span>
+                      <span className="text-foreground">
+                        {formatNumber(p.entryPrice, 4)} → {formatNumber(p.currentPrice, 4)}
+                      </span>
                     </div>
                     <div className="text-right">
                       <span className="block opacity-50 uppercase mb-0.5">Size</span>
-                      <span className="text-foreground">{formatNumber(trade.quantity, 4)}</span>
+                      <span className="text-foreground">{formatNumber(p.remainingQuantity, 4)}</span>
                     </div>
+                    <div>
+                      <span className="block opacity-50 uppercase mb-0.5">Stop Loss</span>
+                      <span className="text-destructive">{formatNumber(p.stopLossPrice, 4)}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="block opacity-50 uppercase mb-0.5">Take Profit</span>
+                      <span className="text-success">
+                        {p.tp1Price != null && !p.tp1Filled
+                          ? `${formatNumber(p.tp1Price, 4)} / ${formatNumber(p.takeProfitPrice, 4)}`
+                          : formatNumber(p.takeProfitPrice, 4)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    {isConfirming ? (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="flex-1 h-8 text-xs gap-1.5"
+                          disabled={isClosing}
+                          onClick={() => closePosition(p.tradeId, p.symbol)}
+                        >
+                          {isClosing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                          Confirm close at market
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-8 text-xs" disabled={isClosing} onClick={() => setConfirmingClose(null)}>
+                          Keep
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full h-8 text-xs gap-1.5 text-muted-foreground hover:text-destructive hover:border-destructive/50"
+                        onClick={() => setConfirmingClose(p.tradeId)}
+                      >
+                        <X className="h-3.5 w-3.5" /> Close Position
+                      </Button>
+                    )}
                   </div>
                 </div>
               );
@@ -293,7 +406,7 @@ export function Dashboard() {
                 <p className="font-mono text-sm uppercase tracking-wider">Loading positions…</p>
               </div>
             )}
-            {!tradesError && !tradesLoading && (!trades || trades.length === 0) && (
+            {!tradesError && !tradesLoading && (!positions || positions.length === 0) && (
               <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center h-full">
                 <AlertTriangle className="h-8 w-8 mb-3 opacity-20" />
                 <p className="font-mono text-sm uppercase tracking-wider">No active positions</p>

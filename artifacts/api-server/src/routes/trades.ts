@@ -190,7 +190,13 @@ router.get("/trades/monitor/active", async (req, res): Promise<void> => {
       side: isShort ? "short" : "long",
       strategyId: t.strategyId,
       strategyName: t.strategyName,
+      marketType: t.marketType,
+      leverage: t.leverage,
       entryPrice, currentPrice,
+      stopLossPrice: sl,
+      takeProfitPrice: tp,
+      tp1Price: t.tp1Price != null ? Number(t.tp1Price) : null,
+      tp2Price: t.tp2Price != null ? Number(t.tp2Price) : null,
       remainingQuantity: qty,
       unrealizedPnl,
       unrealizedPnlPercent: entryPrice > 0 ? (((currentPrice - entryPrice) * direction) / entryPrice) * 100 : 0,
@@ -211,6 +217,30 @@ router.get("/trades/monitor/active", async (req, res): Promise<void> => {
   });
 
   res.json(monitor);
+});
+
+// ---------------------------------------------------------------------------
+// POST /trades/:id/close — user-initiated close of one open trade (the
+// dashboard "Close" button). Same validated exit path as every automatic
+// close: cancel resting legs → market close → audited DB write → post-trade
+// analysis. Ownership is enforced by the engine (trade must belong to the
+// requesting user and still be open).
+// ---------------------------------------------------------------------------
+
+router.post("/trades/:id/close", async (req, res): Promise<void> => {
+  const tradeId = Number(req.params.id);
+  if (!Number.isInteger(tradeId) || tradeId <= 0) {
+    res.status(400).json({ error: "Invalid trade id" });
+    return;
+  }
+  const result = await getOrCreateEngine(req.userId!).closeTradeManually(tradeId);
+  if (!result.ok) {
+    const status = result.error === "Trade not found" ? 404 : result.error === "Trade is already closed" ? 409 : 502;
+    res.status(status).json({ error: result.error });
+    return;
+  }
+  req.log.info({ tradeId }, "Trade closed manually via API");
+  res.json({ ok: true, exitPrice: result.exitPrice ?? null, pnl: result.pnl ?? null });
 });
 
 export default router;

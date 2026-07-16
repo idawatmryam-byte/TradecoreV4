@@ -148,7 +148,14 @@ export class ExitManager {
     now: Date,
     cooldownMinutes: number,
     reason: "manual" | "emergency_stop" | "circuit_breaker",
+    orderIds?: OpenOrderIds,
   ): Promise<ExitOutcome> {
+    // Cancel the resting SL/TP legs BEFORE the market close: on spot the OCO
+    // holds the asset balance (a market sell against locked funds is rejected
+    // — the close would silently fail), and on futures skipping this leaves
+    // orphaned reduceOnly triggers behind after the position is gone.
+    if (orderIds?.tpOrderId) await ex.cancelOrder(orderIds.tpOrderId, market).catch(() => {});
+    if (orderIds?.slOrderId) await ex.cancelOrder(orderIds.slOrderId, market).catch(() => {});
     const resolved = await this.protectiveMarketClose(
       ex, trade, market, Number(trade.stopLoss), Number(trade.takeProfit), false, reason,
     );
