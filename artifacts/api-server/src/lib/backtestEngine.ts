@@ -124,6 +124,14 @@ export interface BacktestParams {
   maxLossUsdt?: number;
   /** Dollar mode only: desired dollar profit per trade (net of fees). */
   targetProfitUsdt?: number;
+
+  /**
+   * Test ONE strategy in isolation. When set, that strategy is force-ENABLED
+   * (even if it's disabled for live) and every other strategy is disabled for
+   * this run — so the result is purely that strategy's, using its own saved
+   * config (SL/TP or dollar plan). Undefined = every enabled strategy runs.
+   */
+  onlyStrategyId?: string;
 }
 
 interface PartialExitRecord {
@@ -608,6 +616,17 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         )
       : buildEffectiveBacktestConfigs(dbStrategyConfigs, params);
     const strategyConfigs = effectiveConfig.configs;
+
+    // Single-strategy isolation: force the chosen strategy ON and every other
+    // OFF, so "backtest just this strategy" needs no numbers typed — it runs
+    // with the strategy's own saved config (incl. its dollar plan). Works even
+    // on strategies disabled for live (e.g. the 20-minute strategy).
+    if (params.onlyStrategyId) {
+      for (const [id, cfg] of strategyConfigs) {
+        strategyConfigs.set(id, { ...cfg, enabled: id === params.onlyStrategyId });
+      }
+      logger.info({ runId, onlyStrategyId: params.onlyStrategyId }, "BACKTEST_SINGLE_STRATEGY isolation active");
+    }
 
     // Persist the exact effective configuration used, BEFORE the simulation
     // runs, so it's on the record even if the run later fails/is cancelled —

@@ -5,8 +5,10 @@ import {
   useRunBacktest,
   useGetBacktest,
   useDeleteBacktest,
+  useGetStrategies,
   getListBacktestsQueryKey,
   getGetBacktestQueryKey,
+  getGetStrategiesQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui";
 import { Button } from "@/components/ui/button";
@@ -96,6 +98,8 @@ function isoDate(d: Date) {
 }
 
 interface RunFormState {
+  /** "" = every enabled strategy; otherwise test just this strategy's saved config. */
+  onlyStrategyId: string;
   symbols: string[];
   timeframe: string;
   startDate: string;
@@ -131,6 +135,7 @@ function defaultForm(): RunFormState {
   const start = new Date(end);
   start.setMonth(start.getMonth() - 1);
   return {
+    onlyStrategyId: "",
     symbols: ["BTCUSDT", "ETHUSDT", "BNBUSDT"],
     timeframe: "1m",
     startDate: isoDate(start),
@@ -187,6 +192,11 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
   const [symbolInput, setSymbolInput] = useState(form.symbols.join(", "));
   const [runAnyway, setRunAnyway] = useState(false);
   const { mutate, isPending } = useRunBacktest();
+  const { data: strategies } = useGetStrategies({ query: { queryKey: getGetStrategiesQueryKey() } });
+
+  // Testing one strategy in isolation: it runs with its OWN saved config
+  // (SL/TP or dollar plan), so the manual override sections are hidden.
+  const single = form.onlyStrategyId !== "";
 
   const tfAdvice = timeframeAdvice(form.timeframe);
   const timeframeBlocks = tfAdvice.level === "bad" && !runAnyway;
@@ -212,7 +222,9 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
         data: {
           ...(form as any),
           symbols,
-          perStrategyConfigs: form.matchLive,
+          // Isolating a strategy always uses its own saved config.
+          onlyStrategyId: form.onlyStrategyId || undefined,
+          perStrategyConfigs: single ? true : form.matchLive,
           startDate: new Date(form.startDate).toISOString(),
           endDate: new Date(form.endDate).toISOString(),
         },
@@ -255,6 +267,30 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Strategy — pick one to test in isolation with its saved settings,
+              or "All enabled" to run them together like live. */}
+          <div className="space-y-1">
+            <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Strategy</label>
+            <select
+              value={form.onlyStrategyId}
+              onChange={(e) => setForm((f) => ({ ...f, onlyStrategyId: e.target.value }))}
+              className="w-full bg-background border border-border rounded px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="">All enabled strategies (like live)</option>
+              {(strategies ?? []).map((s) => (
+                <option key={s.strategyId} value={s.strategyId}>
+                  {s.strategyName}{!s.config.enabled ? " (disabled live)" : ""}
+                </option>
+              ))}
+            </select>
+            {single && (
+              <p className="text-[11px] text-primary/90 leading-snug">
+                Testing this strategy alone with its <strong>saved settings</strong> (stop/target or dollar plan
+                from the Strategies page). No numbers to type — just pick coins, a date range, and market type/leverage below.
+              </p>
+            )}
+          </div>
+
           {/* Symbols — pick coins from the quick list or type any custom pair */}
           <div className="space-y-2">
             <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
@@ -380,6 +416,9 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
             {field("Position Size (USDT)", "positionSizeUsdt")}
           </div>
 
+          {/* All manual tuning below is hidden when testing ONE strategy —
+              that run uses the strategy's own saved config, nothing to type. */}
+          {!single && (<>
           {/* Match-live toggle — governs whether each strategy uses its own
               SL/TP/confidence (a real replay) or the flat overrides below. */}
           <label className="flex items-start gap-2 p-2.5 rounded border border-border bg-muted/30 cursor-pointer">
@@ -532,6 +571,7 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
           </fieldset>
 
           {!form.matchLive && <EffectiveConfigPreview form={form} />}
+          </>)}
 
           <Button type="submit" disabled={isPending || timeframeBlocks} className="w-full gap-2">
             <Play className="h-4 w-4" />

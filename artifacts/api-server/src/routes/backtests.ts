@@ -189,11 +189,16 @@ router.post("/backtests/run", async (req, res) => {
   const riskModel = b.riskModel === "dollar" ? "dollar" : "percent";
   const maxLossUsdt = Math.max(0, Number(b.maxLossUsdt ?? 0) || 0);
   const targetProfitUsdt = Math.max(0, Number(b.targetProfitUsdt ?? 0) || 0);
+  // Single-strategy test: run just this strategy with its own saved config.
+  const onlyStrategyId = typeof b.onlyStrategyId === "string" && b.onlyStrategyId
+    ? b.onlyStrategyId : undefined;
   // Faithful mode (default): each strategy uses its OWN SL/TP/confidence — what
   // the live bot trades — instead of flattening every strategy to the form's
   // single SL/TP. Only when explicitly false does the flat form override apply
-  // (a single-config sweep). See backtestConfig.ts.
-  const perStrategyConfigs = b.perStrategyConfigs !== false;
+  // (a single-config sweep). See backtestConfig.ts. Isolating one strategy
+  // ALWAYS uses its own saved config — testing a strategy against flat
+  // overrides it doesn't use would be meaningless.
+  const perStrategyConfigs = onlyStrategyId ? true : b.perStrategyConfigs !== false;
   // Faithful-mode R:R reshape: TP = each strategy's own SL × ratio (0 = off).
   const rrRatio = Math.max(0, Math.min(10, Number(b.rrRatio ?? 0) || 0));
   // Faithful-mode pure exits: no TP1/break-even/trailing — full SL/TP only.
@@ -297,6 +302,7 @@ router.post("/backtests/run", async (req, res) => {
     riskModel,
     maxLossUsdt,
     targetProfitUsdt,
+    onlyStrategyId,
     perStrategyConfigs,
     rrRatio,
     pureExits,
