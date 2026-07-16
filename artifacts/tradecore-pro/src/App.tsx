@@ -10,6 +10,7 @@ import { Memory } from '@/pages/memory';
 import { Settings } from '@/pages/settings';
 import { Backtest } from '@/pages/backtest';
 import { Strategies } from '@/pages/strategies';
+import { Account } from '@/pages/account';
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ function Router() {
         <Route path="/backtest" component={Backtest} />
         <Route path="/strategies" component={Strategies} />
         <Route path="/settings" component={Settings} />
+        <Route path="/account" component={Account} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

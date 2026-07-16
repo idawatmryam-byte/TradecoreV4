@@ -13,10 +13,38 @@ import { z } from "zod/v4";
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
-  /** scrypt-derived, never the raw password — see lib/passwordHash.ts. */
-  passwordHash: text("password_hash").notNull(),
+  /** scrypt-derived, never the raw password — see lib/passwordHash.ts.
+   *  NULL for accounts created via Google/Apple sign-in that never set a
+   *  password; they can add one later on the Account page. */
+  passwordHash: text("password_hash"),
+  /** From the OAuth provider (or set on the Account page). Informational —
+   *  login identity is username or a linked provider, never email lookup. */
+  email: text("email"),
+  /** Optional friendly display name (defaults to username in the UI). */
+  displayName: text("display_name"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---------------------------------------------------------------------------
+// Linked sign-in identities — one row per (provider, provider account) pair.
+// A user may link Google and/or Apple to the same TradeCore account; logging
+// in with a linked provider resolves to the same userId (and the same bot,
+// trades, credentials). providerUserId is the provider's stable subject id
+// ("sub" claim) — NEVER the email, which providers allow users to change.
+// ---------------------------------------------------------------------------
+export const userIdentitiesTable = pgTable("user_identities", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  provider: text("provider").notNull(), // google | apple
+  providerUserId: text("provider_user_id").notNull(),
+  /** Email as reported by the provider at link time (informational). */
+  email: text("email"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  unique("user_identities_provider_subject_unique").on(t.provider, t.providerUserId),
+]);
+
+export type UserIdentity = typeof userIdentitiesTable.$inferSelect;
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({
   id: true,

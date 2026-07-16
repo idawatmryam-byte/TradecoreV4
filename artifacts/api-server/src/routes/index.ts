@@ -12,6 +12,7 @@ import backtestsRouter from "./backtests";
 import strategiesRouter from "./strategies";
 import credentialsRouter from "./credentials";
 import reportsRouter from "./reports";
+import accountRouter from "./account";
 
 // Deliberately NOT behind requireAuth (Phase 5B) — mounted separately in
 // app.ts, before the auth gate. /healthz needs to stay reachable for
@@ -37,5 +38,6 @@ router.use(backtestsRouter);
 router.use(strategiesRouter);
 router.use(credentialsRouter);
 router.use(reportsRouter);
+router.use(accountRouter);
 
 export default router;

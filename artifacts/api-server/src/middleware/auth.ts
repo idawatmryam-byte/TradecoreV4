@@ -111,7 +111,9 @@ async function verifyBasicAuth(header: string | undefined): Promise<number | nul
   if (!username || !password) return null;
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.username, username));
-  if (!user) return null;
+  // OAuth-only accounts (passwordHash null) have no password to verify —
+  // Basic auth can never match them, same as a nonexistent user.
+  if (!user || user.passwordHash == null) return null;
 
   const ok = await verifyPassword(password, user.passwordHash);
   return ok ? user.id : null;

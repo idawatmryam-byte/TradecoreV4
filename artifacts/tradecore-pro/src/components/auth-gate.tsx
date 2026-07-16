@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import { ShieldCheck, Loader2, User, KeyRound } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  ShieldCheck, Loader2, User, KeyRound, Bot, FlaskConical, BrainCircuit,
+  Wallet, LineChart, CheckCircle2,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -8,16 +10,60 @@ import { Button } from "@/components/ui/button";
 /**
  * Multi-user Phase.
  *
- * The API requires a session cookie or Basic-auth credentials on every
- * route except /healthz and /auth/*. This gate checks auth state once on
- * load; if unauthenticated, it blocks the whole app behind a login/register
- * prompt instead of letting every page underneath fire a wave of 401s. Each
- * user has their own account (registered here, or by an operator) and their
- * own Binance credentials (set later on the Settings page) — this form only
- * ever exchanges a username/password for the session cookie via
- * POST /auth/login or /auth/register; the browser handles the cookie
- * automatically from then on.
+ * The API requires a session cookie on every route except /healthz and
+ * /auth/*. This gate checks auth state once on load; if unauthenticated it
+ * renders the full login experience: a product pitch panel plus the auth
+ * card (username/password and — when the server has them configured — Google
+ * and Apple sign-in, discovered via GET /auth/providers).
  */
+
+const FEATURES = [
+  {
+    icon: Bot,
+    title: "Autonomous multi-strategy engine",
+    text: "Seven configurable strategies scan 24 markets around the clock — regime detection decides which strategy hunts when.",
+  },
+  {
+    icon: Wallet,
+    title: "Risk in dollars, not jargon",
+    text: "Tell it the exact dollars you're willing to lose and aiming to win — position size, stop and target prices are derived automatically.",
+  },
+  {
+    icon: FlaskConical,
+    title: "Backtests you can trust",
+    text: "The backtester runs the same code as live trading — same signals, same sizing, same fees — so results mean what they say.",
+  },
+  {
+    icon: BrainCircuit,
+    title: "A memory that learns",
+    text: "Every closed trade is automatically analyzed and graded; the engine builds an evidence-based record of what works and what doesn't.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Your keys, your custody",
+    text: "Trades run through your own Binance API keys, AES-256 encrypted at rest. Funds never leave your exchange account.",
+  },
+] as const;
+
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/>
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/>
+      <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/>
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.16-3.16A10.96 10.96 0 0 0 12 1 11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/>
+    </svg>
+  );
+}
+
+function AppleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" aria-hidden>
+      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8.88-.18 1.72-.87 3.05-.78 1.6.13 2.8.76 3.59 1.9-3.31 1.98-2.53 6.34.79 7.66-.6 1.58-1.38 3.14-2.51 4.39zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+    </svg>
+  );
+}
+
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<"checking" | "authenticated" | "unauthenticated">("checking");
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -25,6 +71,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [providers, setProviders] = useState<{ google: boolean; apple: boolean }>({ google: false, apple: false });
 
   useEffect(() => {
     let cancelled = false;
@@ -35,6 +82,16 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         setStatus(data?.authenticated ? "authenticated" : "unauthenticated");
       })
       .catch(() => { if (!cancelled) setStatus("unauthenticated"); });
+    fetch("/api/auth/providers", { credentials: "same-origin" })
+      .then((r) => r.json())
+      .then((data) => { if (!cancelled && data) setProviders({ google: !!data.google, apple: !!data.apple }); })
+      .catch(() => {});
+    // Surface a failed OAuth redirect (e.g. cancelled at Google) as a message.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth_error")) {
+      setError("Social sign-in didn't complete. Try again, or log in with username and password.");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
     return () => { cancelled = true; };
   }, []);
 
@@ -81,20 +138,115 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   if (status === "unauthenticated") {
+    const anyOauth = providers.google || providers.apple;
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-sm">
-          <CardHeader className="space-y-3">
-            <div className="h-10 w-10 rounded bg-primary/20 flex items-center justify-center border border-primary/50">
-              <ShieldCheck className="h-5 w-5 text-primary" />
+      <div className="min-h-[100dvh] bg-background lg:grid lg:grid-cols-2">
+        {/* ── Product pitch panel ─────────────────────────────────────────── */}
+        <div className="relative hidden lg:flex flex-col justify-between overflow-hidden border-r border-border bg-gradient-to-br from-primary/10 via-background to-background p-10 xl:p-14">
+          {/* faint grid backdrop */}
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.04]"
+            style={{ backgroundImage: "linear-gradient(currentColor 1px, transparent 1px), linear-gradient(90deg, currentColor 1px, transparent 1px)", backgroundSize: "44px 44px" }}
+          />
+          <div className="relative">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-lg bg-primary/20 border border-primary/50 flex items-center justify-center">
+                <LineChart className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <div className="font-mono font-bold tracking-widest text-lg">TRADECORE PRO</div>
+                <div className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">Algorithmic Trading Platform</div>
+              </div>
             </div>
-            <CardTitle className="text-lg">TradeCore Pro</CardTitle>
-            <p className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
-              {mode === "login" ? "Log in to your account" : "Create your account"}
+
+            <h1 className="mt-12 text-3xl xl:text-4xl font-bold leading-tight max-w-md">
+              Trade with a plan.<br />
+              <span className="text-primary">Risk exactly what you choose.</span>
+            </h1>
+            <p className="mt-4 max-w-md text-sm text-muted-foreground leading-relaxed">
+              TradeCore Pro is a self-hosted crypto trading engine for Binance spot and futures —
+              built for people who want automation with full transparency: every signal, every
+              risk check, and every exit is logged, explained, and graded.
             </p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+
+            <ul className="mt-10 space-y-5 max-w-md">
+              {FEATURES.map((f) => (
+                <li key={f.title} className="flex gap-3.5">
+                  <div className="mt-0.5 h-8 w-8 shrink-0 rounded-md bg-primary/10 border border-primary/30 flex items-center justify-center">
+                    <f.icon className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold">{f.title}</div>
+                    <div className="text-xs text-muted-foreground leading-relaxed mt-0.5">{f.text}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <p className="relative mt-10 text-[11px] text-muted-foreground max-w-md leading-relaxed">
+            Trading cryptocurrency involves substantial risk of loss. TradeCore Pro is software,
+            not financial advice — no strategy is guaranteed profitable. Start on the built-in
+            testnet with paper money.
+          </p>
+        </div>
+
+        {/* ── Auth card ───────────────────────────────────────────────────── */}
+        <div className="flex min-h-[100dvh] lg:min-h-0 items-center justify-center p-6">
+          <div className="w-full max-w-sm">
+            {/* compact brand header for mobile, where the pitch panel is hidden */}
+            <div className="lg:hidden mb-8 text-center">
+              <div className="mx-auto h-12 w-12 rounded-lg bg-primary/20 border border-primary/50 flex items-center justify-center">
+                <LineChart className="h-6 w-6 text-primary" />
+              </div>
+              <div className="mt-3 font-mono font-bold tracking-widest text-lg">TRADECORE PRO</div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Self-hosted algorithmic trading — dollar-based risk, honest backtests, full audit trail.
+              </p>
+            </div>
+
+            <h2 className="text-xl font-bold">
+              {mode === "login" ? "Welcome back" : "Create your account"}
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {mode === "login"
+                ? "Log in to your trading cockpit."
+                : "Your own engine, your own Binance keys — set up in minutes."}
+            </p>
+
+            {anyOauth && (
+              <>
+                <div className="mt-6 space-y-2.5">
+                  {providers.google && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full gap-2.5 font-medium"
+                      onClick={() => { window.location.href = "/api/auth/google"; }}
+                    >
+                      <GoogleIcon /> Continue with Google
+                    </Button>
+                  )}
+                  {providers.apple && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full gap-2.5 font-medium"
+                      onClick={() => { window.location.href = "/api/auth/apple"; }}
+                    >
+                      <AppleIcon /> Continue with Apple
+                    </Button>
+                  )}
+                </div>
+                <div className="my-5 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">or</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+              </>
+            )}
+
+            <form onSubmit={handleSubmit} className={anyOauth ? "space-y-4" : "mt-6 space-y-4"}>
               <div className="space-y-2">
                 <Label htmlFor="auth-username">Username</Label>
                 <div className="relative">
@@ -137,11 +289,21 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
                 onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }}
               >
-                {mode === "login" ? "Need an account? Register" : "Already have an account? Log in"}
+                {mode === "login" ? "New to TradeCore? Create an account" : "Already have an account? Log in"}
               </button>
             </form>
-          </CardContent>
-        </Card>
+
+            {mode === "register" && (
+              <ul className="mt-6 space-y-1.5">
+                {["Free to run — self-hosted on your own server", "Paper-trade on testnet before risking a cent", "Your Binance API keys stay encrypted on YOUR machine"].map((t) => (
+                  <li key={t} className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" /> {t}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
