@@ -66,6 +66,36 @@ export interface ExitOutcome {
 
 const NOT_CLOSED: ExitOutcome = { closed: false, exitReason: null, exitPrice: null, pnl: null };
 
+/** Binance USDⓈ-M rejections that mean "there is no position to reduce":
+ *  -2022 ReduceOnly Order is rejected; -4118 reduce-only conflict. Matched
+ *  loosely on code or wording since ccxt wraps them in its own error text. */
+function looksLikeNoPositionError(err: unknown): boolean {
+  const msg = String((err as Error)?.message ?? err).toLowerCase();
+  return msg.includes("-2022") || msg.includes("-4118") || (msg.includes("reduceonly") && msg.includes("reject"));
+}
+
+/** Best-effort exit price for a position that closed outside our tracking:
+ *  weighted average of actual closing fills since entry when the exchange
+ *  still has them, else the current ticker, else entry (neutral placeholder). */
+async function bestEffortExitPrice(ex: any, trade: Trade, market: string): Promise<number> {
+  const closingSide = trade.side === "sell" ? "buy" : "sell";
+  try {
+    const myTrades: any[] = await ex.fetchMyTrades(market, undefined, 20);
+    const entryTime = new Date(trade.entryTime).getTime();
+    const fills = myTrades.filter((t) => t.side === closingSide && t.timestamp >= entryTime);
+    const qty = fills.reduce((s, t) => s + Number(t.amount), 0);
+    if (qty > 0) {
+      return fills.reduce((s, t) => s + Number(t.amount) * Number(t.price), 0) / qty;
+    }
+  } catch { /* fall through */ }
+  try {
+    const ticker = await ex.fetchTicker(market);
+    const last = Number(ticker?.last ?? ticker?.close ?? 0);
+    if (last > 0) return last;
+  } catch { /* fall through */ }
+  return Number(trade.entryPrice);
+}
+
 export class ExitManager {
   constructor(private readonly host: ExitManagerHost) {}
 
@@ -352,6 +382,37 @@ export class ExitManager {
       );
       return { exitReason: reasonOverride, exitPrice: fillPrice };
     } catch (err) {
+      // PHANTOM-POSITION DETECTION: a futures reduceOnly close rejected with
+      // "no position to reduce" means the position ALREADY closed on the
+      // exchange (liquidated, or closed while the bot was offline) and the DB
+      // row is stale. Without this, the trade loops forever: every scan (and
+      // every manual Close click) retries the same close, Binance rejects it
+      // the same way, and the row can never be cleared — observed live as a
+      // 71-hour "open" position whose stop had been blown through days
+      // earlier. Verify with fetchPositions before trusting the error, then
+      // resolve the close with a best-effort exit price instead of failing.
+      if (trade.marketType === "futures" && looksLikeNoPositionError(err)) {
+        try {
+          const positions: any[] = await ex.fetchPositions([market]);
+          const live = positions.find((p) => p.symbol === market && Math.abs(Number(p.contracts ?? 0)) > 0);
+          if (!live) {
+            const exitPrice = await bestEffortExitPrice(ex, trade, market);
+            logger.error(
+              { symbol: trade.symbol, tradeId: trade.id, exitPrice },
+              "PHANTOM POSITION: exchange holds no position for this open trade — it closed/liquidated outside our tracking. Marking reconciled_missing with a best-effort exit price.",
+            );
+            await this.host
+              .sendAlert(
+                `⚠️ ${trade.symbol} (trade #${trade.id}) no longer exists on the exchange — it closed or was liquidated ` +
+                  `while untracked. Recorded with a best-effort exit price of ${exitPrice.toFixed(6)}; verify on Binance.`,
+              )
+              .catch(() => {});
+            return { exitReason: "reconciled_missing", exitPrice };
+          }
+        } catch (verifyErr) {
+          logger.warn({ err: verifyErr, tradeId: trade.id }, "Phantom-position verification (fetchPositions) failed — falling through to normal close-failure handling");
+        }
+      }
       logger.error(
         { err, symbol: trade.symbol, tradeId: trade.id },
         "PROTECTIVE CLOSE FAILED — position may still be open on the exchange, manual intervention required",
