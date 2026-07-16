@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import { BlockingBanner, MarketMonitor, DecisionPanel } from "@/components/verification";
+import { PositionChart } from "@/components/position-chart";
 import { useState, type ReactNode } from "react";
 
 /** Live per-position feed from GET /trades/monitor/active — entry vs current
@@ -130,6 +131,9 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
   onArmClose: (tradeId: number | null) => void;
   onClose: (tradeId: number, symbol: string) => void;
 }) {
+  // Tap a card to expand it full-width with a live 1m chart of the position
+  // (entry/SL/TP levels drawn on the candles). Tap again to collapse.
+  const [chartTradeId, setChartTradeId] = useState<number | null>(null);
   return (
     <div className="bg-card">
       {positions && positions.length > 0 && (
@@ -138,8 +142,19 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
             const isProfit = p.unrealizedPnl >= 0;
             const isClosing = closingId === p.tradeId;
             const isConfirming = confirmingClose === p.tradeId;
+            const chartOpen = chartTradeId === p.tradeId;
             return (
-              <div key={p.tradeId} className="rounded-lg border border-border/60 p-4 bg-background/40 hover:bg-muted/20 transition-colors">
+              <div
+                key={p.tradeId}
+                role="button"
+                tabIndex={0}
+                onClick={() => setChartTradeId(chartOpen ? null : p.tradeId)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setChartTradeId(chartOpen ? null : p.tradeId); }}
+                className={cn(
+                  "rounded-lg border border-border/60 p-4 bg-background/40 hover:bg-muted/20 transition-colors cursor-pointer",
+                  chartOpen && "md:col-span-2 xl:col-span-3 border-primary/40",
+                )}
+              >
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-lg">{p.symbol}</span>
@@ -189,7 +204,8 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
                     </span>
                   </div>
                 </div>
-                <div className="mt-3">
+                {/* stopPropagation: the close controls must never toggle the chart */}
+                <div className="mt-3" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                   {isConfirming ? (
                     <div className="flex items-center gap-2">
                       <Button
@@ -217,6 +233,28 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
                     </Button>
                   )}
                 </div>
+                {chartOpen ? (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <PositionChart
+                      symbol={p.symbol}
+                      marketType={p.marketType}
+                      side={p.side}
+                      quantity={p.remainingQuantity}
+                      entryPrice={p.entryPrice}
+                      stopLossPrice={p.stopLossPrice}
+                      takeProfitPrice={p.takeProfitPrice}
+                      tp1Price={p.tp1Price}
+                      tp1Filled={p.tp1Filled}
+                    />
+                    <p className="mt-1.5 text-center text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                      Tap the card to hide the chart
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-center text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">
+                    Tap for live chart · entry / SL / TP levels
+                  </p>
+                )}
               </div>
             );
           })}
