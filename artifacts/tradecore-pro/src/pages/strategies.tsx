@@ -57,6 +57,7 @@ const STRATEGY_ICONS: Record<string, React.ElementType> = {
   micro_scalping:      Zap,
   volatility_breakout: BarChart3,
   scalp_reversion:     Waves,
+  twenty_min_momentum: Zap,
 };
 
 const REGIME_COLORS: Record<string, string> = {

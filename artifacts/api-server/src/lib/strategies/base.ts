@@ -263,6 +263,30 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
     emergencyTrailingRMultiple: 3.0, emergencyTrailingPercent: 0.5,
     exitPriority: ["stop_loss", "take_profit", "trailing_stop", "timeout"],
   },
+  twenty_min_momentum: {
+    // OFF by default — a fast futures scalper. Ships with a dollar trade plan
+    // sized for a true 20-minute window: on $300 margin × 50× (= $15k notional)
+    // a $45 target is a ~0.4% move, which crypto reaches inside 20 min; the
+    // per-coin fit check then keeps only coins actually moving that fast. Raise
+    // Target to $75 and it becomes a ~1-hour trade (a 0.6% move) — tune both on
+    // the Strategies card. Requires the account on Futures + leverage + isolated.
+    enabled: false,
+    tradeAmountUsdt: 300, maxLossUsdt: 50, targetProfitUsdt: 45,
+    riskPercent: 1.0,
+    confidenceThreshold: 55,
+    stopLossPercent: 0.4,   // legacy fallback (used only if the dollar plan is cleared)
+    takeProfitPercent: 0.6,
+    maxHoldingSeconds: 1200, // 20-minute time-stop — the whole point
+    maxConcurrentPositions: 3,
+    cooldownMinutes: 3,
+    // Single clean target — no TP1/trailing, so the 20-min thesis reads plainly.
+    tp1RMultiple: 0, tp1ClosePercent: 50,
+    tp3Enabled: false, tp2RMultiple: 1.5, tp2ClosePercent: 20, tp3RMultiple: 2.0,
+    trailingStopMode: "none", trailingStopAtrMultiplier: 0.5, trailingStopPercent: 0.3,
+    trailingAfterTp1Only: true,
+    emergencyTrailingRMultiple: 0, emergencyTrailingPercent: 0.3,
+    exitPriority: ["stop_loss", "take_profit", "timeout"],
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
