@@ -1760,7 +1760,7 @@ class BotEngine {
             { tradeId: trade.id, symbol: trade.symbol, currentStop, liquidationPrice },
             "LIQUIDATION RISK: open position's stop is now too close to the exchange's liquidation price — force-flattening",
           );
-          const outcome = await this.exitManager.closeManually(ex, trade, market, now, cooldownMinutes, "emergency_stop");
+          const outcome = await this.exitManager.closeManually(ex, trade, market, now, cooldownMinutes, "emergency_stop", orderIds);
           if (outcome.closed) {
             this.openOrderIds.delete(trade.id);
             await this.sendAlert(
@@ -1797,6 +1797,50 @@ class BotEngine {
 
     if (outcome.closed) {
       this.openOrderIds.delete(trade.id);
+    }
+  }
+
+  /**
+   * User-initiated close of ONE open trade (the "Close" button on the
+   * dashboard). Funnels through ExitManager.closeManually — the same
+   * cancel-legs → market-close → validated-write path as the emergency
+   * flatten — so a manual close gets the identical audit trail (fees,
+   * slippage, risk audit, post-trade analysis). Works even when the engine
+   * is stopped: the exchange connection is initialized on demand, since a
+   * user must always be able to flatten a position the bot opened.
+   */
+  async closeTradeManually(tradeId: number): Promise<{ ok: boolean; error?: string; exitPrice?: number; pnl?: number }> {
+    const [trade] = await db
+      .select()
+      .from(tradesTable)
+      .where(and(eq(tradesTable.id, tradeId), eq(tradesTable.userId, this.userId)));
+    if (!trade) return { ok: false, error: "Trade not found" };
+    if (trade.status !== "open") return { ok: false, error: "Trade is already closed" };
+
+    try {
+      const config = await this.loadConfig();
+      this.activeMarketType = (trade.marketType === "futures" ? "futures" : "spot");
+      const ex = await this.initExchange(config.testnet, this.activeMarketType);
+      // Precision helpers inside the close path need market metadata; a
+      // freshly created on-demand connection hasn't loaded it yet.
+      if (!ex.markets || Object.keys(ex.markets).length === 0) {
+        await ex.loadMarkets();
+      }
+      const market = this.toMarket(trade.symbol);
+      const orderIds = this.openOrderIds.get(trade.id);
+      const outcome = await this.exitManager.closeManually(
+        ex, trade, market, new Date(), Number(config.cooldownMinutes), "manual", orderIds,
+      );
+      if (!outcome.closed) {
+        return { ok: false, error: "Close order could not be executed — check the exchange and try again" };
+      }
+      this.openOrderIds.delete(trade.id);
+      this.state.openPositions = Math.max(0, this.state.openPositions - 1);
+      logger.info({ tradeId, symbol: trade.symbol, exitPrice: outcome.exitPrice, pnl: outcome.pnl }, "Trade closed manually by user");
+      return { ok: true, exitPrice: outcome.exitPrice ?? undefined, pnl: outcome.pnl ?? undefined };
+    } catch (err) {
+      logger.error({ err, tradeId }, "Manual close failed");
+      return { ok: false, error: String((err as Error)?.message ?? err) };
     }
   }
 
