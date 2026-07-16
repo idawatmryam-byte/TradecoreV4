@@ -10,10 +10,57 @@
  *   4. Rank all signals by confidence (descending)
  *   5. Return the sorted opportunity list — caller decides how many to execute
  */
-import { type Strategy, type StrategySignal, type StrategyConfig } from "./base";
+import { type Strategy, type StrategySignal, type StrategyConfig, TARGET_REACH_K } from "./base";
 import { type MultiTimeframeCandles, type SignalRow, unifyConfidence } from "../strategy";
 import { netRewardRisk, MIN_VIABLE_REWARD_RISK } from "../tradingCosts";
-import { type DollarRiskConfig, planDollarRisk } from "../dollarRisk";
+import { type DollarRiskConfig, planDollarRisk, type DollarRiskPlan } from "../dollarRisk";
+
+/**
+ * A stop tighter than this many 1m-ATRs is inside the coin's ordinary
+ * candle-to-candle noise — it gets wicked out at random regardless of
+ * direction. Companion to TARGET_REACH_K (which bounds the TARGET side).
+ */
+export const MIN_STOP_ATR_MULT = 1.5;
+
+/**
+ * Per-coin fit check for a DOLLAR trade plan. The same dollar numbers imply
+ * the same %-distances on every coin — but coins differ wildly in
+ * volatility, so on some the stop sits inside pure noise (random stop-out)
+ * and on others the target is physically unreachable within the holding
+ * window (guaranteed timeout + fees). Both are structural losses no signal
+ * quality can beat, so such signals are rejected per coin, with the reason.
+ * (The legacy % model gets the same protection via computeAdaptiveSLTP.)
+ */
+function dollarPlanFitsCoin(
+  plan: DollarRiskPlan,
+  row: SignalRow,
+  maxHoldingSeconds: number,
+): { fits: boolean; reason?: string } {
+  const atrPct = row.atrPercent; // % per primary candle
+  if (!(atrPct > 0)) return { fits: true }; // no volatility data → don't block
+  const slPct = plan.slFraction * 100;
+  const tpPct = plan.tpFraction * 100;
+
+  const noiseFloorPct = atrPct * MIN_STOP_ATR_MULT;
+  if (slPct < noiseFloorPct) {
+    return {
+      fits: false,
+      reason: `stop ${slPct.toFixed(2)}% is inside this coin's noise band (~${noiseFloorPct.toFixed(2)}%) — would stop out randomly`,
+    };
+  }
+
+  if (maxHoldingSeconds > 0 && tpPct > 0) {
+    const holdCandles = maxHoldingSeconds / 60 / Math.max(1, row.candleMinutes);
+    const reachablePct = atrPct * Math.sqrt(holdCandles) * TARGET_REACH_K;
+    if (tpPct > reachablePct) {
+      return {
+        fits: false,
+        reason: `target ${tpPct.toFixed(2)}% unreachable within the hold window (~${reachablePct.toFixed(2)}% reachable at this coin's volatility)`,
+      };
+    }
+  }
+  return { fits: true };
+}
 
 /**
  * Account-level context for dollar-risk resolution, passed by both engines
@@ -118,6 +165,14 @@ export class StrategySelector {
               `[selector] ${strategy.strategyId} rejected on ${symbol}: dollar risk not placeable ` +
                 `(${plan.warnings[0] ?? "invalid plan"})`,
             );
+            continue;
+          }
+          // Per-coin fit: same dollars, different volatility per coin — skip
+          // coins where this plan's stop sits inside noise or the target
+          // can't be reached in the hold window (structurally doomed trades).
+          const fit = dollarPlanFitsCoin(plan, row, config.maxHoldingSeconds);
+          if (!fit.fits) {
+            console.warn(`[selector] ${strategy.strategyId} skipped ${symbol}: ${fit.reason}`);
             continue;
           }
           signal.suggestedSL = plan.slPrice;
