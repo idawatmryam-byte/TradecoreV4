@@ -80,6 +80,15 @@ export const botConfigTable = pgTable("bot_config", {
   /** Phase 2.5: Discord / Telegram / Slack incoming-webhook URL for risk alerts */
   alertWebhookUrl: text("alert_webhook_url"),
 
+  /**
+   * Desired engine state, persisted: true after a successful Start, false
+   * after Stop. On server boot (pm2 restart, update.sh, reboot) every user
+   * whose flag is true has their engine auto-resumed — previously each
+   * deploy silently stopped all trading until every user pressed START
+   * again, which read as "the engine stopped making trades".
+   */
+  engineDesiredRunning: boolean("engine_desired_running").notNull().default(false),
+
   /** Persisted so a process restart can't silently clear a manual-reset-required pause. */
   riskPaused: boolean("risk_paused").notNull().default(false),
   riskViolationCount: integer("risk_violation_count").notNull().default(0),

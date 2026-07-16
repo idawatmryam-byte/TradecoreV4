@@ -780,11 +780,33 @@ class BotEngine {
 
     const intervalMs = config.scanIntervalSeconds * 1000;
     this.scanTimer = setInterval(() => this.runScan(), intervalMs);
+
+    // Persist the desired state so a server restart (update.sh / pm2 / reboot)
+    // auto-resumes this engine instead of silently leaving it stopped.
+    try {
+      await db
+        .update(botConfigTable)
+        .set({ engineDesiredRunning: true })
+        .where(eq(botConfigTable.userId, this.userId));
+    } catch (err) {
+      logger.warn({ err }, "Could not persist engine desired-running state (auto-resume after restart may not trigger)");
+    }
+
     logger.info({ intervalMs, mode: this.state.mode }, "Bot engine started");
   }
 
   async stop(): Promise<void> {
     if (!this.state.running) return;
+    // Clear the persisted desired state FIRST — an explicit Stop must never
+    // be undone by an auto-resume on the next server restart.
+    try {
+      await db
+        .update(botConfigTable)
+        .set({ engineDesiredRunning: false })
+        .where(eq(botConfigTable.userId, this.userId));
+    } catch (err) {
+      logger.warn({ err }, "Could not persist engine desired-running=false");
+    }
     if (this.scanTimer) {
       clearInterval(this.scanTimer);
       this.scanTimer = null;
@@ -2218,12 +2240,16 @@ class BotEngine {
     alreadyBlacklisted: Set<string>,
   ): Promise<void> {
     for (const symbol of pairs) {
-      const recent = await db
+      // Fetch a few extra rows so administrative reconciliations (not real
+      // outcomes — see ExitManager.closeTrade) can be filtered out while
+      // still judging a full 10 genuine trades.
+      const recentAll = await db
         .select()
         .from(tradesTable)
         .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.symbol, symbol), eq(tradesTable.status, "closed")))
         .orderBy(desc(tradesTable.exitTime))
-        .limit(10);
+        .limit(15);
+      const recent = recentAll.filter((t) => t.exitReason !== "reconciled_missing").slice(0, 10);
 
       if (recent.length < 10) continue;
 
@@ -2326,10 +2352,16 @@ class BotEngine {
 
   private async refreshDailyState(now: Date): Promise<void> {
     const startOfDay = new Date(now.toISOString().split("T")[0]! + "T00:00:00Z");
-    const closedToday = await db
+    const closedTodayAll = await db
       .select()
       .from(tradesTable)
       .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.status, "closed"), gte(tradesTable.exitTime, startOfDay)));
+
+    // Administrative reconciliations (positions that actually died days ago,
+    // swept into the books today) are NOT today's trading performance — if
+    // they counted, sweeping a batch of stale liquidations would trip the
+    // daily-loss circuit breaker and freeze real trading for the whole day.
+    const closedToday = closedTodayAll.filter((t) => t.exitReason !== "reconciled_missing");
 
     const totalPnl = closedToday.reduce((sum, t) => sum + Number(t.pnl ?? 0), 0);
     const wins = closedToday.filter((t) => Number(t.pnl ?? 0) > 0).length;

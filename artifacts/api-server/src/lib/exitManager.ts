@@ -558,6 +558,17 @@ export class ExitManager {
       "TRADE_RISK_AUDIT",
     );
 
+    // ADMINISTRATIVE closes (reconciled_missing: the position already died on
+    // the exchange while untracked — liquidation or offline close) are
+    // bookkeeping, NOT live trade-management outcomes. They must not feed any
+    // of the machinery that reacts to live trading quality: the risk-violation
+    // streak (3 strikes pauses ALL entries), the hourly stats that drive
+    // toxic-hour skips, the symbol cooldown, or the post-trade learning
+    // memory. Observed live: sweeping 5 stale liquidated positions recorded
+    // their (days-old) losses as fresh violations/PnL and silently froze the
+    // engine for hours via risk-pause + daily circuit breaker.
+    const administrative = exitReason === "reconciled_missing";
+
     const riskViolationReason = isRiskViolation
       ? `Loss ${actualLossUsdt.toFixed(4)} USDT > expected ${expectedMaxLossUsdt.toFixed(4)} + tolerance ${tolerance.toFixed(4)} USDT`
       : undefined;
@@ -574,24 +585,30 @@ export class ExitManager {
         feesUsdt: feesUsdt.toFixed(8),
         slippageUsdt: slippageUsdt.toFixed(8),
         holdingSeconds,
-        ...(isRiskViolation && { riskViolation: true, riskViolationReason }),
+        ...(isRiskViolation && !administrative && { riskViolation: true, riskViolationReason }),
       })
       .where(eq(tradesTable.id, trade.id));
 
-    await this.host.recordHourlyStat(now, netPnl, netPnl > 0);
-    this.host.setCooldown(trade.symbol, cooldownMinutes);
+    if (!administrative) {
+      await this.host.recordHourlyStat(now, netPnl, netPnl > 0);
+      this.host.setCooldown(trade.symbol, cooldownMinutes);
 
-    if (isRiskViolation) {
-      this.host.recordRiskViolation(trade.id, trade.symbol, riskViolationReason!);
-    } else if (storedSlValid) {
-      this.host.recordCleanClose();
+      if (isRiskViolation) {
+        this.host.recordRiskViolation(trade.id, trade.symbol, riskViolationReason!);
+      } else if (storedSlValid) {
+        this.host.recordCleanClose();
+      }
     }
 
-    logger.info({ symbol: trade.symbol, netPnl: netPnl.toFixed(4), exitReason }, "Trade closed");
+    logger.info({ symbol: trade.symbol, netPnl: netPnl.toFixed(4), exitReason, administrative }, "Trade closed");
 
     // Generate + persist the post-trade analysis (best-effort; the host swallows
     // its own errors so a failure here can never affect the actual close).
-    this.host.onTradeClosed(trade.id);
+    // Administrative closes are excluded — their prices are best-effort
+    // placeholders, and the learning memory must only ever hold real outcomes.
+    if (!administrative) {
+      this.host.onTradeClosed(trade.id);
+    }
 
     return { closed: true, exitReason, exitPrice, pnl: netPnl };
   }
