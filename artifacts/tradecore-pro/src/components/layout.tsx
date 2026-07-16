@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 
 const NAV_ITEMS = [
+  { href: "/account", label: "Account", icon: UserCircle2 },
   { href: "/", label: "Cockpit", icon: Activity },
   { href: "/trades", label: "Trade Log", icon: History },
   { href: "/stats", label: "Analytics", icon: BarChart2 },
@@ -12,7 +13,6 @@ const NAV_ITEMS = [
   { href: "/memory", label: "Memory Core", icon: BrainCircuit },
   { href: "/backtest", label: "Backtesting", icon: FlaskConical },
   { href: "/settings", label: "Configuration", icon: Settings },
-  { href: "/account", label: "Account", icon: UserCircle2 },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
