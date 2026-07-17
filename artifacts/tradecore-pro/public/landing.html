@@ -178,6 +178,18 @@
   .foot-note { max-width: 52ch; color: var(--muted); font-size: 13.5px; }
   .acq { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; font-size: 13.5px; color: var(--muted); }
   .acq a { color: var(--accent); }
+  .creator { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 20px 40px; align-items: flex-start; justify-content: space-between; }
+  .creator .who .lbl { display: block; margin-bottom: 4px; }
+  .creator .who .name { font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+  .creator .who .loc { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .creator .links { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .creator .links a {
+    display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 550;
+    padding: 8px 13px; border-radius: 9px; border: 1px solid var(--border-2); color: var(--text);
+    transition: border-color .15s ease, transform .12s ease, color .15s ease;
+  }
+  .creator .links a:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+  .creator .links a svg { width: 16px; height: 16px; }
 
   @media (max-width: 900px) {
     .hero .wrap { grid-template-columns: 1fr; gap: 40px; padding: 60px 28px 56px; }
@@ -344,6 +356,28 @@
       <a class="logo" href="#top"><span class="mk mono" aria-hidden="true">◭</span>TradeCore<span>&nbsp;Pro</span></a>
       <p class="foot-note">Trading cryptocurrency carries substantial risk of loss. TradeCore Pro is software you run yourself — the included strategies are a starting point with no guaranteed edge, and nothing here is financial advice. Start on the built-in testnet.</p>
     </div>
+    <div class="creator">
+      <div class="who">
+        <span class="lbl">Designed &amp; built by</span>
+        <div class="name">Awat Hatam Abdalla</div>
+        <div class="loc">Kurdistan</div>
+      </div>
+      <div class="links">
+        <a href="https://www.instagram.com/awat_4b" target="_blank" rel="noopener" aria-label="Instagram">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+          Instagram
+        </a>
+        <a href="https://wa.me/9647503135437" target="_blank" rel="noopener" aria-label="WhatsApp">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2c-5.46 0-9.9 4.44-9.9 9.9 0 1.75.46 3.45 1.32 4.95L2 22l5.3-1.38a9.86 9.86 0 0 0 4.73 1.2h.01c5.46 0 9.9-4.44 9.9-9.9 0-2.64-1.03-5.13-2.9-7A9.82 9.82 0 0 0 12.04 2Zm0 1.8a8.09 8.09 0 0 1 8.1 8.1c0 4.47-3.63 8.1-8.1 8.1a8.1 8.1 0 0 1-4.13-1.13l-.3-.18-3.15.82.84-3.07-.2-.31a8.06 8.06 0 0 1-1.26-4.33c0-4.47 3.64-8.1 8.1-8.1Zm-2.6 4.35c-.15 0-.4.06-.6.3-.2.24-.79.77-.79 1.88 0 1.1.81 2.17.92 2.32.11.15 1.57 2.4 3.8 3.36.53.23.95.37 1.27.47.53.17 1.02.15 1.4.09.43-.06 1.32-.54 1.5-1.06.19-.52.19-.97.13-1.06-.05-.09-.2-.15-.42-.26-.22-.11-1.32-.65-1.53-.73-.2-.07-.35-.11-.5.12-.15.23-.57.72-.7.87-.13.15-.26.17-.48.06-.22-.11-.94-.35-1.79-1.11-.66-.59-1.11-1.32-1.24-1.54-.13-.22-.01-.34.1-.45.1-.1.22-.26.33-.39.11-.13.14-.22.22-.37.07-.15.04-.28-.02-.39-.06-.11-.5-1.22-.69-1.67-.18-.44-.37-.38-.5-.39-.13-.01-.28-.01-.43-.01Z"/></svg>
+          WhatsApp
+        </a>
+        <a href="mailto:id.awat.mryam@gmail.com?subject=TradeCore%20Pro" aria-label="Email">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+          Email
+        </a>
+      </div>
+    </div>
+
     <div class="acq">
       <span>This platform is available for acquisition.</span>
       <span>Enquiries · <a href="mailto:id.awat.mryam@gmail.com?subject=TradeCore%20Pro">id.awat.mryam@gmail.com</a></span>
