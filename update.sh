@@ -39,6 +39,12 @@ if [[ -f .env ]]; then
   . ./.env; set +a
 fi
 
+# BASE_PATH controls where the dashboard app is served:
+#   /       → the app owns the root; no public landing page (local/dev default).
+#   /app    → the public marketing landing page is served at the bare domain
+#             and the dashboard lives under /app. Recommended for the live demo.
+# The frontend build's `base` and the server's route mounts both read this, so
+# set it once in .env and the two stay in lock-step.
 BASE_PATH="${BASE_PATH:-/}"
 BUILD_PORT="${PORT:-8080}"   # build-time only; the server reads the real PORT at runtime
 PM2_APP="${PM2_APP:-tradecore}"
