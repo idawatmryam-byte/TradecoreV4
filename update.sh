@@ -47,7 +47,16 @@ fi
 # set it once in .env and the two stay in lock-step.
 BASE_PATH="${BASE_PATH:-/}"
 BUILD_PORT="${PORT:-8080}"   # build-time only; the server reads the real PORT at runtime
-PM2_APP="${PM2_APP:-tradecore}"
+# PM2 app name. If not set, auto-detect a known TradeCore process so the
+# restart step doesn't silently skip (the real app is named "tradecore-api",
+# but older notes said "tradecore" — try both).
+PM2_APP="${PM2_APP:-}"
+if [[ -z "$PM2_APP" ]] && command -v pm2 >/dev/null 2>&1; then
+  for cand in tradecore-api tradecore; do
+    if pm2 describe "$cand" >/dev/null 2>&1; then PM2_APP="$cand"; break; fi
+  done
+fi
+PM2_APP="${PM2_APP:-tradecore-api}"
 SERVICE_NAME="${SERVICE_NAME:-tradecore}"
 
 # ── 1. Pull latest (fast-forward only — never silently merge/diverge) ────────
