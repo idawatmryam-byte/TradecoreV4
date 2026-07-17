@@ -66,7 +66,11 @@ function AppleIcon() {
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<"checking" | "authenticated" | "unauthenticated">("checking");
-  const [mode, setMode] = useState<"login" | "register">("login");
+  // Visitors arriving from the landing page's "Launch the live app" button carry
+  // ?signup=1 — they have no account yet, so open straight on Create account.
+  const [mode, setMode] = useState<"login" | "register">(() =>
+    new URLSearchParams(window.location.search).has("signup") ? "register" : "login",
+  );
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -90,6 +94,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     const params = new URLSearchParams(window.location.search);
     if (params.get("auth_error")) {
       setError("Social sign-in didn't complete. Try again, or log in with username and password.");
+    }
+    // Clean one-shot query flags (signup, auth_error) out of the address bar.
+    if (params.has("auth_error") || params.has("signup")) {
       window.history.replaceState({}, "", window.location.pathname);
     }
     return () => { cancelled = true; };

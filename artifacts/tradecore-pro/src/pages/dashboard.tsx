@@ -1,7 +1,8 @@
-import { useGetBotStatus, useGetScannerData, useStartBot, useStopBot, getGetBotStatusQueryKey, getGetScannerDataQueryKey, getGetTradesQueryKey } from "@workspace/api-client-react";
+import { useGetBotStatus, useGetScannerData, useStartBot, useStopBot, useGetBinanceCredentials, getGetBotStatusQueryKey, getGetScannerDataQueryKey, getGetTradesQueryKey, getGetBinanceCredentialsQueryKey } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
-import { Power, Square, Activity, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, WifiOff, X, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { Link } from "wouter";
+import { Power, Square, Activity, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, WifiOff, X, Loader2, ChevronDown, ChevronUp, KeyRound } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
@@ -283,6 +284,35 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
   );
 }
 
+/** First-run nudge: until the user connects their own Binance API keys the
+ *  engine can't place a single order, so point new accounts straight at the
+ *  one setup step that matters. Hidden once keys are configured. */
+function ConnectKeysBanner() {
+  const { data: creds, isLoading } = useGetBinanceCredentials({
+    query: { queryKey: getGetBinanceCredentialsQueryKey() },
+  });
+  if (isLoading || creds?.configured) return null;
+  return (
+    <div className="rounded-lg border border-primary/40 bg-primary/10 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+      <div className="h-10 w-10 shrink-0 rounded-md bg-primary/20 border border-primary/40 flex items-center justify-center">
+        <KeyRound className="h-5 w-5 text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-sm">Connect your Binance API keys to start trading</div>
+        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+          The engine trades through <span className="text-foreground">your own</span> keys — nothing runs until they're added.
+          Use testnet keys (<code className="font-mono">testnet.binance.vision</code>) to paper-trade first, with no real funds at risk.
+        </p>
+      </div>
+      <Link href="/settings">
+        <Button className="w-full sm:w-auto shrink-0 gap-2">
+          <KeyRound className="h-4 w-4" /> Add API keys
+        </Button>
+      </Link>
+    </div>
+  );
+}
+
 export function Dashboard() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -340,6 +370,9 @@ export function Dashboard() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
+
+      {/* First-run: prompt new accounts to connect their own Binance keys. */}
+      <ConnectKeysBanner />
 
       {/* Hero Control Panel */}
       <CollapsibleSection
