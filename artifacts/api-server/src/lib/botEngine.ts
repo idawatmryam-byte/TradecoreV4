@@ -72,6 +72,17 @@ type Candle = [number, number, number, number, number, number];
 // all engines, created lazily. Used when an engine has no live authenticated
 // connection of the right market type (candles need no credentials).
 const publicClients: Partial<Record<"spot" | "futures", any>> = {};
+
+/**
+ * Minimum futures stop-loss distance from entry (% of price) for a protective
+ * STOP_MARKET to place reliably. Binance rejects a trigger too close to the
+ * mark price ("would immediately trigger" / PERCENT_PRICE filter); below this
+ * the position ends up unprotected → immediate flatten or liquidation. This is
+ * the concrete floor that makes a fixed-dollar stop unplaceable at very high
+ * leverage (a $50 stop on $15k notional is only ~0.23% away, well under this).
+ */
+const MIN_PROTECTIVE_STOP_PCT = 0.35;
+
 function publicDataClient(marketType: "spot" | "futures"): any {
   if (!publicClients[marketType]) {
     const ExchangeClass = marketType === "futures" ? BinanceUsdmExchange : BinanceExchange;
@@ -1473,6 +1484,34 @@ class BotEngine {
           return {
             entered: false,
             reason: `Insufficient margin: needs ~$${requiredMargin.toFixed(2)} at ${effectiveLeverage}x, only $${freeBalance.toFixed(2)} available`,
+          };
+        }
+      }
+
+      // ── Protective-stop placeability guard (futures) ─────────────────────
+      // A STOP_MARKET whose trigger sits too close to the mark price is
+      // rejected by Binance ("would immediately trigger" / PERCENT_PRICE
+      // filter). If we fill first and only then discover the stop won't place,
+      // the position is either flattened immediately (a wasted fee round-trip,
+      // recorded emergency_stop) or slips through unprotected and gets
+      // liquidated between scans (recorded reconciled_missing) — BOTH observed
+      // live at 50x, where a $50 stop on ~$15k notional is only ~0.23% away.
+      // Refuse the entry BEFORE filling when the stop distance is below the
+      // minimum that reliably places. Raising leverage shrinks this distance,
+      // so this is also the concrete reason very high leverage can't trade a
+      // fixed-dollar stop: there's no room to place it.
+      if (isFutures) {
+        const stopDistPct = entry.entryPrice > 0
+          ? (Math.abs(entry.entryPrice - entry.slPrice) / entry.entryPrice) * 100
+          : 0;
+        if (stopDistPct < MIN_PROTECTIVE_STOP_PCT) {
+          logger.warn(
+            { symbol, side, stopDistPct: stopDistPct.toFixed(3), min: MIN_PROTECTIVE_STOP_PCT, effectiveLeverage },
+            "Stop-loss too close to entry to place a protective order — refusing entry (lower leverage or widen the stop)",
+          );
+          return {
+            entered: false,
+            reason: `Stop is only ${stopDistPct.toFixed(2)}% from entry — too tight to place a protective order at ${effectiveLeverage}x (min ${MIN_PROTECTIVE_STOP_PCT}%). Lower leverage or widen the stop.`,
           };
         }
       }
