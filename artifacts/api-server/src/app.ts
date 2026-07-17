@@ -98,6 +98,14 @@ const frontendDist = path.resolve(__dirname, "public");
 const rawBase = (process.env["BASE_PATH"] ?? "/").trim();
 const appBase = rawBase === "/" || rawBase === "" ? "" : `/${rawBase.replace(/^\/+|\/+$/g, "")}`;
 
+// Social share image (og:image / twitter:image), served at a clean root URL so
+// the meta tags on both the landing page and the app can point at /og.png
+// regardless of where the app itself is mounted.
+app.get("/og.png", (_req, res) => {
+  res.set("Cache-Control", "public, max-age=3600");
+  res.sendFile(path.resolve(__dirname, "public", "og.png"));
+});
+
 // Cache strategy:
 //   index.html          → no-cache (browser must revalidate on every navigation)
 //   /assets/*.{js,css}  → immutable 1-year cache (content-hashed by Vite, safe to cache forever)
