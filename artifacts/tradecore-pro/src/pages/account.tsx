@@ -115,7 +115,7 @@ export function Account() {
         body: JSON.stringify({ confirm: deleteConfirm }),
       });
       if (res.ok) {
-        window.location.href = "/";
+        window.location.href = import.meta.env.BASE_URL;
       } else {
         const data = await res.json().catch(() => null);
         toast({ title: "Error", description: data?.error ?? "Failed to delete account.", variant: "destructive" });

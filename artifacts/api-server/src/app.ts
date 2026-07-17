@@ -89,41 +89,84 @@ app.use("/api/{*path}", (_req, res) => {
 // __dirname (= .../dist/) + "public" resolves correctly in every environment.
 const frontendDist = path.resolve(__dirname, "public");
 
+// Where the dashboard app lives, in lock-step with the Vite build's `base`
+// (both read BASE_PATH). When BASE_PATH is a sub-path like "/app", the bare
+// domain "/" is freed up to serve a public marketing landing page and the
+// dashboard is mounted under that prefix. When it's "/" (local dev, or a
+// deploy that wants the app at the root), we keep the original behaviour:
+// the SPA owns the root and there is no separate landing page.
+const rawBase = (process.env["BASE_PATH"] ?? "/").trim();
+const appBase = rawBase === "/" || rawBase === "" ? "" : `/${rawBase.replace(/^\/+|\/+$/g, "")}`;
+
 // Cache strategy:
 //   index.html          → no-cache (browser must revalidate on every navigation)
 //   /assets/*.{js,css}  → immutable 1-year cache (content-hashed by Vite, safe to cache forever)
 //   everything else     → 1-hour cache (favicon, robots.txt, etc.)
-app.use(
-  express.static(frontendDist, {
-    setHeaders(res, filePath) {
-      if (path.basename(filePath) === "index.html") {
-        res.set("Cache-Control", "no-cache, no-store, must-revalidate");
-        res.set("Pragma", "no-cache");
-        res.set("Expires", "0");
-      } else if (path.basename(path.dirname(filePath)) === "assets") {
-        // Vite emits all JS/CSS bundles into assets/ with content-hashed filenames.
-        // Safe to cache forever — a changed file always gets a new hash → new URL.
-        res.set("Cache-Control", "public, max-age=31536000, immutable");
-      } else {
-        res.set("Cache-Control", "public, max-age=3600");
-      }
-    },
-  })
-);
+const staticOptions: Parameters<typeof express.static>[1] = {
+  setHeaders(res, filePath) {
+    if (path.basename(filePath) === "index.html") {
+      res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.set("Pragma", "no-cache");
+      res.set("Expires", "0");
+    } else if (path.basename(path.dirname(filePath)) === "assets") {
+      // Vite emits all JS/CSS bundles into assets/ with content-hashed filenames.
+      // Safe to cache forever — a changed file always gets a new hash → new URL.
+      res.set("Cache-Control", "public, max-age=31536000, immutable");
+    } else {
+      res.set("Cache-Control", "public, max-age=3600");
+    }
+  },
+};
 
-// SPA catch-all: browser navigations that don't match a static file get index.html.
-// Gated on Accept: text/html so missing JS/CSS assets receive a 404 instead of HTML.
-// Express 5 / path-to-regexp v8 requires the named wildcard syntax.
-// index.html is always served no-cache so that the browser picks up new hashed
-// asset filenames immediately after a deployment.
-app.get("/{*path}", (req, res, next) => {
-  const accept = req.headers.accept ?? "";
-  if (!accept.includes("text/html")) return next();
+// no-cache headers for any HTML document we hand back (landing + SPA shell) so
+// the browser always re-fetches the entry point and picks up new hashed assets.
+function noCacheHtml(res: express.Response): void {
   res.set("Cache-Control", "no-cache, no-store, must-revalidate");
   res.set("Pragma", "no-cache");
   res.set("Expires", "0");
-  res.sendFile(path.join(frontendDist, "index.html"));
-});
+}
+
+if (appBase) {
+  // Public marketing landing page at the bare domain.
+  app.get("/", (_req, res) => {
+    noCacheHtml(res);
+    res.sendFile(path.join(frontendDist, "landing.html"));
+  });
+
+  // Static assets for the dashboard, served under its base prefix. The Vite
+  // build emitted asset URLs as `${appBase}/assets/*`, so this mount lines up.
+  app.use(appBase, express.static(frontendDist, staticOptions));
+
+  // SPA catch-all for dashboard navigations under the base prefix.
+  app.get(`${appBase}/{*path}`, (req, res, next) => {
+    const accept = req.headers.accept ?? "";
+    if (!accept.includes("text/html")) return next();
+    noCacheHtml(res);
+    res.sendFile(path.join(frontendDist, "index.html"));
+  });
+
+  // Anything else that asks for HTML (unknown top-level paths, old bookmarks)
+  // gets the landing page rather than a bare 404.
+  app.get("/{*path}", (req, res, next) => {
+    const accept = req.headers.accept ?? "";
+    if (!accept.includes("text/html")) return next();
+    noCacheHtml(res);
+    res.sendFile(path.join(frontendDist, "landing.html"));
+  });
+} else {
+  // Root deploy (BASE_PATH="/"): the SPA owns the root, no landing page.
+  app.use(express.static(frontendDist, staticOptions));
+
+  // SPA catch-all: browser navigations that don't match a static file get index.html.
+  // Gated on Accept: text/html so missing JS/CSS assets receive a 404 instead of HTML.
+  // Express 5 / path-to-regexp v8 requires the named wildcard syntax.
+  app.get("/{*path}", (req, res, next) => {
+    const accept = req.headers.accept ?? "";
+    if (!accept.includes("text/html")) return next();
+    noCacheHtml(res);
+    res.sendFile(path.join(frontendDist, "index.html"));
+  });
+}
 
 // Global error handler — catches synchronous throws and next(err) calls in
 // route handlers. Must be declared last, after all routes, and must have

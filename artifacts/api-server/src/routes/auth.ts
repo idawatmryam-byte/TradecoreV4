@@ -195,6 +195,15 @@ async function findOrCreateOauthUser(identity: OAuthIdentity): Promise<number> {
   return user!.id;
 }
 
+/** Where the dashboard SPA is served from, in lock-step with BASE_PATH (see
+ *  app.ts). OAuth callbacks must land the user inside the app, not on the
+ *  public landing page that owns "/" when the app is mounted under a sub-path. */
+function appBasePath(): string {
+  const raw = (process.env["BASE_PATH"] ?? "/").trim();
+  if (raw === "/" || raw === "") return "/";
+  return `/${raw.replace(/^\/+|\/+$/g, "")}/`;
+}
+
 /** Shared callback tail: verify state, resolve the user, set the session
  *  cookie, and redirect into the app (the SPA re-checks /auth/status). */
 async function completeOauthLogin(
@@ -208,7 +217,7 @@ async function completeOauthLogin(
   res.clearCookie(OAUTH_STATE_COOKIE, { path: "/" });
   if (typeof code !== "string" || !code || typeof state !== "string" || !state || state !== cookieState) {
     logger.warn({ provider, ip: req.ip, hasCookie: !!cookieState }, "AUTH_OAUTH_STATE_MISMATCH");
-    res.redirect("/?auth_error=oauth_state");
+    res.redirect(`${appBasePath()}?auth_error=oauth_state`);
     return;
   }
   try {
@@ -216,10 +225,10 @@ async function completeOauthLogin(
     const userId = await findOrCreateOauthUser(identity);
     logger.info({ userId, provider, ip: req.ip }, "AUTH_OAUTH_LOGIN_SUCCESS");
     setSessionCookie(res, userId);
-    res.redirect("/");
+    res.redirect(appBasePath());
   } catch (err) {
     logger.error({ err, provider }, "AUTH_OAUTH_LOGIN_FAILED");
-    res.redirect("/?auth_error=oauth_failed");
+    res.redirect(`${appBasePath()}?auth_error=oauth_failed`);
   }
 }
 
