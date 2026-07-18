@@ -268,7 +268,12 @@ export interface Strategy {
 export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "strategyId">> = {
   momentum_breakout: {
     enabled: true,
-    tradeAmountUsdt: null, maxLossUsdt: null, targetProfitUsdt: null,
+    // Native decide() pilot: trades the dollar risk model. The 2:1 target
+    // mirrors its historical 1.5%-stop/3%-target %-profile. Users can change
+    // all three on the Strategies page — these are only the fresh-install
+    // defaults; without a plan the strategy rejects (with the reason shown
+    // in the Decisions feed) instead of trading.
+    tradeAmountUsdt: 300, maxLossUsdt: 40, targetProfitUsdt: 80,
     riskPercent: 1.0,
     confidenceThreshold: 70,
     stopLossPercent: 1.5,
