@@ -1,4 +1,4 @@
-import { pgTable, serial, text, numeric, integer, timestamp, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, numeric, integer, timestamp, boolean, index, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -90,6 +90,21 @@ export const tradesTable = pgTable("trades", {
    *  audit even though it's a point-in-time snapshot, not continuously
    *  updated (liquidation price shifts with funding/mark price in reality). */
   liquidationPrice: numeric("liquidation_price", { precision: 18, scale: 8 }),
+
+  // ── Decision-making engine ("the brains") ──────────────────────────────────
+  /** Human-readable entry rationale — the plan's summary paragraph. */
+  entryReason: text("entry_reason"),
+  /** The complete TradePlan (incl. DecisionReport) this trade executed —
+   *  everything the strategy decided and WHY, stored verbatim for the
+   *  Decisions feed and the post-trade post-mortem. */
+  tradePlan: jsonb("trade_plan"),
+  /** How long the strategy expected the thesis to need (seconds). */
+  expectedHoldSeconds: integer("expected_hold_seconds"),
+  /** Per-trade forced-exit deadline chosen by the strategy (seconds). */
+  maxHoldSeconds: integer("max_hold_seconds"),
+  /** Leverage the strategy planned (may differ from `leverage` if the
+   *  exchange clamped it at order time). */
+  plannedLeverage: integer("planned_leverage"),
 
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [

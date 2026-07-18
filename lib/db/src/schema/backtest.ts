@@ -123,6 +123,11 @@ export const backtestRunsTable = pgTable("backtest_runs", {
   progress: integer("progress").notNull().default(0), // 0-100
   error: text("error"),
   aiAnalysis: jsonb("ai_analysis"),
+  /** Decision-engine telemetry for the run, AGGREGATED (never row-per-event):
+   *  per strategy × stage × reason → { count, sample[≤5] } of rejections and
+   *  approved-not-taken decisions. Bounded by construction — a 2-week 1m run
+   *  evaluates ~45k candles and would explode any per-event table. */
+  decisionStats: jsonb("decision_stats"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -196,6 +201,15 @@ export const backtestTradesTable = pgTable("backtest_trades", {
   breakEvenActive: boolean("break_even_active").notNull().default(false),
   trailingStopActive: boolean("trailing_stop_active").notNull().default(false),
   trailingStopMode: text("trailing_stop_mode"), // none|atr|percent|dynamic|emergency
+
+  // ── Decision-making engine ("the brains") — mirrors trades.* ──────────────
+  /** Per-trade leverage the plan chose (native strategies may pick below the
+   *  run's leverage cap; legacy plans equal it). */
+  leverage: integer("leverage"),
+  entryReason: text("entry_reason"),
+  /** The full TradePlan this simulated trade executed. */
+  tradePlan: jsonb("trade_plan"),
+
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
