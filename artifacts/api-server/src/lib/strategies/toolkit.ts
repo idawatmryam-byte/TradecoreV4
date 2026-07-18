@@ -245,6 +245,27 @@ export function solveLeverage(args: SolveLeverageArgs): LeverageSolution {
 // Time feasibility — can the target realistically be reached in the window?
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * The platform's intraday contract: trades should generally complete within
+ * ~20 minutes to 2 hours. Pro-brain strategies judge target reachability
+ * against the FULL 2-hour window (a thesis needing 40 minutes is a fine
+ * intraday trade) and then set an ADAPTIVE per-trade deadline — roughly twice
+ * the expected resolution time, clamped to this band — instead of hard-
+ * killing everything at one fixed number. "20 Minutes Trading" names the
+ * style, not the deadline.
+ */
+export const INTRADAY_MIN_HOLD_SECONDS = 20 * 60;   // 20 minutes
+export const INTRADAY_MAX_HOLD_SECONDS = 2 * 3600;  // 2 hours
+
+/** Adaptive deadline: 2× the expected resolution, clamped to the intraday band
+ *  (and never beyond the window the feasibility verdict was judged against). */
+export function adaptiveDeadline(expectedSeconds: number, windowSeconds: number): number {
+  return Math.min(
+    windowSeconds,
+    Math.max(INTRADAY_MIN_HOLD_SECONDS, Math.round(expectedSeconds * 2)),
+  );
+}
+
 export interface TimeFeasibility {
   feasible: boolean;
   /** % move statistically reachable within the window at current volatility. */

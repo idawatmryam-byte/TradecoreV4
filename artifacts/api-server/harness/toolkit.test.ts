@@ -15,7 +15,10 @@
  *
  * Run:  tsx harness/toolkit.test.ts   (exit 0 = all pass)
  */
-import { solveLeverage, timeFeasible, feeViability, suggestLeverageForTarget } from "../src/lib/strategies/toolkit";
+import {
+  solveLeverage, timeFeasible, feeViability, suggestLeverageForTarget,
+  adaptiveDeadline, INTRADAY_MIN_HOLD_SECONDS, INTRADAY_MAX_HOLD_SECONDS,
+} from "../src/lib/strategies/toolkit";
 import { planDollarRiskFractions } from "../src/lib/dollarRisk";
 import { MIN_PROTECTIVE_STOP_PCT } from "../src/lib/futuresMath";
 import { MIN_STOP_ATR_MULT } from "../src/lib/strategies/selector";
@@ -213,6 +216,30 @@ const row = (atrPercent: number, candleMinutes = 1): SignalRow =>
   check("1m-only verdict is pessimistic here", !without.feasible);
   check("5m frame widens reachability", withMtf.reachablePct > without.reachablePct,
     `${withMtf.reachablePct.toFixed(2)} vs ${without.reachablePct.toFixed(2)}`);
+}
+
+// ── The SEI regression: a ~23min thesis must be tradeable intraday ───────────
+{
+  // Live rejection that motivated the adaptive deadline: target 1.08% with
+  // only ~1.01% reachable in 20min — but this is a fine intraday trade when
+  // judged against the 2-hour window ("20 Minutes Trading" names the style,
+  // not the deadline).
+  // Reverse the reachability math to the ATR that produced ~1.01%/20min:
+  // reachable = atr × √20 × 1.5 = 1.01  ⇒  atr ≈ 0.1506%/1m.
+  const atr = 1.01 / (Math.sqrt(20) * 1.5);
+  const in20 = timeFeasible(0.0108, row(atr), 20 * 60);
+  check("SEI case: rejected inside a rigid 20min window", !in20.feasible);
+  const intraday = timeFeasible(0.0108, row(atr), INTRADAY_MAX_HOLD_SECONDS);
+  check("SEI case: APPROVED against the 2h intraday window", intraday.feasible);
+  const expectedMin = intraday.expectedSeconds / 60;
+  check("SEI case: expected resolution ≈ 23min", expectedMin > 18 && expectedMin < 28, `${expectedMin.toFixed(1)}min`);
+  const deadline = adaptiveDeadline(intraday.expectedSeconds, INTRADAY_MAX_HOLD_SECONDS);
+  check("SEI case: adaptive deadline ≈ 2× expected", Math.abs(deadline - intraday.expectedSeconds * 2) <= 1, `${(deadline / 60).toFixed(0)}min`);
+
+  // Deadline band: a 3min thesis still gets the 20min floor; a 90min thesis
+  // is capped at the 2h ceiling.
+  check("deadline floor is 20min", adaptiveDeadline(3 * 60, INTRADAY_MAX_HOLD_SECONDS) === INTRADAY_MIN_HOLD_SECONDS);
+  check("deadline ceiling is the window", adaptiveDeadline(90 * 60, INTRADAY_MAX_HOLD_SECONDS) === INTRADAY_MAX_HOLD_SECONDS);
 }
 
 // ── feeViability agrees with the central floor ───────────────────────────────

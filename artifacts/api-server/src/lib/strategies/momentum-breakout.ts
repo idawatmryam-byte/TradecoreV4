@@ -32,7 +32,10 @@ import {
   computeQty, computeAdaptiveSLTP,
 } from "./base";
 import { type MultiTimeframeCandles, type SignalRow } from "../strategy";
-import { marketFacts, solveLeverage, timeFeasible, feeViability, suggestLeverageForTarget } from "./toolkit";
+import {
+  marketFacts, solveLeverage, timeFeasible, feeViability, suggestLeverageForTarget,
+  adaptiveDeadline, INTRADAY_MAX_HOLD_SECONDS,
+} from "./toolkit";
 
 export class MomentumBreakoutStrategy implements Strategy {
   readonly strategyId = "momentum_breakout";
@@ -127,9 +130,11 @@ export class MomentumBreakoutStrategy implements Strategy {
     }
 
     // ── Time + room + costs ─────────────────────────────────────────────────
-    // Reachability judged on BOTH the 1m and 5m frames (see toolkit).
-    const maxHold = config.maxHoldingSeconds;
-    const tf = timeFeasible(solved.tpFraction, row, maxHold, mtf);
+    // Reachability judged on BOTH the 1m and 5m frames (see toolkit), against
+    // the full intraday window (up to 2h) — the per-trade deadline below is
+    // adaptive, not a fixed kill-timer.
+    const window = Math.max(config.maxHoldingSeconds, INTRADAY_MAX_HOLD_SECONDS);
+    const tf = timeFeasible(solved.tpFraction, row, window, mtf);
     if (!tf.feasible) {
       // Would more leverage make the target reachable while the stop still
       // holds at the broken level? Tell the user instead of dead-ending.
@@ -143,7 +148,8 @@ export class MomentumBreakoutStrategy implements Strategy {
         : ` — no leverage makes this target reachable safely here: lower Target Profit or raise Trade Amount`;
       return rejection("coin-fit", (tf.reason ?? "target unreachable within the hold window") + hint);
     }
-    const expectedHold = Math.min(maxHold, Math.max(300, tf.expectedSeconds));
+    const expectedHold = Math.min(window, Math.max(300, tf.expectedSeconds));
+    const deadline = adaptiveDeadline(expectedHold, window);
 
     const facts = marketFacts(mtf, row);
     const targetPct = solved.tpFraction * 100;
@@ -193,12 +199,12 @@ export class MomentumBreakoutStrategy implements Strategy {
       ],
       exitLogic: [
         `target ${targetPct.toFixed(2)}% at ${solved.tpPrice.toPrecision(6)} (+$${dp.targetProfitUsdt} net)`,
-        `expected resolution ~${Math.round(expectedHold / 60)}min; hard deadline ${Math.round(maxHold / 60)}min`,
+        `expected resolution ~${Math.round(expectedHold / 60)}min; adaptive deadline ${Math.round(deadline / 60)}min (2× expected, 20min–2h band)`,
       ],
       checks: [
         { name: "Fresh break", passed: true, detail: `${extensionPct.toFixed(2)}% past the level (chase limit ${maxChasePct.toFixed(2)}%)` },
         { name: "Leverage solver", passed: true, detail: `${solved.leverage}× ≤ cap ${ctx.leverageCap}× · stop at the ${solved.bindingFloor}` },
-        { name: "Time feasibility", passed: true, detail: `~${Math.round(tf.expectedSeconds / 60)}min needed vs ${Math.round(maxHold / 60)}min window` },
+        { name: "Time feasibility", passed: true, detail: `~${Math.round(tf.expectedSeconds / 60)}min needed vs ${Math.round(window / 60)}min intraday window` },
         { name: "Room to target", passed: true, detail: wall != null ? `${wall.toFixed(2)}% to the nearest level vs ${targetPct.toFixed(2)}% target` : "no blocking level" },
         { name: "Fee viability", passed: true, detail: `net R:R ${fee.netRR.toFixed(2)} ≥ ${fee.floor}` },
       ],
@@ -223,7 +229,7 @@ export class MomentumBreakoutStrategy implements Strategy {
         qty: solved.qty,
         leverage: solved.leverage,
         expectedHoldSeconds: expectedHold,
-        maxHoldSeconds: maxHold,
+        maxHoldSeconds: deadline,
         regime: row.regime,
         report,
       },
