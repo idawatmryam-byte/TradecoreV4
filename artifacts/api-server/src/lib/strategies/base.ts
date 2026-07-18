@@ -6,6 +6,8 @@
  * passed to every strategy's evaluate() — no duplicate candle processing.
  */
 import type { MultiTimeframeCandles, SignalRow, MarketRegime } from "../strategy";
+import type { RiskCheck } from "../decisionTrace";
+import type { DollarRiskConfig } from "../dollarRisk";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Per-strategy configurable parameters (stored in DB)
@@ -100,6 +102,122 @@ export interface StrategySignal {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Professional decision-making model ("the brains")
+//
+// A strategy that implements decide() owns the COMPLETE trade decision: it
+// reads the market itself, chooses entry, stop, target, leverage, size and
+// expected duration, writes down its reasoning, and approves or rejects its
+// own trade. The engines (live + backtest) execute approved TradePlans and
+// enforce only physical invariants (margin, exchange minimums, liquidation
+// buffer). Strategies without decide() run through the legacy adapter in
+// selector.ts, which reproduces the historical evaluate()-based behavior
+// byte-for-byte (verified by the harness Δ0 gate).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The full written justification for a decision — what a professional trader
+ * would put in their journal BEFORE the trade. Rendered in the Decisions feed
+ * and stored on the trade row for the post-trade post-mortem.
+ */
+export interface DecisionReport {
+  /** One-paragraph human-readable verdict (doubles as the entry reason). */
+  summary: string;
+  /** Observed market facts: S/R levels, volatility, momentum, volume… */
+  marketView: string[];
+  /** Why enter (and why now). */
+  entryLogic: string[];
+  /** Why this stop / this leverage / this size. */
+  riskLogic: string[];
+  /** Why this target / this expected duration. */
+  exitLogic: string[];
+  /** Named checks with pass/fail — same shape the dashboard pipeline uses. */
+  checks: RiskCheck[];
+  /** Structured numbers the post-mortem compares against actual outcomes. */
+  data?: Record<string, unknown>;
+}
+
+/**
+ * A complete, self-contained trade decision. Everything the execution layer
+ * needs — nothing is derived downstream except re-anchoring SL/TP distances
+ * to the actual fill price.
+ */
+export interface TradePlan {
+  strategyId: string;
+  strategyName: string;
+  symbol: string;
+  side: PositionSide;
+  /** Final strategy-owned confidence 0–100 (legacy path: post-unify blend). */
+  confidence: number;
+  entryPrice: number;
+  slPrice: number;
+  tpPrice: number;
+  /** Base-asset quantity. */
+  qty: number;
+  /** Strategy-chosen leverage, already ≤ the user's leverage cap. 1 = spot/no leverage. */
+  leverage: number;
+  /** How long the thesis realistically needs (the ~20min–2h intraday window). */
+  expectedHoldSeconds: number;
+  /** Hard engine timeout — the forced-exit deadline. */
+  maxHoldSeconds: number;
+  regime: MarketRegime;
+  /** Net reward:risk after costs — stamped centrally by the dispatcher. */
+  netRewardRisk?: number;
+  report: DecisionReport;
+}
+
+/** Where in its own decision process a strategy said no. */
+export type RejectionStage =
+  | "setup"        // conditions never formed a tradeable setup worth reporting
+  | "dollar-plan"  // dollar risk not placeable (fees ≥ max loss, unsafe stop…)
+  | "coin-fit"     // stop inside noise band / target unreachable on this coin
+  | "leverage"     // no leverage ≥1 satisfies risk + noise floor + liquidation
+  | "reward-risk"  // net reward:risk below the structural floor
+  | "sizing";      // quantity degenerate (zero/below exchange minimum)
+
+/** A considered-and-rejected trade, with the reasoning — first-class output. */
+export interface TradeRejection {
+  strategyId: string;
+  strategyName: string;
+  symbol: string;
+  side?: PositionSide;
+  stage: RejectionStage;
+  reason: string;
+  confidence?: number;
+  report?: DecisionReport;
+}
+
+/**
+ * decide() outcome. `null` means "no setup at all" (wrong regime, quiet
+ * market) — too common to record. A rejection means the strategy genuinely
+ * considered a trade and said no for a stated reason — that IS recorded.
+ */
+export type TradeDecision =
+  | { kind: "plan"; plan: TradePlan }
+  | { kind: "rejection"; rejection: TradeRejection };
+
+/**
+ * Account-level facts a deciding strategy needs. Pure data — the trader
+ * toolkit (strategies/toolkit.ts) is imported directly by strategies since
+ * its helpers are pure functions.
+ */
+export interface DecisionContext {
+  balance: number;
+  /** Legacy notional cap (already ×leverage where callers apply it). */
+  positionSizeUsdt: number;
+  marketType: "spot" | "futures";
+  /** User's account leverage setting — a HARD CAP the strategy never exceeds. */
+  leverageCap: number;
+  /** Taker fee fraction per leg for this market. */
+  feeRate: number;
+  /**
+   * Resolved dollar plan for THIS strategy (per-strategy plan → global dollar
+   * config → null = legacy %). Its `leverage` field equals leverageCap; the
+   * strategy may plan a LOWER leverage via the solver.
+   */
+  dollarPlan: DollarRiskConfig | null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Strategy interface — every strategy must implement this
 // ─────────────────────────────────────────────────────────────────────────────
 export interface Strategy {
@@ -107,6 +225,21 @@ export interface Strategy {
   readonly strategyName: string;
   /** Regimes in which this strategy is active */
   readonly supportedRegimes: ReadonlyArray<MarketRegime>;
+
+  /**
+   * Professional decision-maker ("the brain"). When implemented, this fully
+   * replaces the evaluate()+selector pipeline for this strategy: the return
+   * value is a complete TradePlan (or a reasoned rejection / null for no
+   * setup). The dispatcher still applies the central net-reward:risk floor —
+   * a cost-viability invariant, not trading judgment.
+   */
+  decide?(
+    symbol: string,
+    mtf: MultiTimeframeCandles,
+    row: SignalRow,
+    config: StrategyConfig,
+    ctx: DecisionContext,
+  ): TradeDecision | null;
 
   /**
    * Evaluate a symbol given pre-computed shared indicators.
