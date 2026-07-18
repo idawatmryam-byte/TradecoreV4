@@ -36,7 +36,8 @@ import {
   type MarketRegime,
   type IndicatorVote,
 } from "./strategy";
-import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig, type PositionSide } from "./strategies";
+import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig, type PositionSide, type TradePlan } from "./strategies";
+import { recordDecisions, pruneDecisions, planToRecord, rejectionToRecord, type DecisionRecord } from "./decisionRecorder";
 import { DEFAULT_FEE_RATE, FUTURES_FEE_RATE } from "./tradingCosts";
 import { loadStrategyConfigs } from "./strategyConfigLoader";
 import { ExitManager, type OpenOrderIds } from "./exitManager";
@@ -148,6 +149,8 @@ class BotEngine {
   // ── Verification surfaces: decision trace + live market monitor ─────────────
   /** Per-symbol full pipeline decision from the most recent scan. */
   private symbolDecisions: Map<string, SymbolDecision> = new Map();
+  /** Last time the persistent decision journal was pruned (hourly cadence). */
+  private lastDecisionPruneAt = 0;
   /** Latest real ticker snapshot per symbol (updated by the ticker poller). */
   private liveTickers: Map<string, LiveTicker> = new Map();
   /** Markets the ticker poller watches (populated on start). */
@@ -1004,6 +1007,9 @@ class BotEngine {
       // for the same strategy in one scan could each pass and breach the limit.
       // maxOpenPositions is already safe (it uses the live this.state counter).
       const enteredThisScan: Array<{ strategyId?: string; riskUsdt: number }> = [];
+      // Decision journal for this scan: every considered-and-rejected trade
+      // plus approved-but-not-taken plans. Flushed (best-effort) at scan end.
+      const scanDecisions: DecisionRecord[] = [];
 
       for (const result of candleResults) {
         const symbol = result.symbol;
@@ -1084,7 +1090,12 @@ class BotEngine {
           const openStratConfig = openForSymbol.strategyId
             ? strategyConfigs.get(openForSymbol.strategyId)
             : undefined;
-          const stratMaxHold = openStratConfig?.maxHoldingSeconds;
+          // Per-trade deadline first ("the brains" choose their own max hold,
+          // persisted on the trade at entry); legacy trades — and trades from
+          // before plans existed — fall back to the strategy config, which is
+          // exactly the value legacy plans persist, so behavior is unchanged.
+          const planMaxHold = Number(openForSymbol.maxHoldSeconds);
+          const stratMaxHold = planMaxHold > 0 ? planMaxHold : openStratConfig?.maxHoldingSeconds;
           // Bug fix (found during the backtest-config audit — same bug class:
           // a per-strategy value silently overridden by a global one): this
           // used to always pass the GLOBAL config.cooldownMinutes, making the
@@ -1184,13 +1195,17 @@ class BotEngine {
             globalTargetProfitUsdt: Number(config.targetProfitUsdt),
           }),
         };
-        let signals = strategySelector.evaluateSymbol(
+        const { plans, rejections } = strategySelector.decideSymbol(
           symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt, dollarRisk
         );
+        // Considered-and-rejected trades are first-class output now — queue
+        // them for the persistent decision journal (flushed once per scan).
+        for (const r of rejections) scanDecisions.push(rejectionToRecord(r));
         // Spot has no short-selling mechanism (buy-to-open is the only way to
         // enter) — strategies always evaluate both directions, so filter out
         // short signals here rather than duplicating a market-type check into
         // all 6 strategy files.
+        let signals = plans;
         if (config.marketType !== "futures") {
           signals = signals.filter((s) => s.side === "long");
         }
@@ -1234,7 +1249,14 @@ class BotEngine {
             openTrades.filter((t) => t.strategyId === cand.strategyId).length +
             enteredThisScan.filter((e) => e.strategyId === cand.strategyId).length;
           const maxC = cfg?.maxConcurrentPositions ?? 2;
-          if (openCount >= maxC) { cappedStrategies.push(cand.strategyName); continue; }
+          if (openCount >= maxC) {
+            cappedStrategies.push(cand.strategyName);
+            scanDecisions.push(planToRecord(cand, "approved_not_taken", {
+              stage: "Strategy Concurrency",
+              reason: `${openCount}/${maxC} positions already open for ${cand.strategyName}`,
+            }));
+            continue;
+          }
           if (!(cand.qty > 0)) continue;
           bestSignal = cand; stratConfig = cfg; stratOpenCount = openCount; maxConcurrent = maxC;
           break;
@@ -1256,11 +1278,11 @@ class BotEngine {
         }
 
         signalStage.status = "pass";
-        signalStage.detail = `${bestSignal.strategyName} signal @ ${bestSignal.confidence.toFixed(0)}% — ${bestSignal.entryReason}`;
+        signalStage.detail = `${bestSignal.strategyName} signal @ ${bestSignal.confidence.toFixed(0)}% — ${bestSignal.report.summary}`;
         signalStage.data = {
           strategyId: bestSignal.strategyId, strategyName: bestSignal.strategyName,
-          confidence: bestSignal.confidence, regime: bestSignal.regime, entryReason: bestSignal.entryReason,
-          netRewardRisk: bestSignal.netRewardRisk,
+          confidence: bestSignal.confidence, regime: bestSignal.regime, entryReason: bestSignal.report.summary,
+          netRewardRisk: bestSignal.netRewardRisk, plannedLeverage: bestSignal.leverage,
         };
         preChecks.push(
           { name: "Strategy Concurrency", passed: true, detail: `${stratOpenCount}/${maxConcurrent} open for ${bestSignal.strategyName}` },
@@ -1280,7 +1302,7 @@ class BotEngine {
           }, 0) +
           // Include risk from positions opened earlier in this same scan.
           enteredThisScan.reduce((sum, e) => sum + e.riskUsdt, 0);
-        const candidateRiskUsdt = Math.abs(bestSignal.entryPrice - bestSignal.suggestedSL) * bestSignal.qty;
+        const candidateRiskUsdt = Math.abs(bestSignal.entryPrice - bestSignal.slPrice) * bestSignal.qty;
         const maxPortfolioRiskUsdt = balance * (Number(config.maxPortfolioRiskPercent) / 100);
         const portfolioRiskOk = existingRiskUsdt + candidateRiskUsdt <= maxPortfolioRiskUsdt;
         preChecks.push({
@@ -1296,6 +1318,10 @@ class BotEngine {
           riskStage.status = "fail";
           riskStage.detail = `Blocked: aggregate portfolio risk ($${(existingRiskUsdt + candidateRiskUsdt).toFixed(2)}) would exceed ${Number(config.maxPortfolioRiskPercent)}% of balance ($${maxPortfolioRiskUsdt.toFixed(2)})`;
           record("BLOCKED", "Risk Checks", "Portfolio risk limit reached", bestSignal.confidence);
+          scanDecisions.push(planToRecord(bestSignal, "approved_not_taken", {
+            stage: "Portfolio Risk",
+            reason: `aggregate risk $${(existingRiskUsdt + candidateRiskUsdt).toFixed(2)} would exceed the $${maxPortfolioRiskUsdt.toFixed(2)} cap`,
+          }));
           continue;
         }
 
@@ -1305,22 +1331,15 @@ class BotEngine {
         logger.info(
           {
             symbol, strategyId: bestSignal.strategyId, confidence: bestSignal.confidence,
-            regime: bestSignal.regime, reason: bestSignal.entryReason, stratOpenCount, maxConcurrent,
+            regime: bestSignal.regime, reason: bestSignal.report.summary,
+            plannedLeverage: bestSignal.leverage, stratOpenCount, maxConcurrent,
           },
           "Strategy signal — evaluating entry"
         );
 
-        const entry = {
-          entryPrice: bestSignal.entryPrice,
-          slPrice: bestSignal.suggestedSL,
-          tpPrice: bestSignal.suggestedTP,
-          qty: bestSignal.qty,
-        };
-
-        // ── Stage 5: Order ───────────────────────────────────────────────────
+        // ── Stage 5: Order — execute the strategy's approved TradePlan ──────
         const { entered, reason } = await this.enterTrade(
-          symbol, row, entry, config, now, bestSignal.side,
-          bestSignal.strategyId, bestSignal.strategyName, stratConfig,
+          symbol, row, bestSignal, config, now, stratConfig,
         );
         if (entered) {
           this.state.openPositions++;
@@ -1332,7 +1351,7 @@ class BotEngine {
           status: entered ? "entered" : "skipped",
           strategyId: bestSignal.strategyId,
           strategyName: bestSignal.strategyName,
-          entryReason: bestSignal.entryReason,
+          entryReason: bestSignal.report.summary,
           side: bestSignal.side,
         });
         if (entered) {
@@ -1343,6 +1362,10 @@ class BotEngine {
           orderStage.status = "fail";
           orderStage.detail = `Order not placed — ${reason}`;
           record("BLOCKED", "Order", reason, bestSignal.confidence);
+          scanDecisions.push(planToRecord(bestSignal, "approved_not_taken", {
+            stage: "Order",
+            reason,
+          }));
         }
       }
 
@@ -1385,6 +1408,16 @@ class BotEngine {
           (entered === 0 ? ` · TOP BLOCK: ${topBlock}` : ""),
       );
 
+      // Flush the decision journal (fire-and-forget — never blocks the scan)
+      // and prune old rows roughly hourly.
+      if (scanDecisions.length > 0) {
+        void recordDecisions(this.userId, scanDecisions).catch(() => {});
+      }
+      if (Date.now() - this.lastDecisionPruneAt > 3600_000) {
+        this.lastDecisionPruneAt = Date.now();
+        void pruneDecisions(this.userId).catch(() => {});
+      }
+
       await this.updateBlacklist(pairs, now, blacklisted);
     } catch (err) {
       logger.error({ err }, "Scan loop error");
@@ -1397,19 +1430,27 @@ class BotEngine {
   // Entry — real market order + TP limit + SL stop-limit
   // ---------------------------------------------------------------------------
 
+  /**
+   * Execute a strategy's approved TradePlan. The engine is the hands, not the
+   * brain: everything about the trade (entry, stop, target, size, leverage,
+   * hold window) was decided by the strategy — this method only enforces
+   * physical invariants (exchange minimums, margin sufficiency, protective-
+   * stop placeability, liquidation buffer) and places the orders.
+   */
   private async enterTrade(
     symbol: string,
     row: SignalRow,
-    entry: { entryPrice: number; slPrice: number; tpPrice: number; qty: number },
+    plan: TradePlan,
     config: Awaited<ReturnType<typeof this.loadConfig>>,
     now: Date,
-    side: PositionSide,
-    strategyId?: string,
-    strategyName?: string,
     stratConfig?: StrategyConfig,
   ): Promise<{ entered: boolean; reason: string }> {
     const ex = this.exchange!;
     const market = this.toMarket(symbol);
+    const side = plan.side;
+    const strategyId: string | undefined = plan.strategyId;
+    const strategyName: string | undefined = plan.strategyName;
+    const entry = { entryPrice: plan.entryPrice, slPrice: plan.slPrice, tpPrice: plan.tpPrice, qty: plan.qty };
     const isShort = side === "short";
     const isFutures = config.marketType === "futures";
     // Order side to OPEN the position; the opposite side closes it.
@@ -1425,36 +1466,39 @@ class BotEngine {
 
       const rawQty = entry.qty;
       let qty = parseFloat(ex.amountToPrecision(market, rawQty));
-      let effectiveLeverage = config.leverage;
+      // The PLAN's leverage — chosen by the strategy (≤ the user's cap), not
+      // the raw account setting. Legacy-adapter plans carry the account value
+      // so historical behavior is unchanged.
+      let effectiveLeverage = plan.leverage;
 
       if (isFutures) {
         // Leverage/margin mode must be set on the exchange before the order
         // — Binance rejects an order whose implied notional exceeds what the
         // account's CURRENT leverage for this symbol allows. Binance also
         // caps leverage per symbol (varies widely by pair), so the
-        // configured value may get clamped down — use whatever was actually
+        // planned value may get clamped down — use whatever was actually
         // applied for everything below, not the requested value.
         effectiveLeverage = await configureFuturesLeverage(
-          ex, market, config.leverage, config.marginMode === "cross" ? "cross" : "isolated",
+          ex, market, plan.leverage, config.marginMode === "cross" ? "cross" : "isolated",
         );
 
-        // Sizing was computed as notional = margin budget × CONFIGURED
+        // Sizing was computed as notional = margin budget × PLANNED
         // leverage. If this symbol clamped leverage down (e.g. 70x → 25x on
         // INJ), keeping that notional would require notional/effectiveLev of
         // margin — silently overspending the user's per-trade budget. Scale
         // the quantity down proportionally instead: margin stays within
         // budget, and the dollar risk/target shrink in the same proportion
         // (always ≤ planned — the safe direction).
-        if (effectiveLeverage < config.leverage && config.leverage > 0) {
-          const scaled = qty * (effectiveLeverage / config.leverage);
+        if (effectiveLeverage < plan.leverage && plan.leverage > 0) {
+          const scaled = qty * (effectiveLeverage / plan.leverage);
           const rescaledQty = parseFloat(ex.amountToPrecision(market, scaled));
           logger.info(
-            { symbol, configuredLeverage: config.leverage, effectiveLeverage, qty, rescaledQty },
+            { symbol, plannedLeverage: plan.leverage, effectiveLeverage, qty, rescaledQty },
             "Leverage clamped for this symbol — position scaled down to keep margin within the per-trade budget",
           );
           qty = rescaledQty;
           if (!(qty > 0)) {
-            return { entered: false, reason: `Position too small after leverage clamp (${config.leverage}x → ${effectiveLeverage}x)` };
+            return { entered: false, reason: `Position too small after leverage clamp (${plan.leverage}x → ${effectiveLeverage}x)` };
           }
         }
 
@@ -1701,6 +1745,14 @@ class BotEngine {
             remainingQuantity: filledQty.toFixed(8),
             ...(tp1Price > 0 && { tp1Price: tp1Price.toFixed(8), tp1Quantity: tp1Qty.toFixed(8) }),
             ...(tp2Price > 0 && { tp2Price: tp2Price.toFixed(8), tp2Quantity: tp2Qty.toFixed(8) }),
+            // Decision engine: the complete plan + its reasoning, verbatim —
+            // the "why" behind this trade, for the Decisions feed and the
+            // post-trade post-mortem.
+            entryReason: plan.report.summary,
+            tradePlan: plan,
+            expectedHoldSeconds: Math.round(plan.expectedHoldSeconds),
+            maxHoldSeconds: Math.round(plan.maxHoldSeconds),
+            plannedLeverage: plan.leverage,
           })
           .returning();
       } catch (dbErr) {
@@ -1829,6 +1881,11 @@ class BotEngine {
             : "Stop-loss placement failed AND the protective flatten failed — manual intervention required",
         };
       }
+
+      // Journal the executed decision with its trade link (best-effort).
+      void recordDecisions(this.userId, [
+        planToRecord(plan, "executed", { tradeId: trade!.id }),
+      ]).catch(() => {});
 
       return {
         entered: true,

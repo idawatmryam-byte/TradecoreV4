@@ -170,6 +170,14 @@ interface OpenPosition {
   strategyId?: string;
   strategyName?: string;
   regime?: string;
+  // ── Decision engine ("the brains") ─────────────────────────────────────────
+  /** Per-trade leverage from the plan (legacy plans = the run's leverage). */
+  leverage: number;
+  /** Per-trade forced-exit deadline from the plan (seconds). */
+  maxHoldSeconds?: number;
+  entryReason?: string;
+  /** The full TradePlan this simulated trade executed. */
+  tradePlan?: unknown;
   /** Phase 4C: running Maximum Favorable/Adverse Excursion, in USDT, updated every bar. */
   mfe: number;
   mae: number;
@@ -217,6 +225,10 @@ interface SimTrade {
   strategyId?: string;
   strategyName?: string;
   regime?: string;
+  /** Decision engine: per-trade leverage / reasoning carried to persistence. */
+  leverage?: number;
+  entryReason?: string;
+  tradePlan?: unknown;
   /** Phase 4C */
   mfe: number;
   mae: number;
@@ -659,6 +671,9 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     let balance = startingBalance;
     let peakBalance = startingBalance;
     const allTrades: SimTrade[] = [];
+    // Aggregated decision telemetry (strategy × stage × reason → count),
+    // persisted once on the run row as `decisionStats`.
+    const decisionAgg = new Map<string, { strategyId: string; stage: string; reason: string; count: number }>();
     const equityTimeSeries: Array<{ ts: Date; balance: number; drawdown: number }> = [];
 
     const openPositions: OpenPosition[] = [];
@@ -824,7 +839,13 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         const stopTouched = isShort ? high >= pos.slPrice : low <= pos.slPrice;
         const targetTouched = isShort ? low <= pos.tpPrice : high >= pos.tpPrice;
         const holdSecs = (now.getTime() - pos.entryTime.getTime()) / 1000;
-        const timedOut = !!posStratCfg && holdSecs >= posStratCfg.maxHoldingSeconds;
+        // Per-trade deadline first (the plan's own maxHoldSeconds — legacy
+        // plans persist the strategy config's value, so behavior is
+        // unchanged); strategy config is the fallback, exactly like live.
+        const posMaxHold = pos.maxHoldSeconds && pos.maxHoldSeconds > 0
+          ? pos.maxHoldSeconds
+          : posStratCfg?.maxHoldingSeconds;
+        const timedOut = posMaxHold != null && holdSecs >= posMaxHold;
 
         // Worse fill for the CLOSING trade: lower for a long (sells to
         // close), higher for a short (buys to close).
@@ -917,6 +938,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
             strategyId: pos.strategyId,
             strategyName: pos.strategyName,
             regime: pos.regime,
+            leverage: pos.leverage, entryReason: pos.entryReason, tradePlan: pos.tradePlan,
             mfe: pos.mfe, mae: pos.mae, riskReward,
             tp1Price: pos.tp1Price, tp1Qty: pos.tp1Qty, tp1Filled: pos.tp1Filled,
             tp1FillPrice: pos.tp1FillPrice, tp1FillTime: pos.tp1FillTime,
@@ -1004,12 +1026,21 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       // Phase 2: multi-strategy evaluation — pass current balance for risk-based sizing
       const row = buildSignalRow(symbol, mtf, symbolRegime.get(symbol));
       symbolRegime.set(symbol, row.regime);
-      let signals = strategySelector.evaluateSymbol(
+      const { plans, rejections } = strategySelector.decideSymbol(
         symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt, dollarRisk
       );
+      // Decision telemetry — AGGREGATED, never row-per-event (a 2-week 1m run
+      // evaluates ~45k candles; per-event rows would explode the table).
+      for (const r of rejections) {
+        const key = `${r.strategyId}|${r.stage}|${r.reason}`;
+        const agg = decisionAgg.get(key);
+        if (agg) agg.count++;
+        else decisionAgg.set(key, { strategyId: r.strategyId, stage: r.stage, reason: r.reason, count: 1 });
+      }
       // PARITY FIX: spot has no short-selling mechanism — the live engine drops
       // short signals in spot mode (botEngine.ts), so the backtest must too, or
       // a spot backtest takes sell trades that live could never place.
+      let signals = plans;
       if (!isFutures) {
         signals = signals.filter((s) => s.side === "long");
       }
@@ -1039,7 +1070,11 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       // stopLossPercent; any drift would indicate a config-plumbing bug.
       const isShortSignal = bestSignal.side === "short";
       const slDistancePercent =
-        (Math.abs(bestSignal.entryPrice - bestSignal.suggestedSL) / bestSignal.entryPrice) * 100;
+        (Math.abs(bestSignal.entryPrice - bestSignal.slPrice) / bestSignal.entryPrice) * 100;
+      // Per-trade leverage from the plan — legacy-adapter plans carry the
+      // run's leverage, so historical runs are bit-identical; native decide()
+      // strategies may choose LOWER than the cap per trade.
+      const tradeLeverage = isFutures ? Math.max(1, Math.floor(bestSignal.leverage)) : 1;
 
       // Entry fill mechanics:
       //   taker (default): cross the spread now — adverse slippage, taker fee.
@@ -1063,8 +1098,9 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
           runId, symbol, strategyId: bestSignal.strategyId,
           stopLossPercent: usedConfig?.stopLossPercent, takeProfitPercent: usedConfig?.takeProfitPercent,
           confidenceThreshold: usedConfig?.confidenceThreshold, riskPercent: usedConfig?.riskPercent,
-          entryPrice: bestSignal.entryPrice, suggestedSL: bestSignal.suggestedSL, suggestedTP: bestSignal.suggestedTP,
+          entryPrice: bestSignal.entryPrice, suggestedSL: bestSignal.slPrice, suggestedTP: bestSignal.tpPrice,
           confidence: bestSignal.confidence, slDistancePercent: slDistancePercent.toFixed(3),
+          plannedLeverage: tradeLeverage,
         },
         "BACKTEST_TRADE_CONFIG_USED",
       );
@@ -1086,8 +1122,8 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       // positive, then re-applied in the opposite direction around fillPrice
       // — mirrors botEngine.ts enterTrade's side-aware re-anchoring exactly.
       const signalEntry = bestSignal.entryPrice;
-      const slDistance = isShortSignal ? bestSignal.suggestedSL - signalEntry : signalEntry - bestSignal.suggestedSL;
-      const tpDistance = isShortSignal ? signalEntry - bestSignal.suggestedTP : bestSignal.suggestedTP - signalEntry;
+      const slDistance = isShortSignal ? bestSignal.slPrice - signalEntry : signalEntry - bestSignal.slPrice;
+      const tpDistance = isShortSignal ? signalEntry - bestSignal.tpPrice : bestSignal.tpPrice - signalEntry;
       const realSlPrice = isShortSignal ? fillPrice + slDistance : fillPrice - slDistance;
       const realTpPrice = isShortSignal ? fillPrice - tpDistance : fillPrice + tpDistance;
 
@@ -1098,10 +1134,14 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       // (e.g. 50x with a 1.5% stop) shows the SAME "few/no trades" outcome the
       // live bot would produce, instead of pretending the trades happen.
       let liquidationPrice: number | undefined;
-      if (modelsLiquidation) {
-        liquidationPrice = estimateLiquidationPrice(fillPrice, bestSignal.side, leverage);
+      if (isFutures && tradeLeverage > 1) {
+        liquidationPrice = estimateLiquidationPrice(fillPrice, bestSignal.side, tradeLeverage);
         if (stopTooCloseToLiquidation(fillPrice, realSlPrice, liquidationPrice)) {
           liquidationRejectedEntries++;
+          const key = `${bestSignal.strategyId}|liquidation-guard|stop too close to liquidation at ${tradeLeverage}x`;
+          const agg = decisionAgg.get(key);
+          if (agg) agg.count++;
+          else decisionAgg.set(key, { strategyId: bestSignal.strategyId, stage: "liquidation-guard", reason: `stop too close to liquidation at ${tradeLeverage}x`, count: 1 });
           continue; // live would not open this trade
         }
       }
@@ -1133,6 +1173,10 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         strategyId: bestSignal.strategyId,
         strategyName: bestSignal.strategyName,
         regime: bestSignal.regime,
+        leverage: tradeLeverage,
+        maxHoldSeconds: Math.round(bestSignal.maxHoldSeconds),
+        entryReason: bestSignal.report.summary,
+        tradePlan: bestSignal,
         mfe: 0,
         mae: 0,
         tp1Price: ladder.tp1Price,
@@ -1203,6 +1247,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         strategyId: pos.strategyId,
         strategyName: pos.strategyName,
         regime: pos.regime,
+        leverage: pos.leverage, entryReason: pos.entryReason, tradePlan: pos.tradePlan,
         mfe: pos.mfe, mae: pos.mae, riskReward,
         tp1Price: pos.tp1Price, tp1Qty: pos.tp1Qty, tp1Filled: pos.tp1Filled,
         tp1FillPrice: pos.tp1FillPrice, tp1FillTime: pos.tp1FillTime,
@@ -1256,6 +1301,10 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
           ...(t.strategyId   && { strategyId: t.strategyId }),
           ...(t.strategyName && { strategyName: t.strategyName }),
           ...(t.regime       && { marketRegime: t.regime }),
+          // Decision engine: per-trade leverage + the plan's reasoning
+          ...(t.leverage != null && { leverage: t.leverage }),
+          ...(t.entryReason && { entryReason: t.entryReason }),
+          ...(t.tradePlan != null && { tradePlan: t.tradePlan }),
           // Phase 7: trade-management parity fields
           ...(t.tp1Price > 0 && { tp1Price: t.tp1Price.toFixed(8), tp1Quantity: t.tp1Qty.toFixed(8) }),
           tp1Filled: t.tp1Filled,
@@ -1330,6 +1379,11 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         dailyReturns:  metrics.dailyReturns,
         monthlyReturns: metrics.monthlyReturns,
         strategyComparison: metrics.strategyComparison,
+        // Decision telemetry: strategy × stage × reason rejection counts,
+        // most frequent first — "why the run DIDN'T trade more".
+        decisionStats: {
+          rejections: [...decisionAgg.values()].sort((a, b) => b.count - a.count),
+        },
         tp1HitRate: metrics.tp1HitRate.toFixed(4),
         tp2HitRate: metrics.tp2HitRate.toFixed(4),
         breakEvenRate: metrics.breakEvenRate.toFixed(4),

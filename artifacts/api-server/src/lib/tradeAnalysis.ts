@@ -130,6 +130,40 @@ export function analyzeTrade(trade: Trade): TradeAnalysisResult {
     );
   }
 
+  // ── 7. Plan vs. actual (decision engine) ───────────────────────────────────
+  // When the trade carries its full TradePlan, hold the strategy accountable
+  // to its own written assumptions — still purely arithmetic on recorded data.
+  const plan = trade.tradePlan as
+    | { expectedHoldSeconds?: number; leverage?: number; report?: { summary?: string } }
+    | null;
+  if (plan && typeof plan === "object") {
+    const expectedHold = n(plan.expectedHoldSeconds);
+    if (expectedHold > 0 && trade.holdingSeconds != null) {
+      const actualHold = n(trade.holdingSeconds);
+      const ratio = actualHold / expectedHold;
+      if (exitReason === "take_profit" && ratio <= 1.2) {
+        findings.push(
+          `Plan accuracy: thesis resolved in ${(actualHold / 60).toFixed(0)}m vs ~${(expectedHold / 60).toFixed(0)}m expected — the duration estimate held up.`,
+        );
+      } else if (ratio > 2) {
+        findings.push(
+          `Plan accuracy: held ${(actualHold / 60).toFixed(0)}m vs ~${(expectedHold / 60).toFixed(0)}m expected (${ratio.toFixed(1)}×) — the move was much slower than the plan assumed.`,
+        );
+      } else if (ratio < 0.25 && outcome === "loss") {
+        findings.push(
+          `Plan accuracy: stopped out after ${(actualHold / 60).toFixed(0)}m vs ~${(expectedHold / 60).toFixed(0)}m expected — invalidated almost immediately, the entry timing assumption was wrong.`,
+        );
+      }
+    }
+    const plannedLev = n(trade.plannedLeverage ?? plan.leverage);
+    const actualLev = n(trade.leverage);
+    if (plannedLev > 0 && actualLev > 0 && actualLev < plannedLev) {
+      findings.push(
+        `Plan deviation: planned ${plannedLev}× leverage but the exchange applied ${actualLev}× (symbol cap) — size was scaled down to keep margin within budget.`,
+      );
+    }
+  }
+
   // ── Process-quality grade (A–F) ────────────────────────────────────────────
   // Scores the RECORDED process, not luck. A cleanly-stopped loss is not an F.
   let score = 3; // C baseline
