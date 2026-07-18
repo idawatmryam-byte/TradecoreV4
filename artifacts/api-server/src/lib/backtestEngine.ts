@@ -175,6 +175,8 @@ interface OpenPosition {
   leverage: number;
   /** Per-trade forced-exit deadline from the plan (seconds). */
   maxHoldSeconds?: number;
+  /** The plan's expected resolution time (stale-thesis exit input). */
+  expectedHoldSeconds?: number;
   entryReason?: string;
   /** The full TradePlan this simulated trade executed. */
   tradePlan?: unknown;
@@ -859,6 +861,19 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
           ? pos.maxHoldSeconds
           : posStratCfg?.maxHoldingSeconds;
         const timedOut = posMaxHold != null && holdSecs >= posMaxHold;
+        // Stale-thesis exit — mirror of exitManager: held ≥ 1.5× the plan's
+        // EXPECTED resolution with price within ±0.25R of entry → cut early
+        // as a timeout instead of blocking capital until the hard deadline.
+        // Legacy plans persist expected = the hard max hold, so this can
+        // never fire before the hard timeout for them (behavior unchanged).
+        let staleOut = false;
+        if (!timedOut && pos.expectedHoldSeconds && pos.expectedHoldSeconds > 0 && holdSecs >= pos.expectedHoldSeconds * 2) {
+          const staleRisk = Math.abs(pos.entryPrice - pos.plannedSlPrice);
+          if (staleRisk > 0) {
+            const uR = (isShort ? pos.entryPrice - currentCandle[4] : currentCandle[4] - pos.entryPrice) / staleRisk;
+            staleOut = Math.abs(uR) <= 0.15;
+          }
+        }
 
         // Worse fill for the CLOSING trade: lower for a long (sells to
         // close), higher for a short (buys to close).
@@ -869,7 +884,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         if (stopTouched) candidates.push({ key: "stop_loss", reason: stopLabel, exitPrice: pos.slPrice * closeSlippageMult });
         if (stopTouched && pos.trailingStopActive) candidates.push({ key: "trailing_stop", reason: stopLabel, exitPrice: pos.slPrice * closeSlippageMult });
         if (targetTouched) candidates.push({ key: "take_profit", reason: "take_profit", exitPrice: pos.tpPrice * closeSlippageMult });
-        if (timedOut) candidates.push({ key: "timeout", reason: "timeout", exitPrice: currentCandle[4] * closeSlippageMult });
+        if (timedOut || staleOut) candidates.push({ key: "timeout", reason: "timeout", exitPrice: currentCandle[4] * closeSlippageMult });
         // Futures liquidation: a forced close at the liquidation price (loss ≈
         // the posted margin). The entry guard keeps the stop INSIDE the
         // liquidation price, so any candle reaching liquidation also reached
@@ -1188,6 +1203,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         regime: bestSignal.regime,
         leverage: tradeLeverage,
         maxHoldSeconds: Math.round(bestSignal.maxHoldSeconds),
+        expectedHoldSeconds: Math.round(bestSignal.expectedHoldSeconds),
         entryReason: bestSignal.report.summary,
         tradePlan: bestSignal,
         mfe: 0,
