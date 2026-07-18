@@ -43,7 +43,7 @@ import { ExitManager, type OpenOrderIds } from "./exitManager";
 import { TradeManager } from "./tradeManager";
 import { placeSellOco, cancelOco } from "./binanceOco";
 import { placeFuturesStopAndTakeProfit, closeFuturesPositionMarket, configureFuturesLeverage, getLiquidationPrice } from "./binanceFutures";
-import { stopTooCloseToLiquidation } from "./futuresMath";
+import { stopTooCloseToLiquidation, MIN_PROTECTIVE_STOP_PCT } from "./futuresMath";
 import { buildDailyReport, formatDailyReportText } from "./dailyReport";
 import {
   buildSymbolMarketMaps,
@@ -73,15 +73,6 @@ type Candle = [number, number, number, number, number, number];
 // connection of the right market type (candles need no credentials).
 const publicClients: Partial<Record<"spot" | "futures", any>> = {};
 
-/**
- * Minimum futures stop-loss distance from entry (% of price) for a protective
- * STOP_MARKET to place reliably. Binance rejects a trigger too close to the
- * mark price ("would immediately trigger" / PERCENT_PRICE filter); below this
- * the position ends up unprotected → immediate flatten or liquidation. This is
- * the concrete floor that makes a fixed-dollar stop unplaceable at very high
- * leverage (a $50 stop on $15k notional is only ~0.23% away, well under this).
- */
-const MIN_PROTECTIVE_STOP_PCT = 0.35;
 
 function publicDataClient(marketType: "spot" | "futures"): any {
   if (!publicClients[marketType]) {

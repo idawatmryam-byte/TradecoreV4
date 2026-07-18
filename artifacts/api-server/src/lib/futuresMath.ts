@@ -36,6 +36,18 @@ export const MAINTENANCE_MARGIN_RATE = 0.004;
 export const LIQUIDATION_BUFFER = 1.25;
 
 /**
+ * Minimum futures stop-loss distance from entry (% of price) for a protective
+ * STOP_MARKET to place reliably. Binance rejects a trigger too close to the
+ * mark price ("would immediately trigger" / PERCENT_PRICE filter); below this
+ * the position ends up unprotected → immediate flatten or liquidation. This is
+ * the concrete floor that makes a fixed-dollar stop unplaceable at very high
+ * leverage (a $50 stop on $15k notional is only ~0.23% away, well under this).
+ * Lives here (not botEngine) so the leverage solver and the live entry guard
+ * share one number.
+ */
+export const MIN_PROTECTIVE_STOP_PCT = 0.35;
+
+/**
  * Estimate the isolated-margin liquidation price for a USDⓈ-M futures
  * position. Derivation (ignoring funding, exact fees): a position is
  * liquidated when its loss consumes the initial margin down to the
