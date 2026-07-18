@@ -931,7 +931,9 @@ export const GetStrategiesResponseItem = zod.object({
   "takeProfitPercent": zod.number().describe('Take-profit distance as a % above entry price (Phase 5A — replaces atrMultiplierTp)'),
   "maxHoldingSeconds": zod.number(),
   "maxConcurrentPositions": zod.number(),
-  "cooldownMinutes": zod.number()
+  "cooldownMinutes": zod.number(),
+  "breakEvenRMultiple": zod.number().optional().describe('Pre-TP1 break-even arm: at this many R of unrealized profit the stop moves to entry — the trade can no longer lose. 0 disables.'),
+  "tp1RMultiple": zod.number().optional().describe('R-multiple at which TP1 banks a partial and moves the stop to break-even. 0 = single TP.')
 }),
   "performance": zod.object({
   "totalTrades": zod.number(),
@@ -989,7 +991,9 @@ export const UpdateStrategyConfigBody = zod.object({
   "takeProfitPercent": zod.number().min(updateStrategyConfigBodyTakeProfitPercentMin).optional(),
   "maxHoldingSeconds": zod.number().optional(),
   "maxConcurrentPositions": zod.number().optional(),
-  "cooldownMinutes": zod.number().optional()
+  "cooldownMinutes": zod.number().optional(),
+  "breakEvenRMultiple": zod.number().optional().describe('Pre-TP1 break-even arm: at this many R of unrealized profit the stop moves to entry — the trade can no longer lose. 0 disables.'),
+  "tp1RMultiple": zod.number().optional().describe('R-multiple at which TP1 banks a partial and moves the stop to break-even. 0 = single TP.')
 })
 
 export const UpdateStrategyConfigResponse = zod.object({

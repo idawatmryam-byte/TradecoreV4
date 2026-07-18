@@ -82,6 +82,8 @@ interface EditState {
   maxHoldingSeconds: string;
   maxConcurrentPositions: string;
   cooldownMinutes: string;
+  breakEvenRMultiple: string;
+  tp1RMultiple: string;
 }
 
 // ── Strategy card ──────────────────────────────────────────────────────────
@@ -101,6 +103,8 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
     maxHoldingSeconds:      String(strategy.config.maxHoldingSeconds),
     maxConcurrentPositions: String(strategy.config.maxConcurrentPositions),
     cooldownMinutes:        String(strategy.config.cooldownMinutes),
+    breakEvenRMultiple:     String((strategy.config as any).breakEvenRMultiple ?? 0),
+    tp1RMultiple:           String((strategy.config as any).tp1RMultiple ?? 0),
   });
 
   const { mutate, isPending } = useUpdateStrategyConfig({
@@ -142,7 +146,9 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
         maxHoldingSeconds:      Number(form.maxHoldingSeconds),
         maxConcurrentPositions: Number(form.maxConcurrentPositions),
         cooldownMinutes:        Number(form.cooldownMinutes),
-      },
+        breakEvenRMultiple:     Number(form.breakEvenRMultiple),
+        tp1RMultiple:           Number(form.tp1RMultiple),
+      } as any,
     });
   }
 
@@ -281,6 +287,8 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
               <div className="grid grid-cols-2 gap-3 border-t border-border/50 pt-3">
                 {(
                   [
+                    ['breakEvenRMultiple', 'Break-even at +R (0 = off)'],
+                    ['tp1RMultiple', 'TP1 at +R (0 = single TP)'],
                     ['confidenceThreshold', 'Min Confidence'],
                     ['maxConcurrentPositions', 'Max Concurrent'],
                     ['cooldownMinutes', 'Cooldown (min)'],
@@ -299,7 +307,7 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
                   </div>
                 ))}
                 <p className="col-span-2 text-[10px] text-muted-foreground">
-                  The legacy % fields only apply while Max Loss / Target above are empty.
+                  Break-even at +R moves the stop to entry once the trade is that many R in profit — it can no longer lose. TP1 at +R banks half there and moves the stop to break-even. The legacy % fields only apply while Max Loss / Target above are empty.
                 </p>
               </div>
             )}

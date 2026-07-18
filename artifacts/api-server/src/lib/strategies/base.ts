@@ -43,6 +43,10 @@ export interface StrategyConfig {
   cooldownMinutes: number;
 
   // ── Phase 4B: professional trade management ────────────────────────────
+  /** Pre-TP1 break-even arm: at this many R of unrealized profit the stop
+   *  moves to entry even before TP1 fills — the trade can no longer lose.
+   *  0 disables (break-even then arms only when TP1 fills). */
+  breakEvenRMultiple: number;
   /** R-multiple at which TP1 partial-closes. 0 disables TP1/BE/trailing (single-TP behavior). */
   tp1RMultiple: number;
   /** % of the original position closed at TP1 (1-99). */
@@ -285,6 +289,7 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
     maxHoldingSeconds: 3600,
     maxConcurrentPositions: 2,
     cooldownMinutes: 30,
+    breakEvenRMultiple: 0.7,
     tp1RMultiple: 1.0, tp1ClosePercent: 50,
     tp3Enabled: false, tp2RMultiple: 2.0, tp2ClosePercent: 25, tp3RMultiple: 4.0,
     trailingStopMode: "atr", trailingStopAtrMultiplier: 1.5, trailingStopPercent: 1.0,
@@ -303,6 +308,7 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
     maxConcurrentPositions: 3,
     cooldownMinutes: 20,
     // Trend-following: let winners run further — 3-level scale-out with a wide final target.
+    breakEvenRMultiple: 0,
     tp1RMultiple: 1.0, tp1ClosePercent: 40,
     tp3Enabled: true, tp2RMultiple: 2.0, tp2ClosePercent: 30, tp3RMultiple: 5.0,
     trailingStopMode: "dynamic", trailingStopAtrMultiplier: 2.0, trailingStopPercent: 1.5,
@@ -322,6 +328,7 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
     cooldownMinutes: 15,
     // Mean-reversion targets are already tight — a single TP is usually enough,
     // but a small TP1 locks in something if price stalls halfway to target.
+    breakEvenRMultiple: 0,
     tp1RMultiple: 0.7, tp1ClosePercent: 60,
     tp3Enabled: false, tp2RMultiple: 1.5, tp2ClosePercent: 20, tp3RMultiple: 2.5,
     trailingStopMode: "percent", trailingStopAtrMultiplier: 1.0, trailingStopPercent: 0.6,
@@ -339,6 +346,7 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
     maxHoldingSeconds: 1800,
     maxConcurrentPositions: 2,
     cooldownMinutes: 15,
+    breakEvenRMultiple: 0,
     tp1RMultiple: 0.8, tp1ClosePercent: 55,
     tp3Enabled: false, tp2RMultiple: 1.5, tp2ClosePercent: 20, tp3RMultiple: 2.5,
     trailingStopMode: "percent", trailingStopAtrMultiplier: 1.0, trailingStopPercent: 0.6,
@@ -359,6 +367,7 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
     // Scalping: hold time is already seconds-scale — TP1 disabled by default
     // (tp1RMultiple 0) since the full target is usually reached or timed out
     // before a partial makes sense; can be enabled per-user via the config UI.
+    breakEvenRMultiple: 0,
     tp1RMultiple: 0, tp1ClosePercent: 50,
     tp3Enabled: false, tp2RMultiple: 1.5, tp2ClosePercent: 20, tp3RMultiple: 2.0,
     trailingStopMode: "none", trailingStopAtrMultiplier: 0.8, trailingStopPercent: 0.3,
@@ -381,6 +390,7 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
     maxHoldingSeconds: 900, // 15-minute time-stop
     maxConcurrentPositions: 4,
     cooldownMinutes: 2, // scalping re-enters quickly
+    breakEvenRMultiple: 0,
     tp1RMultiple: 0, tp1ClosePercent: 50,
     tp3Enabled: false, tp2RMultiple: 1.5, tp2ClosePercent: 20, tp3RMultiple: 2.0,
     trailingStopMode: "none", trailingStopAtrMultiplier: 0.5, trailingStopPercent: 0.2,
@@ -398,6 +408,7 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
     maxHoldingSeconds: 3600,
     maxConcurrentPositions: 2,
     cooldownMinutes: 30,
+    breakEvenRMultiple: 0,
     tp1RMultiple: 1.0, tp1ClosePercent: 50,
     tp3Enabled: false, tp2RMultiple: 2.0, tp2ClosePercent: 25, tp3RMultiple: 4.0,
     trailingStopMode: "atr", trailingStopAtrMultiplier: 1.75, trailingStopPercent: 1.2,
@@ -426,6 +437,7 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
     // those into timeouts/losses. TP1 banks HALF the position at +1R and moves
     // the stop to break-even (a reversal after progress keeps its profit); the
     // remainder rides toward the full target with a tight ATR trail.
+    breakEvenRMultiple: 0.7,
     tp1RMultiple: 1.0, tp1ClosePercent: 50,
     tp3Enabled: false, tp2RMultiple: 1.5, tp2ClosePercent: 20, tp3RMultiple: 2.0,
     trailingStopMode: "atr", trailingStopAtrMultiplier: 1.0, trailingStopPercent: 0.3,

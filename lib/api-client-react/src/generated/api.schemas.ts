@@ -985,6 +985,10 @@ export interface StrategyConfig {
   maxHoldingSeconds: number;
   maxConcurrentPositions: number;
   cooldownMinutes: number;
+  /** Pre-TP1 break-even arm: at this many R of unrealized profit the stop moves to entry — the trade can no longer lose. 0 disables. */
+  breakEvenRMultiple?: number;
+  /** R-multiple at which TP1 banks a partial and moves the stop to break-even. 0 = single TP. */
+  tp1RMultiple?: number;
 }
 
 export interface StrategyConfigUpdate {
@@ -1012,6 +1016,10 @@ export interface StrategyConfigUpdate {
   maxHoldingSeconds?: number;
   maxConcurrentPositions?: number;
   cooldownMinutes?: number;
+  /** Pre-TP1 break-even arm: at this many R of unrealized profit the stop moves to entry — the trade can no longer lose. 0 disables. */
+  breakEvenRMultiple?: number;
+  /** R-multiple at which TP1 banks a partial and moves the stop to break-even. 0 = single TP. */
+  tp1RMultiple?: number;
 }
 
 export interface StrategyPerformance {

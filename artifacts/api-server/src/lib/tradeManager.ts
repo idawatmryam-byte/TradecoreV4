@@ -178,6 +178,39 @@ export class TradeManager {
     // ── Trailing stop (normal or emergency) ────────────────────────────────────
     const currentPrice = lastCandle[4];
     const unrealizedR = (isShort ? entryPrice - currentPrice : currentPrice - entryPrice) / originalRiskDistance;
+
+    // ── Pre-TP1 break-even arm ────────────────────────────────────────────────
+    // A professional doesn't wait for TP1 to protect a working trade: once
+    // unrealized profit reaches breakEvenRMultiple × R, the stop moves to the
+    // ENTRY price — from here the trade can no longer turn into a loss, even
+    // if the market reverses before any target fills. Stops only ever
+    // tighten; TP1's own break-even move later is a no-op on top of this.
+    if (
+      stratConfig.breakEvenRMultiple > 0 &&
+      !trade.breakEvenActive &&
+      !trade.tp1Filled &&
+      unrealizedR >= stratConfig.breakEvenRMultiple
+    ) {
+      const currentStop = Number(trade.stopLoss);
+      const beStop = entryPrice;
+      if (isShort ? beStop < currentStop : beStop > currentStop) {
+        const qty = Number(trade.remainingQuantity ?? trade.quantity);
+        const tp = Number(trade.takeProfit);
+        const result = await this.host.replaceStopOrder(ex, trade, market, beStop, tp, qty, orderIds);
+        await db
+          .update(tradesTable)
+          .set({ stopLoss: beStop.toFixed(8), breakEvenActive: true })
+          .where(eq(tradesTable.id, trade.id));
+        if (result) {
+          orderIds = mergeOrderIds(orderIds, result);
+        }
+        trade = (await db.select().from(tradesTable).where(eq(tradesTable.id, trade.id)))[0] ?? trade;
+        logger.info(
+          { tradeId: trade.id, symbol: trade.symbol, unrealizedR: unrealizedR.toFixed(2), oldStop: currentStop, newStop: beStop },
+          "Break-even armed pre-TP1 — trade can no longer lose",
+        );
+      }
+    }
     const trailingArmed = trade.tp1Filled || !stratConfig.trailingAfterTp1Only;
     const emergencyArmed =
       !trailingArmed &&
