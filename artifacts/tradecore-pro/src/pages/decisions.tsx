@@ -7,7 +7,7 @@ import { Card, CardContent, Button, Badge } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import {
   Scale, CheckCircle2, XCircle, PauseCircle, ChevronDown, ChevronUp, Loader2,
-  ArrowUpRight, ArrowDownRight, Eye, LineChart, ShieldCheck, Clock,
+  ArrowUpRight, ArrowDownRight, Eye, LineChart, ShieldCheck, Clock, Download,
 } from "lucide-react";
 
 /**
@@ -176,6 +176,52 @@ export function Decisions() {
     }
   }
 
+  const [exporting, setExporting] = useState(false);
+
+  // Full-journal CSV export (respects the active kind filter): pages through
+  // the API up to 2000 rows, one row per decision, reasoning summary included.
+  async function downloadCsv() {
+    setExporting(true);
+    try {
+      const all: StrategyDecisionEntry[] = [];
+      let cursor: number | undefined;
+      for (let page = 0; page < 10; page++) {
+        const batch = await getDecisionJournal({ ...params, limit: 200, ...(cursor && { before: cursor }) });
+        if (!batch || batch.length === 0) break;
+        all.push(...batch);
+        cursor = batch[batch.length - 1]!.id;
+        if (batch.length < 200) break;
+      }
+      if (all.length === 0) return;
+
+      const esc = (v: unknown) => {
+        if (v == null) return "";
+        const s = String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const cols = [
+        "id", "createdAt", "lastSeenAt", "kind", "symbol", "strategyId", "strategyName",
+        "side", "confidence", "stage", "reason", "occurrences", "tradeId", "planSummary",
+      ];
+      const rows = all.map((e) => {
+        const { report, plan } = unpack(e);
+        return [
+          e.id, e.createdAt, e.lastSeenAt, e.kind, e.symbol, e.strategyId, e.strategyName ?? "",
+          e.side ?? "", e.confidence ?? "", e.stage ?? "", e.reason ?? "", e.occurrences,
+          e.tradeId ?? "", report?.summary ?? (plan ? "" : ""),
+        ].map(esc).join(",");
+      });
+      const blob = new Blob([[cols.join(","), ...rows].join("\n")], { type: "text/csv" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `tradecore-decisions-${kind}-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -188,7 +234,7 @@ export function Decisions() {
             Rejections matter as much as entries: this is why the engine is (or isn't) trading.
           </p>
         </div>
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-1.5 flex-wrap items-center">
           {(["all", "executed", "approved_not_taken", "rejected"] as Kind[]).map((k) => (
             <Button
               key={k}
@@ -200,6 +246,17 @@ export function Decisions() {
               {k === "all" ? "All" : KIND_META[k as Exclude<Kind, "all">].label}
             </Button>
           ))}
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs h-7 gap-1.5"
+            onClick={downloadCsv}
+            disabled={exporting || entries.length === 0}
+            title="Export the journal (current filter) as CSV — up to 2000 most recent decisions"
+          >
+            {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            CSV
+          </Button>
         </div>
       </div>
 
