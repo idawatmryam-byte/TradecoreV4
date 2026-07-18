@@ -36,7 +36,10 @@ import {
   computeQty, computeAdaptiveSLTP,
 } from "./base";
 import { type MultiTimeframeCandles, type SignalRow, calcEma, calcVwap } from "../strategy";
-import { marketFacts, solveLeverage, timeFeasible, feeViability, suggestLeverageForTarget } from "./toolkit";
+import {
+  marketFacts, solveLeverage, timeFeasible, feeViability, suggestLeverageForTarget,
+  adaptiveDeadline, INTRADAY_MAX_HOLD_SECONDS,
+} from "./toolkit";
 
 export class TwentyMinMomentumStrategy implements Strategy {
   readonly strategyId = "twenty_min_momentum";
@@ -134,11 +137,16 @@ export class TwentyMinMomentumStrategy implements Strategy {
       return rejection("leverage", solved.reason ?? "no safe leverage for this dollar plan");
     }
 
-    // ── Time: can this target realistically resolve inside the window? ──────
+    // ── Time: can this target realistically resolve intraday? ───────────────
     // Judged on BOTH the 1m and 5m frames — a trending coin shows more usable
     // range on the coarser frame, so 1m noise alone under-calls real trends.
-    const maxHold = config.maxHoldingSeconds;
-    const tf = timeFeasible(solved.tpFraction, row, maxHold, mtf);
+    //
+    // The window is the INTRADAY contract (up to 2 hours — "20 Minutes
+    // Trading" names the style, not the deadline; a thesis needing ~40min is
+    // a perfectly good intraday trade). A user-configured hold LONGER than
+    // 2h extends the window; a shorter one no longer strangles it.
+    const window = Math.max(config.maxHoldingSeconds, INTRADAY_MAX_HOLD_SECONDS);
+    const tf = timeFeasible(solved.tpFraction, row, window, mtf);
     if (!tf.feasible) {
       // Professional follow-up: would MORE leverage make the target
       // reachable (bigger notional → smaller % move needed) while the stop
@@ -154,9 +162,12 @@ export class TwentyMinMomentumStrategy implements Strategy {
         : ` — no leverage makes this target reachable safely here: lower Target Profit or raise Trade Amount`;
       return rejection("coin-fit", (tf.reason ?? "target unreachable within the hold window") + hint);
     }
-    // Honest expected duration from the volatility math (never below 5min,
-    // never past the deadline).
-    const expectedHold = Math.min(maxHold, Math.max(300, tf.expectedSeconds));
+    // Honest expected duration from the volatility math, and an ADAPTIVE
+    // deadline: ~2× the expected time, clamped to the 20min–2h intraday band
+    // — a 23-minute thesis gets ~46 minutes to play out instead of being
+    // hard-killed at a fixed number.
+    const expectedHold = Math.min(window, Math.max(300, tf.expectedSeconds));
+    const deadline = adaptiveDeadline(expectedHold, window);
 
     // ── Room: is the target parked behind the nearest swing level? ──────────
     const targetPct = solved.tpFraction * 100;
@@ -213,12 +224,12 @@ export class TwentyMinMomentumStrategy implements Strategy {
       ],
       exitLogic: [
         `target ${targetPct.toFixed(2)}% at ${solved.tpPrice.toPrecision(6)} (+$${dp.targetProfitUsdt} net)`,
-        `expected resolution ~${Math.round(expectedHold / 60)}min at current volatility; hard deadline ${Math.round(maxHold / 60)}min`,
+        `expected resolution ~${Math.round(expectedHold / 60)}min at current volatility; adaptive deadline ${Math.round(deadline / 60)}min (2× expected, 20min–2h band)`,
       ],
       checks: [
         { name: "Confluence", passed: true, detail: "5/5 lenses aligned" },
         { name: "Leverage solver", passed: true, detail: `${solved.leverage}× ≤ cap ${ctx.leverageCap}× · stop clears ${solved.bindingFloor}` },
-        { name: "Time feasibility", passed: true, detail: `~${Math.round(tf.expectedSeconds / 60)}min needed vs ${Math.round(maxHold / 60)}min window` },
+        { name: "Time feasibility", passed: true, detail: `~${Math.round(tf.expectedSeconds / 60)}min needed vs ${Math.round(window / 60)}min intraday window` },
         { name: "Room to target", passed: true, detail: wall != null ? `${wall.toFixed(2)}% to the nearest level vs ${targetPct.toFixed(2)}% target` : "no blocking level" },
         { name: "Fee viability", passed: true, detail: `net R:R ${fee.netRR.toFixed(2)} ≥ ${fee.floor}` },
       ],
@@ -243,7 +254,7 @@ export class TwentyMinMomentumStrategy implements Strategy {
         qty: solved.qty,
         leverage: solved.leverage,
         expectedHoldSeconds: expectedHold,
-        maxHoldSeconds: maxHold,
+        maxHoldSeconds: deadline,
         regime: row.regime,
         report,
       },
