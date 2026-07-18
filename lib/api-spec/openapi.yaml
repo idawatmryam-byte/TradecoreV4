@@ -251,6 +251,43 @@ paths:
                 items:
                   $ref: "#/components/schemas/SymbolDecision"
 
+  /decisions:
+    get:
+      operationId: getDecisionJournal
+      tags: [bot]
+      summary: Get the persistent strategy decision journal
+      description: >
+        Every trade a strategy genuinely considered — executed, approved but
+        not taken (lost allocation / portfolio risk / order failure), or
+        rejected by the strategy's own reasoning — with the full written
+        DecisionReport. Newest first.
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: before
+          in: query
+          description: Return rows with id lower than this (cursor pagination)
+          schema: { type: integer }
+        - name: kind
+          in: query
+          schema: { type: string, enum: [executed, approved_not_taken, rejected] }
+        - name: strategyId
+          in: query
+          schema: { type: string }
+        - name: symbol
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Decision journal rows, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StrategyDecisionEntry"
+
   /bot/blocking-summary:
     get:
       operationId: getBlockingSummary
@@ -917,6 +954,42 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PipelineStage"
+
+    StrategyDecisionEntry:
+      type: object
+      required: [id, createdAt, symbol, strategyId, kind, occurrences, lastSeenAt]
+      properties:
+        id:
+          type: integer
+        createdAt:
+          type: string
+        symbol:
+          type: string
+        strategyId:
+          type: string
+        strategyName:
+          type: ["string", "null"]
+        kind:
+          type: string
+          enum: [executed, approved_not_taken, rejected]
+        side:
+          type: ["string", "null"]
+        confidence:
+          type: ["number", "null"]
+        stage:
+          type: ["string", "null"]
+        reason:
+          type: ["string", "null"]
+        report:
+          description: DecisionReport for rejections; the full TradePlan for approved/executed decisions.
+          type: ["object", "null"]
+          additionalProperties: true
+        tradeId:
+          type: ["integer", "null"]
+        occurrences:
+          type: integer
+        lastSeenAt:
+          type: string
 
     LiveTicker:
       type: object

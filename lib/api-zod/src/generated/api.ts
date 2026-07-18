@@ -180,6 +180,42 @@ export const GetBotDecisionsResponse = zod.array(GetBotDecisionsResponseItem)
 
 
 /**
+ * Every trade a strategy genuinely considered — executed, approved but not taken (lost allocation / portfolio risk / order failure), or rejected by the strategy's own reasoning — with the full written DecisionReport. Newest first.
+ * @summary Get the persistent strategy decision journal
+ */
+export const getDecisionJournalQueryLimitDefault = 50;
+export const getDecisionJournalQueryLimitMax = 200;
+
+
+
+export const GetDecisionJournalQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(getDecisionJournalQueryLimitMax).default(getDecisionJournalQueryLimitDefault),
+  "before": zod.coerce.number().optional().describe('Return rows with id lower than this (cursor pagination)'),
+  "kind": zod.enum(['executed', 'approved_not_taken', 'rejected']).optional(),
+  "strategyId": zod.coerce.string().optional(),
+  "symbol": zod.coerce.string().optional()
+})
+
+export const GetDecisionJournalResponseItem = zod.object({
+  "id": zod.number(),
+  "createdAt": zod.string(),
+  "symbol": zod.string(),
+  "strategyId": zod.string(),
+  "strategyName": zod.string().nullish(),
+  "kind": zod.enum(['executed', 'approved_not_taken', 'rejected']),
+  "side": zod.string().nullish(),
+  "confidence": zod.number().nullish(),
+  "stage": zod.string().nullish(),
+  "reason": zod.string().nullish(),
+  "report": zod.record(zod.string(), zod.unknown()).nullish().describe('DecisionReport for rejections; the full TradePlan for approved\/executed decisions.'),
+  "tradeId": zod.number().nullish(),
+  "occurrences": zod.number(),
+  "lastSeenAt": zod.string()
+})
+export const GetDecisionJournalResponse = zod.array(GetDecisionJournalResponseItem)
+
+
+/**
  * Aggregated explanation of why trades are or are not being executed
  * @summary Get blocking summary
  */
