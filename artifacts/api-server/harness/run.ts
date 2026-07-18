@@ -61,6 +61,10 @@ async function main() {
   const makerEntry = process.argv.includes("--maker-entry");
   const makerFeeRate = arg("maker-fee") ? Number(arg("maker-fee")) : undefined;
   const makerEntryFillWindowMinutes = Number(arg("maker-window", "30"));
+  // Optional single-strategy isolation: --strategy twenty_min_momentum
+  // (forces that strategy enabled and every other one disabled — same switch
+  // the Backtest page's strategy picker uses).
+  const onlyStrategyId = arg("strategy");
 
   const params: BacktestParams = {
     symbols,
@@ -86,6 +90,7 @@ async function main() {
     makerEntry,
     ...(makerFeeRate !== undefined && { makerFeeRate }),
     makerEntryFillWindowMinutes,
+    ...(onlyStrategyId && { onlyStrategyId }),
   };
 
   const [run] = await db

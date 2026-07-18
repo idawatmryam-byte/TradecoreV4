@@ -32,9 +32,11 @@
  */
 import {
   type Strategy, type StrategySignal, type StrategyConfig, type PositionSide,
+  type TradeDecision, type DecisionContext, type DecisionReport,
   computeQty, computeAdaptiveSLTP,
 } from "./base";
 import { type MultiTimeframeCandles, type SignalRow, calcEma, calcVwap } from "../strategy";
+import { marketFacts, solveLeverage, timeFeasible, feeViability } from "./toolkit";
 
 export class TwentyMinMomentumStrategy implements Strategy {
   readonly strategyId = "twenty_min_momentum";
@@ -42,6 +44,188 @@ export class TwentyMinMomentumStrategy implements Strategy {
   // Momentum needs movement to ride — active regimes only. Range / low-vol have
   // no directional push to reach a target in 20 minutes.
   readonly supportedRegimes = ["strong_trend", "weak_trend", "high_volatility"] as const;
+
+  /**
+   * Professional decision-maker ("the brain") — owns the COMPLETE decision.
+   *
+   * The 5-lens confluence still decides DIRECTION, but everything else is
+   * reasoned per trade: the stop is anchored to the structural invalidation
+   * (VWAP — the thesis is "price on the right side of fair value with
+   * momentum"; back through VWAP = thesis dead), leverage is SOLVED from the
+   * dollar risk plan (highest leverage whose stop clears every safety floor,
+   * never above the user's cap), the target's reachability inside the hold
+   * window is verified at this coin's volatility, and room to the next
+   * swing level is checked so the target isn't parked behind a wall. Every
+   * gate — pass or fail — is written into the DecisionReport.
+   */
+  decide(
+    symbol: string,
+    mtf: MultiTimeframeCandles,
+    row: SignalRow,
+    config: StrategyConfig,
+    ctx: DecisionContext,
+  ): TradeDecision | null {
+    const { tf1m, tf3m } = mtf;
+    if (tf3m.length < 50 || tf1m.length < 20) return null;
+    const lastPrice = row.lastPrice;
+
+    // ── Read the market once ────────────────────────────────────────────────
+    const closes3m = tf3m.map((c) => c[4]);
+    const ema20 = calcEma(closes3m, 20);
+    const ema50 = calcEma(closes3m, 50);
+    const vwap = calcVwap(tf1m);
+    const macdHist = row.macdHistogram;
+    const rsi = row.rsi;
+    const adx = row.adx;
+    const vol = row.volumeRatio;
+
+    // Conviction gate: a 20-minute trade needs a REAL, participated move.
+    if (!(adx >= 20 && vol >= 1.0)) return null;
+
+    // ── Direction: 5-lens confluence (all must agree) ───────────────────────
+    const longAligned = ema20 > ema50 && macdHist > 0 && lastPrice > vwap && rsi >= 50 && rsi <= 72;
+    const shortAligned = ema20 < ema50 && macdHist < 0 && lastPrice < vwap && rsi <= 50 && rsi >= 28;
+    if (!longAligned && !shortAligned) return null; // no clean agreement — sit out
+    const side: PositionSide = longAligned ? "long" : "short";
+    const isShort = side === "short";
+
+    const rejection = (stage: "dollar-plan" | "coin-fit" | "leverage" | "reward-risk", reason: string, report?: DecisionReport): TradeDecision => ({
+      kind: "rejection",
+      rejection: {
+        strategyId: this.strategyId, strategyName: this.strategyName,
+        symbol, side, stage, reason, report,
+      },
+    });
+
+    // ── The user's only inputs: the dollar risk profile ─────────────────────
+    const dp = ctx.dollarPlan;
+    if (!dp || !(dp.maxLossUsdt > 0) || !(dp.targetProfitUsdt > 0)) {
+      return rejection(
+        "dollar-plan",
+        "no dollar risk plan configured — set Trade Amount, Max Loss and Target Profit for this strategy on the Strategies page",
+      );
+    }
+
+    const facts = marketFacts(mtf, row);
+    const vwapDistPct = vwap > 0 ? (Math.abs(lastPrice - vwap) / vwap) * 100 : 0;
+
+    // ── Risk: solve leverage backward from the safety floors ────────────────
+    // Structural invalidation = VWAP (the thesis line), but only when it's
+    // close enough to serve as a stop anchor — a far-away VWAP would force an
+    // oversized stop the dollar budget can't honor; there the dollar/noise
+    // floors govern instead.
+    const invalidationPrice = vwapDistPct > 0.05 && vwapDistPct <= 1.5 ? vwap : undefined;
+    const solved = solveLeverage({
+      entryPrice: lastPrice, side, marketType: ctx.marketType,
+      marginUsdt: dp.tradeAmountUsdt, maxLossUsdt: dp.maxLossUsdt, targetProfitUsdt: dp.targetProfitUsdt,
+      leverageCap: ctx.leverageCap, feeRate: ctx.feeRate,
+      atrPercent: row.atrPercent, invalidationPrice,
+    });
+    if (!solved.feasible) {
+      return rejection("leverage", solved.reason ?? "no safe leverage for this dollar plan");
+    }
+
+    // ── Time: can this target realistically resolve inside the window? ──────
+    const maxHold = config.maxHoldingSeconds;
+    const tf = timeFeasible(solved.tpFraction, row, maxHold);
+    if (!tf.feasible) {
+      return rejection("coin-fit", tf.reason ?? "target unreachable within the hold window");
+    }
+    // Honest expected duration from the volatility math (never below 5min,
+    // never past the deadline).
+    const expectedHold = Math.min(maxHold, Math.max(300, tf.expectedSeconds));
+
+    // ── Room: is the target parked behind the nearest swing level? ──────────
+    const targetPct = solved.tpFraction * 100;
+    const wall = isShort ? facts.supportDistancePct : facts.resistanceDistancePct;
+    if (wall != null && wall < targetPct * 0.6) {
+      return rejection(
+        "coin-fit",
+        `nearest ${isShort ? "support" : "resistance"} is ${wall.toFixed(2)}% away — target ${targetPct.toFixed(2)}% has no room to play out`,
+      );
+    }
+
+    // ── Costs: reward must justify risk after fees ──────────────────────────
+    const fee = feeViability(lastPrice, solved.slPrice, solved.tpPrice, side);
+    if (!fee.viable) {
+      return rejection("reward-risk", fee.reason ?? "reward does not clear costs");
+    }
+
+    // ── Confidence: how strongly the five lenses agree ──────────────────────
+    const rsiRoom = isShort ? rsi - 28 : 72 - rsi;
+    let confidence = 55;
+    confidence += Math.min(15, (adx - 20) * 0.6);
+    confidence += Math.min(10, vwapDistPct * 20);
+    confidence += Math.min(8, Math.max(0, rsiRoom) * 0.4);
+    confidence += Math.min(7, (vol - 1) * 7);
+    confidence = Math.min(100, Math.round(confidence * 10) / 10);
+    if (confidence < config.confidenceThreshold) return null;
+
+    // ── The written plan ────────────────────────────────────────────────────
+    const dirWord = isShort ? "down" : "up";
+    const report: DecisionReport = {
+      summary:
+        `All five lenses agree ${dirWord} (EMA trend, MACD momentum, ${isShort ? "below" : "above"} VWAP, RSI ${rsi.toFixed(0)} with room, ` +
+        `ADX ${adx.toFixed(0)} on ${vol.toFixed(1)}× volume). Risking $${dp.maxLossUsdt} to make $${dp.targetProfitUsdt} at ${solved.leverage}× ` +
+        `with the stop ${invalidationPrice ? "at the VWAP invalidation line" : "outside the noise band"}; ` +
+        `expecting resolution in ~${Math.round(expectedHold / 60)}min.`,
+      marketView: [
+        `regime ${row.regime} · ADX ${adx.toFixed(1)} · ${vol.toFixed(2)}× volume`,
+        `price ${isShort ? "below" : "above"} session VWAP by ${vwapDistPct.toFixed(2)}%`,
+        `volatility at the ${facts.volatilityPercentile}th percentile of its recent range`,
+        facts.resistance != null ? `nearest resistance +${facts.resistanceDistancePct!.toFixed(2)}%` : "no overhead resistance in the recent window",
+        facts.support != null ? `nearest support −${facts.supportDistancePct!.toFixed(2)}%` : "no support level in the recent window",
+      ],
+      entryLogic: [
+        `trend: EMA20 ${isShort ? "<" : ">"} EMA50 on 3m`,
+        `momentum: MACD histogram ${isShort ? "<" : ">"} 0`,
+        `fair value: price ${isShort ? "below" : "above"} VWAP (${dirWord}-side control)`,
+        `strength: RSI ${rsi.toFixed(0)} — directional with ${Math.max(0, rsiRoom).toFixed(0)} points before exhaustion`,
+        `conviction: ADX ${adx.toFixed(0)} ≥ 20 with ${vol.toFixed(1)}× participation`,
+      ],
+      riskLogic: [
+        `dollar plan: $${dp.tradeAmountUsdt} ${ctx.marketType === "futures" ? "margin" : "notional"}, max loss $${dp.maxLossUsdt}`,
+        `leverage SOLVED at ${solved.leverage}× (cap ${ctx.leverageCap}×) — highest that keeps the stop outside every floor (binding: ${solved.bindingFloor})`,
+        `stop ${solved.stopDistPct.toFixed(2)}% away at ${solved.slPrice.toPrecision(6)}${invalidationPrice ? " — the VWAP thesis-invalidation line" : ""}`,
+      ],
+      exitLogic: [
+        `target ${targetPct.toFixed(2)}% at ${solved.tpPrice.toPrecision(6)} (+$${dp.targetProfitUsdt} net)`,
+        `expected resolution ~${Math.round(expectedHold / 60)}min at current volatility; hard deadline ${Math.round(maxHold / 60)}min`,
+      ],
+      checks: [
+        { name: "Confluence", passed: true, detail: "5/5 lenses aligned" },
+        { name: "Leverage solver", passed: true, detail: `${solved.leverage}× ≤ cap ${ctx.leverageCap}× · stop clears ${solved.bindingFloor}` },
+        { name: "Time feasibility", passed: true, detail: `~${Math.round(tf.expectedSeconds / 60)}min needed vs ${Math.round(maxHold / 60)}min window` },
+        { name: "Room to target", passed: true, detail: wall != null ? `${wall.toFixed(2)}% to the nearest level vs ${targetPct.toFixed(2)}% target` : "no blocking level" },
+        { name: "Fee viability", passed: true, detail: `net R:R ${fee.netRR.toFixed(2)} ≥ ${fee.floor}` },
+      ],
+      data: {
+        adx, rsi, volumeRatio: vol, vwapDistPct, volatilityPercentile: facts.volatilityPercentile,
+        solvedLeverage: solved.leverage, bindingFloor: solved.bindingFloor,
+        expectedHoldSeconds: expectedHold, reachablePct: tf.reachablePct, targetPct,
+      },
+    };
+
+    return {
+      kind: "plan",
+      plan: {
+        strategyId: this.strategyId,
+        strategyName: this.strategyName,
+        symbol,
+        side,
+        confidence,
+        entryPrice: lastPrice,
+        slPrice: solved.slPrice,
+        tpPrice: solved.tpPrice,
+        qty: solved.qty,
+        leverage: solved.leverage,
+        expectedHoldSeconds: expectedHold,
+        maxHoldSeconds: maxHold,
+        regime: row.regime,
+        report,
+      },
+    };
+  }
 
   evaluate(
     symbol: string,
