@@ -43,6 +43,11 @@ export const strategyConfigsTable = pgTable("strategy_configs", {
   cooldownMinutes: integer("cooldown_minutes").notNull().default(30),
 
   // ── Phase 4B: professional trade management ─────────────────────────────
+  /** Pre-TP1 break-even arm: when unrealized profit reaches this many R
+   *  (× the entry→SL distance), the stop moves to the entry price even
+   *  BEFORE TP1 fills — a trade that entered the profit zone can no longer
+   *  turn into a loss. 0 disables (break-even then arms only via TP1). */
+  breakEvenRMultiple: numeric("break_even_r_multiple", { precision: 5, scale: 2 }).notNull().default("0"),
   /** R-multiple (× the entry→SL distance) at which TP1 partial-closes. 0 disables TP1/BE/trailing entirely — reduces to the original single-TP behavior. */
   tp1RMultiple: numeric("tp1_r_multiple", { precision: 5, scale: 2 }).notNull().default("1.0"),
   /** % of the original position closed at TP1 (1-99). */

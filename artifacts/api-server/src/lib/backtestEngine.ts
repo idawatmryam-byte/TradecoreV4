@@ -798,6 +798,19 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
           const originalRiskDistance = isShort ? pos.plannedSlPrice - pos.entryPrice : pos.entryPrice - pos.plannedSlPrice;
           if (originalRiskDistance > 0) {
             const unrealizedR = (isShort ? pos.entryPrice - currentClose : currentClose - pos.entryPrice) / originalRiskDistance;
+            // Pre-TP1 break-even arm — mirror of TradeManager: once unrealized
+            // profit reaches breakEvenRMultiple × R, the stop moves to entry
+            // (only ever tightening). The trade can no longer turn into a loss.
+            if (
+              posStratCfg.breakEvenRMultiple > 0 &&
+              !pos.breakEvenActive &&
+              !pos.tp1Filled &&
+              unrealizedR >= posStratCfg.breakEvenRMultiple &&
+              (isShort ? pos.entryPrice < pos.slPrice : pos.entryPrice > pos.slPrice)
+            ) {
+              pos.slPrice = pos.entryPrice;
+              pos.breakEvenActive = true;
+            }
             const trailingArmed = pos.tp1Filled || !posStratCfg.trailingAfterTp1Only;
             const emergencyArmed =
               !trailingArmed &&
