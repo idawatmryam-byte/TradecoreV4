@@ -94,13 +94,21 @@ function DecisionCard({ entry }: { entry: StrategyDecisionEntry }) {
 
       {open && (
         <CardContent className="border-t border-border pt-4 pb-4 space-y-4">
+          {entry.reason && (
+            <p className="text-sm leading-relaxed">
+              {entry.reason}
+              {entry.occurrences > 1 && (
+                <span className="text-muted-foreground"> — repeated {entry.occurrences}× (latest numbers shown)</span>
+              )}
+            </p>
+          )}
           {entry.stage && (
             <p className="text-xs">
               <span className="font-mono uppercase tracking-wider text-muted-foreground">Stage:</span>{" "}
               <span className="font-mono">{entry.stage}</span>
             </p>
           )}
-          {report?.summary && (
+          {report?.summary && report.summary !== entry.reason && (
             <p className="text-sm leading-relaxed">{report.summary}</p>
           )}
           {plan && (

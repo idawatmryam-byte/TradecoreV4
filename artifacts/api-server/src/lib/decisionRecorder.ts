@@ -85,6 +85,11 @@ export async function recordDecisions(userId: number, decisions: DecisionRecord[
   for (const d of decisions) {
     try {
       if (d.kind !== "executed") {
+        // Dedupe on the decision's SHAPE (symbol × strategy × kind × stage),
+        // not the reason text — reasons embed live numbers ("target 3.33%
+        // unreachable…") that change every scan, which would defeat the
+        // dedupe and flood the feed with near-identical rows (observed live:
+        // three ARBUSDT coin-fit cards instead of one ×3).
         const [existing] = await db
           .select({ id: strategyDecisionsTable.id })
           .from(strategyDecisionsTable)
@@ -93,7 +98,7 @@ export async function recordDecisions(userId: number, decisions: DecisionRecord[
             eq(strategyDecisionsTable.symbol, d.symbol),
             eq(strategyDecisionsTable.strategyId, d.strategyId),
             eq(strategyDecisionsTable.kind, d.kind),
-            eq(strategyDecisionsTable.reason, d.reason ?? ""),
+            eq(strategyDecisionsTable.stage, d.stage ?? ""),
             gte(strategyDecisionsTable.lastSeenAt, windowStart),
           ))
           .orderBy(desc(strategyDecisionsTable.lastSeenAt))
@@ -106,6 +111,7 @@ export async function recordDecisions(userId: number, decisions: DecisionRecord[
               occurrences: sql`${strategyDecisionsTable.occurrences} + 1`,
               lastSeenAt: new Date(),
               // Keep the freshest numbers on the deduped row.
+              reason: d.reason ?? undefined,
               confidence: d.confidence != null ? String(d.confidence) : undefined,
               report: d.report ?? undefined,
             })
