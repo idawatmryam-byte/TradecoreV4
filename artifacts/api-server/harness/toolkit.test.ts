@@ -18,6 +18,7 @@
 import {
   solveLeverage, timeFeasible, feeViability, suggestLeverageForTarget,
   adaptiveDeadline, INTRADAY_MIN_HOLD_SECONDS, INTRADAY_MAX_HOLD_SECONDS,
+  maxLossNeededForLeverage,
 } from "../src/lib/strategies/toolkit";
 import { planDollarRiskFractions } from "../src/lib/dollarRisk";
 import { MIN_PROTECTIVE_STOP_PCT } from "../src/lib/futuresMath";
@@ -240,6 +241,30 @@ const row = (atrPercent: number, candleMinutes = 1): SignalRow =>
   // is capped at the 2h ceiling.
   check("deadline floor is 20min", adaptiveDeadline(3 * 60, INTRADAY_MAX_HOLD_SECONDS) === INTRADAY_MIN_HOLD_SECONDS);
   check("deadline ceiling is the window", adaptiveDeadline(90 * 60, INTRADAY_MAX_HOLD_SECONDS) === INTRADAY_MAX_HOLD_SECONDS);
+}
+
+// ── The LINK case: max loss caps leverage; the fix number must WORK ──────────
+{
+  // Live observation: $300 margin, $25 max loss, cap 30× → solver chose 17×
+  // (at higher leverage the $25 stop squeezes under the 0.35% exchange floor)
+  // and the far target risked a timeout. maxLossNeededForLeverage must name
+  // the exact Max Loss that unlocks the full cap — and that number must
+  // actually work when fed back into the solver.
+  const base = {
+    entryPrice: 8.28, side: "long" as const, marketType: "futures" as const,
+    marginUsdt: 300, targetProfitUsdt: 50, feeRate: 0.0005, atrPercent: 0.1,
+  };
+  const constrained = solveLeverage({ ...base, maxLossUsdt: 25, leverageCap: 30 });
+  check("LINK case: $25 max loss caps leverage below 30×",
+    constrained.feasible && constrained.leverage < 30, `got ${constrained.leverage}×`);
+
+  const needed = maxLossNeededForLeverage(300, 30, 0.0005, constrained.minStopFraction);
+  const unlocked = solveLeverage({ ...base, maxLossUsdt: Math.ceil(needed), leverageCap: 30 });
+  check("LINK case: suggested Max Loss unlocks the full 30×",
+    unlocked.feasible && unlocked.leverage === 30, `needed $${needed.toFixed(2)} → got ${unlocked.leverage}×`);
+  check("LINK case: 30× brings the target closer",
+    unlocked.tpFraction < constrained.tpFraction,
+    `${(unlocked.tpFraction * 100).toFixed(2)}% vs ${(constrained.tpFraction * 100).toFixed(2)}%`);
 }
 
 // ── feeViability agrees with the central floor ───────────────────────────────

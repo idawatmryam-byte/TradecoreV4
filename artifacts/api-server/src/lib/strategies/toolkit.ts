@@ -157,6 +157,8 @@ export interface LeverageSolution {
   stopDistPct: number;
   /** The binding floor that set the minimum stop width. */
   bindingFloor: "noise-band" | "exchange-min" | "invalidation" | "none";
+  /** The minimum stop width (fraction of entry) all floors demanded. */
+  minStopFraction: number;
   /** Why no leverage works (set when !feasible). */
   reason?: string;
 }
@@ -194,7 +196,7 @@ export function solveLeverage(args: SolveLeverageArgs): LeverageSolution {
 
   const fail = (reason: string): LeverageSolution => ({
     feasible: false, leverage: 1, notionalUsdt: 0, qty: 0, slPrice: 0, tpPrice: 0,
-    slFraction: 0, tpFraction: 0, stopDistPct: 0, bindingFloor, reason,
+    slFraction: 0, tpFraction: 0, stopDistPct: 0, bindingFloor, minStopFraction, reason,
   });
 
   if (!(entry > 0)) return fail("no valid entry price");
@@ -231,6 +233,7 @@ export function solveLeverage(args: SolveLeverageArgs): LeverageSolution {
       tpFraction: f.tpFraction,
       stopDistPct: f.slFraction * 100,
       bindingFloor,
+      minStopFraction,
     };
   }
 
@@ -239,6 +242,24 @@ export function solveLeverage(args: SolveLeverageArgs): LeverageSolution {
     `(min stop ${(minStopFraction * 100).toFixed(2)}% from ${bindingFloor}) with $${args.marginUsdt} margin — ` +
     `widen max loss, raise margin, or skip`,
   );
+}
+
+/**
+ * The Max Loss a dollar plan needs so that leverage L's stop still clears the
+ * given floor: at leverage L the stop fraction is (maxLoss − fees)/(margin×L),
+ * so demanding stopFraction ≥ floor means
+ *   maxLoss ≥ floor × margin × L + 2 × feeRate × margin × L.
+ * Used to make leverage limits ACTIONABLE in the report: "your $25 max loss
+ * caps leverage at 17× — raise it to ~$41 to unlock the full 30×".
+ */
+export function maxLossNeededForLeverage(
+  marginUsdt: number,
+  leverage: number,
+  feeRate: number,
+  minStopFraction: number,
+): number {
+  const notional = marginUsdt * leverage;
+  return minStopFraction * notional + 2 * feeRate * notional;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

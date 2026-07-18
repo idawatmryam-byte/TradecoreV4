@@ -421,13 +421,17 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
     maxHoldingSeconds: 1200, // 20-minute time-stop — the whole point
     maxConcurrentPositions: 3,
     cooldownMinutes: 3,
-    // Single clean target — no TP1/trailing, so the 20-min thesis reads plainly.
-    tp1RMultiple: 0, tp1ClosePercent: 50,
+    // Two-stage exit (pro-brain behavior, observed live): the final target can
+    // sit ~1% away while the market backs off halfway — a single far TP turns
+    // those into timeouts/losses. TP1 banks HALF the position at +1R and moves
+    // the stop to break-even (a reversal after progress keeps its profit); the
+    // remainder rides toward the full target with a tight ATR trail.
+    tp1RMultiple: 1.0, tp1ClosePercent: 50,
     tp3Enabled: false, tp2RMultiple: 1.5, tp2ClosePercent: 20, tp3RMultiple: 2.0,
-    trailingStopMode: "none", trailingStopAtrMultiplier: 0.5, trailingStopPercent: 0.3,
+    trailingStopMode: "atr", trailingStopAtrMultiplier: 1.0, trailingStopPercent: 0.3,
     trailingAfterTp1Only: true,
     emergencyTrailingRMultiple: 0, emergencyTrailingPercent: 0.3,
-    exitPriority: ["stop_loss", "take_profit", "timeout"],
+    exitPriority: ["stop_loss", "take_profit", "trailing_stop", "timeout"],
   },
 };
 
