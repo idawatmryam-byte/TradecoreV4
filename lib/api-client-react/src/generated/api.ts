@@ -49,6 +49,7 @@ import type {
   OptimizeRequest,
   Register201,
   RegisterBody,
+  ResetRiskPause200,
   ScannerRow,
   SetBinanceCredentialsBody,
   StatsSummary,
@@ -675,6 +676,77 @@ export const useStopBot = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getStopBotMutationOptions(options));
+    }
+
+export const getResetRiskPauseUrl = () => {
+
+
+
+
+  return `/api/bot/reset-risk-pause`
+}
+
+/**
+ * Trading auto-pauses after 3 consecutive risk violations (realized loss exceeding the planned maximum). This clears the violation counter so trading resumes on the next scan. Review the flagged trades on the Trade Log before resetting.
+ * @summary Clear the consecutive-risk-violation trading pause
+ */
+export const resetRiskPause = async ( options?: RequestInit): Promise<ResetRiskPause200> => {
+
+  return customFetch<ResetRiskPause200>(getResetRiskPauseUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getResetRiskPauseMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetRiskPause>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resetRiskPause>>, TError,void, TContext> => {
+
+const mutationKey = ['resetRiskPause'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetRiskPause>>, void> = () => {
+
+
+          return  resetRiskPause(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetRiskPauseMutationResult = NonNullable<Awaited<ReturnType<typeof resetRiskPause>>>
+
+    export type ResetRiskPauseMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Clear the consecutive-risk-violation trading pause
+ */
+export const useResetRiskPause = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetRiskPause>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resetRiskPause>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getResetRiskPauseMutationOptions(options));
     }
 
 export const getGetScannerDataUrl = () => {

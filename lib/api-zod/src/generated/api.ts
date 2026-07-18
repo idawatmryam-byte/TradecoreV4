@@ -127,6 +127,15 @@ export const StopBotResponse = zod.object({
 
 
 /**
+ * Trading auto-pauses after 3 consecutive risk violations (realized loss exceeding the planned maximum). This clears the violation counter so trading resumes on the next scan. Review the flagged trades on the Trade Log before resetting.
+ * @summary Clear the consecutive-risk-violation trading pause
+ */
+export const ResetRiskPauseResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
  * Returns current scanner rows for all watched pairs
  * @summary Get live scanner table
  */

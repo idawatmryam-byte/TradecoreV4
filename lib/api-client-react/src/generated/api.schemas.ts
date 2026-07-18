@@ -1091,6 +1091,10 @@ export type GetAuthStatus200 = {
   authenticated: boolean;
 };
 
+export type ResetRiskPause200 = {
+  message: string;
+};
+
 export type GetDecisionJournalParams = {
 /**
  * @minimum 1
