@@ -2,16 +2,19 @@ import {
   useGetMarketLive, getGetMarketLiveQueryKey,
   useGetBotDecisions, getGetBotDecisionsQueryKey,
   useGetBlockingSummary, getGetBlockingSummaryQueryKey,
+  useResetRiskPause, getGetBotStatusQueryKey,
 } from "@workspace/api-client-react";
 import type { PipelineStage, SymbolDecision } from "@workspace/api-client-react";
-import { Card, CardHeader, CardTitle, CardContent, Badge } from "@/components/ui";
+import { Card, CardHeader, CardTitle, CardContent, Badge, Button } from "@/components/ui";
 import {
   Activity, Wifi, WifiOff, CheckCircle2, XCircle, MinusCircle,
-  ShieldCheck, Ban, ChevronRight, Gauge, ArrowUp, ArrowDown,
+  ShieldCheck, Ban, ChevronRight, Gauge, ArrowUp, ArrowDown, RotateCcw, Loader2,
 } from "lucide-react";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { formatNumber } from "@/lib/utils";
+import { useToast } from "@/components/ui/use-toast";
 
 // ---------------------------------------------------------------------------
 // Blocking banner — the prominent "why is / isn't it trading" headline.
@@ -20,7 +23,22 @@ export function BlockingBanner() {
   const { data } = useGetBlockingSummary({
     query: { refetchInterval: 5000, queryKey: getGetBlockingSummaryQueryKey() },
   });
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const resetRiskPause = useResetRiskPause({
+    mutation: {
+      onSuccess: (res) => {
+        toast({ title: "Risk pause cleared", description: res?.message ?? "Trading resumes on the next scan." });
+        queryClient.invalidateQueries({ queryKey: getGetBlockingSummaryQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() });
+      },
+      onError: () => {
+        toast({ title: "Reset failed", description: "Couldn't clear the risk pause — try again.", variant: "destructive" });
+      },
+    },
+  });
   if (!data) return null;
+  const isRiskPause = !!data.globalBlock && /risk violation/i.test(data.globalBlock);
 
   // Actively trading (or able to) — green all-clear.
   if (data.tradingActive && !data.globalBlock) {
@@ -61,6 +79,27 @@ export function BlockingBanner() {
               {data.running ? "No trade executed" : "Engine stopped"}
             </p>
             <p className="text-sm text-foreground mt-1">{headline}</p>
+
+            {isRiskPause && (
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-2 border-warning/50 text-warning hover:bg-warning/10"
+                  disabled={resetRiskPause.isPending}
+                  onClick={() => resetRiskPause.mutate()}
+                >
+                  {resetRiskPause.isPending
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <RotateCcw className="h-3.5 w-3.5" />}
+                  Reset &amp; resume trading
+                </Button>
+                <span className="text-[11px] text-muted-foreground max-w-md">
+                  The pause fires after 3 trades whose realized loss exceeded their plan — check them
+                  on the Trade Log before resetting.
+                </span>
+              </div>
+            )}
 
             {!data.globalBlock && data.reasons.length > 0 && (
               <div className="mt-3 space-y-1.5">
