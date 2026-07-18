@@ -11,6 +11,7 @@ import { Settings } from '@/pages/settings';
 import { Backtest } from '@/pages/backtest';
 import { Strategies } from '@/pages/strategies';
 import { Account } from '@/pages/account';
+import { Decisions } from '@/pages/decisions';
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/trades" component={Trades} />
+        <Route path="/decisions" component={Decisions} />
         <Route path="/stats" component={Stats} />
         <Route path="/memory" component={Memory} />
         <Route path="/backtest" component={Backtest} />

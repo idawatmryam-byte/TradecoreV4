@@ -38,6 +38,7 @@ import type {
   ExportBacktestParams,
   GetAuthStatus200,
   GetDailyReportParams,
+  GetDecisionJournalParams,
   GetTradesParams,
   HealthStatus,
   HourlyStat,
@@ -52,6 +53,7 @@ import type {
   SetBinanceCredentialsBody,
   StatsSummary,
   StrategyConfigUpdate,
+  StrategyDecisionEntry,
   StrategyInfo,
   StrategySignalItem,
   SymbolDecision,
@@ -819,6 +821,91 @@ export function useGetBotDecisions<TData = Awaited<ReturnType<typeof getBotDecis
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetBotDecisionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetDecisionJournalUrl = (params?: GetDecisionJournalParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/decisions?${stringifiedParams}` : `/api/decisions`
+}
+
+/**
+ * Every trade a strategy genuinely considered — executed, approved but not taken (lost allocation / portfolio risk / order failure), or rejected by the strategy's own reasoning — with the full written DecisionReport. Newest first.
+ * @summary Get the persistent strategy decision journal
+ */
+export const getDecisionJournal = async (params?: GetDecisionJournalParams, options?: RequestInit): Promise<StrategyDecisionEntry[]> => {
+
+  return customFetch<StrategyDecisionEntry[]>(getGetDecisionJournalUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDecisionJournalQueryKey = (params?: GetDecisionJournalParams,) => {
+    return [
+    `/api/decisions`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetDecisionJournalQueryOptions = <TData = Awaited<ReturnType<typeof getDecisionJournal>>, TError = ErrorType<unknown>>(params?: GetDecisionJournalParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDecisionJournal>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDecisionJournalQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDecisionJournal>>> = ({ signal }) => getDecisionJournal(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDecisionJournal>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDecisionJournalQueryResult = NonNullable<Awaited<ReturnType<typeof getDecisionJournal>>>
+export type GetDecisionJournalQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the persistent strategy decision journal
+ */
+
+export function useGetDecisionJournal<TData = Awaited<ReturnType<typeof getDecisionJournal>>, TError = ErrorType<unknown>>(
+ params?: GetDecisionJournalParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDecisionJournal>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDecisionJournalQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

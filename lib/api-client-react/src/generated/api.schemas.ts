@@ -147,6 +147,48 @@ export interface SymbolDecision {
   stages: PipelineStage[];
 }
 
+export type StrategyDecisionEntryKind = typeof StrategyDecisionEntryKind[keyof typeof StrategyDecisionEntryKind];
+
+
+export const StrategyDecisionEntryKind = {
+  executed: 'executed',
+  approved_not_taken: 'approved_not_taken',
+  rejected: 'rejected',
+} as const;
+
+/**
+ * DecisionReport for rejections; the full TradePlan for approved/executed decisions.
+ * @nullable
+ */
+export type StrategyDecisionEntryReport = { [key: string]: unknown } | null;
+
+export interface StrategyDecisionEntry {
+  id: number;
+  createdAt: string;
+  symbol: string;
+  strategyId: string;
+  /** @nullable */
+  strategyName?: string | null;
+  kind: StrategyDecisionEntryKind;
+  /** @nullable */
+  side?: string | null;
+  /** @nullable */
+  confidence?: number | null;
+  /** @nullable */
+  stage?: string | null;
+  /** @nullable */
+  reason?: string | null;
+  /**
+     * DecisionReport for rejections; the full TradePlan for approved/executed decisions.
+     * @nullable
+     */
+  report?: StrategyDecisionEntryReport;
+  /** @nullable */
+  tradeId?: number | null;
+  occurrences: number;
+  lastSeenAt: string;
+}
+
 export interface LiveTicker {
   symbol: string;
   last: number;
@@ -1036,6 +1078,30 @@ export type Logout200 = {
 export type GetAuthStatus200 = {
   authenticated: boolean;
 };
+
+export type GetDecisionJournalParams = {
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+/**
+ * Return rows with id lower than this (cursor pagination)
+ */
+before?: number;
+kind?: GetDecisionJournalKind;
+strategyId?: string;
+symbol?: string;
+};
+
+export type GetDecisionJournalKind = typeof GetDecisionJournalKind[keyof typeof GetDecisionJournalKind];
+
+
+export const GetDecisionJournalKind = {
+  executed: 'executed',
+  approved_not_taken: 'approved_not_taken',
+  rejected: 'rejected',
+} as const;
 
 export type GetTradesParams = {
 status?: GetTradesStatus;
