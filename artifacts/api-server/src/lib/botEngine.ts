@@ -151,6 +151,8 @@ class BotEngine {
   private symbolDecisions: Map<string, SymbolDecision> = new Map();
   /** Last time the persistent decision journal was pruned (hourly cadence). */
   private lastDecisionPruneAt = 0;
+  /** Last orphaned-stop-order sweep (10-minute cadence, futures only). */
+  private lastOrphanSweepAt = 0;
   /** Latest real ticker snapshot per symbol (updated by the ticker poller). */
   private liveTickers: Map<string, LiveTicker> = new Map();
   /** Markets the ticker poller watches (populated on start). */
@@ -476,6 +478,65 @@ class BotEngine {
    * the minutes applied so the caller's reason (recorded in the decision
    * journal) carries the number.
    */
+  /**
+   * Cancel protective stop/TP orders that belong to NO open position —
+   * "orphans". Root cause of the observed Binance -4045 "Reach max stop
+   * order limit" loop: every engine restart loses the in-memory order-ID
+   * map, and reconciled_missing closes leave their resting SL/TP triggers
+   * on the exchange. They accumulate silently until Binance's stop-order
+   * cap is full — and then every NEW entry is born unprotectable. This
+   * sweep keeps the account's stop-order budget clean. Futures only.
+   *
+   * An order is swept only when its symbol has neither an open tracked
+   * trade nor a live exchange position — protection for anything real is
+   * never touched.
+   */
+  private async sweepOrphanedProtectiveOrders(ex: any): Promise<number> {
+    try {
+      const open = await db
+        .select({ symbol: tradesTable.symbol })
+        .from(tradesTable)
+        .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.status, "open")));
+      const active = new Set(open.map((t) => this.toMarket(t.symbol)));
+      try {
+        const positions = await ex.fetchPositions();
+        for (const p of positions ?? []) {
+          if (Math.abs(Number(p?.contracts ?? 0)) > 0 && p?.symbol) active.add(String(p.symbol));
+        }
+      } catch (posErr) {
+        // Without a live position picture we can't tell orphan from real —
+        // canceling a real position's stop is worse than keeping orphans.
+        logger.warn({ err: posErr }, "Orphan sweep skipped — could not fetch positions");
+        return 0;
+      }
+
+      const orders = await ex.fetchOpenOrders();
+      let cancelled = 0;
+      for (const o of orders ?? []) {
+        const type = String(o?.type ?? "").toUpperCase();
+        const isProtective =
+          o?.reduceOnly === true || type.includes("STOP") || type.includes("TAKE_PROFIT");
+        if (!isProtective || !o?.symbol || active.has(String(o.symbol))) continue;
+        try {
+          await ex.cancelOrder(o.id, o.symbol);
+          cancelled++;
+        } catch (cancelErr) {
+          logger.warn({ err: cancelErr, orderId: o.id, symbol: o.symbol }, "Failed to cancel orphaned order");
+        }
+      }
+      if (cancelled > 0) {
+        logger.warn(
+          { cancelled },
+          "Swept orphaned protective orders — freed Binance stop-order slots (-4045 guard)",
+        );
+      }
+      return cancelled;
+    } catch (err) {
+      logger.warn({ err }, "Orphan-order sweep failed");
+      return 0;
+    }
+  }
+
   private cooldownAfterEntryFlatten(symbol: string, why: string): number {
     const now = Date.now();
     const prev = this.entryFlattenStrikes.get(symbol);
@@ -1445,6 +1506,12 @@ class BotEngine {
         this.lastDecisionPruneAt = Date.now();
         void pruneDecisions(this.userId).catch(() => {});
       }
+      // Keep the Binance stop-order budget clean (see -4045 self-heal in
+      // enterTrade) — orphans also accumulate silently between entries.
+      if (config.marketType === "futures" && this.exchange && Date.now() - this.lastOrphanSweepAt > 600_000) {
+        this.lastOrphanSweepAt = Date.now();
+        void this.sweepOrphanedProtectiveOrders(this.exchange).catch(() => {});
+      }
 
       await this.updateBlacklist(pairs, now, blacklisted);
     } catch (err) {
@@ -1816,7 +1883,22 @@ class BotEngine {
         // ExitManager already treats a missing ocoOrderListId as "cancel the
         // other leg on fill" (its independent-orders fallback path for spot),
         // which is exactly correct here too — no changes needed there.
-        const result = await placeFuturesStopAndTakeProfit(ex, market, openSide, filledQty, slPrice, tpPrice);
+        let result = await placeFuturesStopAndTakeProfit(ex, market, openSide, filledQty, slPrice, tpPrice);
+        if (!result) {
+          // Self-heal for Binance -4045 "Reach max stop order limit": orphaned
+          // stop orders (from restarts / reconciled positions) can exhaust the
+          // account's stop-order budget, making every new position
+          // unprotectable. Sweep the orphans and retry ONCE before giving up
+          // — observed live turning a flatten-loop day into normal trading.
+          const swept = await this.sweepOrphanedProtectiveOrders(ex);
+          if (swept > 0) {
+            logger.warn(
+              { symbol, swept },
+              "Protective placement failed — retrying after sweeping orphaned stop orders",
+            );
+            result = await placeFuturesStopAndTakeProfit(ex, market, openSide, filledQty, slPrice, tpPrice);
+          }
+        }
         if (result) {
           slOrderId = result.slOrderId;
           tpOrderId = result.tpOrderId;
