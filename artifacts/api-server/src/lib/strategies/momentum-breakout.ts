@@ -34,7 +34,7 @@ import {
 import { type MultiTimeframeCandles, type SignalRow } from "../strategy";
 import {
   marketFacts, solveLeverage, timeFeasible, feeViability, suggestLeverageForTarget,
-  adaptiveDeadline, INTRADAY_MAX_HOLD_SECONDS,
+  adaptiveDeadline, INTRADAY_MAX_HOLD_SECONDS, maxLossNeededForLeverage,
 } from "./toolkit";
 
 export class MomentumBreakoutStrategy implements Strategy {
@@ -195,10 +195,16 @@ export class MomentumBreakoutStrategy implements Strategy {
       riskLogic: [
         `dollar plan: $${dp.tradeAmountUsdt} ${ctx.marketType === "futures" ? "margin" : "notional"}, max loss $${dp.maxLossUsdt}`,
         `leverage SOLVED at ${solved.leverage}× (cap ${ctx.leverageCap}×) — highest whose stop clears every floor (binding: ${solved.bindingFloor})`,
+        ...(ctx.marketType === "futures" && solved.leverage < ctx.leverageCap
+          ? [`leverage limited by the $${dp.maxLossUsdt} max loss (a bigger notional would squeeze the stop under its ${(solved.minStopFraction * 100).toFixed(2)}% floor) — raising Max Loss to ~$${Math.ceil(maxLossNeededForLeverage(dp.tradeAmountUsdt, ctx.leverageCap, ctx.feeRate, solved.minStopFraction))} would unlock the full ${ctx.leverageCap}× and bring the target ${(100 - (solved.leverage / ctx.leverageCap) * 100).toFixed(0)}% closer`]
+          : []),
         `stop ${solved.stopDistPct.toFixed(2)}% away at ${solved.slPrice.toPrecision(6)} — the broken level itself: back through it = breakout failed`,
       ],
       exitLogic: [
         `target ${targetPct.toFixed(2)}% at ${solved.tpPrice.toPrecision(6)} (+$${dp.targetProfitUsdt} net)`,
+        ...(config.tp1RMultiple > 0
+          ? [`two-stage exit: bank ${config.tp1ClosePercent}% at +${config.tp1RMultiple}R and move the stop to BREAK-EVEN — a reversal after progress keeps its profit${config.trailingStopMode !== "none" ? "; the rest trails the move" : ""}`]
+          : []),
         `expected resolution ~${Math.round(expectedHold / 60)}min; adaptive deadline ${Math.round(deadline / 60)}min (2× expected, 20min–2h band)`,
       ],
       checks: [
