@@ -22,6 +22,13 @@ export class TrendPullbackStrategy implements Strategy {
   readonly strategyId = "trend_pullback";
   readonly strategyName = "Trend Pullback";
   readonly supportedRegimes = ["strong_trend", "weak_trend"] as const;
+  readonly indicators = [
+    "EMA20 / EMA50 trend (15m + 1h)",
+    "Pullback to EMA zone ±0.5 ATR (5m)",
+    "MACD histogram (3m)",
+    "ADX(14) ≥ 20 (5m)",
+    "Candle direction — momentum resuming (5m)",
+  ] as const;
 
   evaluate(
     symbol: string,

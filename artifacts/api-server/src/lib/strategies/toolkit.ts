@@ -14,7 +14,7 @@
  * rather than re-deriving fee arithmetic.
  */
 import type { Candle, MultiTimeframeCandles, SignalRow } from "../strategy";
-import { calcEma, calcVwap } from "../strategy";
+import { calcEma, calcVwap, calcAtr } from "../strategy";
 import {
   planDollarRiskFractions,
   type DollarRiskConfig,
@@ -255,45 +255,104 @@ export interface TimeFeasibility {
   reason?: string;
 }
 
+/** Reachable % and expected time for one timeframe's volatility. */
+function reachabilityFor(atrPct: number, candleSecs: number, targetPct: number, maxHoldSeconds: number) {
+  const neededCandles = Math.pow(targetPct / (atrPct * TARGET_REACH_K), 2);
+  const expectedSeconds = Math.ceil(neededCandles * candleSecs);
+  const holdCandles = maxHoldSeconds > 0 ? maxHoldSeconds / candleSecs : Infinity;
+  const reachablePct = Number.isFinite(holdCandles)
+    ? atrPct * Math.sqrt(holdCandles) * TARGET_REACH_K
+    : Infinity;
+  return { reachablePct, expectedSeconds };
+}
+
 /**
  * Random-walk reachability: over N candles a coin drifts ~ATR×√N. Inverts the
  * same formula the per-coin fit check uses (TARGET_REACH_K), and additionally
  * answers "how long would this target take?" so a strategy can set an honest
  * expectedHoldSeconds instead of guessing.
+ *
+ * NOT myopic: when `mtf` is provided, the 5-minute frame's ATR is consulted
+ * alongside the primary (1m) frame and the MORE OPTIMISTIC verdict wins — a
+ * trending coin shows more usable range per unit time on the coarser frame
+ * (moves compound directionally instead of netting out candle-to-candle), so
+ * judging reachability on 1m noise alone under-calls real trends.
  */
 export function timeFeasible(
   tpFraction: number,
   row: SignalRow,
   maxHoldSeconds: number,
+  mtf?: MultiTimeframeCandles,
 ): TimeFeasibility {
   const targetPct = tpFraction * 100;
   const atrPct = row.atrPercent;
   if (!(atrPct > 0) || !(targetPct > 0)) {
     return { feasible: true, reachablePct: Infinity, targetPct, expectedSeconds: 0 };
   }
-  const candleSecs = Math.max(1, row.candleMinutes) * 60;
 
-  // Candles needed such that ATR×√N×K ≥ target  ⇒  N ≥ (target/(ATR×K))²
-  const neededCandles = Math.pow(targetPct / (atrPct * TARGET_REACH_K), 2);
-  const expectedSeconds = Math.ceil(neededCandles * candleSecs);
+  const primary = reachabilityFor(atrPct, Math.max(1, row.candleMinutes) * 60, targetPct, maxHoldSeconds);
+  let best = primary;
 
-  const holdCandles = maxHoldSeconds > 0 ? maxHoldSeconds / candleSecs : Infinity;
-  const reachablePct = Number.isFinite(holdCandles)
-    ? atrPct * Math.sqrt(holdCandles) * TARGET_REACH_K
-    : Infinity;
+  // Second opinion from the 5m frame, when candles are available.
+  if (mtf && mtf.tf5m.length >= 20 && row.lastPrice > 0) {
+    const atr5Abs = calcAtr(mtf.tf5m, 14);
+    const atr5Pct = (atr5Abs / row.lastPrice) * 100;
+    if (atr5Pct > 0) {
+      const alt = reachabilityFor(atr5Pct, 300, targetPct, maxHoldSeconds);
+      if (alt.reachablePct > best.reachablePct) best = alt;
+    }
+  }
 
-  if (targetPct > reachablePct) {
+  if (targetPct > best.reachablePct) {
     return {
       feasible: false,
-      reachablePct,
+      reachablePct: best.reachablePct,
       targetPct,
-      expectedSeconds,
+      expectedSeconds: best.expectedSeconds,
       reason:
-        `target ${targetPct.toFixed(2)}% needs ~${Math.round(expectedSeconds / 60)}min at this volatility — ` +
-        `only ~${reachablePct.toFixed(2)}% reachable within the ${Math.round(maxHoldSeconds / 60)}min window`,
+        `target ${targetPct.toFixed(2)}% needs ~${Math.round(best.expectedSeconds / 60)}min at this volatility (1m + 5m checked) — ` +
+        `only ~${best.reachablePct.toFixed(2)}% reachable within the ${Math.round(maxHoldSeconds / 60)}min window`,
     };
   }
-  return { feasible: true, reachablePct, targetPct, expectedSeconds };
+  return { feasible: true, reachablePct: best.reachablePct, targetPct, expectedSeconds: best.expectedSeconds };
+}
+
+/**
+ * "Would MORE leverage make this target reachable?" — the professional
+ * follow-up to a time-feasibility rejection. Raising leverage grows the
+ * notional, which SHRINKS the % move a fixed dollar target needs — but it
+ * also tightens the stop toward the safety floors. This searches upward for
+ * the smallest leverage where BOTH hold: target ≤ reachable AND the stop
+ * still clears every floor. Returns null when no leverage works. The caller
+ * compares the answer against the user's cap — the solver itself never
+ * exceeds the cap; this exists so a rejection can say "feasible at ~N×,
+ * raise your cap or lower the target" instead of a dead end.
+ */
+export function suggestLeverageForTarget(
+  args: Omit<SolveLeverageArgs, "leverageCap">,
+  reachablePct: number,
+  hardMax = 125,
+): number | null {
+  if (args.marketType !== "futures" || !(reachablePct > 0)) return null;
+  const feeRate = args.feeRate ?? FUTURES_FEE_RATE;
+  const noiseFloor = Math.max(0, args.atrPercent) * MIN_STOP_ATR_MULT / 100;
+  const exchangeFloor = MIN_PROTECTIVE_STOP_PCT / 100;
+  const invalidationFloor =
+    args.invalidationPrice != null && args.entryPrice > 0
+      ? Math.abs(args.entryPrice - args.invalidationPrice) / args.entryPrice
+      : 0;
+  const minStopFraction = Math.max(noiseFloor, exchangeFloor, invalidationFloor);
+
+  for (let L = 1; L <= hardMax; L++) {
+    const f = planDollarRiskFractions({
+      marketType: "futures", tradeAmountUsdt: args.marginUsdt, leverage: L,
+      maxLossUsdt: args.maxLossUsdt, targetProfitUsdt: args.targetProfitUsdt, feeRate,
+    }, undefined, false);
+    if (!f.feasible || !f.safe) continue;
+    if (f.slFraction < minStopFraction) break; // stop only tightens further — no higher L can work
+    if (f.tpFraction * 100 <= reachablePct) return L;
+  }
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

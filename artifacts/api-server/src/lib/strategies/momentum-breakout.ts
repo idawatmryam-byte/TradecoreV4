@@ -32,12 +32,19 @@ import {
   computeQty, computeAdaptiveSLTP,
 } from "./base";
 import { type MultiTimeframeCandles, type SignalRow } from "../strategy";
-import { marketFacts, solveLeverage, timeFeasible, feeViability } from "./toolkit";
+import { marketFacts, solveLeverage, timeFeasible, feeViability, suggestLeverageForTarget } from "./toolkit";
 
 export class MomentumBreakoutStrategy implements Strategy {
   readonly strategyId = "momentum_breakout";
   readonly strategyName = "Momentum Breakout";
   readonly supportedRegimes = ["strong_trend"] as const;
+  readonly indicators = [
+    "20-bar high/low break (15m)",
+    "Volume ≥ 1.5× 20-period average (1m)",
+    "ADX(14) ≥ 20 (5m)",
+    "EMA50 macro trend (1h)",
+    "Swing S/R room check (15m)",
+  ] as const;
 
   /**
    * Professional decision-maker ("the brain").
@@ -120,10 +127,21 @@ export class MomentumBreakoutStrategy implements Strategy {
     }
 
     // ── Time + room + costs ─────────────────────────────────────────────────
+    // Reachability judged on BOTH the 1m and 5m frames (see toolkit).
     const maxHold = config.maxHoldingSeconds;
-    const tf = timeFeasible(solved.tpFraction, row, maxHold);
+    const tf = timeFeasible(solved.tpFraction, row, maxHold, mtf);
     if (!tf.feasible) {
-      return rejection("coin-fit", tf.reason ?? "target unreachable within the hold window");
+      // Would more leverage make the target reachable while the stop still
+      // holds at the broken level? Tell the user instead of dead-ending.
+      const better = suggestLeverageForTarget({
+        entryPrice: lastPrice, side, marketType: ctx.marketType,
+        marginUsdt: dp.tradeAmountUsdt, maxLossUsdt: dp.maxLossUsdt, targetProfitUsdt: dp.targetProfitUsdt,
+        feeRate: ctx.feeRate, atrPercent: row.atrPercent, invalidationPrice: level,
+      }, tf.reachablePct);
+      const hint = better != null && better > ctx.leverageCap
+        ? ` — WOULD be feasible at ~${better}× leverage (your cap is ${ctx.leverageCap}×): raise the Max Leverage Cap, lower Target Profit, or raise Trade Amount`
+        : ` — no leverage makes this target reachable safely here: lower Target Profit or raise Trade Amount`;
+      return rejection("coin-fit", (tf.reason ?? "target unreachable within the hold window") + hint);
     }
     const expectedHold = Math.min(maxHold, Math.max(300, tf.expectedSeconds));
 

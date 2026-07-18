@@ -15,7 +15,7 @@
  *
  * Run:  tsx harness/toolkit.test.ts   (exit 0 = all pass)
  */
-import { solveLeverage, timeFeasible, feeViability } from "../src/lib/strategies/toolkit";
+import { solveLeverage, timeFeasible, feeViability, suggestLeverageForTarget } from "../src/lib/strategies/toolkit";
 import { planDollarRiskFractions } from "../src/lib/dollarRisk";
 import { MIN_PROTECTIVE_STOP_PCT } from "../src/lib/futuresMath";
 import { MIN_STOP_ATR_MULT } from "../src/lib/strategies/selector";
@@ -166,6 +166,53 @@ const row = (atrPercent: number, candleMinutes = 1): SignalRow =>
   const no = timeFeasible(0.02, row(0.1), 20 * 60); // 2% target ≫ reachable
   check("oversized target → infeasible with reason", !no.feasible && !!no.reason);
   check("expectedSeconds grows with the square of the target", no.expectedSeconds > ok.expectedSeconds);
+}
+
+// ── suggestLeverageForTarget: "would more leverage make this reachable?" ─────
+{
+  // Margin $300, target $45. At 10× the target needs ~1.6% — unreachable when
+  // only ~1.0% is reachable. Higher leverage shrinks the needed move: at 20×
+  // it's ~0.81%. The suggester must find a leverage where BOTH the target
+  // fits under reachable AND the stop still clears the exchange floor.
+  const args = {
+    entryPrice: 2, side: "long" as const, marketType: "futures" as const,
+    marginUsdt: 300, maxLossUsdt: 50, targetProfitUsdt: 45,
+    feeRate: 0.0005, atrPercent: 0.05,
+  };
+  const n = suggestLeverageForTarget(args, 1.0);
+  check("suggests a leverage for an unreachable target", n != null && n > 10, `got ${n}`);
+  if (n != null) {
+    // At the suggested leverage the target must actually fit under reachable…
+    const f = { notional: 300 * n };
+    const tpPct = ((45 + 300 * n * 0.001) / f.notional) * 100;
+    check("suggested leverage makes the target reachable", tpPct <= 1.0 + 1e-9, `tpPct ${tpPct.toFixed(3)}`);
+    // …and its stop must still clear the exchange floor.
+    const slPct = ((50 - 300 * n * 0.001) / f.notional) * 100;
+    check("suggested leverage still places the stop", slPct >= MIN_PROTECTIVE_STOP_PCT - 1e-9, `slPct ${slPct.toFixed(3)}`);
+  }
+  // Impossible ask: reachable so small no leverage helps before the stop floor breaks.
+  const none = suggestLeverageForTarget(args, 0.05);
+  check("impossible target → no suggestion", none == null, `got ${none}`);
+  // Spot never suggests leverage.
+  check("spot → no suggestion", suggestLeverageForTarget({ ...args, marketType: "spot" }, 1.0) == null);
+}
+
+// ── timeFeasible: the 5m frame can rescue a trend the 1m frame under-calls ───
+{
+  // Build a steadily-trending 5m series: each candle range is wide relative
+  // to the 1m ATR, so the 5m reachability verdict is more optimistic.
+  const price = 100;
+  const tf5m = Array.from({ length: 60 }, (_, i) => {
+    const o = price + i * 0.2;
+    return [i * 300000, o, o + 0.45, o - 0.05, o + 0.4, 1000] as [number, number, number, number, number, number];
+  });
+  const mtf = { tf1m: [], tf3m: [], tf5m, tf15m: [], tf1h: [] } as any;
+  const r = { ...row(0.05), lastPrice: price } as any; // quiet 1m ATR
+  const without = timeFeasible(0.012, r, 20 * 60);          // 1.2% target, 1m-only
+  const withMtf = timeFeasible(0.012, r, 20 * 60, mtf);     // + 5m second opinion
+  check("1m-only verdict is pessimistic here", !without.feasible);
+  check("5m frame widens reachability", withMtf.reachablePct > without.reachablePct,
+    `${withMtf.reachablePct.toFixed(2)} vs ${without.reachablePct.toFixed(2)}`);
 }
 
 // ── feeViability agrees with the central floor ───────────────────────────────

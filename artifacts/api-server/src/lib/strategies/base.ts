@@ -225,6 +225,10 @@ export interface Strategy {
   readonly strategyName: string;
   /** Regimes in which this strategy is active */
   readonly supportedRegimes: ReadonlyArray<MarketRegime>;
+  /** The indicators this strategy reads, human-readable with timeframe —
+   *  shown on the Strategies page so users see exactly what each brain
+   *  watches (e.g. "MACD histogram (3m)"). */
+  readonly indicators: ReadonlyArray<string>;
 
   /**
    * Professional decision-maker ("the brain"). When implemented, this fully

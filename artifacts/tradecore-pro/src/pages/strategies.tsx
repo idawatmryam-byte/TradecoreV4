@@ -159,7 +159,17 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
               <Icon className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-sm font-semibold">{strategy.strategyName}</CardTitle>
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                {strategy.strategyName}
+                {(strategy as any).decisionMaker && (
+                  <span
+                    className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border bg-primary/10 text-primary border-primary/40"
+                    title="Full decision-maker: plans its own entry, structural stop, leverage and duration, with written reasoning on the Decisions page"
+                  >
+                    Pro brain
+                  </span>
+                )}
+              </CardTitle>
               <div className="flex flex-wrap gap-1 mt-1">
                 {strategy.supportedRegimes.map((r: string) => (
                   <span
@@ -170,6 +180,18 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
                   </span>
                 ))}
               </div>
+              {Array.isArray((strategy as any).indicators) && (strategy as any).indicators.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {(strategy as any).indicators.map((ind: string) => (
+                    <span
+                      key={ind}
+                      className="text-[10px] px-1.5 py-0.5 rounded border bg-muted/60 text-muted-foreground border-border"
+                    >
+                      {ind}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

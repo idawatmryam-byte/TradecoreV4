@@ -917,6 +917,8 @@ export const GetStrategiesResponseItem = zod.object({
   "strategyId": zod.string(),
   "strategyName": zod.string(),
   "supportedRegimes": zod.array(zod.string()),
+  "indicators": zod.array(zod.string()).describe('The indicators this strategy reads, human-readable with timeframe.'),
+  "decisionMaker": zod.boolean().describe('True when the strategy is a native decision-maker owning its full TradePlan (leverage, structural stop, duration, written reasoning).'),
   "config": zod.object({
   "strategyId": zod.string(),
   "enabled": zod.boolean(),

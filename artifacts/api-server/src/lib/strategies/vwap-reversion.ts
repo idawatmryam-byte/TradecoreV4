@@ -20,6 +20,12 @@ export class VwapReversionStrategy implements Strategy {
   readonly strategyId = "vwap_reversion";
   readonly strategyName = "VWAP Reversion";
   readonly supportedRegimes = ["range", "weak_trend", "low_volatility"] as const;
+  readonly indicators = [
+    "Session VWAP distance > 0.8% (1m)",
+    "MACD histogram recovery (3m)",
+    "Volume exhaustion (1m)",
+    "RSI(14) zone 20–45 / 55–80 (5m)",
+  ] as const;
 
   evaluate(
     symbol: string,
