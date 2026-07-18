@@ -25,23 +25,28 @@ router.get("/strategies", async (req, res) => {
   try {
     const configs = await loadStrategyConfigs(req.userId!);
 
-    // Per-strategy performance from THIS user's backtest_trades (lifetime) —
-    // joined to backtest_runs to scope by owner, since backtest_trades
-    // itself only carries run_id (see lib/db/src/schema/backtest.ts).
+    // Per-strategy performance from THIS user's LIVE closed trades. This used
+    // to aggregate backtest_trades — so the Strategies page showed 0 trades /
+    // $0 P&L for every strategy no matter how much the live engine traded
+    // (observed and reported from the live demo). The cards answer "how is
+    // each strategy actually doing?", and that means real trades.
     const perfRows = await db.execute(sql`
       SELECT
-        bt.strategy_id,
+        t.strategy_id,
         COUNT(*)::int                                    AS total_trades,
-        SUM(CASE WHEN bt.pnl > 0 THEN 1 ELSE 0 END)::int AS winning_trades,
-        SUM(CASE WHEN bt.pnl <= 0 THEN 1 ELSE 0 END)::int AS losing_trades,
-        COALESCE(SUM(bt.pnl), 0)::float                     AS total_pnl,
-        COALESCE(AVG(CASE WHEN bt.pnl > 0 THEN bt.pnl END), 0)::float AS avg_win,
-        COALESCE(AVG(CASE WHEN bt.pnl <= 0 THEN bt.pnl END), 0)::float AS avg_loss,
-        COALESCE(AVG(bt.duration_seconds), 0)::float        AS avg_duration_seconds
-      FROM backtest_trades bt
-      JOIN backtest_runs br ON br.id = bt.run_id
-      WHERE bt.strategy_id IS NOT NULL AND br.user_id = ${req.userId}
-      GROUP BY bt.strategy_id
+        SUM(CASE WHEN t.pnl > 0 THEN 1 ELSE 0 END)::int  AS winning_trades,
+        SUM(CASE WHEN t.pnl <= 0 THEN 1 ELSE 0 END)::int AS losing_trades,
+        COALESCE(SUM(t.pnl), 0)::float                      AS total_pnl,
+        COALESCE(AVG(CASE WHEN t.pnl > 0 THEN t.pnl END), 0)::float  AS avg_win,
+        COALESCE(AVG(CASE WHEN t.pnl <= 0 THEN t.pnl END), 0)::float AS avg_loss,
+        COALESCE(AVG(t.holding_seconds), 0)::float          AS avg_duration_seconds
+      FROM trades t
+      WHERE t.strategy_id IS NOT NULL
+        AND t.user_id = ${req.userId}
+        AND t.is_backtest = false
+        AND t.status <> 'open'
+        AND t.pnl IS NOT NULL
+      GROUP BY t.strategy_id
     `);
 
     const perfMap = new Map<string, any>();

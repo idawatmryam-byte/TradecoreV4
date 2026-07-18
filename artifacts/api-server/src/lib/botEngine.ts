@@ -166,6 +166,11 @@ class BotEngine {
 
   // Symbol cooldowns: symbol → expiry timestamp (ms)
   private symbolCooldowns: Map<string, number> = new Map();
+  /** Consecutive entry-time flattens per symbol (risk-guard / stop-placement
+   *  failures at birth). Without a cooldown these re-fire every scan — the
+   *  observed live failure: 10 DOT entries in 5 minutes, each flattened at
+   *  fill, ~$150 burned on slippage+fees alone. */
+  private entryFlattenStrikes: Map<string, { count: number; lastAt: number }> = new Map();
 
   /**
    * High-frequency test mode, resolved fresh each scan from loadConfig()
@@ -460,6 +465,29 @@ class BotEngine {
   private setCooldown(symbol: string, minutes: number): void {
     this.symbolCooldowns.set(symbol, Date.now() + minutes * 60_000);
     logger.info({ symbol, cooldownMinutes: minutes }, "Symbol cooldown activated");
+  }
+
+  /**
+   * An entry was flattened AT BIRTH (risk-guard or stop-placement failure
+   * after the fill). Whatever the root cause, retrying the same symbol next
+   * scan is guaranteed to repeat it — and each attempt costs real slippage +
+   * fees (observed live: 10 DOT entries in 5 minutes, ~$150 burned). First
+   * strike: 15-minute cooldown. Repeat within an hour: 60 minutes. Returns
+   * the minutes applied so the caller's reason (recorded in the decision
+   * journal) carries the number.
+   */
+  private cooldownAfterEntryFlatten(symbol: string, why: string): number {
+    const now = Date.now();
+    const prev = this.entryFlattenStrikes.get(symbol);
+    const count = prev && now - prev.lastAt < 3600_000 ? prev.count + 1 : 1;
+    this.entryFlattenStrikes.set(symbol, { count, lastAt: now });
+    const minutes = count >= 2 ? 60 : 15;
+    this.setCooldown(symbol, minutes);
+    logger.warn(
+      { symbol, strike: count, cooldownMinutes: minutes, why },
+      "Entry flattened at birth — symbol cooled down to break the re-entry loop",
+    );
+    return minutes;
   }
 
   private async getStrategyConfigs(): Promise<Map<string, StrategyConfig>> {
@@ -1639,10 +1667,14 @@ class BotEngine {
             "RISK GUARD: failed to close unprotected position — MANUAL INTERVENTION REQUIRED"
           );
         }
-        const reason = liquidationIsUnsafe
-          ? "Risk guard: stop-loss too close to the exchange's liquidation price — position closed immediately"
-          : "Risk guard: computed SL/TP invalid after fill — position closed immediately";
-        return { entered: false, reason };
+        const why = liquidationIsUnsafe
+          ? "stop-loss too close to the exchange's liquidation price"
+          : "computed SL/TP invalid after fill";
+        const cooled = this.cooldownAfterEntryFlatten(symbol, why);
+        return {
+          entered: false,
+          reason: `Risk guard: ${why} — position closed immediately; symbol cooled down ${cooled}m to break the re-entry loop`,
+        };
       }
 
       const tpPrice = parseFloat(ex.priceToPrecision(market, realTp));
@@ -1874,11 +1906,12 @@ class BotEngine {
           `🚨 ${side.toUpperCase()} ${symbol} filled at ${fillPrice.toFixed(6)} but the exchange STOP-LOSS could not ` +
           `be placed. Position was ${outcome.closed ? "flattened immediately (no stop, no position)" : "NOT closed — close it manually on Binance NOW"}.`,
         ).catch((e) => logger.warn({ err: e, tradeId: trade!.id }, "Failed to send stop-not-placed alert"));
+        const cooled = this.cooldownAfterEntryFlatten(symbol, "protective stop-loss placement failed");
         return {
           entered: false,
           reason: outcome.closed
-            ? "Stop-loss placement failed — position flattened immediately (no stop, no position)"
-            : "Stop-loss placement failed AND the protective flatten failed — manual intervention required",
+            ? `Stop-loss placement failed — position flattened immediately (no stop, no position); symbol cooled down ${cooled}m to break the re-entry loop`
+            : `Stop-loss placement failed AND the protective flatten failed — manual intervention required; symbol cooled down ${cooled}m`,
         };
       }
 
