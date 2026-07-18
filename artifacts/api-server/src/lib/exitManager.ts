@@ -147,10 +147,49 @@ export class ExitManager {
       }
     }
 
-    // ── Step 3: max-holding-time exit ─────────────────────────────────────────
-    if (!exitReason && maxHoldingSeconds && maxHoldingSeconds > 0) {
+    // ── Step 3: time-based exits ─────────────────────────────────────────────
+    if (!exitReason) {
       const heldSeconds = (now.getTime() - new Date(trade.entryTime).getTime()) / 1000;
-      if (heldSeconds >= maxHoldingSeconds) {
+      const hardTimeout = !!maxHoldingSeconds && maxHoldingSeconds > 0 && heldSeconds >= maxHoldingSeconds;
+
+      // Stale-thesis exit ("time stop"): a plan-carrying trade sitting well
+      // past its EXPECTED resolution time with price going nowhere gets cut
+      // early instead of blocking capital until the hard deadline — observed
+      // live: a "20-minute" trade held 2 hours at +0.01% unrealized. Fires
+      // only when the move is genuinely dead (within ±0.25R of entry) —
+      // winners and losers in progress are left to their stops/targets.
+      // Legacy trades persist expectedHold = the hard max hold, so 1.5× that
+      // can never fire before the hard timeout — their behavior is unchanged.
+      let staleTimeout = false;
+      const expectedHold = Number(trade.expectedHoldSeconds);
+      // Fire only on a GENUINELY dead trade: held ≥ 2× its expected
+      // resolution AND still within ±0.15R of entry (the move never
+      // developed in either direction). Tighter than a first cut so trades
+      // that are quietly working toward their target are left alone.
+      if (!hardTimeout && expectedHold > 0 && heldSeconds >= expectedHold * 2) {
+        const lastClose = candles1m[candles1m.length - 1]?.[4];
+        const entry = Number(trade.entryPrice);
+        const plannedSl = Number(trade.plannedStopLoss ?? trade.stopLoss);
+        const risk = Math.abs(entry - plannedSl);
+        if (lastClose != null && risk > 0) {
+          const isShort = trade.side === "sell";
+          const unrealizedR = (isShort ? entry - lastClose : lastClose - entry) / risk;
+          if (Math.abs(unrealizedR) <= 0.15) {
+            staleTimeout = true;
+            logger.info(
+              {
+                tradeId: trade.id, symbol: trade.symbol,
+                heldMinutes: Math.round(heldSeconds / 60),
+                expectedMinutes: Math.round(expectedHold / 60),
+                unrealizedR: unrealizedR.toFixed(2),
+              },
+              "Stale-thesis exit — held well past the expected resolution with price going nowhere",
+            );
+          }
+        }
+      }
+
+      if (hardTimeout || staleTimeout) {
         const resolved = await this.protectiveMarketClose(ex, trade, market, sl, tp, /* touched */ false, "timeout");
         if (resolved.exitReason) {
           exitReason = resolved.exitReason;

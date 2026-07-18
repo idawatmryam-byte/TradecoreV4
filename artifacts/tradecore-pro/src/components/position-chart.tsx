@@ -4,7 +4,7 @@ import {
   createChart, CandlestickSeries, LineStyle,
   type IChartApi, type ISeriesApi, type IPriceLine, type UTCTimestamp,
 } from "lightweight-charts";
-import { Loader2, Maximize2, Minimize2 } from "lucide-react";
+import { Loader2, Maximize2, Minimize2, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -160,6 +160,18 @@ export function PositionChart(props: PositionChartProps) {
           <span>
             {props.side} {props.quantity} @ {props.entryPrice}
           </span>
+          <a
+            href={`https://www.tradingview.com/chart/?symbol=BINANCE:${props.symbol}${props.marketType === "futures" ? ".P" : ""}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Open on TradingView"
+            title="Open the full TradingView chart in a new tab"
+            className="rounded p-1 hover:bg-muted/50 hover:text-foreground transition-colors inline-flex items-center gap-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">TradingView</span>
+          </a>
           <button
             type="button"
             aria-label={expanded ? "Minimize chart" : "Maximize chart"}
