@@ -36,7 +36,7 @@ import {
   computeQty, computeAdaptiveSLTP,
 } from "./base";
 import { type MultiTimeframeCandles, type SignalRow, calcEma, calcVwap } from "../strategy";
-import { marketFacts, solveLeverage, timeFeasible, feeViability } from "./toolkit";
+import { marketFacts, solveLeverage, timeFeasible, feeViability, suggestLeverageForTarget } from "./toolkit";
 
 export class TwentyMinMomentumStrategy implements Strategy {
   readonly strategyId = "twenty_min_momentum";
@@ -44,6 +44,15 @@ export class TwentyMinMomentumStrategy implements Strategy {
   // Momentum needs movement to ride — active regimes only. Range / low-vol have
   // no directional push to reach a target in 20 minutes.
   readonly supportedRegimes = ["strong_trend", "weak_trend", "high_volatility"] as const;
+  readonly indicators = [
+    "EMA20 / EMA50 trend (3m)",
+    "MACD histogram (3m)",
+    "Session VWAP — fair-value side (1m)",
+    "RSI(14) 50–72 / 28–50 (5m)",
+    "ADX(14) ≥ 20 + volume ≥ 1× (5m/1m)",
+    "ATR reachability (1m + 5m)",
+    "Swing S/R room check (15m)",
+  ] as const;
 
   /**
    * Professional decision-maker ("the brain") — owns the COMPLETE decision.
@@ -126,10 +135,24 @@ export class TwentyMinMomentumStrategy implements Strategy {
     }
 
     // ── Time: can this target realistically resolve inside the window? ──────
+    // Judged on BOTH the 1m and 5m frames — a trending coin shows more usable
+    // range on the coarser frame, so 1m noise alone under-calls real trends.
     const maxHold = config.maxHoldingSeconds;
-    const tf = timeFeasible(solved.tpFraction, row, maxHold);
+    const tf = timeFeasible(solved.tpFraction, row, maxHold, mtf);
     if (!tf.feasible) {
-      return rejection("coin-fit", tf.reason ?? "target unreachable within the hold window");
+      // Professional follow-up: would MORE leverage make the target
+      // reachable (bigger notional → smaller % move needed) while the stop
+      // still clears every floor? If yes but it's above the user's cap, say
+      // so — an actionable rejection instead of a dead end.
+      const better = suggestLeverageForTarget({
+        entryPrice: lastPrice, side, marketType: ctx.marketType,
+        marginUsdt: dp.tradeAmountUsdt, maxLossUsdt: dp.maxLossUsdt, targetProfitUsdt: dp.targetProfitUsdt,
+        feeRate: ctx.feeRate, atrPercent: row.atrPercent, invalidationPrice,
+      }, tf.reachablePct);
+      const hint = better != null && better > ctx.leverageCap
+        ? ` — WOULD be feasible at ~${better}× leverage (your cap is ${ctx.leverageCap}×): raise the Max Leverage Cap, lower Target Profit, or raise Trade Amount`
+        : ` — no leverage makes this target reachable safely here: lower Target Profit or raise Trade Amount`;
+      return rejection("coin-fit", (tf.reason ?? "target unreachable within the hold window") + hint);
     }
     // Honest expected duration from the volatility math (never below 5min,
     // never past the deadline).

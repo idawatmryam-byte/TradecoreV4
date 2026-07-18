@@ -1990,7 +1990,7 @@ components:
 
     StrategyInfo:
       type: object
-      required: [strategyId, strategyName, supportedRegimes, config, performance]
+      required: [strategyId, strategyName, supportedRegimes, indicators, decisionMaker, config, performance]
       properties:
         strategyId:
           type: string
@@ -2000,6 +2000,14 @@ components:
           type: array
           items:
             type: string
+        indicators:
+          description: The indicators this strategy reads, human-readable with timeframe.
+          type: array
+          items:
+            type: string
+        decisionMaker:
+          description: True when the strategy is a native decision-maker owning its full TradePlan (leverage, structural stop, duration, written reasoning).
+          type: boolean
         config:
           $ref: "#/components/schemas/StrategyConfig"
         performance:

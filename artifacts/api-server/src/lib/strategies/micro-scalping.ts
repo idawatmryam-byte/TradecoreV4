@@ -24,6 +24,13 @@ export class MicroScalpingStrategy implements Strategy {
   readonly strategyId = "micro_scalping";
   readonly strategyName = "Micro Scalping";
   readonly supportedRegimes = ["strong_trend", "weak_trend", "range"] as const;
+  readonly indicators = [
+    "Volume surge ≥ 2× (1m)",
+    "RSI(14) zone 45–65 / 35–55 (5m)",
+    "MACD histogram rising/falling (3m)",
+    "EMA20 / EMA50 alignment (5m + 15m)",
+    "EMA10 slope spike (1m)",
+  ] as const;
 
   evaluate(
     symbol: string,

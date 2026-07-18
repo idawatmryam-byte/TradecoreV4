@@ -62,6 +62,11 @@ router.get("/strategies", async (req, res) => {
         strategyId: s.strategyId,
         strategyName: s.strategyName,
         supportedRegimes: s.supportedRegimes,
+        // What this brain reads — shown as chips on the Strategies page.
+        indicators: s.indicators,
+        // True when the strategy is a native decision-maker (owns its full
+        // TradePlan: leverage, structural stop, duration, reasoning).
+        decisionMaker: typeof (s as { decide?: unknown }).decide === "function",
         config,
         performance: {
           totalTrades: total,

@@ -1030,6 +1030,10 @@ export interface StrategyInfo {
   strategyId: string;
   strategyName: string;
   supportedRegimes: string[];
+  /** The indicators this strategy reads, human-readable with timeframe. */
+  indicators: string[];
+  /** True when the strategy is a native decision-maker owning its full TradePlan (leverage, structural stop, duration, written reasoning). */
+  decisionMaker: boolean;
   config: StrategyConfig;
   performance: StrategyPerformance;
 }

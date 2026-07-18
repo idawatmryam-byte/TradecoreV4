@@ -21,6 +21,12 @@ export class MeanReversionStrategy implements Strategy {
   readonly strategyId = "mean_reversion";
   readonly strategyName = "Mean Reversion";
   readonly supportedRegimes = ["range"] as const;
+  readonly indicators = [
+    "Bollinger Bands 20/2σ (15m)",
+    "RSI(14) extremes < 38 / > 62 (5m)",
+    "ADX(14) < 25 range filter (5m)",
+    "Reversal candle (1m)",
+  ] as const;
 
   evaluate(
     symbol: string,

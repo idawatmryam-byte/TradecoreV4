@@ -22,6 +22,12 @@ export class VolatilityBreakoutStrategy implements Strategy {
   readonly strategyId = "volatility_breakout";
   readonly strategyName = "Volatility Breakout";
   readonly supportedRegimes = ["range", "weak_trend", "high_volatility"] as const;
+  readonly indicators = [
+    "Bollinger Band squeeze (15m)",
+    "ATR expansion (1m)",
+    "Bollinger Band break + candle direction (15m)",
+    "Rising volume (1m)",
+  ] as const;
 
   evaluate(
     symbol: string,

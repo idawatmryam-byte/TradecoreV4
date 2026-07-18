@@ -32,6 +32,12 @@ export class ScalpReversionStrategy implements Strategy {
   // Fade extremes in range / weak-trend / volatility regimes — NOT strong_trend,
   // where price runs through the bands and reversion setups get run over.
   readonly supportedRegimes = ["range", "weak_trend", "low_volatility", "high_volatility"] as const;
+  readonly indicators = [
+    "Bollinger Bands 20/2σ (1m)",
+    "RSI(14) ≤ 30 / ≥ 70 (1m)",
+    "Reversal candle tick (1m)",
+    "Regime filter — never fades a strong trend",
+  ] as const;
 
   evaluate(
     symbol: string,
