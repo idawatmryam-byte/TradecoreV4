@@ -161,9 +161,11 @@ function ReportView({ run }: { run: AutopsyRun }) {
   );
 }
 
-export function AutopsyPanel() {
-  const [open, setOpen] = useState(false);
-  const [strategyId, setStrategyId] = useState("");
+export function AutopsyPanel({ initialStrategyId }: { initialStrategyId?: string } = {}) {
+  // Arriving via the Strategies page's "Diagnose" link opens the panel
+  // pre-selected on that strategy — no need to hunt for it again.
+  const [open, setOpen] = useState(!!initialStrategyId);
+  const [strategyId, setStrategyId] = useState(initialStrategyId ?? "");
   const [days, setDays] = useState(45);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const queryClient = useQueryClient();
@@ -184,8 +186,15 @@ export function AutopsyPanel() {
 
   const selected: AutopsyRun | null = useMemo(() => {
     if (!autopsies || autopsies.length === 0) return null;
-    return autopsies.find((a) => a.id === selectedId) ?? autopsies[0] ?? null;
-  }, [autopsies, selectedId]);
+    // A run the user explicitly picked (history pill, or just-started run)
+    // always wins. Otherwise default to the most recent run for the
+    // CURRENTLY SELECTED strategy — never another strategy's report, which
+    // would silently mislead (e.g. arriving via "Diagnose" on Trend Pullback
+    // must never show a stale Scalp Reversion verdict underneath it).
+    const explicit = autopsies.find((a) => a.id === selectedId);
+    if (explicit) return explicit;
+    return autopsies.find((a) => a.strategyId === strategyId) ?? null;
+  }, [autopsies, selectedId, strategyId]);
 
   const run = () => {
     if (!strategyId) return;
@@ -232,7 +241,7 @@ export function AutopsyPanel() {
               <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Strategy</label>
               <select
                 value={strategyId}
-                onChange={(e) => setStrategyId(e.target.value)}
+                onChange={(e) => { setStrategyId(e.target.value); setSelectedId(null); }}
                 className="block bg-background border border-border rounded px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="">Select strategy…</option>
@@ -282,7 +291,15 @@ export function AutopsyPanel() {
             </div>
           )}
 
-          {selected && <ReportView run={selected} />}
+          {selected ? (
+            <ReportView run={selected} />
+          ) : (
+            strategyId && (
+              <p className="text-xs text-muted-foreground border border-dashed rounded-md p-3">
+                No autopsy has been run for this strategy yet — press "Run Autopsy" above.
+              </p>
+            )
+          )}
         </CardContent>
       )}
     </Card>
