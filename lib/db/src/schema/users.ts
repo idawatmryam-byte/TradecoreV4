@@ -82,3 +82,30 @@ export const insertUserBinanceCredentialsSchema = createInsertSchema(userBinance
 });
 export type InsertUserBinanceCredentials = z.infer<typeof insertUserBinanceCredentialsSchema>;
 export type UserBinanceCredentials = typeof userBinanceCredentialsTable.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Per-user OANDA credentials (forex section) — a personal access token plus
+// the account id it belongs to, both encrypted at rest with the same
+// AES-256-GCM scheme as the Binance keys. A deliberately PARALLEL table, not
+// a generalized "provider" column on the Binance one: the secret shape is
+// different (token + accountId vs key + secret), there is exactly one hot
+// read site per broker, and keeping them separate avoids ever migrating
+// encrypted blobs between schemas.
+// ---------------------------------------------------------------------------
+
+export const userOandaCredentialsTable = pgTable("user_oanda_credentials", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  /** `<ivHex>:<authTagHex>:<ciphertextHex>` — see encryptSecret()/decryptSecret(). */
+  encryptedToken: text("encrypted_token").notNull(),
+  encryptedAccountId: text("encrypted_account_id").notNull(),
+  /** Last 4 chars of the plaintext account id, kept in the clear so the
+   *  settings page can show "configured: ...4567" without ever decrypting. */
+  accountIdPreview: text("account_id_preview").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (t) => [
+  unique("user_oanda_credentials_user_id_unique").on(t.userId),
+]);
+
+export type UserOandaCredentials = typeof userOandaCredentialsTable.$inferSelect;

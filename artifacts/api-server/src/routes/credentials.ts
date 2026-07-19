@@ -4,6 +4,11 @@ import {
   setBinanceCredentials,
   deleteBinanceCredentials,
 } from "../lib/binanceCredentials";
+import {
+  getOandaCredentialsStatus,
+  setOandaCredentials,
+  deleteOandaCredentials,
+} from "../lib/oandaCredentials";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -49,6 +54,36 @@ router.delete("/me/binance-credentials", async (req, res): Promise<void> => {
   await deleteBinanceCredentials(req.userId!);
   logger.info({ userId: req.userId }, "Binance credentials removed");
   res.json({ configured: false, apiKeyPreview: null, updatedAt: null });
+});
+
+// ---------------------------------------------------------------------------
+// OANDA credentials (forex section) — same trio, same rules as Binance above:
+// GET never decrypts (masked account-id preview only), PUT encrypts+upserts,
+// a changed credential takes effect on the next forex engine start.
+// ---------------------------------------------------------------------------
+router.get("/me/oanda-credentials", async (req, res): Promise<void> => {
+  res.json(await getOandaCredentialsStatus(req.userId!));
+});
+
+router.put("/me/oanda-credentials", async (req, res): Promise<void> => {
+  const body = req.body as Record<string, unknown>;
+  const apiToken = typeof body.apiToken === "string" ? body.apiToken.trim() : "";
+  const accountId = typeof body.accountId === "string" ? body.accountId.trim() : "";
+
+  if (!apiToken || !accountId) {
+    res.status(400).json({ error: "apiToken and accountId are both required" });
+    return;
+  }
+
+  await setOandaCredentials(req.userId!, apiToken, accountId);
+  logger.info({ userId: req.userId }, "OANDA credentials updated");
+  res.json(await getOandaCredentialsStatus(req.userId!));
+});
+
+router.delete("/me/oanda-credentials", async (req, res): Promise<void> => {
+  await deleteOandaCredentials(req.userId!);
+  logger.info({ userId: req.userId }, "OANDA credentials removed");
+  res.json({ configured: false, accountIdPreview: null, updatedAt: null });
 });
 
 export default router;

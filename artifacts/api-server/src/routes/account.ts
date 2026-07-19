@@ -15,6 +15,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
   usersTable, userIdentitiesTable, userBinanceCredentialsTable,
+  userOandaCredentialsTable,
   botConfigTable, strategyConfigsTable, tradesTable, tradePartialExitsTable,
   blacklistTable, hourlyStatsTable, tradeAnalysesTable, backtestRunsTable,
 } from "@workspace/db";
@@ -130,6 +131,7 @@ router.delete("/me/account", async (req, res) => {
   await db.delete(botConfigTable).where(eq(botConfigTable.userId, userId));
   await db.delete(backtestRunsTable).where(eq(backtestRunsTable.userId, userId)); // cascades trades/equity/optimization
   await db.delete(userBinanceCredentialsTable).where(eq(userBinanceCredentialsTable.userId, userId));
+  await db.delete(userOandaCredentialsTable).where(eq(userOandaCredentialsTable.userId, userId));
   await db.delete(userIdentitiesTable).where(eq(userIdentitiesTable.userId, userId));
   await db.delete(usersTable).where(eq(usersTable.id, userId));
 
