@@ -248,22 +248,163 @@ export class OandaAdapter implements BrokerAdapter {
   }
 
   async fetchMyTrades(_symbol?: string, _since?: number, _limit?: number): Promise<unknown[]> {
-    // Fee/fill audit arrives with execution in Phase 2 (via transactions API).
+    // Fill-level fee audit is Binance-specific bookkeeping; OANDA is
+    // commission-free (cost = spread) and closes report their own fill price.
     return [];
   }
 
-  // ── Execution — Phase 2 ────────────────────────────────────────────────────
+  // ── Execution ──────────────────────────────────────────────────────────────
 
-  async createOrder(): Promise<never> {
-    throw new NotSupported("OANDA order execution is not enabled yet (arrives in Phase 2)");
+  /**
+   * Open a position AND its protection in ONE atomic call — OANDA natively
+   * supports MARKET + stopLossOnFill + takeProfitOnFill, which removes the
+   * whole fill-then-protect gap the Binance path has to manage. FOK: either
+   * the full size fills or nothing does. Returns everything the engine must
+   * persist: fill price/units, the OANDA trade id (keys every later SL/TP
+   * replace + close), and the dependent SL/TP order ids.
+   */
+  async placeProtectedEntry(
+    symbol: string,
+    side: "buy" | "sell",
+    units: number,
+    slPrice: number,
+    tpPrice: number,
+  ): Promise<{ fillPrice: number; filledUnits: number; oandaTradeId: string; slOrderId: string; tpOrderId: string }> {
+    const res = await this.client.acct<{
+      orderFillTransaction?: { id: string; price: string; tradeOpened?: { tradeID: string; units: string; price?: string } };
+      orderCancelTransaction?: { reason?: string };
+    }>("POST", "/orders", {
+      order: {
+        type: "MARKET",
+        instrument: symbol,
+        // OANDA signs direction into units: positive = long, negative = short.
+        units: (side === "buy" ? "" : "-") + this.amountToPrecision(symbol, units),
+        timeInForce: "FOK",
+        positionFill: "DEFAULT",
+        stopLossOnFill: { price: this.priceToPrecision(symbol, slPrice), timeInForce: "GTC" },
+        takeProfitOnFill: { price: this.priceToPrecision(symbol, tpPrice), timeInForce: "GTC" },
+      },
+    });
+
+    const fill = res.orderFillTransaction;
+    if (!fill?.tradeOpened) {
+      throw new Error(`OANDA entry rejected: ${res.orderCancelTransaction?.reason ?? "order did not fill"}`);
+    }
+
+    // The dependent SL/TP orders are created ON the trade — one follow-up GET
+    // returns their ids authoritatively (simpler and more robust than parsing
+    // the create response's related-transaction list).
+    const tradeId = fill.tradeOpened.tradeID;
+    const tr = await this.client.acct<{
+      trade: { stopLossOrder?: { id: string }; takeProfitOrder?: { id: string } };
+    }>("GET", `/trades/${tradeId}`);
+
+    return {
+      fillPrice: Number(fill.tradeOpened.price ?? fill.price),
+      filledUnits: Math.abs(Number(fill.tradeOpened.units)),
+      oandaTradeId: tradeId,
+      slOrderId: tr.trade.stopLossOrder?.id ?? "",
+      tpOrderId: tr.trade.takeProfitOrder?.id ?? "",
+    };
   }
 
-  async cancelOrder(): Promise<never> {
-    throw new NotSupported("OANDA order execution is not enabled yet (arrives in Phase 2)");
+  /**
+   * Atomically replace a trade's protective SL (and optionally TP) — OANDA's
+   * PUT /trades/{id}/orders swaps dependent orders in one call, keyed by the
+   * persisted oandaTradeId (trades.exchangeTradeId). Returns the NEW order ids.
+   */
+  async replaceTradeProtection(
+    oandaTradeId: string,
+    symbol: string,
+    slPrice?: number,
+    tpPrice?: number,
+  ): Promise<{ slOrderId: string; tpOrderId: string }> {
+    const body: Record<string, unknown> = {};
+    if (slPrice != null) body.stopLoss = { price: this.priceToPrecision(symbol, slPrice), timeInForce: "GTC" };
+    if (tpPrice != null) body.takeProfit = { price: this.priceToPrecision(symbol, tpPrice), timeInForce: "GTC" };
+    const res = await this.client.acct<{
+      stopLossOrderTransaction?: { id: string };
+      takeProfitOrderTransaction?: { id: string };
+    }>("PUT", `/trades/${oandaTradeId}/orders`, body);
+    return {
+      slOrderId: res.stopLossOrderTransaction?.id ?? "",
+      tpOrderId: res.takeProfitOrderTransaction?.id ?? "",
+    };
   }
 
-  async fetchOrder(): Promise<never> {
-    throw new NotSupported("OANDA order execution is not enabled yet (arrives in Phase 2)");
+  /**
+   * ccxt-compat market order — CLOSES ONLY. Every generic close site in the
+   * engine (ExitManager's protective close, TradeManager's partial close,
+   * the entry risk-guard flatten) issues `createOrder(market, "market",
+   * <opposite side>, qty)`; this translates that to an OANDA trade close on
+   * the open trade it opposes (v1 runs one trade per instrument). A market
+   * order with NO opposing open trade is refused — the engine never intends
+   * a bare unprotected entry (entries go through placeProtectedEntry), so
+   * anything else reaching here is a bug and must not open real exposure.
+   */
+  async createOrder(
+    symbol: string,
+    type: string,
+    side: string,
+    amount: number,
+    _price?: number,
+    _params?: Record<string, unknown>,
+  ): Promise<unknown> {
+    if (type !== "market") {
+      throw new NotSupported(`OANDA adapter: only market close orders are supported via createOrder (got type=${type}) — protection is placed atomically at entry`);
+    }
+    const open = await this.client.acct<{
+      trades: Array<{ id: string; instrument: string; currentUnits: string }>;
+    }>("GET", "/openTrades");
+    // Buying closes a short (negative units); selling closes a long.
+    const wantSign = side === "buy" ? -1 : 1;
+    const target = open.trades.find(
+      (t) => t.instrument === symbol && Math.sign(Number(t.currentUnits)) === wantSign,
+    );
+    if (!target) {
+      throw new Error(`OANDA: no open ${wantSign < 0 ? "short" : "long"} trade on ${symbol} to close — refusing to place a fresh unprotected market order`);
+    }
+
+    const openUnits = Math.abs(Number(target.currentUnits));
+    const closeUnits = Math.min(amount, openUnits);
+    const res = await this.client.acct<{
+      orderFillTransaction?: { id: string; price: string; units: string };
+    }>("PUT", `/trades/${target.id}/close`, {
+      // "ALL" avoids leaving a dust remainder when closing the full size.
+      units: closeUnits >= openUnits ? "ALL" : this.amountToPrecision(symbol, closeUnits),
+    });
+    const fill = res.orderFillTransaction;
+    const px = fill?.price != null ? Number(fill.price) : undefined;
+    return {
+      id: fill?.id ?? target.id,
+      average: px,
+      price: px,
+      filled: fill?.units != null ? Math.abs(Number(fill.units)) : closeUnits,
+      status: "closed",
+      info: res,
+    };
+  }
+
+  async cancelOrder(id: string, _symbol?: string): Promise<unknown> {
+    // Cancelling an already-filled order 404s — the engine's reconciliation
+    // paths EXPECT that throw (they then fetchOrder to learn what happened).
+    return this.client.acct("PUT", `/orders/${id}/cancel`);
+  }
+
+  async fetchOrder(id: string, _symbol?: string): Promise<unknown> {
+    const res = await this.client.acct<{
+      order: { id: string; state: string; price?: string; type: string };
+    }>("GET", `/orders/${id}`);
+    const o = res.order;
+    return {
+      id: o.id,
+      // OANDA states → ccxt statuses: FILLED→closed, CANCELLED→canceled,
+      // PENDING/TRIGGERED→open.
+      status: o.state === "FILLED" ? "closed" : o.state === "CANCELLED" ? "canceled" : "open",
+      price: o.price != null ? Number(o.price) : undefined,
+      average: undefined,
+      info: o,
+    };
   }
 }
 

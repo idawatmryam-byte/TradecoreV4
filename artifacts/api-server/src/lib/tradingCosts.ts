@@ -18,6 +18,15 @@ export const DEFAULT_FEE_RATE = 0.001;
  *  2×, which materially distorts profit factor at high trade counts. */
 export const FUTURES_FEE_RATE = 0.0005;
 
+/** OANDA forex effective cost per side, as a fraction of notional (0.0001 =
+ *  0.01%). OANDA charges no commission — the cost IS the spread, paid once
+ *  per round trip; modeled here as half-spread per leg. 0.01%/leg covers a
+ *  ~1-pip major (EUR_USD ≈ 0.7 pips ≈ 0.006%) with headroom for XAU_USD and
+ *  index CFDs whose relative spreads run wider. Refined per-instrument in a
+ *  later phase; conservative (slightly high) is the safe direction — it
+ *  makes reward:risk viability checks stricter, never looser. */
+export const FOREX_COST_RATE = 0.0001;
+
 /** Binance spot MAKER fee (0.001 = 0.1%). At the base VIP-0 tier Binance
  *  charges the same maker and taker rate on spot, so a maker fill saves
  *  nothing on spot unless BNB discount / a higher VIP tier applies. */
