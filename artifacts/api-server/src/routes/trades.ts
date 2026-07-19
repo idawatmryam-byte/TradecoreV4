@@ -70,7 +70,7 @@ router.get("/trades", async (req, res): Promise<void> => {
   const { status, source, limit } = query.data;
   let q = db.select().from(tradesTable).$dynamic();
 
-  const conditions = [eq(tradesTable.userId, req.userId!)];
+  const conditions = [eq(tradesTable.userId, req.userId!), eq(tradesTable.section, req.section!)];
   if (status) conditions.push(eq(tradesTable.status, status));
   if (source) conditions.push(eq(tradesTable.isBacktest, source === "backtest"));
   q = q.where(and(...conditions));
@@ -91,7 +91,7 @@ router.get("/trades/:id", async (req, res): Promise<void> => {
   const [trade] = await db
     .select()
     .from(tradesTable)
-    .where(and(eq(tradesTable.id, params.data.id), eq(tradesTable.userId, req.userId!)));
+    .where(and(eq(tradesTable.id, params.data.id), eq(tradesTable.userId, req.userId!), eq(tradesTable.section, req.section!)));
 
   if (!trade) {
     res.status(404).json({ error: "Trade not found" });
@@ -116,7 +116,7 @@ router.get("/trades/:id/replay", async (req, res): Promise<void> => {
   const [trade] = await db
     .select()
     .from(tradesTable)
-    .where(and(eq(tradesTable.id, params.data.id), eq(tradesTable.userId, req.userId!)));
+    .where(and(eq(tradesTable.id, params.data.id), eq(tradesTable.userId, req.userId!), eq(tradesTable.section, req.section!)));
   if (!trade) {
     res.status(404).json({ error: "Trade not found" });
     return;
@@ -157,13 +157,13 @@ router.get("/trades/monitor/active", async (req, res): Promise<void> => {
   const openTrades = await db
     .select()
     .from(tradesTable)
-    .where(and(eq(tradesTable.userId, req.userId!), eq(tradesTable.status, "open")));
+    .where(and(eq(tradesTable.userId, req.userId!), eq(tradesTable.section, req.section!), eq(tradesTable.status, "open")));
   if (openTrades.length === 0) {
     res.json([]);
     return;
   }
 
-  const scannerRows = getOrCreateEngine(req.userId!).getScannerData();
+  const scannerRows = getOrCreateEngine(req.userId!, req.section!).getScannerData();
   const priceBySymbol = new Map(scannerRows.map((r) => [r.symbol, r.lastPrice]));
   const now = Date.now();
 
@@ -233,7 +233,7 @@ router.post("/trades/:id/close", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid trade id" });
     return;
   }
-  const result = await getOrCreateEngine(req.userId!).closeTradeManually(tradeId);
+  const result = await getOrCreateEngine(req.userId!, req.section!).closeTradeManually(tradeId);
   if (!result.ok) {
     const status = result.error === "Trade not found" ? 404 : result.error === "Trade is already closed" ? 409 : 502;
     res.status(status).json({ error: result.error });

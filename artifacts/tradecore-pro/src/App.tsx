@@ -12,6 +12,7 @@ import { Backtest } from '@/pages/backtest';
 import { Strategies } from '@/pages/strategies';
 import { Account } from '@/pages/account';
 import { Decisions } from '@/pages/decisions';
+import { SectionProvider } from '@/lib/section';
 
 const queryClient = new QueryClient();
 
@@ -46,12 +47,14 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-        <AuthGate>
-          <Router />
-          <Toaster />
-        </AuthGate>
-      </WouterRouter>
+      <SectionProvider>
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+          <AuthGate>
+            <Router />
+            <Toaster />
+          </AuthGate>
+        </WouterRouter>
+      </SectionProvider>
     </QueryClientProvider>
   );
 }

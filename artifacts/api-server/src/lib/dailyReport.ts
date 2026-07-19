@@ -13,6 +13,7 @@
  */
 import { db } from "@workspace/db";
 import { tradesTable } from "@workspace/db";
+import type { Section } from "./engineRegistry";
 import { eq, and, gte, lt } from "drizzle-orm";
 
 export interface DailyReportTradeRow {
@@ -49,7 +50,7 @@ export interface DailyReport {
   trades: DailyReportTradeRow[];
 }
 
-export async function buildDailyReport(userId: number, date: string): Promise<DailyReport> {
+export async function buildDailyReport(userId: number, date: string, section: Section = "crypto"): Promise<DailyReport> {
   const dayStart = new Date(`${date}T00:00:00.000Z`);
   const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
@@ -58,6 +59,7 @@ export async function buildDailyReport(userId: number, date: string): Promise<Da
     .from(tradesTable)
     .where(and(
       eq(tradesTable.userId, userId),
+      eq(tradesTable.section, section),
       eq(tradesTable.status, "closed"),
       gte(tradesTable.exitTime, dayStart),
       lt(tradesTable.exitTime, dayEnd),
@@ -67,7 +69,7 @@ export async function buildDailyReport(userId: number, date: string): Promise<Da
   const open = await db
     .select({ id: tradesTable.id })
     .from(tradesTable)
-    .where(and(eq(tradesTable.userId, userId), eq(tradesTable.status, "open")));
+    .where(and(eq(tradesTable.userId, userId), eq(tradesTable.section, section), eq(tradesTable.status, "open")));
 
   const pnls = closed.map((t) => Number(t.pnl ?? 0));
   const wins = pnls.filter((p) => p > 0).length;

@@ -120,7 +120,7 @@ router.post("/backtests/preview-config", async (req, res) => {
     riskPercent: Number(b.riskPercent ?? 0),
   };
 
-  const dbConfigs = await loadStrategyConfigs(req.userId!);
+  const dbConfigs = await loadStrategyConfigs(req.userId!, req.section!);
   const effective = buildEffectiveBacktestConfigs(dbConfigs, params);
 
   res.json({
@@ -247,7 +247,7 @@ router.post("/backtests/run", async (req, res) => {
   // so the result isn't silently misread as "the strategy doesn't work"
   // when it's really "this timeframe can't resolve trades in time."
   const candleIntervalMs = getTimeframeMs(b.timeframe as string);
-  const dbStrategyConfigsForWarning = await loadStrategyConfigs(req.userId!);
+  const dbStrategyConfigsForWarning = await loadStrategyConfigs(req.userId!, req.section!);
   const timeframeWarnings: string[] = [];
   for (const [, cfg] of dbStrategyConfigsForWarning) {
     if (!cfg.enabled) continue;

@@ -4,28 +4,28 @@ import { getOrCreateEngine } from "../lib/engineRegistry";
 const router: IRouter = Router();
 
 router.get("/bot/status", async (req, res): Promise<void> => {
-  res.json(getOrCreateEngine(req.userId!).getState());
+  res.json(getOrCreateEngine(req.userId!, req.section!).getState());
 });
 
 // Full per-symbol pipeline decision trace from the most recent scan.
 router.get("/bot/decisions", async (req, res): Promise<void> => {
-  res.json(getOrCreateEngine(req.userId!).getDecisions());
+  res.json(getOrCreateEngine(req.userId!, req.section!).getDecisions());
 });
 
 // Aggregated "why is nothing trading" summary across all evaluated symbols.
 router.get("/bot/blocking-summary", async (req, res): Promise<void> => {
-  res.json(getOrCreateEngine(req.userId!).getBlockingSummary());
+  res.json(getOrCreateEngine(req.userId!, req.section!).getBlockingSummary());
 });
 
 router.post("/bot/start", async (req, res): Promise<void> => {
-  const engine = getOrCreateEngine(req.userId!);
+  const engine = getOrCreateEngine(req.userId!, req.section!);
   await engine.start();
   req.log.info({ userId: req.userId }, "Bot started via API");
   res.json(engine.getState());
 });
 
 router.post("/bot/stop", async (req, res): Promise<void> => {
-  const engine = getOrCreateEngine(req.userId!);
+  const engine = getOrCreateEngine(req.userId!, req.section!);
   await engine.stop();
   req.log.info({ userId: req.userId }, "Bot stopped via API");
   res.json(engine.getState());
@@ -34,7 +34,7 @@ router.post("/bot/stop", async (req, res): Promise<void> => {
 // Reset the risk pause that is triggered after 3 consecutive risk violations.
 // Call this after investigating the violations; trading resumes on the next scan.
 router.post("/bot/reset-risk-pause", async (req, res): Promise<void> => {
-  const engine = getOrCreateEngine(req.userId!);
+  const engine = getOrCreateEngine(req.userId!, req.section!);
   const { paused, violationCount } = engine.getRiskStatus();
   if (!paused) {
     res.status(200).json({ message: "Bot is not risk-paused — nothing to reset", ...engine.getState() });

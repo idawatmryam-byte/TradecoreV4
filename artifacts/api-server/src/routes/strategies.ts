@@ -23,7 +23,7 @@ const router = Router();
 
 router.get("/strategies", async (req, res) => {
   try {
-    const configs = await loadStrategyConfigs(req.userId!);
+    const configs = await loadStrategyConfigs(req.userId!, req.section!);
 
     // Per-strategy performance from THIS user's LIVE closed trades. This used
     // to aggregate backtest_trades — so the Strategies page showed 0 trades /
@@ -43,6 +43,7 @@ router.get("/strategies", async (req, res) => {
       FROM trades t
       WHERE t.strategy_id IS NOT NULL
         AND t.user_id = ${req.userId}
+        AND t.section = ${req.section}
         AND t.is_backtest = false
         AND t.status <> 'open'
         AND t.pnl IS NOT NULL
@@ -99,7 +100,7 @@ router.get("/strategies", async (req, res) => {
 
 router.get("/strategies/signals", (req, res) => {
   try {
-    const scannerRows = getOrCreateEngine(req.userId!).getScannerData();
+    const scannerRows = getOrCreateEngine(req.userId!, req.section!).getScannerData();
     // Return scanner data enriched with strategy info, sorted by confidence
     const signals = scannerRows
       .filter((r) => r.strategyId)
@@ -216,6 +217,7 @@ router.put("/strategies/:id", async (req, res) => {
       .insert(strategyConfigsTable)
       .values({
         userId: req.userId!,
+        section: req.section!,
         strategyId,
         strategyName: strategy.strategyName,
         enabled:                b.enabled                !== undefined ? Boolean(b.enabled) : d.enabled,
@@ -245,7 +247,7 @@ router.put("/strategies/:id", async (req, res) => {
         exitPriority: exitPriority.join(","),
       })
       .onConflictDoUpdate({
-        target: [strategyConfigsTable.userId, strategyConfigsTable.strategyId],
+        target: [strategyConfigsTable.userId, strategyConfigsTable.section, strategyConfigsTable.strategyId],
         set: {
           enabled:                b.enabled                !== undefined ? Boolean(b.enabled) : undefined,
           tradeAmountUsdt:        b.tradeAmountUsdt  !== undefined ? (b.tradeAmountUsdt  === null ? null : String(b.tradeAmountUsdt))  : undefined,

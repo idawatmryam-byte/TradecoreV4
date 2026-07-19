@@ -5,6 +5,8 @@ import { z } from "zod/v4";
 export const blacklistTable = pgTable("blacklist_entries", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
+  /** Independent trading section (crypto | forex). Backfills to "crypto". */
+  section: text("section").notNull().default("crypto"),
   symbol: text("symbol").notNull(),
   winRate: numeric("win_rate", { precision: 5, scale: 4 }).notNull(),
   tradeCount: integer("trade_count").notNull(),
@@ -13,7 +15,7 @@ export const blacklistTable = pgTable("blacklist_entries", {
 }, (t) => [
   // Queried on every scan: WHERE user_id = ? AND expires_at >= now
   index("blacklist_user_expires_at_idx").on(t.userId, t.expiresAt),
-  unique("blacklist_user_id_symbol_unique").on(t.userId, t.symbol),
+  unique("blacklist_user_section_symbol_unique").on(t.userId, t.section, t.symbol),
 ]);
 
 export const insertBlacklistSchema = createInsertSchema(blacklistTable).omit({ id: true });
@@ -23,6 +25,8 @@ export type BlacklistEntry = typeof blacklistTable.$inferSelect;
 export const hourlyStatsTable = pgTable("hourly_stats", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
+  /** Independent trading section (crypto | forex). Backfills to "crypto". */
+  section: text("section").notNull().default("crypto"),
   date: text("date").notNull(), // YYYY-MM-DD
   hour: integer("hour").notNull(), // 0-23 UTC
   pnl: numeric("pnl", { precision: 12, scale: 8 }).notNull().default("0"),
@@ -31,7 +35,7 @@ export const hourlyStatsTable = pgTable("hourly_stats", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => ({
-  userDateHourUnique: unique("hourly_stats_user_id_date_hour_unique").on(t.userId, t.date, t.hour),
+  userDateHourUnique: unique("hourly_stats_user_section_date_hour_unique").on(t.userId, t.section, t.date, t.hour),
 }));
 
 export const insertHourlyStatSchema = createInsertSchema(hourlyStatsTable).omit({ id: true, createdAt: true });

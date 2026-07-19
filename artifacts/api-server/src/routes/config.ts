@@ -68,7 +68,7 @@ function mapConfig(c: typeof botConfigTable.$inferSelect) {
 }
 
 router.get("/config", async (req, res): Promise<void> => {
-  const config = await getOrCreateEngine(req.userId!).loadConfig();
+  const config = await getOrCreateEngine(req.userId!, req.section!).loadConfig();
   res.json(GetConfigResponse.parse(mapConfig(config)));
 });
 
@@ -84,7 +84,7 @@ router.put("/config", async (req, res): Promise<void> => {
     return;
   }
 
-  const existing = await getOrCreateEngine(req.userId!).loadConfig();
+  const existing = await getOrCreateEngine(req.userId!, req.section!).loadConfig();
   const u = parsed.data;
 
   const [updated] = await db

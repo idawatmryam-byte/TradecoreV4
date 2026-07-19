@@ -20,7 +20,7 @@ import {
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "../lib/passwordHash";
-import { getOrCreateEngine } from "../lib/engineRegistry";
+import { getOrCreateEngine, SECTIONS } from "../lib/engineRegistry";
 import { SESSION_COOKIE_NAME } from "../middleware/auth";
 import { logger } from "../lib/logger";
 
@@ -103,12 +103,15 @@ router.delete("/me/account", async (req, res) => {
     return;
   }
 
-  // Stop the user's engine first so nothing writes new rows mid-delete (and no
-  // open position keeps trading for a deleted account).
-  try {
-    await getOrCreateEngine(req.userId!).stop();
-  } catch (err) {
-    logger.warn({ err, userId: req.userId }, "Engine stop during account deletion failed — continuing with delete");
+  // Stop ALL of the user's engines first (both crypto and forex sections) so
+  // nothing writes new rows mid-delete and no open position keeps trading for
+  // a deleted account.
+  for (const section of SECTIONS) {
+    try {
+      await getOrCreateEngine(req.userId!, section).stop();
+    } catch (err) {
+      logger.warn({ err, userId: req.userId, section }, "Engine stop during account deletion failed — continuing with delete");
+    }
   }
 
   const userId = req.userId!;
