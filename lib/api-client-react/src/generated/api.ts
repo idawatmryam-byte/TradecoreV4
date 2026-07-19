@@ -46,12 +46,14 @@ import type {
   LoginBody,
   Logout200,
   MarketMonitor,
+  OandaCredentialsStatus,
   OptimizeRequest,
   Register201,
   RegisterBody,
   ResetRiskPause200,
   ScannerRow,
   SetBinanceCredentialsBody,
+  SetOandaCredentialsBody,
   StatsSummary,
   StrategyConfigUpdate,
   StrategyDecisionEntry,
@@ -2147,6 +2149,225 @@ export const useDeleteBinanceCredentials = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteBinanceCredentialsMutationOptions(options));
+    }
+
+export const getGetOandaCredentialsUrl = () => {
+
+
+
+
+  return `/api/me/oanda-credentials`
+}
+
+/**
+ * Never returns the plaintext token/account id — only whether one is configured and a masked preview (last 4 chars of the account id).
+ * @summary Get the logged-in user's OANDA credential status (forex section)
+ */
+export const getOandaCredentials = async ( options?: RequestInit): Promise<OandaCredentialsStatus> => {
+
+  return customFetch<OandaCredentialsStatus>(getGetOandaCredentialsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOandaCredentialsQueryKey = () => {
+    return [
+    `/api/me/oanda-credentials`
+    ] as const;
+    }
+
+
+export const getGetOandaCredentialsQueryOptions = <TData = Awaited<ReturnType<typeof getOandaCredentials>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOandaCredentials>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOandaCredentialsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOandaCredentials>>> = ({ signal }) => getOandaCredentials({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOandaCredentials>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOandaCredentialsQueryResult = NonNullable<Awaited<ReturnType<typeof getOandaCredentials>>>
+export type GetOandaCredentialsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the logged-in user's OANDA credential status (forex section)
+ */
+
+export function useGetOandaCredentials<TData = Awaited<ReturnType<typeof getOandaCredentials>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOandaCredentials>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOandaCredentialsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSetOandaCredentialsUrl = () => {
+
+
+
+
+  return `/api/me/oanda-credentials`
+}
+
+/**
+ * Encrypted at rest (AES-256-GCM), same scheme as the Binance keys. Practice vs live is decided by the forex section's paper-trading toggle at engine start — each OANDA environment only accepts its own tokens. Restart the forex engine for a changed credential to apply.
+ * @summary Set the logged-in user's OANDA API token + account id
+ */
+export const setOandaCredentials = async (setOandaCredentialsBody: SetOandaCredentialsBody, options?: RequestInit): Promise<OandaCredentialsStatus> => {
+
+  return customFetch<OandaCredentialsStatus>(getSetOandaCredentialsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(setOandaCredentialsBody)
+  }
+);}
+
+
+
+
+export const getSetOandaCredentialsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setOandaCredentials>>, TError,{data: BodyType<SetOandaCredentialsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setOandaCredentials>>, TError,{data: BodyType<SetOandaCredentialsBody>}, TContext> => {
+
+const mutationKey = ['setOandaCredentials'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setOandaCredentials>>, {data: BodyType<SetOandaCredentialsBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  setOandaCredentials(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetOandaCredentialsMutationResult = NonNullable<Awaited<ReturnType<typeof setOandaCredentials>>>
+    export type SetOandaCredentialsMutationBody = BodyType<SetOandaCredentialsBody>
+    export type SetOandaCredentialsMutationError = ErrorType<void>
+
+    /**
+ * @summary Set the logged-in user's OANDA API token + account id
+ */
+export const useSetOandaCredentials = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setOandaCredentials>>, TError,{data: BodyType<SetOandaCredentialsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setOandaCredentials>>,
+        TError,
+        {data: BodyType<SetOandaCredentialsBody>},
+        TContext
+      > => {
+      return useMutation(getSetOandaCredentialsMutationOptions(options));
+    }
+
+export const getDeleteOandaCredentialsUrl = () => {
+
+
+
+
+  return `/api/me/oanda-credentials`
+}
+
+/**
+ * @summary Remove the logged-in user's stored OANDA credentials
+ */
+export const deleteOandaCredentials = async ( options?: RequestInit): Promise<OandaCredentialsStatus> => {
+
+  return customFetch<OandaCredentialsStatus>(getDeleteOandaCredentialsUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteOandaCredentialsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOandaCredentials>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteOandaCredentials>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteOandaCredentials'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteOandaCredentials>>, void> = () => {
+
+
+          return  deleteOandaCredentials(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteOandaCredentialsMutationResult = NonNullable<Awaited<ReturnType<typeof deleteOandaCredentials>>>
+
+    export type DeleteOandaCredentialsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove the logged-in user's stored OANDA credentials
+ */
+export const useDeleteOandaCredentials = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOandaCredentials>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteOandaCredentials>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteOandaCredentialsMutationOptions(options));
     }
 
 export const getListBacktestsUrl = () => {

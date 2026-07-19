@@ -1,14 +1,16 @@
 import {
   useGetConfig, useUpdateConfig, getGetConfigQueryKey,
   useGetBinanceCredentials, useSetBinanceCredentials, useDeleteBinanceCredentials, getGetBinanceCredentialsQueryKey,
+  useGetOandaCredentials, useSetOandaCredentials, useDeleteOandaCredentials, getGetOandaCredentialsQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label, Switch } from "@/components/ui";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { Settings as SettingsIcon, Save, TestTube2, KeyRound, Trash2, TrendingUp } from "lucide-react";
+import { Settings as SettingsIcon, Save, TestTube2, KeyRound, Trash2, TrendingUp, CandlestickChart } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
+import { useSection } from "@/lib/section";
 
 // Quick-pick universe for the coin picker — 24 liquid USDT markets. Any pair
 // not on this list can still be typed into the box below; unavailable symbols
@@ -18,6 +20,14 @@ const COIN_UNIVERSE = [
   "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT", "LTCUSDT", "TRXUSDT",
   "ATOMUSDT", "UNIUSDT", "NEARUSDT", "APTUSDT", "ARBUSDT", "OPUSDT",
   "INJUSDT", "SUIUSDT", "TIAUSDT", "FILUSDT", "SEIUSDT", "AAVEUSDT",
+];
+
+// Forex quick-pick universe — v1 trades USD-QUOTED instruments only (the
+// account is USD, so dollar risk math is exact): the four USD-quoted majors,
+// gold/silver, and the US index CFDs. OANDA-native names.
+const FOREX_UNIVERSE = [
+  "EUR_USD", "GBP_USD", "AUD_USD", "NZD_USD",
+  "XAU_USD", "XAG_USD", "SPX500_USD", "NAS100_USD", "US30_USD",
 ];
 
 // NOTE: how each strategy TRADES (dollar risk/target, stop & target levels,
@@ -112,6 +122,94 @@ function BinanceCredentialsCard() {
   );
 }
 
+function OandaCredentialsCard() {
+  const { data: status, isLoading } = useGetOandaCredentials({ query: { queryKey: getGetOandaCredentialsQueryKey() } });
+  const setCredentials = useSetOandaCredentials();
+  const deleteCredentials = useDeleteOandaCredentials();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const [apiToken, setApiToken] = useState("");
+  const [accountId, setAccountId] = useState("");
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetOandaCredentialsQueryKey() });
+
+  const handleSave = () => {
+    if (!apiToken.trim() || !accountId.trim()) return;
+    setCredentials.mutate({ data: { apiToken: apiToken.trim(), accountId: accountId.trim() } }, {
+      onSuccess: () => {
+        setApiToken("");
+        setAccountId("");
+        invalidate();
+        toast({ title: "OANDA Credentials Saved", description: "Restart the forex engine for the new credentials to take effect." });
+      },
+      onError: () => {
+        toast({ title: "Error", description: "Failed to save OANDA credentials.", variant: "destructive" });
+      },
+    });
+  };
+
+  const handleRemove = () => {
+    deleteCredentials.mutate(undefined, {
+      onSuccess: () => {
+        invalidate();
+        toast({ title: "OANDA Credentials Removed" });
+      },
+      onError: () => {
+        toast({ title: "Error", description: "Failed to remove OANDA credentials.", variant: "destructive" });
+      },
+    });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+          <KeyRound className="h-4 w-4 text-primary" /> Your OANDA Credentials
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          The forex engine connects to OANDA with YOUR OWN personal access token and account ID — create both free at{" "}
+          <code className="text-xs font-mono">oanda.com</code> (open a <strong>practice</strong> account with base
+          currency <strong>USD</strong>, then Manage API Access → generate a token). Stored encrypted; never displayed
+          back once saved. Practice tokens only work while the Practice toggle below is on — live needs a live token.
+        </p>
+
+        {!isLoading && (
+          <div className="text-xs font-mono text-muted-foreground">
+            {status?.configured
+              ? <>Currently configured — account ends in <span className="text-foreground">{status.accountIdPreview}</span></>
+              : "No OANDA credentials configured yet."}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>API Token</Label>
+            <Input type="password" autoComplete="off" value={apiToken} onChange={(e) => setApiToken(e.target.value)} placeholder="Enter personal access token" />
+          </div>
+          <div className="space-y-2">
+            <Label>Account ID</Label>
+            <Input type="text" autoComplete="off" value={accountId} onChange={(e) => setAccountId(e.target.value)} placeholder="e.g. 101-001-1234567-001" />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button onClick={handleSave} disabled={setCredentials.isPending || !apiToken.trim() || !accountId.trim()}>
+            {setCredentials.isPending ? "Saving..." : "Save Credentials"}
+          </Button>
+          {status?.configured && (
+            <Button variant="destructive" onClick={handleRemove} disabled={deleteCredentials.isPending}>
+              <Trash2 className="mr-2 h-4 w-4" /> Remove
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function Settings() {
   const { data: config } = useGetConfig({ query: { queryKey: getGetConfigQueryKey() } });
   const updateConfig = useUpdateConfig();
@@ -119,7 +217,7 @@ export function Settings() {
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
-    marketType: "spot" as "spot" | "futures",
+    marketType: "spot" as "spot" | "futures" | "forex",
     leverage: 1,
     marginMode: "isolated" as "isolated" | "cross",
     maxOpenPositions: 5,
@@ -154,6 +252,8 @@ export function Settings() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const { section } = useSection();
+  const isForexSection = section === "forex";
   const isFutures = formData.marketType === "futures";
 
   const handleSave = () => {
@@ -192,8 +292,30 @@ export function Settings() {
         </p>
       </div>
 
-      <BinanceCredentialsCard />
+      {isForexSection ? <OandaCredentialsCard /> : <BinanceCredentialsCard />}
 
+      {isForexSection ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+              <CandlestickChart className="h-4 w-4 text-primary" /> Forex Market (OANDA)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              This section trades <strong>forex, gold and US indices on OANDA</strong> — long and short, margin-based
+              (each instrument's own margin rate applies; there's no leverage setting to manage). Entries are placed as a
+              single atomic order with stop-loss and take-profit attached, so a position can never exist unprotected.
+              The engine observes real market hours: closed over the weekend (Fri–Sun 5pm New York), and metals/indices
+              take a daily one-hour break.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              v1 trades <strong>USD-quoted instruments only</strong> (EUR/USD, XAU/USD, …) so dollar risk and P&L are
+              exact in account dollars — same risk model, same strategy brains, same Decisions feed as the crypto section.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
@@ -247,6 +369,7 @@ export function Settings() {
           </div>
         </CardContent>
       </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
@@ -268,7 +391,7 @@ export function Settings() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Daily Loss Limit (USDT) (Circuit Breaker)</Label>
+              <Label>Daily Loss Limit ({isForexSection ? "USD" : "USDT"}) (Circuit Breaker)</Label>
               <Input 
                 type="number" 
                 value={formData.dailyLossLimitUsdt} 
@@ -292,16 +415,17 @@ export function Settings() {
                   set.has(sym) ? set.delete(sym) : set.add(sym);
                   handleChange('pairs', Array.from(set).join(", "));
                 };
+                const universe = isForexSection ? FOREX_UNIVERSE : COIN_UNIVERSE;
                 return (
                   <>
                     <Label>
-                      Coins / Markets
+                      {isForexSection ? "Instruments" : "Coins / Markets"}
                       <span className="text-muted-foreground font-normal">
                         {selected.length > 0 ? ` · ${selected.length} selected` : ""}
                       </span>
                     </Label>
                     <div className="flex flex-wrap gap-1.5">
-                      {COIN_UNIVERSE.map((sym) => {
+                      {universe.map((sym) => {
                         const on = selected.includes(sym);
                         return (
                           <button
@@ -315,7 +439,7 @@ export function Settings() {
                                 : "border-border text-muted-foreground hover:border-primary/50",
                             )}
                           >
-                            {sym.replace("USDT", "")}
+                            {isForexSection ? sym.replace("_", "/") : sym.replace("USDT", "")}
                           </button>
                         );
                       })}
@@ -324,11 +448,14 @@ export function Settings() {
                       type="text"
                       value={formData.pairs}
                       onChange={(e) => handleChange('pairs', e.target.value)}
-                      placeholder="Click coins above, or type any pair(s), comma-separated"
+                      placeholder={isForexSection
+                        ? "Click instruments above, or type OANDA names (EUR_USD), comma-separated"
+                        : "Click coins above, or type any pair(s), comma-separated"}
                     />
                     <p className="text-[11px] text-muted-foreground">
-                      Tip: more coins = more trade opportunities per day. Symbols not
-                      listed on your selected market type are skipped automatically.
+                      {isForexSection
+                        ? "v1 trades USD-quoted instruments only — dollar risk and P&L stay exact in account dollars."
+                        : "Tip: more coins = more trade opportunities per day. Symbols not listed on your selected market type are skipped automatically."}
                     </p>
                   </>
                 );
@@ -339,9 +466,13 @@ export function Settings() {
               <div className="flex items-center justify-between p-3 border rounded-md bg-muted/30">
                 <div className="space-y-0.5">
                   <Label className="text-sm font-bold flex items-center gap-2">
-                    <TestTube2 className="h-4 w-4 text-warning" /> Binance Testnet
+                    <TestTube2 className="h-4 w-4 text-warning" /> {isForexSection ? "OANDA Practice Account" : "Binance Testnet"}
                   </Label>
-                  <p className="text-xs text-muted-foreground font-mono">Execute trades using paper money.</p>
+                  <p className="text-xs text-muted-foreground font-mono">
+                    {isForexSection
+                      ? "Trade with practice (demo) money. Off = live account — live tokens required."
+                      : "Execute trades using paper money."}
+                  </p>
                 </div>
                 <Switch
                   checked={formData.testnet}

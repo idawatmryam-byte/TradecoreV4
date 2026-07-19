@@ -2900,7 +2900,11 @@ class BotEngine {
       .values({
         userId: this.userId,
         section: this.section,
+        // The forex section is OANDA/forex from birth — without this, a fresh
+        // forex config would inherit the column defaults (binance/spot) and
+        // the engine would try to trade Binance from the Forex tab.
         broker: this.section === "forex" ? "oanda" : "binance",
+        ...(this.section === "forex" && { marketType: "forex", pairs: "EUR_USD,GBP_USD,AUD_USD,NZD_USD,XAU_USD" }),
       })
       .returning();
     return inserted!;

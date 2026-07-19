@@ -43,7 +43,8 @@ function isSafeAlertWebhookUrl(raw: string): boolean {
 
 function mapConfig(c: typeof botConfigTable.$inferSelect) {
   return {
-    marketType:                c.marketType as "spot" | "futures",
+    broker:                    c.broker as "binance" | "oanda",
+    marketType:                c.marketType as "spot" | "futures" | "forex",
     leverage:                  c.leverage,
     marginMode:                c.marginMode as "isolated" | "cross",
     positionSizeUsdt:          Number(c.positionSizeUsdt),
