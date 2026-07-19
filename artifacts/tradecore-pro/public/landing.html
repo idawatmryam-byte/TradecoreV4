@@ -21,6 +21,9 @@
   <meta name="twitter:description" content="Self-hosted multi-user trading platform for Binance crypto and OANDA forex. Automated multi-strategy engine, real risk management, live dashboard, and honest backtesting." />
   <meta name="twitter:image" content="https://tradecore.ddns.net/og.png" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23070a0f'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='%2322d3ee' font-family='monospace'%3E%E2%97%AD%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;650;800;900&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
   <style>
   :root {
     --bg: #f5f8fb; --surface: #ffffff; --surface-2: #eef2f7; --border: #e2e8f0;
@@ -28,27 +31,29 @@
     --accent: #0b7f97; --accent-2: #0891b2; --accent-soft: rgba(11,127,151,.08);
     --good: #0f8a4d; --down: #c2410c;
     --hair: rgba(8,16,26,.08);
+    --grid: rgba(8,16,26,.045);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #070a0f; --surface: #0d121b; --surface-2: #111925; --border: #192333;
+      --bg: #06090e; --surface: #0c111a; --surface-2: #101824; --border: #182233;
       --border-2: #24324a; --text: #e9f1f9; --muted: #94a2b5; --faint: #566373;
       --accent: #22d3ee; --accent-2: #67e8f9; --accent-soft: rgba(34,211,238,.10);
       --good: #34d399; --down: #fb923c;
       --hair: rgba(233,241,249,.07);
+      --grid: rgba(233,241,249,.035);
     }
   }
   :root[data-theme="light"] {
     --bg: #f5f8fb; --surface: #ffffff; --surface-2: #eef2f7; --border: #e2e8f0;
     --border-2: #cdd6e2; --text: #08101a; --muted: #4f5b6b; --faint: #8593a3;
     --accent: #0b7f97; --accent-2: #0891b2; --accent-soft: rgba(11,127,151,.08);
-    --good: #0f8a4d; --down: #c2410c; --hair: rgba(8,16,26,.08);
+    --good: #0f8a4d; --down: #c2410c; --hair: rgba(8,16,26,.08); --grid: rgba(8,16,26,.045);
   }
   :root[data-theme="dark"] {
-    --bg: #070a0f; --surface: #0d121b; --surface-2: #111925; --border: #192333;
+    --bg: #06090e; --surface: #0c111a; --surface-2: #101824; --border: #182233;
     --border-2: #24324a; --text: #e9f1f9; --muted: #94a2b5; --faint: #566373;
     --accent: #22d3ee; --accent-2: #67e8f9; --accent-soft: rgba(34,211,238,.10);
-    --good: #34d399; --down: #fb923c; --hair: rgba(233,241,249,.07);
+    --good: #34d399; --down: #fb923c; --hair: rgba(233,241,249,.07); --grid: rgba(233,241,249,.035);
   }
 
   * { box-sizing: border-box; }
@@ -56,140 +61,206 @@
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   body {
     margin: 0; background: var(--bg); color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-size: 16.5px; line-height: 1.65; -webkit-font-smoothing: antialiased;
+    font-weight: 500;
   }
-  .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   .nums { font-variant-numeric: tabular-nums; }
-  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 0 28px; }
   a { color: inherit; text-decoration: none; }
-  h1, h2, h3 { margin: 0; letter-spacing: -0.03em; line-height: 1.05; text-wrap: balance; }
+  h1, h2, h3 { margin: 0; letter-spacing: -0.035em; line-height: 1.04; text-wrap: balance; }
 
   .eyebrow {
-    font-family: ui-monospace, monospace; font-size: 11.5px; letter-spacing: 0.24em;
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px; letter-spacing: 0.26em;
     text-transform: uppercase; color: var(--accent); font-weight: 600;
   }
-  .lbl { font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
+  .lbl { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+
+  /* reveal-on-scroll — pure CSS scroll-driven animation. Progressive
+     enhancement by construction: browsers without animation-timeline (or
+     with reduced motion) simply render everything visible. Content can
+     never be left hidden by a script failure. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .rev {
+        animation: rise both;
+        animation-timeline: view();
+        animation-range: entry 0% entry 55%;
+      }
+      @keyframes rise {
+        from { opacity: .15; transform: translateY(18px); }
+        to   { opacity: 1;   transform: none; }
+      }
+    }
+  }
 
   /* nav */
   nav {
     position: sticky; top: 0; z-index: 30; border-bottom: 1px solid var(--border);
-    background: color-mix(in srgb, var(--bg) 80%, transparent); backdrop-filter: blur(12px);
+    /* Solid theme background — a color-mix()+backdrop-filter glass effect
+       here rendered dark-on-light in some compositors; solid can't. */
+    background: var(--bg);
   }
-  nav .row { display: flex; align-items: center; justify-content: space-between; height: 62px; }
-  .logo { display: flex; align-items: center; gap: 11px; font-weight: 700; letter-spacing: .02em; font-size: 15px; }
+  nav .row { display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 24px; }
+  .logo { display: flex; align-items: center; gap: 11px; font-weight: 800; letter-spacing: -.01em; font-size: 15.5px; }
   .logo .mk {
-    width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
+    width: 31px; height: 31px; border-radius: 8px; display: grid; place-items: center;
     color: var(--accent); background: var(--accent-soft);
     border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); font-size: 15px;
   }
   .logo span { color: var(--accent); }
+  .nav-links { display: flex; gap: 26px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+  .nav-links a { transition: color .15s ease; }
+  .nav-links a:hover { color: var(--text); }
   .nav-cta {
-    font-size: 14px; font-weight: 600; padding: 9px 16px; border-radius: 8px;
-    background: var(--accent); color: #04141a; transition: transform .12s ease, background .15s ease;
+    font-size: 14px; font-weight: 650; padding: 9px 17px; border-radius: 9px;
+    background: var(--accent); color: #04141a; transition: transform .12s ease, background .15s ease, box-shadow .15s ease;
+    box-shadow: 0 4px 16px -6px color-mix(in srgb, var(--accent) 60%, transparent);
   }
   .nav-cta:hover { transform: translateY(-1px); background: var(--accent-2); }
+  @media (max-width: 760px) { .nav-links { display: none; } }
 
   /* ticker */
   .ticker { border-bottom: 1px solid var(--border); overflow: hidden; background: var(--surface); }
   .ticker .track {
-    display: inline-flex; gap: 40px; padding: 9px 0; white-space: nowrap;
-    font-family: ui-monospace, monospace; font-size: 12.5px; color: var(--muted);
-    animation: slide 44s linear infinite; will-change: transform;
+    display: inline-flex; gap: 42px; padding: 9px 0; white-space: nowrap;
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12.5px; color: var(--muted);
+    animation: slide 52s linear infinite; will-change: transform;
   }
   .ticker .track span b { color: var(--text); font-weight: 600; }
-  .ticker .up { color: var(--good); } .ticker .dn { color: var(--down); }
+  .ticker .track .mkt { color: var(--faint); font-size: 10px; letter-spacing: .12em; margin-right: 4px; }
+  .ticker .up { color: var(--good); font-style: normal; } .ticker .dn { color: var(--down); font-style: normal; }
   @keyframes slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   @media (prefers-reduced-motion: reduce) { .ticker .track { animation: none; } }
 
   /* hero */
   .hero { position: relative; overflow: hidden; }
-  .hero::after {
-    content: ""; position: absolute; top: -30%; right: -10%; width: 60%; height: 120%;
-    background: radial-gradient(50% 50% at 50% 50%, var(--accent-soft), transparent 70%);
-    pointer-events: none; filter: blur(10px);
+  .hero::before {
+    content: ""; position: absolute; inset: 0;
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(90% 80% at 60% 20%, #000 30%, transparent 75%);
+    mask-image: radial-gradient(90% 80% at 60% 20%, #000 30%, transparent 75%);
+    pointer-events: none;
   }
-  .hero .wrap { position: relative; display: grid; grid-template-columns: 1.08fr .92fr; gap: 56px; align-items: center; padding: 84px 28px 78px; }
-  .hero h1 { font-size: clamp(40px, 6vw, 66px); font-weight: 820; margin-top: 20px; }
-  .hero h1 .fade { color: var(--muted); }
-  .hero .sub { color: var(--muted); font-size: clamp(16px, 1.8vw, 19px); margin-top: 22px; max-width: 46ch; }
-  .actions { display: flex; flex-wrap: wrap; gap: 13px; margin-top: 32px; align-items: center; }
-  .btn { display: inline-flex; align-items: center; gap: 9px; padding: 13px 22px; border-radius: 11px; font-weight: 650; font-size: 15px; cursor: pointer; border: 1px solid transparent; transition: transform .12s ease, background .15s ease, border-color .15s ease; }
+  .hero::after {
+    content: ""; position: absolute; top: -30%; right: -10%; width: 62%; height: 130%;
+    background: radial-gradient(50% 50% at 50% 50%, var(--accent-soft), transparent 70%);
+    pointer-events: none; filter: blur(12px);
+  }
+  .hero .wrap { position: relative; z-index: 1; display: grid; grid-template-columns: 1.06fr .94fr; gap: 60px; align-items: center; padding: 92px 28px 72px; }
+  .hero h1 { font-size: clamp(42px, 6.2vw, 70px); font-weight: 900; margin-top: 22px; }
+  .hero h1 .fade { color: var(--muted); font-weight: 800; }
+  .hero .sub { color: var(--muted); font-size: clamp(16px, 1.8vw, 18.5px); margin-top: 24px; max-width: 47ch; font-weight: 500; }
+  .actions { display: flex; flex-wrap: wrap; gap: 13px; margin-top: 34px; align-items: center; }
+  .btn { display: inline-flex; align-items: center; gap: 9px; padding: 14px 24px; border-radius: 11px; font-weight: 700; font-size: 15px; cursor: pointer; border: 1px solid transparent; transition: transform .12s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease; }
   .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-  .btn-1 { background: var(--accent); color: #04141a; }
+  .btn-1 { background: var(--accent); color: #04141a; box-shadow: 0 10px 28px -10px color-mix(in srgb, var(--accent) 55%, transparent); }
   .btn-1:hover { transform: translateY(-1px); background: var(--accent-2); }
   .btn-2 { border-color: var(--border-2); color: var(--text); }
   .btn-2:hover { border-color: var(--accent); transform: translateY(-1px); }
-  .meta { font-family: ui-monospace, monospace; font-size: 12px; color: var(--faint); margin-top: 18px; letter-spacing: .03em; }
+  .meta { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; color: var(--faint); margin-top: 20px; letter-spacing: .03em; }
   .meta b { color: var(--good); font-weight: 600; }
 
-  /* product card */
-  .panel { background: var(--surface); border: 1px solid var(--border-2); border-radius: 16px; box-shadow: 0 24px 60px -30px rgba(0,0,0,.45); overflow: hidden; }
-  .panel .head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); }
-  .panel .head .t { font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--faint); }
-  .status { font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: .1em; color: var(--good); display: inline-flex; align-items: center; gap: 7px; text-transform: uppercase; }
+  /* hero panels — the two sections, literally side by side */
+  .panel-col { display: flex; flex-direction: column; gap: 14px; }
+  .panel { background: var(--surface); border: 1px solid var(--border-2); border-radius: 16px; box-shadow: 0 30px 70px -34px rgba(0,0,0,.5); overflow: hidden; }
+  .panel .head { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+  .panel .head .t { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+  .panel .head .t b { color: var(--accent); font-weight: 600; }
+  .status { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10.5px; letter-spacing: .1em; color: var(--good); display: inline-flex; align-items: center; gap: 7px; text-transform: uppercase; font-weight: 600; }
   .live { width: 7px; height: 7px; border-radius: 50%; background: var(--good); position: relative; }
   .live::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; background: var(--good); opacity: .4; animation: ping 1.9s cubic-bezier(0,0,.2,1) infinite; }
   @keyframes ping { 75%,100% { transform: scale(2.3); opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .live::after { animation: none; } }
-  .panel .body { padding: 20px 20px 22px; font-family: ui-monospace, monospace; }
+  .panel .body { padding: 18px 20px 20px; font-family: "IBM Plex Mono", ui-monospace, monospace; }
   .pos { display: flex; align-items: baseline; justify-content: space-between; }
-  .pos .sym { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
-  .pos .side { font-size: 10px; font-weight: 700; color: #04141a; background: var(--good); border-radius: 5px; padding: 2px 7px; margin-left: 8px; letter-spacing: .04em; vertical-align: middle; }
-  .pos .pl { color: var(--good); font-weight: 700; font-size: 17px; }
-  .spark { margin: 16px 0 4px; }
+  .pos .sym { font-size: 19px; font-weight: 600; letter-spacing: -.01em; }
+  .pos .side { font-size: 9.5px; font-weight: 600; color: #04141a; background: var(--good); border-radius: 5px; padding: 2px 7px; margin-left: 8px; letter-spacing: .05em; vertical-align: middle; }
+  .pos .side.short { background: var(--down); }
+  .pos .pl { color: var(--good); font-weight: 600; font-size: 16px; }
+  .spark { margin: 14px 0 2px; display: block; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; margin-top: 12px; font-size: 12.5px; }
-  .grid2 .k { color: var(--faint); text-transform: uppercase; letter-spacing: .09em; font-size: 10px; }
+  .grid2 .k { color: var(--faint); text-transform: uppercase; letter-spacing: .09em; font-size: 9.5px; }
   .grid2 .v { color: var(--text); }
   .grid2 .v.dn { color: var(--down); } .grid2 .v.up { color: var(--good); }
+  .panel.compact .body { padding: 14px 20px 16px; }
+  .panel-note { text-align: center; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--faint); }
+  .panel-note b { color: var(--accent); font-weight: 600; }
+
+  /* stat strip */
+  .stats { border-top: 1px solid var(--border); background: var(--surface); }
+  .stats .row { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .stat { padding: 26px 24px; border-left: 1px solid var(--border); }
+  .stat:first-child { border-left: none; }
+  .stat .n { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 30px; font-weight: 600; letter-spacing: -.02em; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; }
+  .stat .n span { color: var(--accent); }
+  .stat .t { font-size: 13px; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; margin-top: 8px; }
+  .stat .d { font-size: 12.5px; color: var(--muted); margin-top: 3px; letter-spacing: .01em; }
+  @media (max-width: 760px) {
+    .stats .row { grid-template-columns: 1fr 1fr; }
+    .stat { border-left: none; border-top: 1px solid var(--border); }
+    .stat:nth-child(-n+2) { border-top: none; }
+    .stat:nth-child(even) { border-left: 1px solid var(--border); }
+  }
 
   /* generic section */
-  section { padding: 78px 0; border-top: 1px solid var(--border); }
-  .head-block { max-width: 60ch; }
-  .head-block h2 { font-size: clamp(26px, 3.4vw, 38px); font-weight: 780; margin-top: 14px; }
+  section { padding: 84px 0; border-top: 1px solid var(--border); }
+  section.alt { background: var(--surface); }
+  .head-block { max-width: 62ch; }
+  .head-block h2 { font-size: clamp(27px, 3.4vw, 40px); font-weight: 800; margin-top: 14px; }
   .head-block p { color: var(--muted); margin: 16px 0 0; }
 
   /* principles trio */
-  .trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 8px; }
-  .princ { padding-top: 22px; border-top: 2px solid var(--accent); }
-  .princ h3 { font-size: 19px; font-weight: 700; }
+  .trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 44px; }
+  .princ { padding: 26px 24px 24px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); position: relative; overflow: hidden; transition: border-color .2s ease, transform .2s ease; }
+  section.alt .princ { background: var(--bg); }
+  .princ::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--accent), transparent 70%); }
+  .princ:hover { border-color: var(--border-2); transform: translateY(-2px); }
+  .princ h3 { font-size: 18.5px; font-weight: 800; letter-spacing: -.02em; }
   .princ p { color: var(--muted); font-size: 14.5px; margin: 10px 0 0; }
 
   /* spec sheet */
-  .spec { margin-top: 40px; border-top: 1px solid var(--border); }
-  .spec .r { display: grid; grid-template-columns: 200px 1fr; gap: 28px; padding: 22px 0; border-bottom: 1px solid var(--border); align-items: start; }
-  .spec .r .name { display: flex; flex-direction: column; gap: 4px; }
-  .spec .r .name b { font-size: 16.5px; font-weight: 680; letter-spacing: -.01em; }
-  .spec .r .name .tag { font-family: ui-monospace, monospace; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+  .spec { margin-top: 44px; border-top: 1px solid var(--border); }
+  .spec .r { display: grid; grid-template-columns: 220px 1fr; gap: 28px; padding: 24px 8px; border-bottom: 1px solid var(--border); align-items: start; transition: background .2s ease; }
+  .spec .r:hover { background: var(--accent-soft); }
+  .spec .r .name { display: flex; flex-direction: column; gap: 5px; }
+  .spec .r .name b { font-size: 16.5px; font-weight: 800; letter-spacing: -.015em; }
+  .spec .r .name .tag { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
   .spec .r p { margin: 0; color: var(--muted); font-size: 15px; }
 
   /* how it works — a real sequence */
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 40px; }
-  .step .n { font-family: ui-monospace, monospace; font-size: 13px; color: var(--accent); letter-spacing: .1em; }
-  .step h3 { font-size: 18px; font-weight: 700; margin-top: 10px; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 44px; counter-reset: step; }
+  .step { padding: 24px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); position: relative; }
+  section.alt .step { background: var(--bg); }
+  .step .n { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; color: var(--accent); letter-spacing: .14em; text-transform: uppercase; font-weight: 600; }
+  .step h3 { font-size: 18px; font-weight: 800; margin-top: 12px; letter-spacing: -.02em; }
   .step p { color: var(--muted); font-size: 14.5px; margin: 9px 0 0; }
-  .step .bar { height: 2px; background: linear-gradient(90deg, var(--accent), transparent); margin-top: 18px; }
+  .step .bar { height: 2px; background: linear-gradient(90deg, var(--accent), transparent); margin-top: 20px; border-radius: 2px; }
 
   /* demo band */
-  .band { border-radius: 20px; border: 1px solid var(--border-2); background: linear-gradient(180deg, var(--surface), var(--surface-2)); padding: 48px; text-align: center; position: relative; overflow: hidden; }
+  .band { border-radius: 22px; border: 1px solid var(--border-2); background: linear-gradient(180deg, var(--surface), var(--surface-2)); padding: 56px 48px; text-align: center; position: relative; overflow: hidden; }
   .band::before { content: ""; position: absolute; inset: 0; background: radial-gradient(60% 90% at 50% 0%, var(--accent-soft), transparent 70%); pointer-events: none; }
-  .band h2 { position: relative; font-size: clamp(24px, 3vw, 34px); font-weight: 780; }
-  .band p { position: relative; color: var(--muted); margin: 14px auto 26px; max-width: 52ch; }
-  .band .actions { justify-content: center; }
+  .band .eyebrow { position: relative; }
+  .band h2 { position: relative; font-size: clamp(26px, 3.2vw, 38px); font-weight: 800; margin-top: 12px; }
+  .band p { position: relative; color: var(--muted); margin: 16px auto 28px; max-width: 54ch; }
+  .band .actions { justify-content: center; margin-top: 0; }
 
   /* footer */
-  footer { border-top: 1px solid var(--border); padding: 44px 0 60px; }
+  footer { border-top: 1px solid var(--border); padding: 48px 0 64px; background: var(--surface); }
   .foot-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 20px; align-items: flex-start; }
-  .foot-note { max-width: 52ch; color: var(--muted); font-size: 13.5px; }
-  .acq { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; font-size: 13.5px; color: var(--muted); }
-  .acq a { color: var(--accent); }
-  .creator { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 20px 40px; align-items: flex-start; justify-content: space-between; }
+  .foot-note { max-width: 54ch; color: var(--muted); font-size: 13.5px; }
+  .acq { margin-top: 28px; padding: 18px 22px; border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); background: var(--accent-soft); border-radius: 12px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; font-size: 13.5px; color: var(--muted); }
+  .acq b { color: var(--text); font-weight: 700; }
+  .acq a { color: var(--accent); font-weight: 650; }
+  .creator { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 20px 40px; align-items: flex-start; justify-content: space-between; }
   .creator .who .lbl { display: block; margin-bottom: 4px; }
-  .creator .who .name { font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+  .creator .who .name { font-size: 15px; font-weight: 800; letter-spacing: -.01em; }
   .creator .who .loc { font-size: 13px; color: var(--muted); margin-top: 2px; }
   .creator .links { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .creator .links a {
-    display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 550;
+    display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;
     padding: 8px 13px; border-radius: 9px; border: 1px solid var(--border-2); color: var(--text);
     transition: border-color .15s ease, transform .12s ease, color .15s ease;
   }
@@ -197,13 +268,12 @@
   .creator .links a svg { width: 16px; height: 16px; }
 
   @media (max-width: 900px) {
-    .hero .wrap { grid-template-columns: 1fr; gap: 40px; padding: 60px 28px 56px; }
+    .hero .wrap { grid-template-columns: 1fr; gap: 44px; padding: 60px 28px 56px; }
     .panel-col { order: 2; }
-    .trio { grid-template-columns: 1fr; gap: 0; }
-    .princ { margin-top: 24px; }
+    .trio { grid-template-columns: 1fr; gap: 14px; margin-top: 32px; }
     .spec .r { grid-template-columns: 1fr; gap: 8px; }
     .steps { grid-template-columns: 1fr; }
-    .band { padding: 36px 24px; }
+    .band { padding: 40px 24px; }
   }
   </style>
 </head>
@@ -212,70 +282,80 @@
 <nav>
   <div class="wrap row">
     <a class="logo" href="#top"><span class="mk mono" aria-hidden="true">◭</span>TradeCore<span>&nbsp;Pro</span></a>
+    <div class="nav-links" aria-label="Sections">
+      <a href="#why">Why</a>
+      <a href="#inside">Platform</a>
+      <a href="#how">How it works</a>
+      <a href="#contact">Contact</a>
+    </div>
     <a class="nav-cta" href="/app">Launch app →</a>
   </div>
 </nav>
 
 <div class="ticker" aria-hidden="true">
   <div class="track">
-    <span><b>BTC</b> 63,588 <i class="dn">▾ 0.42%</i></span>
-    <span><b>ETH</b> 1,847 <i class="up">▴ 0.31%</i></span>
-    <span><b>SOL</b> 75.19 <i class="up">▴ 0.88%</i></span>
-    <span><b>BNB</b> 612.4 <i class="dn">▾ 0.12%</i></span>
-    <span><b>XRP</b> 0.612 <i class="up">▴ 0.24%</i></span>
-    <span><b>AVAX</b> 6.70 <i class="dn">▾ 0.55%</i></span>
-    <span><b>LINK</b> 8.26 <i class="up">▴ 0.19%</i></span>
-    <span><b>DOT</b> 0.858 <i class="up">▴ 0.40%</i></span>
-    <span><b>ADA</b> 0.161 <i class="dn">▾ 0.18%</i></span>
-    <span><b>TIA</b> 0.421 <i class="up">▴ 0.63%</i></span>
+    <span><i class="mkt">FX</i><b>EUR/USD</b> 1.0855 <i class="up">▴ 0.12%</i></span>
+    <span><i class="mkt">CX</i><b>BTC</b> 63,588 <i class="dn">▾ 0.42%</i></span>
+    <span><i class="mkt">FX</i><b>XAU/USD</b> 2,412.4 <i class="up">▴ 0.27%</i></span>
+    <span><i class="mkt">CX</i><b>ETH</b> 1,847 <i class="up">▴ 0.31%</i></span>
+    <span><i class="mkt">FX</i><b>GBP/USD</b> 1.2704 <i class="dn">▾ 0.08%</i></span>
+    <span><i class="mkt">CX</i><b>SOL</b> 75.19 <i class="up">▴ 0.88%</i></span>
+    <span><i class="mkt">FX</i><b>SPX500</b> 5,512 <i class="up">▴ 0.19%</i></span>
+    <span><i class="mkt">CX</i><b>BNB</b> 612.4 <i class="dn">▾ 0.12%</i></span>
+    <span><i class="mkt">FX</i><b>AUD/USD</b> 0.6689 <i class="up">▴ 0.15%</i></span>
+    <span><i class="mkt">CX</i><b>XRP</b> 0.612 <i class="up">▴ 0.24%</i></span>
+    <span><i class="mkt">FX</i><b>NAS100</b> 19,882 <i class="dn">▾ 0.22%</i></span>
+    <span><i class="mkt">CX</i><b>LINK</b> 8.26 <i class="up">▴ 0.19%</i></span>
     <!-- duplicate for seamless loop -->
-    <span><b>BTC</b> 63,588 <i class="dn">▾ 0.42%</i></span>
-    <span><b>ETH</b> 1,847 <i class="up">▴ 0.31%</i></span>
-    <span><b>SOL</b> 75.19 <i class="up">▴ 0.88%</i></span>
-    <span><b>BNB</b> 612.4 <i class="dn">▾ 0.12%</i></span>
-    <span><b>XRP</b> 0.612 <i class="up">▴ 0.24%</i></span>
-    <span><b>AVAX</b> 6.70 <i class="dn">▾ 0.55%</i></span>
-    <span><b>LINK</b> 8.26 <i class="up">▴ 0.19%</i></span>
-    <span><b>DOT</b> 0.858 <i class="up">▴ 0.40%</i></span>
-    <span><b>ADA</b> 0.161 <i class="dn">▾ 0.18%</i></span>
-    <span><b>TIA</b> 0.421 <i class="up">▴ 0.63%</i></span>
+    <span><i class="mkt">FX</i><b>EUR/USD</b> 1.0855 <i class="up">▴ 0.12%</i></span>
+    <span><i class="mkt">CX</i><b>BTC</b> 63,588 <i class="dn">▾ 0.42%</i></span>
+    <span><i class="mkt">FX</i><b>XAU/USD</b> 2,412.4 <i class="up">▴ 0.27%</i></span>
+    <span><i class="mkt">CX</i><b>ETH</b> 1,847 <i class="up">▴ 0.31%</i></span>
+    <span><i class="mkt">FX</i><b>GBP/USD</b> 1.2704 <i class="dn">▾ 0.08%</i></span>
+    <span><i class="mkt">CX</i><b>SOL</b> 75.19 <i class="up">▴ 0.88%</i></span>
+    <span><i class="mkt">FX</i><b>SPX500</b> 5,512 <i class="up">▴ 0.19%</i></span>
+    <span><i class="mkt">CX</i><b>BNB</b> 612.4 <i class="dn">▾ 0.12%</i></span>
+    <span><i class="mkt">FX</i><b>AUD/USD</b> 0.6689 <i class="up">▴ 0.15%</i></span>
+    <span><i class="mkt">CX</i><b>XRP</b> 0.612 <i class="up">▴ 0.24%</i></span>
+    <span><i class="mkt">FX</i><b>NAS100</b> 19,882 <i class="dn">▾ 0.22%</i></span>
+    <span><i class="mkt">CX</i><b>LINK</b> 8.26 <i class="up">▴ 0.19%</i></span>
   </div>
 </div>
 
 <header class="hero" id="top">
   <div class="wrap">
     <div>
-      <span class="eyebrow">Automated crypto & forex trading · self-hosted</span>
+      <span class="eyebrow">Automated crypto &amp; forex trading · self-hosted</span>
       <h1>The trading desk that runs itself — <span class="fade">and answers only to you.</span></h1>
-      <p class="sub">TradeCore Pro runs two markets side by side — crypto on Binance (spot & futures) and forex on OANDA (majors, gold, indices) — with genuine risk controls, a transparent live dashboard, and backtesting that runs the exact same code as live. On your server. With your keys. Under your control.</p>
+      <p class="sub">TradeCore Pro runs two markets side by side — crypto on Binance (spot &amp; futures) and forex on OANDA (majors, gold, indices) — with genuine risk controls, a transparent live dashboard, and backtesting that runs the exact same code as live. On your server. With your keys. Under your control.</p>
       <div class="actions">
         <a class="btn btn-1" href="/app/?signup=1">Launch the live app →</a>
         <a class="btn btn-2" href="#how">See how it works</a>
       </div>
-      <p class="meta"><b>●</b> Live demo running on paper-trading testnet · no real funds at risk</p>
+      <p class="meta"><b>●</b> Live demo running on paper-trading accounts · no real funds at risk</p>
     </div>
 
     <div class="panel-col">
-      <div class="panel" role="img" aria-label="TradeCore Pro live position — a short on BTCUSDT with stop and take-profit levels">
+      <div class="panel" role="img" aria-label="TradeCore Pro crypto section — a live short position on BTCUSDT with stop and take-profit levels">
         <div class="head">
-          <span class="t">Cockpit · open position</span>
+          <span class="t"><b>Crypto</b> · Binance · open position</span>
           <span class="status"><span class="live" aria-hidden="true"></span>Live</span>
         </div>
         <div class="body">
           <div class="pos">
-            <div><span class="sym">BTCUSDT</span><span class="side">SHORT 10×</span></div>
+            <div><span class="sym">BTCUSDT</span><span class="side short">SHORT 10×</span></div>
             <div class="pl nums">+0.42%</div>
           </div>
-          <svg class="spark" width="100%" height="56" viewBox="0 0 320 56" preserveAspectRatio="none" aria-hidden="true">
+          <svg class="spark" width="100%" height="52" viewBox="0 0 320 52" preserveAspectRatio="none" aria-hidden="true">
             <defs>
-              <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0" stop-color="var(--accent)" stop-opacity="0.28"/>
                 <stop offset="1" stop-color="var(--accent)" stop-opacity="0"/>
               </linearGradient>
             </defs>
-            <path d="M0,30 L26,22 L52,34 L78,18 L104,26 L130,12 L156,24 L182,16 L208,30 L234,22 L260,36 L286,28 L320,40 L320,56 L0,56 Z" fill="url(#g)"/>
-            <path d="M0,30 L26,22 L52,34 L78,18 L104,26 L130,12 L156,24 L182,16 L208,30 L234,22 L260,36 L286,28 L320,40" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
-            <circle cx="320" cy="40" r="3" fill="var(--accent)"/>
+            <path d="M0,28 L26,20 L52,32 L78,17 L104,24 L130,11 L156,22 L182,15 L208,28 L234,20 L260,34 L286,26 L320,38 L320,52 L0,52 Z" fill="url(#g1)"/>
+            <path d="M0,28 L26,20 L52,32 L78,17 L104,24 L130,11 L156,22 L182,15 L208,28 L234,20 L260,34 L286,26 L320,38" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
+            <circle cx="320" cy="38" r="3" fill="var(--accent)"/>
           </svg>
           <div class="grid2">
             <div><div class="k">Entry → now</div><div class="v nums">63,856 → 63,588</div></div>
@@ -285,26 +365,58 @@
           </div>
         </div>
       </div>
+
+      <div class="panel-note">running <b>simultaneously</b> — two independent sections</div>
+
+      <div class="panel compact" role="img" aria-label="TradeCore Pro forex section — a live long position on EUR/USD with stop and take-profit attached">
+        <div class="head">
+          <span class="t"><b>Forex</b> · OANDA · open position</span>
+          <span class="status"><span class="live" aria-hidden="true"></span>Live</span>
+        </div>
+        <div class="body">
+          <div class="pos">
+            <div><span class="sym">EUR/USD</span><span class="side">LONG</span></div>
+            <div class="pl nums">+0.18%</div>
+          </div>
+          <div class="grid2">
+            <div><div class="k">Entry → now</div><div class="v nums">1.0836 → 1.0855</div></div>
+            <div><div class="k">Protection</div><div class="v up">SL + TP attached</div></div>
+            <div><div class="k">Stop loss</div><div class="v dn nums">1.0812</div></div>
+            <div><div class="k">Take profit</div><div class="v up nums">1.0891</div></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </header>
 
-<section>
+<div class="stats" aria-label="Platform at a glance">
   <div class="wrap">
-    <div class="head-block">
+    <div class="row">
+      <div class="stat"><div class="n">2</div><div class="t">Markets</div><div class="d">Crypto on Binance, forex on OANDA — independent, simultaneous</div></div>
+      <div class="stat"><div class="n">8</div><div class="t">Strategies</div><div class="d">Regime-aware brains, each with its own budget and risk profile</div></div>
+      <div class="stat"><div class="n">100<span>%</span></div><div class="t">Self-hosted</div><div class="d">Your own broker keys — funds never leave your accounts</div></div>
+      <div class="stat"><div class="n">1<span>:</span>1</div><div class="t">Backtest parity</div><div class="d">Backtests run the live engine's exact code, fees included</div></div>
+    </div>
+  </div>
+</div>
+
+<section id="why">
+  <div class="wrap">
+    <div class="head-block rev">
       <span class="lbl">Why it's different</span>
       <h2>Most trading bots are a black box. This one shows its work.</h2>
     </div>
     <div class="trio">
-      <div class="princ">
+      <div class="princ rev">
         <h3>Your keys, your custody</h3>
         <p>Connect your own Binance API keys and OANDA token, encrypted at rest. Funds never leave your own broker accounts and are never pooled with anyone else's.</p>
       </div>
-      <div class="princ">
+      <div class="princ rev">
         <h3>Transparent by default</h3>
         <p>Every trade is logged, charted against its own stop and target, and explained after it closes. Nothing happens you can't see and audit.</p>
       </div>
-      <div class="princ">
+      <div class="princ rev">
         <h3>Honest backtesting</h3>
         <p>The backtester runs the live engine's exact logic — same signals, sizing, and fees — so a result on history means what it says.</p>
       </div>
@@ -312,42 +424,43 @@
   </div>
 </section>
 
-<section>
+<section id="inside" class="alt">
   <div class="wrap">
-    <div class="head-block">
+    <div class="head-block rev">
       <span class="lbl">What's inside</span>
       <h2>A complete trading platform, not a script.</h2>
     </div>
     <div class="spec">
-      <div class="r"><div class="name"><span class="tag">Engine</span><b>Multi-strategy core</b></div><p>Eight configurable strategies with market-regime detection route across the market in parallel — each working its own budget, none crowding out the others.</p></div>
-      <div class="r"><div class="name"><span class="tag">Risk</span><b>Dollar-based sizing</b></div><p>State a fixed dollar risk and target; the engine derives position size, stop price, take-profit, reward:risk, and liquidation distance automatically.</p></div>
-      <div class="r"><div class="name"><span class="tag">Safety</span><b>Real protection</b></div><p>Exchange-side stop-losses, liquidation guards, a portfolio-risk ceiling, a daily circuit breaker, and startup reconciliation of every open position.</p></div>
-      <div class="r"><div class="name"><span class="tag">Markets</span><b>Crypto &amp; Forex, side by side</b></div><p>Two independent trading sections that run simultaneously: Binance spot &amp; USDⓈ-M futures (long/short, leverage, isolated or cross margin) and OANDA forex — currency majors, gold, and US index CFDs with atomic stop-protected entries and real market-hours awareness.</p></div>
-      <div class="r"><div class="name"><span class="tag">Cockpit</span><b>Live dashboard</b></div><p>Real-time positions with live P&amp;L, candlestick charts overlaid with your stop and target, and one-click manual close.</p></div>
-      <div class="r"><div class="name"><span class="tag">Accounts</span><b>Multi-user</b></div><p>Registration, sessions, Google &amp; Apple sign-in, and a full account manager — every user fully isolated from the next.</p></div>
+      <div class="r rev"><div class="name"><span class="tag">Markets</span><b>Crypto &amp; Forex, side by side</b></div><p>Two independent trading sections that run simultaneously: Binance spot &amp; USDⓈ-M futures (long/short, leverage, isolated or cross margin) and OANDA forex — currency majors, gold, and US index CFDs with atomic stop-protected entries and real market-hours awareness.</p></div>
+      <div class="r rev"><div class="name"><span class="tag">Engine</span><b>Multi-strategy core</b></div><p>Eight configurable strategies with market-regime detection route across the market in parallel — each working its own budget, none crowding out the others.</p></div>
+      <div class="r rev"><div class="name"><span class="tag">Risk</span><b>Dollar-based sizing</b></div><p>State a fixed dollar risk and target; the engine derives position size, stop price, take-profit, reward:risk, and liquidation distance automatically.</p></div>
+      <div class="r rev"><div class="name"><span class="tag">Safety</span><b>Real protection</b></div><p>Exchange-side stop-losses, liquidation guards, a portfolio-risk ceiling, a daily circuit breaker, and startup reconciliation of every open position.</p></div>
+      <div class="r rev"><div class="name"><span class="tag">Cockpit</span><b>Live dashboard</b></div><p>Real-time positions with live P&amp;L, candlestick charts overlaid with your stop and target, and one-click manual close.</p></div>
+      <div class="r rev"><div class="name"><span class="tag">Accounts</span><b>Multi-user</b></div><p>Registration, sessions, Google &amp; Apple sign-in, and a full account manager — every user fully isolated from the next.</p></div>
     </div>
   </div>
 </section>
 
 <section id="how">
   <div class="wrap">
-    <div class="head-block">
+    <div class="head-block rev">
       <span class="lbl">How it works</span>
       <h2>Live in three steps.</h2>
     </div>
     <div class="steps">
-      <div class="step"><div class="n">Step 1</div><h3>Connect your keys</h3><p>Add your own broker credentials — Binance keys for crypto, an OANDA token for forex. Paper trading on both (testnet / practice account), live when you're ready. Encrypted, and only ever used for your account.</p><div class="bar"></div></div>
-      <div class="step"><div class="n">Step 2</div><h3>Set your strategies</h3><p>Enable the strategies you want and give each one a plain-dollar risk and target. The engine handles the sizing and the stops.</p><div class="bar"></div></div>
-      <div class="step"><div class="n">Step 3</div><h3>Watch it trade</h3><p>It scans, enters, manages, and exits on its own — while you see every decision live and close anything by hand whenever you like.</p><div class="bar"></div></div>
+      <div class="step rev"><div class="n">Step 1</div><h3>Connect your keys</h3><p>Add your own broker credentials — Binance keys for crypto, an OANDA token for forex. Paper trading on both (testnet / practice account), live when you're ready. Encrypted, and only ever used for your account.</p><div class="bar"></div></div>
+      <div class="step rev"><div class="n">Step 2</div><h3>Set your strategies</h3><p>Enable the strategies you want and give each one a plain-dollar risk and target. The engine handles the sizing and the stops.</p><div class="bar"></div></div>
+      <div class="step rev"><div class="n">Step 3</div><h3>Watch it trade</h3><p>It scans, enters, manages, and exits on its own — while you see every decision live and close anything by hand whenever you like.</p><div class="bar"></div></div>
     </div>
   </div>
 </section>
 
 <section>
   <div class="wrap">
-    <div class="band">
+    <div class="band rev">
+      <span class="eyebrow">Live demo</span>
       <h2>See it running, right now.</h2>
-      <p>The full platform is live on a paper-trading demo — log in, watch positions move, open the charts, run a backtest. No real money involved.</p>
+      <p>The full platform is live on paper-trading accounts — log in, watch positions move across both markets, open the charts, run a backtest. No real money involved.</p>
       <div class="actions">
         <a class="btn btn-1" href="/app/?signup=1">Launch the live app →</a>
       </div>
@@ -355,7 +468,7 @@
   </div>
 </section>
 
-<footer>
+<footer id="contact">
   <div class="wrap">
     <div class="foot-top">
       <a class="logo" href="#top"><span class="mk mono" aria-hidden="true">◭</span>TradeCore<span>&nbsp;Pro</span></a>
@@ -384,7 +497,7 @@
     </div>
 
     <div class="acq">
-      <span>This platform is available for acquisition.</span>
+      <span><b>This platform is available for acquisition.</b> Full source, infrastructure, and handover included.</span>
       <span>Enquiries · <a href="mailto:id.awat.mryam@gmail.com?subject=TradeCore%20Pro">id.awat.mryam@gmail.com</a></span>
     </div>
   </div>
