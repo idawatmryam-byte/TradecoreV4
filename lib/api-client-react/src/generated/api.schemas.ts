@@ -453,7 +453,18 @@ export interface ToxicHour {
 }
 
 /**
- * Spot (no leverage, long-only) or USDⓈ-M Futures (leveraged, long+short)
+ * Which broker this section's engine connects to — binance (crypto section) or oanda (forex section). Fixed per section, not user-editable.
+ */
+export type BotConfigBroker = typeof BotConfigBroker[keyof typeof BotConfigBroker];
+
+
+export const BotConfigBroker = {
+  binance: 'binance',
+  oanda: 'oanda',
+} as const;
+
+/**
+ * Spot (no leverage, long-only), USDⓈ-M Futures (leveraged, long+short), or forex (OANDA, margin-based)
  */
 export type BotConfigMarketType = typeof BotConfigMarketType[keyof typeof BotConfigMarketType];
 
@@ -461,6 +472,7 @@ export type BotConfigMarketType = typeof BotConfigMarketType[keyof typeof BotCon
 export const BotConfigMarketType = {
   spot: 'spot',
   futures: 'futures',
+  forex: 'forex',
 } as const;
 
 /**
@@ -486,7 +498,9 @@ export const BotConfigRiskModel = {
 } as const;
 
 export interface BotConfig {
-  /** Spot (no leverage, long-only) or USDⓈ-M Futures (leveraged, long+short) */
+  /** Which broker this section's engine connects to — binance (crypto section) or oanda (forex section). Fixed per section, not user-editable. */
+  broker: BotConfigBroker;
+  /** Spot (no leverage, long-only), USDⓈ-M Futures (leveraged, long+short), or forex (OANDA, margin-based) */
   marketType: BotConfigMarketType;
   /** Futures leverage multiplier. Ignored in spot mode (always 1). */
   leverage: number;
@@ -527,6 +541,7 @@ export type BotConfigUpdateMarketType = typeof BotConfigUpdateMarketType[keyof t
 export const BotConfigUpdateMarketType = {
   spot: 'spot',
   futures: 'futures',
+  forex: 'forex',
 } as const;
 
 export type BotConfigUpdateMarginMode = typeof BotConfigUpdateMarginMode[keyof typeof BotConfigUpdateMarginMode];
@@ -639,6 +654,17 @@ export interface BinanceCredentialsStatus {
      * @nullable
      */
   apiKeyPreview: string | null;
+  /** @nullable */
+  updatedAt: string | null;
+}
+
+export interface OandaCredentialsStatus {
+  configured: boolean;
+  /**
+     * Last 4 chars of the stored account id, e.g. "...4567" — never the full id or token.
+     * @nullable
+     */
+  accountIdPreview: string | null;
   /** @nullable */
   updatedAt: string | null;
 }
@@ -1157,6 +1183,11 @@ date?: string;
 export type SetBinanceCredentialsBody = {
   apiKey: string;
   apiSecret: string;
+};
+
+export type SetOandaCredentialsBody = {
+  apiToken: string;
+  accountId: string;
 };
 
 export type DeleteBacktest200 = {

@@ -161,7 +161,9 @@ export function PositionChart(props: PositionChartProps) {
             {props.side} {props.quantity} @ {props.entryPrice}
           </span>
           <a
-            href={`https://www.tradingview.com/chart/?symbol=BINANCE:${props.symbol}${props.marketType === "futures" ? ".P" : ""}`}
+            href={props.marketType === "forex"
+              ? `https://www.tradingview.com/chart/?symbol=OANDA:${props.symbol.replace("_", "")}`
+              : `https://www.tradingview.com/chart/?symbol=BINANCE:${props.symbol}${props.marketType === "futures" ? ".P" : ""}`}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Open on TradingView"

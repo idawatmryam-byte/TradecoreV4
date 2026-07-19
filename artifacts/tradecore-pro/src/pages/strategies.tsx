@@ -20,7 +20,7 @@ import { TrendingUp, Target, Waves, Zap, ArrowUpDown, BarChart3, Edit2, X, Check
 
 /** Account context the dollar-plan preview needs (from Configuration). */
 interface AccountCtx {
-  marketType: 'spot' | 'futures';
+  marketType: 'spot' | 'futures' | 'forex';
   leverage: number;
   fallbackTradeAmount: number;
 }

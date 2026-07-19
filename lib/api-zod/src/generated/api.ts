@@ -510,7 +510,8 @@ export const GetToxicHoursResponse = zod.array(GetToxicHoursResponseItem)
  * @summary Get bot configuration
  */
 export const GetConfigResponse = zod.object({
-  "marketType": zod.enum(['spot', 'futures']).describe('Spot (no leverage, long-only) or USDⓈ-M Futures (leveraged, long+short)'),
+  "broker": zod.enum(['binance', 'oanda']).describe('Which broker this section\'s engine connects to — binance (crypto section) or oanda (forex section). Fixed per section, not user-editable.'),
+  "marketType": zod.enum(['spot', 'futures', 'forex']).describe('Spot (no leverage, long-only), USDⓈ-M Futures (leveraged, long+short), or forex (OANDA, margin-based)'),
   "leverage": zod.number().describe('Futures leverage multiplier. Ignored in spot mode (always 1).'),
   "marginMode": zod.enum(['isolated', 'cross']).describe('Futures margin mode. Ignored in spot mode.'),
   "positionSizeUsdt": zod.number(),
@@ -575,7 +576,7 @@ export const updateConfigBodyScanIntervalSecondsMax = 3600;
 
 
 export const UpdateConfigBody = zod.object({
-  "marketType": zod.enum(['spot', 'futures']).optional(),
+  "marketType": zod.enum(['spot', 'futures', 'forex']).optional(),
   "leverage": zod.number().min(1).max(updateConfigBodyLeverageMax).optional().describe('Futures leverage multiplier (1 = no leverage). Ignored in spot mode.'),
   "marginMode": zod.enum(['isolated', 'cross']).optional(),
   "positionSizeUsdt": zod.number().min(1).max(updateConfigBodyPositionSizeUsdtMax).optional(),
@@ -599,7 +600,8 @@ export const UpdateConfigBody = zod.object({
 })
 
 export const UpdateConfigResponse = zod.object({
-  "marketType": zod.enum(['spot', 'futures']).describe('Spot (no leverage, long-only) or USDⓈ-M Futures (leveraged, long+short)'),
+  "broker": zod.enum(['binance', 'oanda']).describe('Which broker this section\'s engine connects to — binance (crypto section) or oanda (forex section). Fixed per section, not user-editable.'),
+  "marketType": zod.enum(['spot', 'futures', 'forex']).describe('Spot (no leverage, long-only), USDⓈ-M Futures (leveraged, long+short), or forex (OANDA, margin-based)'),
   "leverage": zod.number().describe('Futures leverage multiplier. Ignored in spot mode (always 1).'),
   "marginMode": zod.enum(['isolated', 'cross']).describe('Futures margin mode. Ignored in spot mode.'),
   "positionSizeUsdt": zod.number(),
@@ -656,6 +658,43 @@ export const SetBinanceCredentialsResponse = zod.object({
 export const DeleteBinanceCredentialsResponse = zod.object({
   "configured": zod.boolean(),
   "apiKeyPreview": zod.string().nullable().describe('Last 4 chars of the stored API key, e.g. \"...ab12\" — never the full key.'),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * Never returns the plaintext token/account id — only whether one is configured and a masked preview (last 4 chars of the account id).
+ * @summary Get the logged-in user's OANDA credential status (forex section)
+ */
+export const GetOandaCredentialsResponse = zod.object({
+  "configured": zod.boolean(),
+  "accountIdPreview": zod.string().nullable().describe('Last 4 chars of the stored account id, e.g. \"...4567\" — never the full id or token.'),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * Encrypted at rest (AES-256-GCM), same scheme as the Binance keys. Practice vs live is decided by the forex section's paper-trading toggle at engine start — each OANDA environment only accepts its own tokens. Restart the forex engine for a changed credential to apply.
+ * @summary Set the logged-in user's OANDA API token + account id
+ */
+export const SetOandaCredentialsBody = zod.object({
+  "apiToken": zod.string(),
+  "accountId": zod.string()
+})
+
+export const SetOandaCredentialsResponse = zod.object({
+  "configured": zod.boolean(),
+  "accountIdPreview": zod.string().nullable().describe('Last 4 chars of the stored account id, e.g. \"...4567\" — never the full id or token.'),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary Remove the logged-in user's stored OANDA credentials
+ */
+export const DeleteOandaCredentialsResponse = zod.object({
+  "configured": zod.boolean(),
+  "accountIdPreview": zod.string().nullable().describe('Last 4 chars of the stored account id, e.g. \"...4567\" — never the full id or token.'),
   "updatedAt": zod.coerce.date().nullable()
 })
 

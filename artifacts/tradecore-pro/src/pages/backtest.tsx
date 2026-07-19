@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSection } from "@/lib/section";
 import {
   useListBacktests,
   useRunBacktest,
@@ -1291,6 +1292,30 @@ export function Backtest() {
     setSelectedRunId(id);
     setShowForm(false);
     queryClient.invalidateQueries({ queryKey: getListBacktestsQueryKey() });
+  }
+
+  // Forex backtesting needs a market-hours-aware simulation (the current
+  // engine assumes 24/7 candles and crypto fee structure) — visibly gated
+  // until that lands, rather than producing quietly wrong numbers.
+  const { section } = useSection();
+  if (section === "forex") {
+    return (
+      <div className="max-w-3xl mx-auto space-y-4">
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <FlaskConical className="h-6 w-6 text-primary" /> Backtesting Lab
+        </h1>
+        <Card>
+          <CardContent className="py-10 text-center space-y-3">
+            <p className="text-sm font-medium">Forex backtesting is coming soon.</p>
+            <p className="text-xs text-muted-foreground max-w-md mx-auto">
+              The simulator currently assumes 24/7 markets and crypto fee structure — running it on forex
+              instruments would produce misleading results. The forex section trades live/practice with the same
+              strategy brains; switch to the Crypto section for backtests today.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (

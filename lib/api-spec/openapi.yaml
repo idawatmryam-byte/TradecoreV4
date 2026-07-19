@@ -597,6 +597,65 @@ paths:
               schema:
                 $ref: "#/components/schemas/BinanceCredentialsStatus"
 
+  /me/oanda-credentials:
+    get:
+      operationId: getOandaCredentials
+      tags: [credentials]
+      summary: Get the logged-in user's OANDA credential status (forex section)
+      description: >-
+        Never returns the plaintext token/account id — only whether one is
+        configured and a masked preview (last 4 chars of the account id).
+      responses:
+        "200":
+          description: Credential status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OandaCredentialsStatus"
+
+    put:
+      operationId: setOandaCredentials
+      tags: [credentials]
+      summary: Set the logged-in user's OANDA API token + account id
+      description: >-
+        Encrypted at rest (AES-256-GCM), same scheme as the Binance keys.
+        Practice vs live is decided by the forex section's paper-trading
+        toggle at engine start — each OANDA environment only accepts its own
+        tokens. Restart the forex engine for a changed credential to apply.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [apiToken, accountId]
+              properties:
+                apiToken:
+                  type: string
+                accountId:
+                  type: string
+      responses:
+        "200":
+          description: Credentials updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OandaCredentialsStatus"
+        "400":
+          description: apiToken/accountId missing
+
+    delete:
+      operationId: deleteOandaCredentials
+      tags: [credentials]
+      summary: Remove the logged-in user's stored OANDA credentials
+      responses:
+        "200":
+          description: Credentials removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OandaCredentialsStatus"
+
   /backtests:
     get:
       operationId: listBacktests
@@ -1374,12 +1433,16 @@ components:
 
     BotConfig:
       type: object
-      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, confidenceThreshold, riskModel, stopLossPercent, takeProfitPercent, maxLossUsdt, targetProfitUsdt, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode]
+      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, confidenceThreshold, riskModel, stopLossPercent, takeProfitPercent, maxLossUsdt, targetProfitUsdt, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode, broker]
       properties:
+        broker:
+          type: string
+          enum: [binance, oanda]
+          description: "Which broker this section's engine connects to — binance (crypto section) or oanda (forex section). Fixed per section, not user-editable."
         marketType:
           type: string
-          enum: [spot, futures]
-          description: "Spot (no leverage, long-only) or USDⓈ-M Futures (leveraged, long+short)"
+          enum: [spot, futures, forex]
+          description: "Spot (no leverage, long-only), USDⓈ-M Futures (leveraged, long+short), or forex (OANDA, margin-based)"
         leverage:
           type: integer
           description: "Futures leverage multiplier. Ignored in spot mode (always 1)."
@@ -1442,7 +1505,7 @@ components:
       properties:
         marketType:
           type: string
-          enum: [spot, futures]
+          enum: [spot, futures, forex]
         leverage:
           type: integer
           minimum: 1
@@ -1532,6 +1595,19 @@ components:
         apiKeyPreview:
           type: ["string", "null"]
           description: "Last 4 chars of the stored API key, e.g. \"...ab12\" — never the full key."
+        updatedAt:
+          type: ["string", "null"]
+          format: date-time
+
+    OandaCredentialsStatus:
+      type: object
+      required: [configured, accountIdPreview, updatedAt]
+      properties:
+        configured:
+          type: boolean
+        accountIdPreview:
+          type: ["string", "null"]
+          description: "Last 4 chars of the stored account id, e.g. \"...4567\" — never the full id or token."
         updatedAt:
           type: ["string", "null"]
           format: date-time
