@@ -14,7 +14,7 @@ router.get("/stats/summary", async (req, res): Promise<void> => {
   const closed = await db
     .select()
     .from(tradesTable)
-    .where(and(eq(tradesTable.userId, req.userId!), eq(tradesTable.status, "closed")))
+    .where(and(eq(tradesTable.userId, req.userId!), eq(tradesTable.section, req.section!), eq(tradesTable.status, "closed")))
     .orderBy(tradesTable.exitTime); // ascending: oldest→newest for correct drawdown
 
   const totalTrades = closed.length;
@@ -76,7 +76,7 @@ router.get("/stats/daily", async (req, res): Promise<void> => {
   const today = new Date();
   const dateStr = today.toISOString().split("T")[0]!;
   const startOfDay = new Date(dateStr + "T00:00:00Z");
-  const configRows = await db.select().from(botConfigTable).where(eq(botConfigTable.userId, req.userId!)).limit(1);
+  const configRows = await db.select().from(botConfigTable).where(and(eq(botConfigTable.userId, req.userId!), eq(botConfigTable.section, req.section!))).limit(1);
   const dailyLossLimit = configRows.length > 0 ? Number(configRows[0]!.dailyLossLimitUsdt) : 10;
 
   const closedToday = await db
@@ -84,6 +84,7 @@ router.get("/stats/daily", async (req, res): Promise<void> => {
     .from(tradesTable)
     .where(and(
       eq(tradesTable.userId, req.userId!),
+      eq(tradesTable.section, req.section!),
       eq(tradesTable.status, "closed"),
       gte(tradesTable.exitTime, startOfDay),
     ));
@@ -91,7 +92,7 @@ router.get("/stats/daily", async (req, res): Promise<void> => {
   const openToday = await db
     .select()
     .from(tradesTable)
-    .where(and(eq(tradesTable.userId, req.userId!), eq(tradesTable.status, "open")));
+    .where(and(eq(tradesTable.userId, req.userId!), eq(tradesTable.section, req.section!), eq(tradesTable.status, "open")));
 
   const pnls = closedToday.map((t) => Number(t.pnl ?? 0));
   const wins = pnls.filter((p) => p > 0);
@@ -100,7 +101,7 @@ router.get("/stats/daily", async (req, res): Promise<void> => {
   const hourlyRows = await db
     .select()
     .from(hourlyStatsTable)
-    .where(and(eq(hourlyStatsTable.userId, req.userId!), eq(hourlyStatsTable.date, dateStr)));
+    .where(and(eq(hourlyStatsTable.userId, req.userId!), eq(hourlyStatsTable.section, req.section!), eq(hourlyStatsTable.date, dateStr)));
 
   // Build 24-hour breakdown
   const hourlyMap = new Map(hourlyRows.map((r) => [r.hour, r]));
@@ -120,7 +121,7 @@ router.get("/stats/daily", async (req, res): Promise<void> => {
       totalPnl: sql<number>`sum(${hourlyStatsTable.pnl})`,
     })
     .from(hourlyStatsTable)
-    .where(and(eq(hourlyStatsTable.userId, req.userId!), gte(hourlyStatsTable.date, threeDaysAgo)))
+    .where(and(eq(hourlyStatsTable.userId, req.userId!), eq(hourlyStatsTable.section, req.section!), gte(hourlyStatsTable.date, threeDaysAgo)))
     .groupBy(hourlyStatsTable.hour);
 
   const toxicHours = new Set(
@@ -154,7 +155,7 @@ router.get("/stats/hourly", async (req, res): Promise<void> => {
       winCount: sql<number>`sum(${hourlyStatsTable.winCount})`,
     })
     .from(hourlyStatsTable)
-    .where(and(eq(hourlyStatsTable.userId, req.userId!), gte(hourlyStatsTable.date, threeDaysAgo)))
+    .where(and(eq(hourlyStatsTable.userId, req.userId!), eq(hourlyStatsTable.section, req.section!), gte(hourlyStatsTable.date, threeDaysAgo)))
     .groupBy(hourlyStatsTable.hour);
 
   const result = Array.from({ length: 24 }, (_, h) => {

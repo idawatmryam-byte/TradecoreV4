@@ -16,7 +16,7 @@ router.get("/reports/daily", async (req, res): Promise<void> => {
     return;
   }
 
-  const report = await buildDailyReport(req.userId!, date);
+  const report = await buildDailyReport(req.userId!, date, req.section!);
   res.json(GetDailyReportResponse.parse(report));
 });
 

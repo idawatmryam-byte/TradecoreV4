@@ -9,6 +9,7 @@ import { validateEnv } from "./lib/env";
 import { corsMiddleware, securityHeaders } from "./middleware/security";
 import { rateLimit } from "./middleware/rateLimit";
 import { requireAuth } from "./middleware/auth";
+import { resolveSection } from "./middleware/section";
 
 // Fail fast and loud on a misconfigured deploy rather than discovering it
 // later — see lib/env.ts for the full rationale and the list of everything
@@ -76,7 +77,9 @@ app.use(
 app.use("/api", publicRouter);
 
 // Everything else requires a valid session cookie or Basic-auth credentials.
-app.use("/api", requireAuth, router);
+// resolveSection runs after auth to set req.section (crypto|forex) from the
+// X-Section header (defaults to crypto).
+app.use("/api", requireAuth, resolveSection, router);
 
 // Unknown /api/* routes: return a JSON 404 instead of falling through to the SPA.
 app.use("/api/{*path}", (_req, res) => {

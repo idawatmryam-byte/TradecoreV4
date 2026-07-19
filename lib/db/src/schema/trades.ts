@@ -6,6 +6,9 @@ export const tradesTable = pgTable("trades", {
   id: serial("id").primaryKey(),
   /** Owning user — each user runs a fully independent bot instance. */
   userId: integer("user_id").notNull(),
+  /** Independent trading section this trade belongs to (crypto | forex) — keeps
+   *  the two sections' trade logs / stats fully separate. Backfills to "crypto". */
+  section: text("section").notNull().default("crypto"),
   symbol: text("symbol").notNull(),
   /** The order side used to OPEN this position — "buy" = long (spot's only
    *  option, or a futures long), "sell" = short (futures only, opened by

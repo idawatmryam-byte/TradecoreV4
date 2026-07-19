@@ -17,6 +17,9 @@ import { z } from "zod/v4";
 export const strategyDecisionsTable = pgTable("strategy_decisions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
+  /** Independent trading section (crypto | forex) — keeps each section's
+   *  Decisions feed separate. Backfills to "crypto". */
+  section: text("section").notNull().default("crypto"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   symbol: text("symbol").notNull(),
   strategyId: text("strategy_id").notNull(),

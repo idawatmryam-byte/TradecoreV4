@@ -19,6 +19,7 @@
 import { db, strategyDecisionsTable } from "@workspace/db";
 import { and, eq, gte, lt, sql, desc } from "drizzle-orm";
 import type { TradePlan, TradeRejection } from "./strategies/base";
+import type { Section } from "./engineRegistry";
 import { logger } from "./logger";
 
 const DEDUPE_WINDOW_MS = 30 * 60_000; // identical decision within 30min → bump, don't insert
@@ -78,7 +79,7 @@ export function planToRecord(
  * insert (each is a distinct trade); rejections/not-taken dedupe against the
  * most recent identical row inside the window.
  */
-export async function recordDecisions(userId: number, decisions: DecisionRecord[]): Promise<void> {
+export async function recordDecisions(userId: number, decisions: DecisionRecord[], section: Section = "crypto"): Promise<void> {
   if (decisions.length === 0) return;
   const windowStart = new Date(Date.now() - DEDUPE_WINDOW_MS);
 
@@ -95,6 +96,7 @@ export async function recordDecisions(userId: number, decisions: DecisionRecord[
           .from(strategyDecisionsTable)
           .where(and(
             eq(strategyDecisionsTable.userId, userId),
+            eq(strategyDecisionsTable.section, section),
             eq(strategyDecisionsTable.symbol, d.symbol),
             eq(strategyDecisionsTable.strategyId, d.strategyId),
             eq(strategyDecisionsTable.kind, d.kind),
@@ -122,6 +124,7 @@ export async function recordDecisions(userId: number, decisions: DecisionRecord[
 
       await db.insert(strategyDecisionsTable).values({
         userId,
+        section,
         symbol: d.symbol,
         strategyId: d.strategyId,
         strategyName: d.strategyName,
@@ -140,13 +143,14 @@ export async function recordDecisions(userId: number, decisions: DecisionRecord[
 }
 
 /** Delete journal rows past the retention window. Call ~hourly; best-effort. */
-export async function pruneDecisions(userId: number): Promise<void> {
+export async function pruneDecisions(userId: number, section: Section = "crypto"): Promise<void> {
   try {
     const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 3600_000);
     await db
       .delete(strategyDecisionsTable)
       .where(and(
         eq(strategyDecisionsTable.userId, userId),
+        eq(strategyDecisionsTable.section, section),
         lt(strategyDecisionsTable.createdAt, cutoff),
       ));
   } catch (err) {

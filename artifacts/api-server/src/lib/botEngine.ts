@@ -41,6 +41,7 @@ import { recordDecisions, pruneDecisions, planToRecord, rejectionToRecord, type 
 import { DEFAULT_FEE_RATE, FUTURES_FEE_RATE } from "./tradingCosts";
 import { loadStrategyConfigs } from "./strategyConfigLoader";
 import { ExitManager, type OpenOrderIds } from "./exitManager";
+import type { Section } from "./engineRegistry";
 import { TradeManager } from "./tradeManager";
 import { placeSellOco, cancelOco } from "./binanceOco";
 import { placeFuturesStopAndTakeProfit, closeFuturesPositionMarket, configureFuturesLeverage, getLiquidationPrice } from "./binanceFutures";
@@ -356,10 +357,15 @@ class BotEngine {
   };
   private scanTimer: ReturnType<typeof setInterval> | null = null;
 
-  /** Each instance is scoped to exactly one user — their own trades, config,
-   *  strategy tuning, and Binance credentials. See lib/engineRegistry.ts for
-   *  how a userId maps to its own BotEngine instance. */
-  constructor(private readonly userId: number) {}
+  /** Each instance is scoped to exactly one (user, section) pair — their own
+   *  trades, config, strategy tuning, and broker credentials for that section.
+   *  "crypto" (Binance) and "forex" (OANDA) run as two separate instances that
+   *  never share config, positions, decisions or stats. See
+   *  lib/engineRegistry.ts for how (userId, section) maps to a BotEngine. */
+  constructor(
+    private readonly userId: number,
+    private readonly section: Section = "crypto",
+  ) {}
 
   // ---------------------------------------------------------------------------
   // Exchange initialisation
@@ -496,7 +502,7 @@ class BotEngine {
       const open = await db
         .select({ symbol: tradesTable.symbol })
         .from(tradesTable)
-        .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.status, "open")));
+        .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.section, this.section), eq(tradesTable.status, "open")));
       const active = new Set(open.map((t) => this.toMarket(t.symbol)));
       try {
         const positions = await ex.fetchPositions();
@@ -556,7 +562,7 @@ class BotEngine {
     if (now - this.lastStrategyConfigLoad < this.STRATEGY_CONFIG_CACHE_MS && this.strategyConfigs.size > 0) {
       return this.strategyConfigs;
     }
-    this.strategyConfigs = await loadStrategyConfigs(this.userId);
+    this.strategyConfigs = await loadStrategyConfigs(this.userId, this.section);
     this.lastStrategyConfigLoad = now;
     return this.highFreqStrategyConfigs(this.strategyConfigs);
   }
@@ -896,7 +902,7 @@ class BotEngine {
       await db
         .update(botConfigTable)
         .set({ engineDesiredRunning: true })
-        .where(eq(botConfigTable.userId, this.userId));
+        .where(and(eq(botConfigTable.userId, this.userId), eq(botConfigTable.section, this.section)));
     } catch (err) {
       logger.warn({ err }, "Could not persist engine desired-running state (auto-resume after restart may not trigger)");
     }
@@ -912,7 +918,7 @@ class BotEngine {
       await db
         .update(botConfigTable)
         .set({ engineDesiredRunning: false })
-        .where(eq(botConfigTable.userId, this.userId));
+        .where(and(eq(botConfigTable.userId, this.userId), eq(botConfigTable.section, this.section)));
     } catch (err) {
       logger.warn({ err }, "Could not persist engine desired-running=false");
     }
@@ -981,7 +987,7 @@ class BotEngine {
       } else if (this.lastDailyReportDate !== todayUtc) {
         const endedDay = this.lastDailyReportDate;
         this.lastDailyReportDate = todayUtc;
-        buildDailyReport(this.userId, endedDay)
+        buildDailyReport(this.userId, endedDay, this.section)
           .then((report) => this.sendAlert(formatDailyReportText(report, this.state.balanceUsdt)))
           .catch((err) => logger.warn({ err, endedDay }, "Daily report push failed"));
       }
@@ -993,7 +999,7 @@ class BotEngine {
       const openTrades = await db
         .select()
         .from(tradesTable)
-        .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.status, "open")));
+        .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.section, this.section), eq(tradesTable.status, "open")));
       this.state.openPositions = openTrades.length;
 
       // Circuit breaker
@@ -1500,11 +1506,11 @@ class BotEngine {
       // Flush the decision journal (fire-and-forget — never blocks the scan)
       // and prune old rows roughly hourly.
       if (scanDecisions.length > 0) {
-        void recordDecisions(this.userId, scanDecisions).catch(() => {});
+        void recordDecisions(this.userId, scanDecisions, this.section).catch(() => {});
       }
       if (Date.now() - this.lastDecisionPruneAt > 3600_000) {
         this.lastDecisionPruneAt = Date.now();
-        void pruneDecisions(this.userId).catch(() => {});
+        void pruneDecisions(this.userId, this.section).catch(() => {});
       }
       // Keep the Binance stop-order budget clean (see -4045 self-heal in
       // enterTrade) — orphans also accumulate silently between entries.
@@ -1820,6 +1826,7 @@ class BotEngine {
           .insert(tradesTable)
           .values({
             userId: this.userId,
+            section: this.section,
             symbol,
             side: openSide,
             marketType: config.marketType,
@@ -2000,7 +2007,7 @@ class BotEngine {
       // Journal the executed decision with its trade link (best-effort).
       void recordDecisions(this.userId, [
         planToRecord(plan, "executed", { tradeId: trade!.id }),
-      ]).catch(() => {});
+      ], this.section).catch(() => {});
 
       return {
         entered: true,
@@ -2134,7 +2141,7 @@ class BotEngine {
     const [trade] = await db
       .select()
       .from(tradesTable)
-      .where(and(eq(tradesTable.id, tradeId), eq(tradesTable.userId, this.userId)));
+      .where(and(eq(tradesTable.id, tradeId), eq(tradesTable.userId, this.userId), eq(tradesTable.section, this.section)));
     if (!trade) return { ok: false, error: "Trade not found" };
     if (trade.status !== "open") return { ok: false, error: "Trade is already closed" };
 
@@ -2210,7 +2217,7 @@ class BotEngine {
     const openTrades = await db
       .select()
       .from(tradesTable)
-      .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.status, "open")));
+      .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.section, this.section), eq(tradesTable.status, "open")));
 
     if (openTrades.length === 0) {
       logger.info("Startup reconciliation: no open trades in the database — nothing to reconcile");
@@ -2488,7 +2495,7 @@ class BotEngine {
       const recentAll = await db
         .select()
         .from(tradesTable)
-        .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.symbol, symbol), eq(tradesTable.status, "closed")))
+        .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.section, this.section), eq(tradesTable.symbol, symbol), eq(tradesTable.status, "closed")))
         .orderBy(desc(tradesTable.exitTime))
         .limit(15);
       const recent = recentAll.filter((t) => t.exitReason !== "reconciled_missing").slice(0, 10);
@@ -2502,9 +2509,9 @@ class BotEngine {
         const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
         await db
           .insert(blacklistTable)
-          .values({ userId: this.userId, symbol, winRate: winRate.toFixed(4), tradeCount: recent.length, blacklistedAt: now, expiresAt })
+          .values({ userId: this.userId, section: this.section, symbol, winRate: winRate.toFixed(4), tradeCount: recent.length, blacklistedAt: now, expiresAt })
           .onConflictDoUpdate({
-            target: [blacklistTable.userId, blacklistTable.symbol],
+            target: [blacklistTable.userId, blacklistTable.section, blacklistTable.symbol],
             set: { winRate: winRate.toFixed(4), tradeCount: recent.length, blacklistedAt: now, expiresAt },
           });
         // Only log when the symbol is newly blacklisted — not on every 15-second scan tick
@@ -2519,7 +2526,7 @@ class BotEngine {
     const rows = await db
       .select()
       .from(blacklistTable)
-      .where(and(eq(blacklistTable.userId, this.userId), gte(blacklistTable.expiresAt, now)));
+      .where(and(eq(blacklistTable.userId, this.userId), eq(blacklistTable.section, this.section), gte(blacklistTable.expiresAt, now)));
     return new Set(rows.map((r) => r.symbol));
   }
 
@@ -2532,6 +2539,7 @@ class BotEngine {
       .from(hourlyStatsTable)
       .where(and(
         eq(hourlyStatsTable.userId, this.userId),
+        eq(hourlyStatsTable.section, this.section),
         eq(hourlyStatsTable.hour, hour),
         gte(hourlyStatsTable.date, threeDaysAgo),
       ));
@@ -2577,9 +2585,9 @@ class BotEngine {
     const date = now.toISOString().split("T")[0]!;
     const hour = now.getUTCHours();
     await db.execute(
-      sql`INSERT INTO hourly_stats (user_id, date, hour, pnl, trade_count, win_count)
-          VALUES (${this.userId}, ${date}, ${hour}, ${pnl}, 1, ${win ? 1 : 0})
-          ON CONFLICT (user_id, date, hour)
+      sql`INSERT INTO hourly_stats (user_id, section, date, hour, pnl, trade_count, win_count)
+          VALUES (${this.userId}, ${this.section}, ${date}, ${hour}, ${pnl}, 1, ${win ? 1 : 0})
+          ON CONFLICT (user_id, section, date, hour)
           DO UPDATE SET
             pnl         = hourly_stats.pnl + EXCLUDED.pnl,
             trade_count = hourly_stats.trade_count + 1,
@@ -2597,7 +2605,7 @@ class BotEngine {
     const closedTodayAll = await db
       .select()
       .from(tradesTable)
-      .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.status, "closed"), gte(tradesTable.exitTime, startOfDay)));
+      .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.section, this.section), eq(tradesTable.status, "closed"), gte(tradesTable.exitTime, startOfDay)));
 
     // Administrative reconciliations (positions that actually died days ago,
     // swept into the books today) are NOT today's trading performance — if
@@ -2629,9 +2637,20 @@ class BotEngine {
    * calls applyHighFreqOverrides() on top of this to get the effective config.
    */
   async loadConfig() {
-    const rows = await db.select().from(botConfigTable).where(eq(botConfigTable.userId, this.userId)).limit(1);
+    const rows = await db
+      .select()
+      .from(botConfigTable)
+      .where(and(eq(botConfigTable.userId, this.userId), eq(botConfigTable.section, this.section)))
+      .limit(1);
     if (rows.length > 0) return rows[0]!;
-    const [inserted] = await db.insert(botConfigTable).values({ userId: this.userId }).returning();
+    const [inserted] = await db
+      .insert(botConfigTable)
+      .values({
+        userId: this.userId,
+        section: this.section,
+        broker: this.section === "forex" ? "oanda" : "binance",
+      })
+      .returning();
     return inserted!;
   }
 
@@ -2710,7 +2729,7 @@ class BotEngine {
       await db
         .update(botConfigTable)
         .set({ riskPaused: this.riskPaused, riskViolationCount: this.riskViolationCount })
-        .where(eq(botConfigTable.userId, this.userId));
+        .where(and(eq(botConfigTable.userId, this.userId), eq(botConfigTable.section, this.section)));
     } catch (err) {
       logger.error({ err }, "Failed to persist risk-pause state — in-memory state is still correct, but a restart before the next successful write would lose it");
     }

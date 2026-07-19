@@ -10,6 +10,9 @@ import { z } from "zod/v4";
 export const strategyConfigsTable = pgTable("strategy_configs", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
+  /** Independent trading section (crypto | forex) — each has its own strategy
+   *  tuning, fully separate from the other. Backfills to "crypto". */
+  section: text("section").notNull().default("crypto"),
   strategyId: text("strategy_id").notNull(),
   strategyName: text("strategy_name").notNull(),
   enabled: boolean("enabled").notNull().default(true),
@@ -77,7 +80,7 @@ export const strategyConfigsTable = pgTable("strategy_configs", {
   exitPriority: text("exit_priority").notNull().default("stop_loss,take_profit,trailing_stop,timeout"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => [
-  unique("strategy_configs_user_id_strategy_id_unique").on(t.userId, t.strategyId),
+  unique("strategy_configs_user_section_strategy_unique").on(t.userId, t.section, t.strategyId),
 ]);
 
 export const insertStrategyConfigSchema = createInsertSchema(strategyConfigsTable).omit({

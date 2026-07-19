@@ -5,7 +5,7 @@ const router: IRouter = Router();
 
 // Live market monitor: real ticker snapshots + exchange connection health.
 router.get("/market/live", async (req, res): Promise<void> => {
-  res.json(getOrCreateEngine(req.userId!).getMarketMonitor());
+  res.json(getOrCreateEngine(req.userId!, req.section!).getMarketMonitor());
 });
 
 // Recent candles for the dashboard position chart. Public market data, served
@@ -22,7 +22,7 @@ router.get("/market/candles", async (req, res): Promise<void> => {
     return;
   }
   try {
-    const candles = await getOrCreateEngine(req.userId!).getRecentCandles(symbol, timeframe, limit, marketType);
+    const candles = await getOrCreateEngine(req.userId!, req.section!).getRecentCandles(symbol, timeframe, limit, marketType);
     res.json({ symbol, timeframe, candles });
   } catch (err) {
     req.log.warn({ err, symbol }, "Candle fetch for chart failed");

@@ -3,7 +3,7 @@ import { db, botConfigTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "./lib/logger";
 import { validateEnv } from "./lib/env";
-import { getOrCreateEngine } from "./lib/engineRegistry";
+import { getOrCreateEngine, isSection } from "./lib/engineRegistry";
 
 // app.ts already called validateEnv() at import time (fail fast before
 // building any middleware) — this call is free (memoized) and just gets us
@@ -21,15 +21,18 @@ const { port, host } = validateEnv();
 async function resumeRunningEngines(): Promise<void> {
   try {
     const rows = await db
-      .select({ userId: botConfigTable.userId })
+      .select({ userId: botConfigTable.userId, section: botConfigTable.section })
       .from(botConfigTable)
       .where(eq(botConfigTable.engineDesiredRunning, true));
-    for (const { userId } of rows) {
+    // Each (user, section) whose desired state is running resumes independently
+    // — a user with both crypto and forex running gets both back.
+    for (const { userId, section } of rows) {
+      const sec = isSection(section) ? section : "crypto";
       try {
-        await getOrCreateEngine(userId).start();
-        logger.info({ userId }, "AUTO-RESUME: engine restarted after server restart");
+        await getOrCreateEngine(userId, sec).start();
+        logger.info({ userId, section: sec }, "AUTO-RESUME: engine restarted after server restart");
       } catch (err) {
-        logger.error({ err, userId }, "AUTO-RESUME: engine failed to restart — user must press Start manually");
+        logger.error({ err, userId, section: sec }, "AUTO-RESUME: engine failed to restart — user must press Start manually");
       }
     }
     if (rows.length === 0) logger.info("AUTO-RESUME: no engines were running before restart");

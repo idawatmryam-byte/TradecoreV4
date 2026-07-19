@@ -7,6 +7,7 @@ export type ErrorType<T = unknown> = ApiError<T>;
 export type BodyType<T> = T;
 
 export type AuthTokenGetter = () => Promise<string | null> | string | null;
+export type SectionGetter = () => string | null;
 
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
@@ -17,6 +18,7 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _sectionGetter: SectionGetter | null = null;
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -42,6 +44,20 @@ export function setBaseUrl(url: string | null): void {
  */
 export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
+}
+
+/**
+ * Register a getter that supplies the active trading section
+ * (`"crypto"` | `"forex"`). Before every fetch the getter is invoked; when it
+ * returns a non-null string, an `X-Section` header is attached to the request,
+ * so a single point of configuration scopes ALL generated hooks to the section
+ * the user is currently viewing (mirrors setAuthTokenGetter/setBaseUrl — no
+ * per-hook edits needed). The server defaults to "crypto" when the header is
+ * absent, so an unset getter preserves the pre-sectioning behaviour.
+ * Pass `null` to clear the getter.
+ */
+export function setSectionGetter(getter: SectionGetter | null): void {
+  _sectionGetter = getter;
 }
 
 function isRequest(input: RequestInfo | URL): input is Request {
@@ -355,6 +371,15 @@ export async function customFetch<T = unknown>(
     const token = await _authTokenGetter();
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
+    }
+  }
+
+  // Attach the active trading section (crypto|forex) so every generated hook
+  // is scoped to the section the user is viewing, without per-hook changes.
+  if (_sectionGetter && !headers.has("x-section")) {
+    const section = _sectionGetter();
+    if (section) {
+      headers.set("x-section", section);
     }
   }
 

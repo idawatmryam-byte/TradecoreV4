@@ -7,15 +7,20 @@
  */
 import { db } from "@workspace/db";
 import { strategyConfigsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { type StrategyConfig, DEFAULT_STRATEGY_CONFIGS, ALL_STRATEGIES } from "./strategies";
 import { logger } from "./logger";
+import type { Section } from "./engineRegistry";
 
 /**
- * Load all strategy configs for one user from DB, seeding defaults for any
- * missing entries. Returns a Map<strategyId, StrategyConfig>.
+ * Load all strategy configs for one (user, section) from DB, seeding defaults
+ * for any missing entries. Returns a Map<strategyId, StrategyConfig>. Crypto
+ * and forex keep completely separate strategy tuning.
  */
-export async function loadStrategyConfigs(userId: number): Promise<Map<string, StrategyConfig>> {
+export async function loadStrategyConfigs(
+  userId: number,
+  section: Section = "crypto",
+): Promise<Map<string, StrategyConfig>> {
   try {
     // Upsert defaults for each known strategy so they always exist in DB
     for (const strategy of ALL_STRATEGIES) {
@@ -25,6 +30,7 @@ export async function loadStrategyConfigs(userId: number): Promise<Map<string, S
         .insert(strategyConfigsTable)
         .values({
           userId,
+          section,
           strategyId: strategy.strategyId,
           strategyName: strategy.strategyName,
           enabled: defaults.enabled,
@@ -54,14 +60,17 @@ export async function loadStrategyConfigs(userId: number): Promise<Map<string, S
           exitPriority: defaults.exitPriority.join(","),
         })
         .onConflictDoNothing({
-          target: [strategyConfigsTable.userId, strategyConfigsTable.strategyId],
+          target: [strategyConfigsTable.userId, strategyConfigsTable.section, strategyConfigsTable.strategyId],
         }); // don't overwrite user-edited values
     }
   } catch (err) {
     logger.warn({ err }, "Strategy config upsert failed (non-fatal)");
   }
 
-  const rows = await db.select().from(strategyConfigsTable).where(eq(strategyConfigsTable.userId, userId));
+  const rows = await db
+    .select()
+    .from(strategyConfigsTable)
+    .where(and(eq(strategyConfigsTable.userId, userId), eq(strategyConfigsTable.section, section)));
   const map = new Map<string, StrategyConfig>();
 
   const VALID_PRIORITY_KEYS = new Set(["stop_loss", "take_profit", "trailing_stop", "timeout"]);

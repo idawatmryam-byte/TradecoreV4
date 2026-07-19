@@ -14,7 +14,7 @@ router.get("/memory/blacklist", async (req, res): Promise<void> => {
   const rows = await db
     .select()
     .from(blacklistTable)
-    .where(and(eq(blacklistTable.userId, req.userId!), gte(blacklistTable.expiresAt, now)));
+    .where(and(eq(blacklistTable.userId, req.userId!), eq(blacklistTable.section, req.section!), gte(blacklistTable.expiresAt, now)));
 
   res.json(
     GetBlacklistResponse.parse(
@@ -40,7 +40,7 @@ router.get("/memory/toxic-hours", async (req, res): Promise<void> => {
       blockedAt: sql<string>`min(${hourlyStatsTable.createdAt})`,
     })
     .from(hourlyStatsTable)
-    .where(and(eq(hourlyStatsTable.userId, req.userId!), gte(hourlyStatsTable.date, threeDaysAgo)))
+    .where(and(eq(hourlyStatsTable.userId, req.userId!), eq(hourlyStatsTable.section, req.section!), gte(hourlyStatsTable.date, threeDaysAgo)))
     .groupBy(hourlyStatsTable.hour)
     .having(sql`sum(${hourlyStatsTable.pnl}) < 0`);
 

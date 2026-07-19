@@ -1,8 +1,49 @@
 import { Link, useLocation } from "wouter";
-import { Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert, Layers, LogOut, Menu, X, UserCircle2, Scale } from "lucide-react";
+import { Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert, Layers, LogOut, Menu, X, UserCircle2, Scale, Bitcoin, CandlestickChart } from "lucide-react";
 import { useGetBotStatus, useHealthCheck, getGetBotStatusQueryKey, getHealthCheckQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
+import { useSection, type Section } from "@/lib/section";
+
+const SECTION_TABS: { id: Section; label: string; icon: typeof Bitcoin }[] = [
+  { id: "crypto", label: "Crypto", icon: Bitcoin },
+  { id: "forex", label: "Forex", icon: CandlestickChart },
+];
+
+function SectionSwitcher() {
+  const { section, setSection } = useSection();
+  return (
+    <div className="mb-5">
+      <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest px-2 mb-2">Market</div>
+      <div className="grid grid-cols-2 gap-1.5 p-1 rounded-lg bg-muted/50 border">
+        {SECTION_TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = section === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setSection(tab.id)}
+              className={cn(
+                "flex items-center justify-center gap-1.5 px-2 py-2 rounded-md text-xs font-semibold uppercase tracking-wide transition-all",
+                isActive
+                  ? "bg-primary/15 text-primary shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+      {section === "forex" && (
+        <p className="mt-2 px-2 text-[11px] leading-tight text-muted-foreground">
+          Forex section — connect an OANDA account in Account &amp; Safety to start trading.
+        </p>
+      )}
+    </div>
+  );
+}
 
 const NAV_ITEMS = [
   { href: "/account", label: "Account", icon: UserCircle2 },
@@ -75,6 +116,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="p-4 flex-1">
+          <SectionSwitcher />
           <div className="mb-6 space-y-1">
             <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest px-2 mb-2">Navigation</div>
             {NAV_ITEMS.map((item) => {

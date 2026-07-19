@@ -19,7 +19,10 @@ router.get("/decisions", async (req, res): Promise<void> => {
   const strategyId = typeof req.query.strategyId === "string" ? req.query.strategyId : undefined;
   const symbol = typeof req.query.symbol === "string" ? req.query.symbol : undefined;
 
-  const where: SQL[] = [eq(strategyDecisionsTable.userId, req.userId!)];
+  const where: SQL[] = [
+    eq(strategyDecisionsTable.userId, req.userId!),
+    eq(strategyDecisionsTable.section, req.section!),
+  ];
   if (Number.isFinite(before) && before > 0) where.push(lt(strategyDecisionsTable.id, before));
   if (kind) where.push(eq(strategyDecisionsTable.kind, kind));
   if (strategyId) where.push(eq(strategyDecisionsTable.strategyId, strategyId));

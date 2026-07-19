@@ -4,8 +4,21 @@ import { z } from "zod/v4";
 
 export const botConfigTable = pgTable("bot_config", {
   id: serial("id").primaryKey(),
-  /** One config row per user — each user's bot instance has its own settings. */
+  /** Owning user. */
   userId: integer("user_id").notNull(),
+  /**
+   * Which independent trading SECTION this config belongs to. Crypto (Binance)
+   * and Forex (OANDA) are fully separate, simultaneously-runnable sections —
+   * each has its own config row, strategies, positions, and on/off switch.
+   * One row per (userId, section). Existing rows backfill to "crypto".
+   */
+  section: text("section").notNull().default("crypto"), // crypto | forex
+  /**
+   * Which broker/venue this section trades through. "binance" (crypto spot/
+   * futures via ccxt) or "oanda" (forex via the OANDA v20 REST adapter).
+   * Selects the adapter + credential source; orthogonal to marketType.
+   */
+  broker: text("broker").notNull().default("binance"), // binance | oanda
 
   // ── Position / risk ────────────────────────────────────────────────────────
   /** Fixed USDT position size — also acts as a hard cap when riskPercent > 0 */
@@ -70,8 +83,9 @@ export const botConfigTable = pgTable("bot_config", {
   highFrequencyTestMode: boolean("high_frequency_test_mode").notNull().default(false),
 
   // ── Futures trading (long + short) ─────────────────────────────────────────
-  /** "spot" (long-only, buy-to-open) | "futures" (long+short, leveraged). */
-  marketType: text("market_type").notNull().default("spot"), // spot | futures
+  /** "spot" (long-only, buy-to-open) | "futures" (long+short, leveraged) |
+   *  "forex" (OANDA units with attached bracket SL/TP, no perp leverage). */
+  marketType: text("market_type").notNull().default("spot"), // spot | futures | forex
   /** Only applies when marketType = "futures". 1 = no leverage. Binance USDⓈ-M caps vary by symbol (often up to 125x) — the app enforces its own lower safety cap, see lib/env.ts / routes/config.ts. */
   leverage: integer("leverage").notNull().default(1),
   /** Only applies when marketType = "futures". isolated: only that position's margin is at risk of liquidation. cross: the whole futures wallet backs every position — one bad position can drag down others. */
@@ -95,7 +109,7 @@ export const botConfigTable = pgTable("bot_config", {
 
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => [
-  unique("bot_config_user_id_unique").on(t.userId),
+  unique("bot_config_user_section_unique").on(t.userId, t.section),
 ]);
 
 export const insertBotConfigSchema = createInsertSchema(botConfigTable).omit({
