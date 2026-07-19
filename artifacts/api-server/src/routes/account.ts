@@ -37,6 +37,7 @@ router.get("/me/account", async (req, res) => {
     .from(userIdentitiesTable)
     .where(eq(userIdentitiesTable.userId, req.userId!));
   res.json({
+    id: user.id,
     username: user.username,
     email: user.email ?? null,
     displayName: user.displayName ?? null,

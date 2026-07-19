@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from "@/components/ui";
 import { useToast } from "@/components/ui/use-toast";
 import {
-  UserCircle2, Save, KeyRound, Loader2, ShieldCheck, Trash2, AlertTriangle, Link2,
+  UserCircle2, Save, KeyRound, Loader2, ShieldCheck, Trash2, AlertTriangle, Link2, Copy, Check,
 } from "lucide-react";
 
 /**
@@ -12,6 +12,7 @@ import {
  */
 
 interface AccountInfo {
+  id: number;
   username: string;
   email: string | null;
   displayName: string | null;
@@ -41,6 +42,18 @@ export function Account() {
   // delete
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
+
+  // account ID copy-to-clipboard
+  const [copied, setCopied] = useState(false);
+  async function copyAccountId(accountId: string) {
+    try {
+      await navigator.clipboard.writeText(accountId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast({ title: "Couldn't copy", description: "Select and copy the ID manually.", variant: "destructive" });
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -139,6 +152,7 @@ export function Account() {
 
   const initial = (info.displayName || info.username).charAt(0).toUpperCase();
   const memberSince = new Date(info.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  const accountId = `TC-${String(info.id).padStart(6, "0")}`;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -162,6 +176,15 @@ export function Account() {
             <div>
               <div className="font-semibold">{info.displayName || info.username}</div>
               <div className="text-xs text-muted-foreground font-mono">@{info.username} · member since {memberSince}</div>
+              <button
+                type="button"
+                onClick={() => copyAccountId(accountId)}
+                title="Copy Account ID"
+                className="mt-1 inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Account ID: <span className="text-foreground">{accountId}</span>
+                {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+              </button>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
