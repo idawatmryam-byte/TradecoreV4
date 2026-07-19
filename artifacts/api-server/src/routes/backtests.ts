@@ -42,7 +42,10 @@ router.get("/backtests", async (req, res) => {
     .from(backtestRunsTable)
     .where(eq(backtestRunsTable.userId, req.userId!))
     .orderBy(desc(backtestRunsTable.createdAt));
-  res.json(runs.map(serializeRun));
+  // Autopsy child runs are internal machinery (deleted when the autopsy
+  // completes) — never show them in the user's run list mid-flight.
+  const visible = runs.filter((r) => (r.params as { type?: string } | null)?.type !== "autopsy-child");
+  res.json(visible.map(serializeRun));
 });
 
 // ---------------------------------------------------------------------------

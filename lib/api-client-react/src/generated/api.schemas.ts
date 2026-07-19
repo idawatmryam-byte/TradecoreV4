@@ -658,6 +658,96 @@ export interface BinanceCredentialsStatus {
   updatedAt: string | null;
 }
 
+export type AutopsyWindowMetricsExitReasons = {[key: string]: number};
+
+export interface AutopsyWindowMetrics {
+  totalTrades: number;
+  winRate: number;
+  profitFactor: number;
+  sharpeRatio: number;
+  maxDrawdown: number;
+  totalPnl: number;
+  exitReasons: AutopsyWindowMetricsExitReasons;
+}
+
+export interface AutopsyParams {
+  /** @nullable */
+  maxLossUsdt?: number | null;
+  /** @nullable */
+  targetProfitUsdt?: number | null;
+  confidenceThreshold: number;
+  maxHoldingSeconds: number;
+}
+
+export interface AutopsyFinding {
+  param: string;
+  label: string;
+  /** @nullable */
+  current?: number | null;
+  /** @nullable */
+  suggested?: number | null;
+  evidence: string;
+  action: string;
+}
+
+export type AutopsyDiagnosisVerdict = typeof AutopsyDiagnosisVerdict[keyof typeof AutopsyDiagnosisVerdict];
+
+
+export const AutopsyDiagnosisVerdict = {
+  improved: 'improved',
+  no_better: 'no_better',
+  insufficient_data: 'insufficient_data',
+} as const;
+
+export interface AutopsyDiagnosis {
+  verdict: AutopsyDiagnosisVerdict;
+  summary: string;
+  findings: AutopsyFinding[];
+}
+
+export type AutopsyRunStatus = typeof AutopsyRunStatus[keyof typeof AutopsyRunStatus];
+
+
+export const AutopsyRunStatus = {
+  pending: 'pending',
+  running: 'running',
+  completed: 'completed',
+  failed: 'failed',
+} as const;
+
+export interface AutopsyRun {
+  id: number;
+  strategyId: string;
+  /** @nullable */
+  strategyName?: string | null;
+  symbols: string[];
+  timeframe: string;
+  trainStart: string;
+  trainEnd: string;
+  valStart: string;
+  valEnd: string;
+  status: AutopsyRunStatus;
+  progress: number;
+  /** @nullable */
+  stage?: string | null;
+  totalBacktests: number;
+  truncated: boolean;
+  currentParams: AutopsyParams;
+  bestParams?: AutopsyParams | null;
+  currentTrain?: AutopsyWindowMetrics | null;
+  currentVal?: AutopsyWindowMetrics | null;
+  bestTrain?: AutopsyWindowMetrics | null;
+  bestVal?: AutopsyWindowMetrics | null;
+  /** @nullable */
+  verdict?: string | null;
+  diagnosis?: AutopsyDiagnosis | null;
+  /** @nullable */
+  error?: string | null;
+  createdAt: string;
+  /** @nullable */
+  completedAt?: string | null;
+}
+
 export interface OandaCredentialsStatus {
   configured: boolean;
   /**
@@ -1188,6 +1278,21 @@ export type SetBinanceCredentialsBody = {
 export type SetOandaCredentialsBody = {
   apiToken: string;
   accountId: string;
+};
+
+export type StartAutopsyBody = {
+  strategyId: string;
+  /** Defaults to your configured crypto pairs (max 4). */
+  symbols?: string[];
+  /** Default 5m. */
+  timeframe?: string;
+  /** Total window length (train = first ⅔, validation = last ⅓). Default 45, range 14-120. */
+  days?: number;
+};
+
+export type StartAutopsy202 = {
+  id: number;
+  status: string;
 };
 
 export type DeleteBacktest200 = {

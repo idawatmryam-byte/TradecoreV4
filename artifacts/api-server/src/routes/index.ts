@@ -9,6 +9,7 @@ import statsRouter from "./stats";
 import memoryRouter from "./memory";
 import configRouter from "./config";
 import backtestsRouter from "./backtests";
+import autopsyRouter from "./autopsy";
 import strategiesRouter from "./strategies";
 import credentialsRouter from "./credentials";
 import reportsRouter from "./reports";
@@ -36,6 +37,9 @@ router.use(tradesRouter);
 router.use(statsRouter);
 router.use(memoryRouter);
 router.use(configRouter);
+// Autopsy first: backtests.ts declares GET /backtests/:id, which would
+// otherwise swallow /backtests/autopsy as id="autopsy".
+router.use(autopsyRouter);
 router.use(backtestsRouter);
 router.use(strategiesRouter);
 router.use(credentialsRouter);
