@@ -1,9 +1,11 @@
 # TradeCore Pro
 
-A self-hosted, multi-user algorithmic cryptocurrency trading platform for Binance
-**Spot** and **USDⓈ-M Futures**, built around a **rigorous, parity-verified backtesting
-engine**. Automate strategy execution, manage risk, and validate ideas on real
-historical data before a single live order — all from a clean real-time dashboard.
+A self-hosted, multi-user algorithmic trading platform for **two markets, side by
+side**: cryptocurrency on Binance (**Spot** and **USDⓈ-M Futures**) and **forex on
+OANDA** (currency majors, gold, US index CFDs) — built around a **rigorous,
+parity-verified backtesting engine**. Automate strategy execution, manage risk, and
+validate ideas on real historical data before a single live order — all from a
+clean real-time dashboard.
 
 > **Honest by design.** The backtesting engine models maker/taker fees, slippage,
 > and every live risk gate, so a backtest reflects what the *live* engine can
@@ -16,6 +18,13 @@ historical data before a single live order — all from a clean real-time dashbo
 
 - **Live trading** on Binance Spot and USDⓈ-M Futures (long + short, leverage,
   isolated/cross margin) via [ccxt](https://github.com/ccxt/ccxt).
+- **Independent forex section** on OANDA (v20 REST) — currency majors, gold/silver,
+  and US index CFDs, running **simultaneously** with the crypto section under the
+  same strategy brains and risk model. Entries are placed as a single atomic order
+  with stop-loss and take-profit attached (a position can never exist unprotected),
+  with DST-aware market-hours gating (weekend close, metals/index daily break),
+  practice/live environments, restart-safe reconciliation, and support for any
+  account home currency (non-USD balances are converted at live FX rates).
 - **Multi-strategy engine** — seven pluggable strategies (trend pullback, momentum
   breakout, volatility breakout, mean reversion, VWAP reversion, micro scalping,
   1-minute scalp reversion), each with its own regime gate and risk profile.
@@ -35,7 +44,8 @@ historical data before a single live order — all from a clean real-time dashbo
 - **Real-time dashboard** — balance, open positions with live unrealized P&L, a live
   market monitor, strategy configuration, trade log with CSV export, and analytics.
 - **Secure multi-user** — DB-backed accounts, hashed passwords, and encrypted
-  per-user Binance API credentials.
+  per-user broker credentials (Binance API keys and OANDA tokens, AES-256-GCM at
+  rest).
 - **Fully typed end-to-end** — a single OpenAPI spec generates the Zod validators and
   the typed React Query client, so the frontend and backend can never drift.
 
@@ -76,7 +86,9 @@ pipeline in detail.
 
 - Node.js 20+ and [pnpm](https://pnpm.io/) 9+
 - PostgreSQL 14+
-- Binance API keys (use **testnet / Demo Trading** keys first)
+- Binance API keys for the crypto section (use **testnet / Demo Trading** keys first)
+- Optionally, an OANDA personal access token + account ID for the forex section
+  (start with a free **practice** account)
 
 ### Setup
 
@@ -102,8 +114,12 @@ Then start the API server and serve the built frontend (a sample
 [`ecosystem.config.cjs`](./ecosystem.config.cjs) is provided for pm2, and
 [`update.sh`](./update.sh) is a one-command deploy/update helper for a VPS).
 
-Register an account in the UI, add your Binance API credentials on the Settings
-page, configure your strategies and risk limits, and start on **testnet** first.
+Register an account in the UI, add your broker credentials on the Settings page
+(Binance keys on the Crypto section, OANDA token + account ID on the Forex
+section — use the sidebar switcher), configure your strategies and risk limits,
+and start on **testnet / practice** first. The two sections are fully independent:
+separate configs, positions, trade logs, decisions, and stats, and both engines
+can run at the same time.
 
 ## Backtesting
 
@@ -118,10 +134,15 @@ The Backtest page runs the real engine over historical data. Key controls:
 Every run records the exact effective configuration used and exports full trade
 data as CSV for external analysis.
 
+> Backtesting currently covers the **crypto** section. Forex backtesting is
+> deliberately gated in the UI until the simulator models forex market hours and
+> spread-based costs — wrong numbers would be worse than no numbers.
+
 ## Disclaimer
 
-This software is provided for educational and research purposes. Cryptocurrency
-trading carries substantial risk of loss. **This project does not guarantee profit
+This software is provided for educational and research purposes. Trading
+cryptocurrency, forex, and other leveraged products carries substantial risk of
+loss. **This project does not guarantee profit
 and is not financial advice.** Backtested results do not guarantee future
 performance. You are solely responsible for any use of this software, including any
 live trading you choose to enable. Always test on exchange testnet / Demo Trading
