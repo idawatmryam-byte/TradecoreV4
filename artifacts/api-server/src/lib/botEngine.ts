@@ -43,6 +43,7 @@ import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig, type Positi
 import { recordDecisions, pruneDecisions, planToRecord, rejectionToRecord, type DecisionRecord } from "./decisionRecorder";
 import { DEFAULT_FEE_RATE, FUTURES_FEE_RATE, FOREX_COST_RATE } from "./tradingCosts";
 import { requiredMarginUsd, minStopDistancePrice } from "./forexSizing";
+import { isInstrumentOpen, nextInstrumentOpen, instrumentClassOf } from "./marketHours";
 import { loadStrategyConfigs } from "./strategyConfigLoader";
 import { ExitManager, type OpenOrderIds } from "./exitManager";
 import type { Section } from "./engineRegistry";
@@ -1101,9 +1102,38 @@ class BotEngine {
       // symbols that still need exit-monitoring. (When the breaker is not
       // active, this is exactly the same full pair list as before.)
       const openSymbols = new Set(openTrades.map((t) => t.symbol));
-      const pairs = this.state.circuitBreakerActive
+      let pairs = this.state.circuitBreakerActive
         ? this.getPairs(config).filter((s) => openSymbols.has(s) && this.availableMarkets.has(this.toMarket(s)))
         : this.getPairs(config).filter((s) => this.availableMarkets.has(this.toMarket(s)));
+
+      // ── Forex market-hours gate (see lib/marketHours.ts) ─────────────────
+      // Closed instruments are skipped entirely: no candle fetches, no entry
+      // evaluation, no exit ticks — nothing can move while their market is
+      // closed, and open positions stay protected by resting OANDA SL/TP
+      // that fire the moment the market reopens. Currency pairs share one
+      // weekend calendar; metals/CFDs additionally sit out the daily
+      // 17:00–18:00 New York maintenance break.
+      if (this.activeMarketType === "forex") {
+        const closedNow: string[] = [];
+        pairs = pairs.filter((s) => {
+          const cls = instrumentClassOf(ex.markets?.[this.toMarket(s)]?.info?.type);
+          if (isInstrumentOpen(cls, now)) return true;
+          closedNow.push(s);
+          return false;
+        });
+        for (const sym of closedNow) {
+          const row = this.scannerData.get(sym);
+          if (row) this.scannerData.set(sym, { ...row, status: "skipped" });
+        }
+        if (pairs.length === 0 && closedNow.length > 0) {
+          const reopens = nextInstrumentOpen("CURRENCY", now);
+          logger.info(
+            { closed: closedNow.length, reopensAt: reopens.toISOString() },
+            "FOREX market closed — scan skipped; open positions remain protected by resting OANDA SL/TP",
+          );
+          return;
+        }
+      }
 
       if (this.state.circuitBreakerActive) {
         // Any symbol we're not scanning this tick (no open position) still
@@ -2360,6 +2390,13 @@ class BotEngine {
       .from(tradesTable)
       .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.section, this.section), eq(tradesTable.status, "open")));
 
+    if (marketType === "forex") {
+      // OANDA's model is trade-centric (one id keys the position AND its
+      // dependent SL/TP), so its reconciliation is its own, simpler pass.
+      await this.reconcileForexOnStartup(openTrades);
+      return;
+    }
+
     if (openTrades.length === 0) {
       logger.info("Startup reconciliation: no open trades in the database — nothing to reconcile");
     } else {
@@ -2424,6 +2461,80 @@ class BotEngine {
     if (marketType === "spot") {
       await this.detectUntrackedPositions(openTrades);
     }
+  }
+
+  /**
+   * Forex startup reconciliation: rebuild `openOrderIds` (oandaTradeId +
+   * dependent SL/TP order ids) from OANDA's live open trades, close out DB
+   * rows the broker no longer backs, and re-attach protection to any live
+   * trade found naked. Mirrors the Binance pass below but keyed on the
+   * persisted exchangeTradeId — the whole reason that column exists.
+   */
+  private async reconcileForexOnStartup(openTrades: Array<typeof tradesTable.$inferSelect>): Promise<void> {
+    if (openTrades.length === 0) {
+      logger.info("Startup reconciliation (forex): no open trades in the database — nothing to reconcile");
+      return;
+    }
+    const ex = this.exchange!;
+    let live: any[];
+    try {
+      live = await ex.fetchPositions();
+    } catch (err) {
+      logger.error({ err }, "Startup reconciliation (forex): could not list OANDA open trades — tracking stays empty until the next restart; stop management will re-key itself from exchangeTradeId");
+      return;
+    }
+
+    for (const trade of openTrades) {
+      const trackedQty = Number(trade.remainingQuantity ?? trade.quantity);
+      // Prefer the exact broker trade id; fall back to instrument match for
+      // rows written before exchangeTradeId existed (v1 runs one trade per
+      // instrument, so the fallback is unambiguous).
+      const match = trade.exchangeTradeId
+        ? live.find((p: any) => String(p.info?.oandaTradeId) === trade.exchangeTradeId)
+        : live.find((p: any) => p.symbol === trade.symbol);
+
+      if (!match) {
+        await this.reconcileMissingPosition(trade, this.toMarket(trade.symbol), trackedQty, 0);
+        continue;
+      }
+
+      const oandaTradeId = String(match.info?.oandaTradeId);
+      if (!trade.exchangeTradeId) {
+        await db.update(tradesTable).set({ exchangeTradeId: oandaTradeId }).where(eq(tradesTable.id, trade.id));
+      }
+
+      try {
+        let prot = await ex.getTradeProtection(oandaTradeId);
+        if (!prot.slOrderId) {
+          // A live position with no stop is the dangerous direction — re-attach
+          // the DB's planned protection immediately, before the scan loop runs.
+          logger.error(
+            { tradeId: trade.id, symbol: trade.symbol, oandaTradeId },
+            "Startup reconciliation (forex): live OANDA trade has NO stop-loss — re-attaching protection from the DB record",
+          );
+          prot = await ex.replaceTradeProtection(
+            oandaTradeId, trade.symbol, Number(trade.stopLoss), Number(trade.takeProfit),
+          );
+          await this.sendAlert(
+            `⚠️ RECONCILIATION: forex trade #${trade.id} (${trade.symbol}) was found unprotected on OANDA — ` +
+              `SL/TP re-attached at ${Number(trade.stopLoss).toFixed(5)} / ${Number(trade.takeProfit).toFixed(5)}.`,
+          );
+        }
+        this.openOrderIds.set(trade.id, {
+          slOrderId: prot.slOrderId,
+          tpOrderId: prot.tpOrderId,
+          oandaTradeId,
+        });
+        logger.info(
+          { tradeId: trade.id, symbol: trade.symbol, oandaTradeId, slOrderId: prot.slOrderId, tpOrderId: prot.tpOrderId },
+          "Startup reconciliation (forex): order tracking rebuilt",
+        );
+      } catch (err) {
+        logger.error({ err, tradeId: trade.id, oandaTradeId },
+          "Startup reconciliation (forex): could not rebuild protection tracking for this trade — stop management will retry via exchangeTradeId");
+      }
+    }
+    logger.info("Startup reconciliation (forex): open-trade pass complete");
   }
 
   /** DB says open, exchange balance says otherwise — closed while the bot was

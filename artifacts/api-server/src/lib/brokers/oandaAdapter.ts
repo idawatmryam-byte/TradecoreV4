@@ -308,6 +308,18 @@ export class OandaAdapter implements BrokerAdapter {
     };
   }
 
+  /** Current dependent SL/TP order ids for an open OANDA trade — used by
+   *  startup reconciliation to rebuild order tracking after a restart. */
+  async getTradeProtection(oandaTradeId: string): Promise<{ slOrderId: string; tpOrderId: string }> {
+    const tr = await this.client.acct<{
+      trade: { stopLossOrder?: { id: string }; takeProfitOrder?: { id: string } };
+    }>("GET", `/trades/${oandaTradeId}`);
+    return {
+      slOrderId: tr.trade.stopLossOrder?.id ?? "",
+      tpOrderId: tr.trade.takeProfitOrder?.id ?? "",
+    };
+  }
+
   /**
    * Atomically replace a trade's protective SL (and optionally TP) — OANDA's
    * PUT /trades/{id}/orders swaps dependent orders in one call, keyed by the
