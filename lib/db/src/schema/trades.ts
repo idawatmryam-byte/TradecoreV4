@@ -32,6 +32,10 @@ export const tradesTable = pgTable("trades", {
   /** Phase 2: which strategy generated this trade */
   strategyId: text("strategy_id"),
   strategyName: text("strategy_name"),
+  /** Broker-native trade id (OANDA tradeID for forex; null on Binance). SL/TP
+   *  replacement and closes on OANDA are keyed by it, so it is persisted —
+   *  in-memory-only tracking would break across restarts. */
+  exchangeTradeId: text("exchange_trade_id"),
   /** Phase 2.5 Risk Audit: true when actual loss exceeded expected max loss */
   riskViolation: boolean("risk_violation").notNull().default(false),
   /** Phase 2.5 Risk Audit: human-readable explanation of the violation */

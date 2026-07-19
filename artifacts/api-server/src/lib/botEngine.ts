@@ -41,7 +41,8 @@ import {
 } from "./strategy";
 import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig, type PositionSide, type TradePlan } from "./strategies";
 import { recordDecisions, pruneDecisions, planToRecord, rejectionToRecord, type DecisionRecord } from "./decisionRecorder";
-import { DEFAULT_FEE_RATE, FUTURES_FEE_RATE } from "./tradingCosts";
+import { DEFAULT_FEE_RATE, FUTURES_FEE_RATE, FOREX_COST_RATE } from "./tradingCosts";
+import { requiredMarginUsd, minStopDistancePrice } from "./forexSizing";
 import { loadStrategyConfigs } from "./strategyConfigLoader";
 import { ExitManager, type OpenOrderIds } from "./exitManager";
 import type { Section } from "./engineRegistry";
@@ -222,7 +223,9 @@ class BotEngine {
    *  hardcoded to the spot rate, which overstated fees ~2× on every futures
    *  trade and disagreed with the backtest's futures fee. */
   private get activeTakerFee(): number {
-    return this.activeMarketType === "futures" ? FUTURES_FEE_RATE : DEFAULT_FEE_RATE;
+    return this.activeMarketType === "futures" ? FUTURES_FEE_RATE
+      : this.activeMarketType === "forex" ? FOREX_COST_RATE
+      : DEFAULT_FEE_RATE;
   }
   /** How many consecutive risk violations before trading is paused */
   private readonly MAX_RISK_VIOLATIONS = 3;
@@ -301,6 +304,28 @@ class BotEngine {
 
       const preciseQty = parseFloat(ex.amountToPrecision(market, qty));
       if (preciseQty <= 0) return null;
+
+      // Forex: OANDA replaces a trade's dependent SL/TP atomically, keyed by
+      // the persisted OANDA trade id — no cancel/re-place sequencing, and the
+      // new protection automatically covers the trade's REMAINING units (so
+      // qty is not needed). The cancels above were harmless no-op-style
+      // cancels of the outgoing dependent orders.
+      if (trade.marketType === "forex") {
+        const oandaTradeId = trade.exchangeTradeId ?? oldOrderIds?.oandaTradeId;
+        if (!oandaTradeId) {
+          logger.error({ tradeId: trade.id, symbol: trade.symbol },
+            "Forex stop replace: no OANDA trade id on record — cannot re-protect; will retry next tick");
+          return null;
+        }
+        try {
+          const ids = await ex.replaceTradeProtection(oandaTradeId, market, newStopPrice, tp);
+          return { slOrderId: ids.slOrderId, tpOrderId: ids.tpOrderId, oandaTradeId };
+        } catch (err) {
+          logger.error({ err, tradeId: trade.id, symbol: trade.symbol, newStopPrice },
+            "Forex stop replace failed — position may be running without exchange-side protection until the next tick retries");
+          return null;
+        }
+      }
 
       // Futures Phase: a short (side="sell") closes with a BUY; no atomic
       // OCO exists on futures at all (see lib/binanceFutures.ts header).
@@ -1587,17 +1612,13 @@ class BotEngine {
     const entry = { entryPrice: plan.entryPrice, slPrice: plan.slPrice, tpPrice: plan.tpPrice, qty: plan.qty };
     const isShort = side === "short";
     const isFutures = config.marketType === "futures";
+    // Forex (OANDA): entry is a single atomic MARKET + stopLossOnFill +
+    // takeProfitOnFill order — no fill-then-protect gap, no OCO machinery,
+    // no liquidation geometry. Its branches below mirror the futures ones.
+    const isForex = config.marketType === "forex";
     // Order side to OPEN the position; the opposite side closes it.
     const openSide = isShort ? "sell" : "buy";
     const closeSide = isShort ? "buy" : "sell";
-
-    // Phase 1 forex is OBSERVATION-ONLY: the OANDA adapter is read-only
-    // (market data, balance, open state), execution lands in Phase 2 with
-    // native atomic brackets + forex sizing. Belt-and-suspenders with the
-    // adapter itself, whose createOrder throws NotSupported.
-    if (config.marketType === "forex") {
-      return { entered: false, reason: "Forex order execution arrives in Phase 2 — the engine is running in observation mode (signals and decisions only)" };
-    }
 
     try {
       const marketInfo = ex.markets[market];
@@ -1693,15 +1714,77 @@ class BotEngine {
         }
       }
 
+      // ── Forex pre-flight (all BEFORE the ticket — OANDA rejections after a
+      // fill can't happen since the bracket is atomic, so every refusal must
+      // happen here, with a clean recordable reason) ────────────────────────
+      if (isForex) {
+        // SL/TP must sit on the correct side of entry — OANDA hard-rejects
+        // otherwise, but pre-checking gives the Decisions feed a real reason.
+        const sideOk = isShort
+          ? entry.slPrice > entry.entryPrice && entry.tpPrice < entry.entryPrice
+          : entry.slPrice < entry.entryPrice && entry.tpPrice > entry.entryPrice;
+        if (!sideOk) {
+          return { entered: false, reason: "Forex pre-check: SL/TP on the wrong side of entry" };
+        }
+
+        // Stop must clear the spread comfortably or it rests inside quote
+        // noise (instant fill) or is rejected outright.
+        const pipLocation = Number(marketInfo.info?.pipLocation ?? -4);
+        const live = this.liveTickers.get(symbol);
+        const minStop = minStopDistancePrice(pipLocation, live?.bid ?? 0, live?.ask ?? 0);
+        const stopDist = Math.abs(entry.entryPrice - entry.slPrice);
+        if (stopDist < minStop) {
+          logger.warn(
+            { symbol, side, stopDist: stopDist.toFixed(6), minStop: minStop.toFixed(6) },
+            "Forex stop too close to entry (inside spread guard) — refusing entry",
+          );
+          return {
+            entered: false,
+            reason: `Stop distance ${stopDist.toFixed(5)} is inside the minimum ${minStop.toFixed(5)} (2× spread / 2 pips) — widen the stop or raise Max Loss`,
+          };
+        }
+
+        // Margin sufficiency: OANDA margin = notional × per-instrument
+        // marginRate (NOT notional/leverage — see forexSizing.ts).
+        const marginRate = Number(marketInfo.info?.marginRate ?? 0.05);
+        const requiredMargin = requiredMarginUsd(qty, entry.entryPrice, marginRate);
+        const freeBalance = await this.getBalance();
+        if (requiredMargin > freeBalance * 0.98) {
+          logger.warn(
+            { symbol, requiredMargin: requiredMargin.toFixed(2), freeBalance: freeBalance.toFixed(2), marginRate },
+            "Insufficient forex margin for this trade — skipping entry",
+          );
+          return {
+            entered: false,
+            reason: `Insufficient margin: needs ~$${requiredMargin.toFixed(2)} (rate ${(marginRate * 100).toFixed(1)}%), only $${freeBalance.toFixed(2)} available`,
+          };
+        }
+      }
+
       const estimatedUsdt = qty * entry.entryPrice;
       logger.info(
         { symbol, side, qty, estimatedUsdt: estimatedUsdt.toFixed(2), marketType: config.marketType },
         `Placing market ${openSide.toUpperCase()} (${side})`
       );
-      const openOrder = await ex.createOrder(market, "market", openSide, qty);
 
-      const fillPrice = openOrder.average ?? openOrder.price ?? entry.entryPrice;
-      const filledQty = openOrder.filled ?? qty;
+      // Forex: ONE atomic call opens the position WITH its SL/TP attached
+      // (placed at the strategy's absolute prices — no post-fill slippage
+      // re-anchoring, the resting orders ARE the plan). Crypto keeps the
+      // fill-then-protect sequence below.
+      let openOrder: any = null;
+      let forexBracket: { fillPrice: number; filledUnits: number; oandaTradeId: string; slOrderId: string; tpOrderId: string } | null = null;
+      if (isForex) {
+        forexBracket = await ex.placeProtectedEntry(
+          market, openSide, qty,
+          parseFloat(ex.priceToPrecision(market, entry.slPrice)),
+          parseFloat(ex.priceToPrecision(market, entry.tpPrice)),
+        );
+      } else {
+        openOrder = await ex.createOrder(market, "market", openSide, qty);
+      }
+
+      const fillPrice = forexBracket ? forexBracket.fillPrice : (openOrder.average ?? openOrder.price ?? entry.entryPrice);
+      const filledQty = forexBracket ? forexBracket.filledUnits : (openOrder.filled ?? qty);
 
       // ── FIX (bug #1 / #2): use the STRATEGY's own SL/TP, not a generic
       // ATR recompute ─────────────────────────────────────────────────────
@@ -1726,8 +1809,12 @@ class BotEngine {
       const slDistance = isShort ? entry.slPrice - signalEntry : signalEntry - entry.slPrice; // intended risk ($/unit)
       const tpDistance = isShort ? signalEntry - entry.tpPrice : entry.tpPrice - signalEntry;  // intended reward ($/unit)
 
-      const realSl = isShort ? fillPrice + slDistance : fillPrice - slDistance;
-      const realTp = isShort ? fillPrice - tpDistance : fillPrice + tpDistance;
+      // Forex: the bracket ALREADY rests at the strategy's absolute prices —
+      // recording anything else (e.g. slippage-shifted values) would desync
+      // the DB from the exchange. Crypto re-anchors by entry slippage since
+      // its protection is placed AFTER the fill.
+      const realSl = isForex ? entry.slPrice : isShort ? fillPrice + slDistance : fillPrice - slDistance;
+      const realTp = isForex ? entry.tpPrice : isShort ? fillPrice - tpDistance : fillPrice + tpDistance;
 
       // ── Phase 2.5: SL/TP validity guard — close immediately if invalid ────────
       // An invalid SL/TP after a real fill means we cannot protect the position.
@@ -1751,7 +1838,10 @@ class BotEngine {
         }
       }
 
-      if (!slIsValid || !tpIsValid || liquidationIsUnsafe) {
+      // Forex skips the flatten guard: SL/TP side-validity was enforced
+      // BEFORE the ticket and the bracket filled atomically — if OANDA
+      // accepted the order, the position is protected by construction.
+      if (!isForex && (!slIsValid || !tpIsValid || liquidationIsUnsafe)) {
         logger.error(
           {
             symbol, side,
@@ -1882,6 +1972,9 @@ class BotEngine {
             entryTime: now,
             ...(strategyId   && { strategyId }),
             ...(strategyName && { strategyName }),
+            // Forex: the OANDA trade id — keys every later SL/TP replace and
+            // close for this position, and survives engine restarts.
+            ...(forexBracket && { exchangeTradeId: forexBracket.oandaTradeId }),
             // Phase 4A: preserve the strategy's original signal-time SL/TP/qty
             // (before entry-slippage adjustment) so ExitManager can validate
             // planned vs. actual at close time.
@@ -1925,7 +2018,13 @@ class BotEngine {
       let slOrderId = "";
       let ocoOrderListId = "";
 
-      if (isFutures) {
+      if (isForex && forexBracket) {
+        // Protection was attached ATOMICALLY at entry (stopLossOnFill /
+        // takeProfitOnFill) — nothing to place here, just record the
+        // dependent orders' ids for ExitManager/TradeManager tracking.
+        slOrderId = forexBracket.slOrderId;
+        tpOrderId = forexBracket.tpOrderId;
+      } else if (isFutures) {
         // Futures Phase: no atomic OCO exists on USDⓈ-M Futures — always two
         // independent reduceOnly orders (STOP_MARKET + TAKE_PROFIT_MARKET).
         // ExitManager already treats a missing ocoOrderListId as "cancel the
@@ -1994,6 +2093,7 @@ class BotEngine {
         this.openOrderIds.set(trade!.id, {
           tpOrderId, slOrderId,
           ...(ocoOrderListId && { ocoOrderListId }),
+          ...(forexBracket && { oandaTradeId: forexBracket.oandaTradeId }),
         });
       }
       const bothPlaced    = !!(tpOrderId && slOrderId);

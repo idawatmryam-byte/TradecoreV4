@@ -38,6 +38,10 @@ export interface OpenOrderIds {
    *  side, so ExitManager/TradeManager must NOT separately cancel the
    *  "remaining" leg in that case. */
   ocoOrderListId?: string;
+  /** Forex: the OANDA trade id this position lives under — SL/TP replacement
+   *  and closes are keyed by it. Also persisted as trades.exchangeTradeId so
+   *  a restart can rebuild it. */
+  oandaTradeId?: string;
 }
 
 export interface ExitManagerHost {
