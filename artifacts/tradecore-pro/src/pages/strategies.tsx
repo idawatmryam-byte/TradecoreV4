@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'wouter';
 import {
   useGetStrategies,
   useUpdateStrategyConfig,
@@ -16,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import { TrendingUp, Target, Waves, Zap, ArrowUpDown, BarChart3, Edit2, X, Check, RefreshCw, Flame, ChevronDown, ChevronUp } from 'lucide-react';
+import { TrendingUp, Target, Waves, Zap, ArrowUpDown, BarChart3, Edit2, X, Check, RefreshCw, Flame, ChevronDown, ChevronUp, Stethoscope } from 'lucide-react';
 
 /** Account context the dollar-plan preview needs (from Configuration). */
 interface AccountCtx {
@@ -230,6 +231,16 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
             </p>
           </div>
         </div>
+
+        {/* Diagnose: jump to the Backtesting Lab's Optimization Autopsy with
+            this strategy pre-selected — the fix belongs where the problem was
+            noticed, without duplicating the Autopsy's run/progress/report UI. */}
+        <Link
+          href={`/backtest?autopsy=${strategy.strategyId}`}
+          className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-md border border-dashed text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
+        >
+          <Stethoscope className="h-3 w-3" /> Diagnose
+        </Link>
 
         {/* Config display or edit form */}
         {editing ? (

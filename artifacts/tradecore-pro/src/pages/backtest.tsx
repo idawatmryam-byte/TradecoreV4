@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSearch } from "wouter";
 import { useSection } from "@/lib/section";
 import { AutopsyPanel } from "@/components/autopsy-panel";
 import {
@@ -1280,6 +1281,9 @@ export function Backtest() {
 
   const { mutate: deleteRun } = useDeleteBacktest();
 
+  // Deep-link from the Strategies page's "Diagnose" button (/backtest?autopsy=<strategyId>).
+  const autopsyStrategyId = new URLSearchParams(useSearch()).get("autopsy") ?? undefined;
+
   function handleDelete(id: number) {
     deleteRun({ id }, {
       onSuccess: () => {
@@ -1342,7 +1346,7 @@ export function Backtest() {
         </Button>
       </div>
 
-      <AutopsyPanel />
+      <AutopsyPanel initialStrategyId={autopsyStrategyId} />
 
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 items-start">
         {/* Left column: form + run list */}
