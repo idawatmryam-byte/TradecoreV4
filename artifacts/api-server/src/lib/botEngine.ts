@@ -868,7 +868,20 @@ class BotEngine {
       }
       this.state.balanceUsdt = freeUsdt;
       this.credentialsVerified = true;
-      logger.info({ balanceUsdt: freeUsdt }, "Exchange credentials verified");
+      // OANDA accounts may live in a non-USD home currency — the adapter
+      // already converted to USD; log the currency + rate so a GBP account
+      // reading "$127k" is explainable at a glance.
+      const balInfo = (startupBal as any)?.info;
+      logger.info(
+        {
+          balanceUsdt: freeUsdt,
+          ...(balInfo?.homeCurrency && balInfo.homeCurrency !== "USD" && {
+            homeCurrency: balInfo.homeCurrency,
+            homeToUsdRate: balInfo.homeToUsdRate,
+          }),
+        },
+        "Exchange credentials verified",
+      );
     } catch (authErr: any) {
       this.credentialsVerified = false;
       this.exchange = null;

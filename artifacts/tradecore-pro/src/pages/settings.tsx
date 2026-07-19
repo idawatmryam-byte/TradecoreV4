@@ -171,9 +171,11 @@ function OandaCredentialsCard() {
       <CardContent className="space-y-4">
         <p className="text-xs text-muted-foreground">
           The forex engine connects to OANDA with YOUR OWN personal access token and account ID — create both free at{" "}
-          <code className="text-xs font-mono">oanda.com</code> (open a <strong>practice</strong> account with base
-          currency <strong>USD</strong>, then Manage API Access → generate a token). Stored encrypted; never displayed
+          <code className="text-xs font-mono">oanda.com</code> (open a <strong>practice</strong> account, then Manage
+          API Access → generate a token). Any home currency works: a GBP or EUR account is converted to USD at live
+          rates, and every number in the app (balance, Max Loss, P&L) stays in USD. Stored encrypted; never displayed
           back once saved. Practice tokens only work while the Practice toggle below is on — live needs a live token.
+          Use a <strong>standard</strong> (v20) account — spread-betting sub-accounts have no API access.
         </p>
 
         {!isLoading && (
@@ -312,6 +314,8 @@ export function Settings() {
             <p className="text-xs text-muted-foreground">
               v1 trades <strong>USD-quoted instruments only</strong> (EUR/USD, XAU/USD, …) so dollar risk and P&L are
               exact in account dollars — same risk model, same strategy brains, same Decisions feed as the crypto section.
+              Non-USD accounts (e.g. GBP) are supported: the balance is converted to USD at the live rate, so OANDA's own
+              ledger will show the pound equivalents of the app's dollar numbers.
             </p>
           </CardContent>
         </Card>

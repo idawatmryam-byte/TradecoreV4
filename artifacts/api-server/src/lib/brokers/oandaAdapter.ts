@@ -193,24 +193,68 @@ export class OandaAdapter implements BrokerAdapter {
    * account's home currency (USD in v1) — we surface it under the "USDT" key
    * ON PURPOSE so sizing/balance code is unchanged. "USDT" here means
    * "account home currency", not Tether.
-   *   free  = marginAvailable (what new positions can actually use)
-   *   used  = marginUsed
-   *   total = NAV (balance + unrealized P/L)
+   *
+   * HOME-CURRENCY SUPPORT: the account's home currency may not be USD (a
+   * GBP practice account counts in pounds). All engine math — sizing,
+   * margin checks, P&L — is denominated in USD because every v1 instrument
+   * is USD-quoted, so a non-USD balance is converted to its USD equivalent
+   * HERE, at the live FX mid (cached 60s), and the engine never sees pounds.
+   * Note: OANDA's own ledger converts each realized P&L back to the home
+   * currency at its close-time rate, so the app's USD numbers and OANDA's
+   * GBP history differ by exactly that conversion — expected, not drift.
+   *   free  = marginAvailable (what new positions can actually use), in USD
+   *   used  = marginUsed, in USD
+   *   total = NAV (balance + unrealized P/L), in USD
    */
   async fetchBalance(): Promise<BrokerBalance> {
     const res = await this.client.acct<{
       account: { NAV: string; marginAvailable: string; marginUsed: string; currency: string };
     }>("GET", "/summary");
-    const free = Number(res.account.marginAvailable);
-    const used = Number(res.account.marginUsed);
-    const total = Number(res.account.NAV);
+    const homeCurrency = res.account.currency;
+    const rate = await this.homeToUsdRate(homeCurrency);
+    const free = Number(res.account.marginAvailable) * rate;
+    const used = Number(res.account.marginUsed) * rate;
+    const total = Number(res.account.NAV) * rate;
     return {
       USDT: { free, used, total },
       free: { USDT: free },
       used: { USDT: used },
       total: { USDT: total },
-      info: res.account,
+      info: { ...res.account, homeCurrency, homeToUsdRate: rate },
     };
+  }
+
+  // Cached home→USD conversion (60s TTL — matches the engine's balance cache).
+  private cachedHomeRate: { currency: string; rate: number; at: number } | null = null;
+
+  private async homeToUsdRate(homeCurrency: string): Promise<number> {
+    if (homeCurrency === "USD") return 1;
+    const now = Date.now();
+    if (this.cachedHomeRate?.currency === homeCurrency && now - this.cachedHomeRate.at < 60_000) {
+      return this.cachedHomeRate.rate;
+    }
+    try {
+      const pair = conversionPairFor(homeCurrency);
+      const res = await this.client.acct<{
+        prices: Array<{ bids: Array<{ price: string }>; asks: Array<{ price: string }> }>;
+      }>("GET", `/pricing?instruments=${pair.instrument}`);
+      const p = res.prices[0];
+      const bid = Number(p?.bids[0]?.price ?? 0);
+      const ask = Number(p?.asks[0]?.price ?? 0);
+      const mid = bid > 0 && ask > 0 ? (bid + ask) / 2 : bid || ask;
+      if (!(mid > 0)) throw new Error(`no live price for ${pair.instrument}`);
+      const rate = pair.invert ? 1 / mid : mid;
+      this.cachedHomeRate = { currency: homeCurrency, rate, at: now };
+      return rate;
+    } catch (err) {
+      // A stale rate (minutes old) beats refusing to read the balance; NO
+      // known rate must throw — silently treating pounds as dollars would
+      // mis-size every position by the conversion rate.
+      if (this.cachedHomeRate?.currency === homeCurrency) return this.cachedHomeRate.rate;
+      throw new Error(
+        `OANDA: account home currency is ${homeCurrency} and its USD conversion rate is unavailable (${String((err as Error)?.message ?? err)}) — cannot size positions safely`,
+      );
+    }
   }
 
   // ── Open state (read-only; full reconciliation lands in Phase 3) ──────────
@@ -418,6 +462,21 @@ export class OandaAdapter implements BrokerAdapter {
       info: o,
     };
   }
+}
+
+/**
+ * Which OANDA instrument converts a home currency to USD, and whether the
+ * quote must be inverted. FX convention: majors quote <CCY>_USD (GBP, EUR,
+ * AUD, NZD → multiply by mid), the rest quote USD_<CCY> (JPY, CAD, CHF … →
+ * divide by mid). Exported for offline tests.
+ */
+export function conversionPairFor(homeCurrency: string): { instrument: string; invert: boolean } {
+  const ccy = homeCurrency.toUpperCase();
+  if (ccy === "USD") return { instrument: "", invert: false };
+  const usdQuoted = new Set(["GBP", "EUR", "AUD", "NZD"]);
+  return usdQuoted.has(ccy)
+    ? { instrument: `${ccy}_USD`, invert: false }
+    : { instrument: `USD_${ccy}`, invert: true };
 }
 
 /**

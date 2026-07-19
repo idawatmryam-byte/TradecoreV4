@@ -6,7 +6,7 @@
  *
  * Run:  tsx harness/oanda-adapter.test.ts   (exit 0 = all pass)
  */
-import { aggregateCandles } from "../src/lib/brokers/oandaAdapter";
+import { aggregateCandles, conversionPairFor } from "../src/lib/brokers/oandaAdapter";
 import type { OhlcvCandle } from "../src/lib/brokers/brokerAdapter";
 import {
   buildSymbolMarketMaps,
@@ -61,6 +61,14 @@ const oandaMarkets = {
 const maps = buildSymbolMarketMaps(oandaMarkets);
 expect("toUnified is identity", maps.toUnified.get("EUR_USD"), "EUR_USD");
 expect("toPlain is identity", maps.toPlain.get("XAU_USD"), "XAU_USD");
+
+// ── Home-currency → USD conversion pair selection ───────────────────────────
+expect("USD needs no pair", conversionPairFor("USD"), { instrument: "", invert: false });
+expect("GBP → GBP_USD, multiply", conversionPairFor("GBP"), { instrument: "GBP_USD", invert: false });
+expect("EUR → EUR_USD, multiply", conversionPairFor("EUR"), { instrument: "EUR_USD", invert: false });
+expect("JPY → USD_JPY, inverted", conversionPairFor("JPY"), { instrument: "USD_JPY", invert: true });
+expect("CAD → USD_CAD, inverted", conversionPairFor("CAD"), { instrument: "USD_CAD", invert: true });
+expect("lowercase input normalized", conversionPairFor("gbp"), { instrument: "GBP_USD", invert: false });
 
 // ── Forex fallbacks: identity, never /USDT$/ surgery ────────────────────────
 expect("forex unified fallback identity", unifiedFromPlainFallback("EUR_USD", "forex"), "EUR_USD");
