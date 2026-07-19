@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AutopsyRun,
   BacktestDetail,
   BacktestRun,
   BacktestRunRequest,
@@ -54,6 +55,8 @@ import type {
   ScannerRow,
   SetBinanceCredentialsBody,
   SetOandaCredentialsBody,
+  StartAutopsy202,
+  StartAutopsyBody,
   StatsSummary,
   StrategyConfigUpdate,
   StrategyDecisionEntry,
@@ -2369,6 +2372,231 @@ export const useDeleteOandaCredentials = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getDeleteOandaCredentialsMutationOptions(options));
     }
+
+export const getStartAutopsyUrl = () => {
+
+
+
+
+  return `/api/backtests/autopsy`
+}
+
+/**
+ * Sweeps the strategy's real tunable knobs (dollar risk/target, confidence, hold time) with the live-parity backtest engine and walk-forward validates candidates on a held-out window before any suggestion is made. Crypto section only. Poll GET /backtests/autopsy/{id} for progress and the final diagnosis.
+ * @summary Start an Optimization Autopsy for one strategy (async)
+ */
+export const startAutopsy = async (startAutopsyBody: StartAutopsyBody, options?: RequestInit): Promise<StartAutopsy202> => {
+
+  return customFetch<StartAutopsy202>(getStartAutopsyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(startAutopsyBody)
+  }
+);}
+
+
+
+
+export const getStartAutopsyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startAutopsy>>, TError,{data: BodyType<StartAutopsyBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startAutopsy>>, TError,{data: BodyType<StartAutopsyBody>}, TContext> => {
+
+const mutationKey = ['startAutopsy'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startAutopsy>>, {data: BodyType<StartAutopsyBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  startAutopsy(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartAutopsyMutationResult = NonNullable<Awaited<ReturnType<typeof startAutopsy>>>
+    export type StartAutopsyMutationBody = BodyType<StartAutopsyBody>
+    export type StartAutopsyMutationError = ErrorType<void>
+
+    /**
+ * @summary Start an Optimization Autopsy for one strategy (async)
+ */
+export const useStartAutopsy = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startAutopsy>>, TError,{data: BodyType<StartAutopsyBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startAutopsy>>,
+        TError,
+        {data: BodyType<StartAutopsyBody>},
+        TContext
+      > => {
+      return useMutation(getStartAutopsyMutationOptions(options));
+    }
+
+export const getListAutopsiesUrl = () => {
+
+
+
+
+  return `/api/backtests/autopsy`
+}
+
+/**
+ * @summary Recent Optimization Autopsies for the logged-in user
+ */
+export const listAutopsies = async ( options?: RequestInit): Promise<AutopsyRun[]> => {
+
+  return customFetch<AutopsyRun[]>(getListAutopsiesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAutopsiesQueryKey = () => {
+    return [
+    `/api/backtests/autopsy`
+    ] as const;
+    }
+
+
+export const getListAutopsiesQueryOptions = <TData = Awaited<ReturnType<typeof listAutopsies>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutopsies>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAutopsiesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAutopsies>>> = ({ signal }) => listAutopsies({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAutopsies>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAutopsiesQueryResult = NonNullable<Awaited<ReturnType<typeof listAutopsies>>>
+export type ListAutopsiesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Recent Optimization Autopsies for the logged-in user
+ */
+
+export function useListAutopsies<TData = Awaited<ReturnType<typeof listAutopsies>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutopsies>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAutopsiesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAutopsyUrl = (id: number,) => {
+
+
+
+
+  return `/api/backtests/autopsy/${id}`
+}
+
+/**
+ * @summary One Optimization Autopsy (poll while running)
+ */
+export const getAutopsy = async (id: number, options?: RequestInit): Promise<AutopsyRun> => {
+
+  return customFetch<AutopsyRun>(getGetAutopsyUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAutopsyQueryKey = (id: number,) => {
+    return [
+    `/api/backtests/autopsy/${id}`
+    ] as const;
+    }
+
+
+export const getGetAutopsyQueryOptions = <TData = Awaited<ReturnType<typeof getAutopsy>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAutopsy>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAutopsyQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAutopsy>>> = ({ signal }) => getAutopsy(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAutopsy>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAutopsyQueryResult = NonNullable<Awaited<ReturnType<typeof getAutopsy>>>
+export type GetAutopsyQueryError = ErrorType<void>
+
+
+/**
+ * @summary One Optimization Autopsy (poll while running)
+ */
+
+export function useGetAutopsy<TData = Awaited<ReturnType<typeof getAutopsy>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAutopsy>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAutopsyQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListBacktestsUrl = () => {
 

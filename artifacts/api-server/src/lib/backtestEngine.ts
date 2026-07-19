@@ -101,6 +101,9 @@ export interface BacktestParams {
   /** Faithful mode only: multiply every strategy's maxHoldingSeconds (swing-
    *  profile test — adaptive targets grow ~√hold, amortizing fees). 1 = off. */
   holdMultiplier?: number;
+  /** Optimization Autopsy (faithful mode only): patch ONE strategy's config
+   *  for this run — the candidate parameter set under test. Never persisted. */
+  strategyOverride?: { strategyId: string; patch: Record<string, unknown> };
 
   // ── Futures leverage modeling (spot is the default when unset) ─────────────
   /** "spot" (no leverage/liquidation) | "futures". Default "spot". */
@@ -627,6 +630,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
           Math.max(0, params.rrRatio || 0),
           params.pureExits === true,
           Math.max(0, params.holdMultiplier || 1),
+          params.strategyOverride as Parameters<typeof buildPerStrategyBacktestConfigs>[5],
         )
       : buildEffectiveBacktestConfigs(dbStrategyConfigs, params);
     const strategyConfigs = effectiveConfig.configs;

@@ -656,6 +656,84 @@ paths:
               schema:
                 $ref: "#/components/schemas/OandaCredentialsStatus"
 
+  /backtests/autopsy:
+    post:
+      operationId: startAutopsy
+      tags: [backtests]
+      summary: Start an Optimization Autopsy for one strategy (async)
+      description: >-
+        Sweeps the strategy's real tunable knobs (dollar risk/target,
+        confidence, hold time) with the live-parity backtest engine and
+        walk-forward validates candidates on a held-out window before any
+        suggestion is made. Crypto section only. Poll GET
+        /backtests/autopsy/{id} for progress and the final diagnosis.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [strategyId]
+              properties:
+                strategyId:
+                  type: string
+                symbols:
+                  type: array
+                  items: { type: string }
+                  description: "Defaults to your configured crypto pairs (max 4)."
+                timeframe:
+                  type: string
+                  description: "Default 5m."
+                days:
+                  type: integer
+                  description: "Total window length (train = first ⅔, validation = last ⅓). Default 45, range 14-120."
+      responses:
+        "202":
+          description: Autopsy started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, status]
+                properties:
+                  id: { type: integer }
+                  status: { type: string }
+        "400":
+          description: Invalid request (unknown strategy, or forex section)
+    get:
+      operationId: listAutopsies
+      tags: [backtests]
+      summary: Recent Optimization Autopsies for the logged-in user
+      responses:
+        "200":
+          description: Autopsy runs, newest first (max 20)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AutopsyRun"
+
+  /backtests/autopsy/{id}:
+    get:
+      operationId: getAutopsy
+      tags: [backtests]
+      summary: One Optimization Autopsy (poll while running)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: The autopsy run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutopsyRun"
+        "404":
+          description: Not found
+
   /backtests:
     get:
       operationId: listBacktests
@@ -1598,6 +1676,104 @@ components:
         updatedAt:
           type: ["string", "null"]
           format: date-time
+
+    AutopsyWindowMetrics:
+      type: object
+      required: [totalTrades, winRate, profitFactor, sharpeRatio, maxDrawdown, totalPnl, exitReasons]
+      properties:
+        totalTrades: { type: integer }
+        winRate: { type: number }
+        profitFactor: { type: number }
+        sharpeRatio: { type: number }
+        maxDrawdown: { type: number }
+        totalPnl: { type: number }
+        exitReasons:
+          type: object
+          additionalProperties: { type: integer }
+
+    AutopsyParams:
+      type: object
+      required: [confidenceThreshold, maxHoldingSeconds]
+      properties:
+        maxLossUsdt: { type: ["number", "null"] }
+        targetProfitUsdt: { type: ["number", "null"] }
+        confidenceThreshold: { type: number }
+        maxHoldingSeconds: { type: number }
+
+    AutopsyFinding:
+      type: object
+      required: [param, label, evidence, action]
+      properties:
+        param: { type: string }
+        label: { type: string }
+        current: { type: ["number", "null"] }
+        suggested: { type: ["number", "null"] }
+        evidence: { type: string }
+        action: { type: string }
+
+    AutopsyDiagnosis:
+      type: object
+      required: [verdict, summary, findings]
+      properties:
+        verdict:
+          type: string
+          enum: [improved, no_better, insufficient_data]
+        summary: { type: string }
+        findings:
+          type: array
+          items:
+            $ref: "#/components/schemas/AutopsyFinding"
+
+    AutopsyRun:
+      type: object
+      required: [id, strategyId, symbols, timeframe, trainStart, trainEnd, valStart, valEnd, status, progress, totalBacktests, truncated, currentParams, createdAt]
+      properties:
+        id: { type: integer }
+        strategyId: { type: string }
+        strategyName: { type: ["string", "null"] }
+        symbols:
+          type: array
+          items: { type: string }
+        timeframe: { type: string }
+        trainStart: { type: string, format: date-time }
+        trainEnd: { type: string, format: date-time }
+        valStart: { type: string, format: date-time }
+        valEnd: { type: string, format: date-time }
+        status: { type: string, enum: [pending, running, completed, failed] }
+        progress: { type: integer }
+        stage: { type: ["string", "null"] }
+        totalBacktests: { type: integer }
+        truncated: { type: boolean }
+        currentParams:
+          $ref: "#/components/schemas/AutopsyParams"
+        bestParams:
+          oneOf:
+            - $ref: "#/components/schemas/AutopsyParams"
+            - type: "null"
+        currentTrain:
+          oneOf:
+            - $ref: "#/components/schemas/AutopsyWindowMetrics"
+            - type: "null"
+        currentVal:
+          oneOf:
+            - $ref: "#/components/schemas/AutopsyWindowMetrics"
+            - type: "null"
+        bestTrain:
+          oneOf:
+            - $ref: "#/components/schemas/AutopsyWindowMetrics"
+            - type: "null"
+        bestVal:
+          oneOf:
+            - $ref: "#/components/schemas/AutopsyWindowMetrics"
+            - type: "null"
+        verdict: { type: ["string", "null"] }
+        diagnosis:
+          oneOf:
+            - $ref: "#/components/schemas/AutopsyDiagnosis"
+            - type: "null"
+        error: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: ["string", "null"] }
 
     OandaCredentialsStatus:
       type: object

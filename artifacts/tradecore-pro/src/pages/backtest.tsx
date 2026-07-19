@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSection } from "@/lib/section";
+import { AutopsyPanel } from "@/components/autopsy-panel";
 import {
   useListBacktests,
   useRunBacktest,
@@ -1340,6 +1341,8 @@ export function Backtest() {
           {showForm ? "Hide Form" : "New Run"}
         </Button>
       </div>
+
+      <AutopsyPanel />
 
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 items-start">
         {/* Left column: form + run list */}

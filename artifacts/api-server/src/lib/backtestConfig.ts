@@ -106,6 +106,11 @@ export function buildPerStrategyBacktestConfigs(
    *  pure exits, but the ~0.08/trade edge was 8× smaller than the fee.
    *  1 (or ≤0) = off. */
   holdMultiplier = 1,
+  /** Optimization Autopsy: patch ONE strategy's config for this run only
+   *  (candidate knobs under test — dollar plan, confidence, hold time…).
+   *  Applied last, after every other reshaper, and never touches the DB.
+   *  Undefined = fully faithful (the default for every existing caller). */
+  strategyOverride?: { strategyId: string; patch: Partial<StrategyConfig> },
 ): EffectiveBacktestConfig {
   const configs = new Map<string, StrategyConfig>();
   const summary: EffectiveStrategyConfigSummary[] = [];
@@ -130,6 +135,8 @@ export function buildPerStrategyBacktestConfigs(
       ...(holdMultiplier > 0 && holdMultiplier !== 1 && {
         maxHoldingSeconds: Math.round(dbConfig.maxHoldingSeconds * holdMultiplier),
       }),
+      // Autopsy candidate knobs — last so they win over every reshaper above.
+      ...(strategyOverride?.strategyId === strategyId ? strategyOverride.patch : undefined),
     });
     summary.push({
       strategyId,

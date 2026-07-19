@@ -5,3 +5,4 @@ export * from "./backtest";
 export * from "./strategyConfigs";
 export * from "./users";
 export * from "./strategyDecisions";
+export * from "./autopsy";

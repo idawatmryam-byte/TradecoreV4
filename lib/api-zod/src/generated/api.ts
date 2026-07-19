@@ -700,6 +700,198 @@ export const DeleteOandaCredentialsResponse = zod.object({
 
 
 /**
+ * Sweeps the strategy's real tunable knobs (dollar risk/target, confidence, hold time) with the live-parity backtest engine and walk-forward validates candidates on a held-out window before any suggestion is made. Crypto section only. Poll GET /backtests/autopsy/{id} for progress and the final diagnosis.
+ * @summary Start an Optimization Autopsy for one strategy (async)
+ */
+export const StartAutopsyBody = zod.object({
+  "strategyId": zod.string(),
+  "symbols": zod.array(zod.string()).optional().describe('Defaults to your configured crypto pairs (max 4).'),
+  "timeframe": zod.string().optional().describe('Default 5m.'),
+  "days": zod.number().optional().describe('Total window length (train = first ⅔, validation = last ⅓). Default 45, range 14-120.')
+})
+
+export const StartAutopsyResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.string()
+})
+
+
+/**
+ * @summary Recent Optimization Autopsies for the logged-in user
+ */
+export const ListAutopsiesResponseItem = zod.object({
+  "id": zod.number(),
+  "strategyId": zod.string(),
+  "strategyName": zod.string().nullish(),
+  "symbols": zod.array(zod.string()),
+  "timeframe": zod.string(),
+  "trainStart": zod.coerce.date(),
+  "trainEnd": zod.coerce.date(),
+  "valStart": zod.coerce.date(),
+  "valEnd": zod.coerce.date(),
+  "status": zod.enum(['pending', 'running', 'completed', 'failed']),
+  "progress": zod.number(),
+  "stage": zod.string().nullish(),
+  "totalBacktests": zod.number(),
+  "truncated": zod.boolean(),
+  "currentParams": zod.object({
+  "maxLossUsdt": zod.number().nullish(),
+  "targetProfitUsdt": zod.number().nullish(),
+  "confidenceThreshold": zod.number(),
+  "maxHoldingSeconds": zod.number()
+}),
+  "bestParams": zod.union([zod.object({
+  "maxLossUsdt": zod.number().nullish(),
+  "targetProfitUsdt": zod.number().nullish(),
+  "confidenceThreshold": zod.number(),
+  "maxHoldingSeconds": zod.number()
+}),zod.null()]).optional(),
+  "currentTrain": zod.union([zod.object({
+  "totalTrades": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "sharpeRatio": zod.number(),
+  "maxDrawdown": zod.number(),
+  "totalPnl": zod.number(),
+  "exitReasons": zod.record(zod.string(), zod.number())
+}),zod.null()]).optional(),
+  "currentVal": zod.union([zod.object({
+  "totalTrades": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "sharpeRatio": zod.number(),
+  "maxDrawdown": zod.number(),
+  "totalPnl": zod.number(),
+  "exitReasons": zod.record(zod.string(), zod.number())
+}),zod.null()]).optional(),
+  "bestTrain": zod.union([zod.object({
+  "totalTrades": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "sharpeRatio": zod.number(),
+  "maxDrawdown": zod.number(),
+  "totalPnl": zod.number(),
+  "exitReasons": zod.record(zod.string(), zod.number())
+}),zod.null()]).optional(),
+  "bestVal": zod.union([zod.object({
+  "totalTrades": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "sharpeRatio": zod.number(),
+  "maxDrawdown": zod.number(),
+  "totalPnl": zod.number(),
+  "exitReasons": zod.record(zod.string(), zod.number())
+}),zod.null()]).optional(),
+  "verdict": zod.string().nullish(),
+  "diagnosis": zod.union([zod.object({
+  "verdict": zod.enum(['improved', 'no_better', 'insufficient_data']),
+  "summary": zod.string(),
+  "findings": zod.array(zod.object({
+  "param": zod.string(),
+  "label": zod.string(),
+  "current": zod.number().nullish(),
+  "suggested": zod.number().nullish(),
+  "evidence": zod.string(),
+  "action": zod.string()
+}))
+}),zod.null()]).optional(),
+  "error": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.string().nullish()
+})
+export const ListAutopsiesResponse = zod.array(ListAutopsiesResponseItem)
+
+
+/**
+ * @summary One Optimization Autopsy (poll while running)
+ */
+export const GetAutopsyParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetAutopsyResponse = zod.object({
+  "id": zod.number(),
+  "strategyId": zod.string(),
+  "strategyName": zod.string().nullish(),
+  "symbols": zod.array(zod.string()),
+  "timeframe": zod.string(),
+  "trainStart": zod.coerce.date(),
+  "trainEnd": zod.coerce.date(),
+  "valStart": zod.coerce.date(),
+  "valEnd": zod.coerce.date(),
+  "status": zod.enum(['pending', 'running', 'completed', 'failed']),
+  "progress": zod.number(),
+  "stage": zod.string().nullish(),
+  "totalBacktests": zod.number(),
+  "truncated": zod.boolean(),
+  "currentParams": zod.object({
+  "maxLossUsdt": zod.number().nullish(),
+  "targetProfitUsdt": zod.number().nullish(),
+  "confidenceThreshold": zod.number(),
+  "maxHoldingSeconds": zod.number()
+}),
+  "bestParams": zod.union([zod.object({
+  "maxLossUsdt": zod.number().nullish(),
+  "targetProfitUsdt": zod.number().nullish(),
+  "confidenceThreshold": zod.number(),
+  "maxHoldingSeconds": zod.number()
+}),zod.null()]).optional(),
+  "currentTrain": zod.union([zod.object({
+  "totalTrades": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "sharpeRatio": zod.number(),
+  "maxDrawdown": zod.number(),
+  "totalPnl": zod.number(),
+  "exitReasons": zod.record(zod.string(), zod.number())
+}),zod.null()]).optional(),
+  "currentVal": zod.union([zod.object({
+  "totalTrades": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "sharpeRatio": zod.number(),
+  "maxDrawdown": zod.number(),
+  "totalPnl": zod.number(),
+  "exitReasons": zod.record(zod.string(), zod.number())
+}),zod.null()]).optional(),
+  "bestTrain": zod.union([zod.object({
+  "totalTrades": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "sharpeRatio": zod.number(),
+  "maxDrawdown": zod.number(),
+  "totalPnl": zod.number(),
+  "exitReasons": zod.record(zod.string(), zod.number())
+}),zod.null()]).optional(),
+  "bestVal": zod.union([zod.object({
+  "totalTrades": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "sharpeRatio": zod.number(),
+  "maxDrawdown": zod.number(),
+  "totalPnl": zod.number(),
+  "exitReasons": zod.record(zod.string(), zod.number())
+}),zod.null()]).optional(),
+  "verdict": zod.string().nullish(),
+  "diagnosis": zod.union([zod.object({
+  "verdict": zod.enum(['improved', 'no_better', 'insufficient_data']),
+  "summary": zod.string(),
+  "findings": zod.array(zod.object({
+  "param": zod.string(),
+  "label": zod.string(),
+  "current": zod.number().nullish(),
+  "suggested": zod.number().nullish(),
+  "evidence": zod.string(),
+  "action": zod.string()
+}))
+}),zod.null()]).optional(),
+  "error": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.string().nullish()
+})
+
+
+/**
  * @summary List all backtest runs
  */
 export const ListBacktestsResponseItem = zod.object({
