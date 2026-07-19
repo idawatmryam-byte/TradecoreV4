@@ -29,6 +29,9 @@ import { analyzeTrade } from "./tradeAnalysis";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { getBinanceCredentials } from "./binanceCredentials";
+import { getOandaCredentials } from "./oandaCredentials";
+import { OandaAdapter } from "./brokers/oandaAdapter";
+import type { MarketType } from "./brokers/brokerAdapter";
 import {
   buildSignalRow,
   type MultiTimeframeCandles,
@@ -75,6 +78,11 @@ type Candle = [number, number, number, number, number, number];
 // connection of the right market type (candles need no credentials).
 const publicClients: Partial<Record<"spot" | "futures", any>> = {};
 
+
+/** Normalize the DB's free-text marketType column to the typed union. */
+function toMarketType(raw: string): MarketType {
+  return raw === "futures" ? "futures" : raw === "forex" ? "forex" : "spot";
+}
 
 function publicDataClient(marketType: "spot" | "futures"): any {
   if (!publicClients[marketType]) {
@@ -143,7 +151,7 @@ class BotEngine {
   /** Exact DB-symbol ⟷ unified-symbol maps, built from loadMarkets() at start(). */
   private symbolMaps: SymbolMarketMaps | null = null;
   /** Market type of the ACTIVE exchange connection (set at start()). */
-  private activeMarketType: "spot" | "futures" = "spot";
+  private activeMarketType: MarketType = "spot";
   private scannerData: Map<string, ScannerRow> = new Map();
   private openOrderIds: Map<number, OpenOrderIds> = new Map();
 
@@ -371,7 +379,7 @@ class BotEngine {
   // Exchange initialisation
   // ---------------------------------------------------------------------------
 
-  private async initExchange(testnet: boolean, marketType: "spot" | "futures"): Promise<any> {
+  private async initExchange(testnet: boolean, marketType: MarketType): Promise<any> {
     if (this.exchange) return this.exchange;
     const ex = await this.buildExchange(testnet, marketType);
     this.exchange = ex;
@@ -381,7 +389,19 @@ class BotEngine {
   /** Construct (without caching) an exchange client for the given market
    *  type. Used by initExchange, and directly by closeTradeManually when the
    *  trade's market type differs from whatever the engine is running. */
-  private async buildExchange(testnet: boolean, marketType: "spot" | "futures"): Promise<any> {
+  private async buildExchange(testnet: boolean, marketType: MarketType): Promise<any> {
+    if (marketType === "forex") {
+      // Forex section → OANDA. Practice vs live is only a base-URL choice,
+      // reusing the same testnet flag the crypto path uses for paper trading.
+      const oanda = await getOandaCredentials(this.userId);
+      if (!oanda) {
+        throw new Error(
+          "No OANDA credentials configured for this account — add your API token and account ID on the Settings page before starting the forex engine.",
+        );
+      }
+      return new OandaAdapter({ token: oanda.token, accountId: oanda.accountId, practice: testnet });
+    }
+
     const credentials = await getBinanceCredentials(this.userId);
     if (!credentials) {
       throw new Error(
@@ -610,10 +630,15 @@ class BotEngine {
     symbol: string,
     timeframe: string,
     limit: number,
-    marketType: "spot" | "futures",
+    marketType: MarketType,
   ): Promise<Candle[]> {
     if (this.exchange && this.activeMarketType === marketType) {
       return this.exchange.fetchOHLCV(this.toMarket(symbol), timeframe, undefined, limit);
+    }
+    if (marketType === "forex") {
+      // Every OANDA endpoint (candles included) requires the user's token —
+      // there is no keyless public client to fall back to like Binance's.
+      throw new Error("Forex charts need the forex engine running (OANDA has no public keyless data feed) — press Start on the Forex section.");
     }
     const ex = publicDataClient(marketType);
     if (!ex.markets || Object.keys(ex.markets).length === 0) {
@@ -793,10 +818,10 @@ class BotEngine {
     // reset required" safety pause would defeat its entire purpose.
     this.riskPaused = config.riskPaused;
     this.riskViolationCount = config.riskViolationCount;
-    this.activeMarketType = config.marketType === "futures" ? "futures" : "spot";
+    this.activeMarketType = toMarketType(config.marketType);
     const ex = await this.initExchange(config.testnet, this.activeMarketType);
 
-    logger.info("Loading Binance markets…");
+    logger.info(`Loading ${this.activeMarketType === "forex" ? "OANDA instruments" : "Binance markets"}…`);
     await ex.loadMarkets();
     this.availableMarkets = new Set(Object.keys(ex.markets));
     this.marketsLoaded = this.availableMarkets.size;
@@ -833,15 +858,20 @@ class BotEngine {
       // ccxt attaches `info` (the raw Binance error body) at runtime; it isn't
       // on the typed AuthenticationError surface, hence the cast.
       const code = (authErr as { info?: { code?: string } }).info?.code ?? authErr.message ?? "unknown";
-      const environment = config.testnet
-        ? config.marketType === "futures"
-          ? "Binance Futures Demo Trading (demo-fapi.binance.com)"
-          : "Binance spot testnet (testnet.binance.vision)"
-        : "Binance live";
+      const environment =
+        config.marketType === "forex"
+          ? config.testnet
+            ? "OANDA practice (api-fxpractice.oanda.com)"
+            : "OANDA live (api-fxtrade.oanda.com)"
+          : config.testnet
+            ? config.marketType === "futures"
+              ? "Binance Futures Demo Trading (demo-fapi.binance.com)"
+              : "Binance spot testnet (testnet.binance.vision)"
+            : "Binance live";
       throw new Error(
-        `Exchange authentication failed (Binance code ${code}). ` +
-          `The API key on the Settings page must be issued by ${environment} — ` +
-          `each environment issues its own keys and will reject another's.`,
+        `Exchange authentication failed (${code}). ` +
+          `The credentials on the Settings page must be issued by ${environment} — ` +
+          `each environment issues its own keys/tokens and will reject another's.`,
       );
     }
 
@@ -855,7 +885,7 @@ class BotEngine {
     // tick against stale/empty in-memory order tracking. See
     // reconcileOnStartup()'s header comment for exactly what this fixes.
     try {
-      await this.reconcileOnStartup(config.marketType === "futures" ? "futures" : "spot");
+      await this.reconcileOnStartup(this.activeMarketType);
     } catch (err) {
       // Reconciliation failing should never block the bot from starting —
       // that would turn a diagnostic safety net into an outage — but it
@@ -877,7 +907,10 @@ class BotEngine {
     // futures mode scanning zero pairs with no error anywhere. If nothing
     // survives the availability filter, alert and say exactly why.
     if (configuredPairs.length > 0 && this.monitoredMarkets.length === 0) {
-      const envLabel = this.activeMarketType === "futures" ? "Binance USDⓈ-M futures" : "Binance spot";
+      const envLabel =
+        this.activeMarketType === "futures" ? "Binance USDⓈ-M futures"
+        : this.activeMarketType === "forex" ? "OANDA"
+        : "Binance spot";
       const msg =
         `⚠️ None of your ${configuredPairs.length} configured pairs (${configuredPairs.join(", ")}) ` +
         `exist on ${envLabel} (${this.state.mode}). The bot is running but cannot scan or trade ` +
@@ -971,7 +1004,7 @@ class BotEngine {
       // overrides (a no-op unless highFrequencyTestMode is on AND on testnet).
       // This also sets this.highFreqActive for getStrategyConfigs/isToxicHour.
       const config = this.applyHighFreqOverrides(await this.loadConfig());
-      const ex = await this.initExchange(config.testnet, config.marketType === "futures" ? "futures" : "spot");
+      const ex = await this.initExchange(config.testnet, toMarketType(config.marketType));
       const now = new Date();
       this.state.lastScanAt = now.toISOString();
 
@@ -1557,6 +1590,14 @@ class BotEngine {
     // Order side to OPEN the position; the opposite side closes it.
     const openSide = isShort ? "sell" : "buy";
     const closeSide = isShort ? "buy" : "sell";
+
+    // Phase 1 forex is OBSERVATION-ONLY: the OANDA adapter is read-only
+    // (market data, balance, open state), execution lands in Phase 2 with
+    // native atomic brackets + forex sizing. Belt-and-suspenders with the
+    // adapter itself, whose createOrder throws NotSupported.
+    if (config.marketType === "forex") {
+      return { entered: false, reason: "Forex order execution arrives in Phase 2 — the engine is running in observation mode (signals and decisions only)" };
+    }
 
     try {
       const marketInfo = ex.markets[market];
@@ -2147,7 +2188,7 @@ class BotEngine {
 
     try {
       const config = await this.loadConfig();
-      const tradeMarketType = trade.marketType === "futures" ? "futures" : "spot";
+      const tradeMarketType = toMarketType(trade.marketType);
       // Use the engine's live connection when it matches the trade's market;
       // otherwise build a DEDICATED client for this close. Never reuse a spot
       // client to close a futures trade (or vice versa), and never mutate the
@@ -2212,7 +2253,7 @@ class BotEngine {
   // price/strategy/risk profile for a position this bot didn't itself open
   // is worse than loudly alerting and leaving it for a human to look at.
   // ---------------------------------------------------------------------------
-  private async reconcileOnStartup(marketType: "spot" | "futures"): Promise<void> {
+  private async reconcileOnStartup(marketType: MarketType): Promise<void> {
     const ex = this.exchange!;
     const openTrades = await db
       .select()

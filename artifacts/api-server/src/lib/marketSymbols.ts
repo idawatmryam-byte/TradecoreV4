@@ -76,7 +76,10 @@ export function buildSymbolMarketMaps(markets: Record<string, unknown>): SymbolM
  * loaded yet) or a symbol isn't in them. These implement the format rules
  * directly; the maps are always preferred because they're exact.
  */
-export function unifiedFromPlainFallback(symbol: string, marketType: "spot" | "futures"): string {
+export function unifiedFromPlainFallback(symbol: string, marketType: "spot" | "futures" | "forex"): string {
+  // Forex (OANDA) uses broker-native names ("EUR_USD") as BOTH the stored
+  // symbol and the market key — identity, never the /USDT$/ surgery below.
+  if (marketType === "forex") return symbol;
   const spotStyle = symbol.replace(/USDT$/, "/USDT");
   return marketType === "futures" ? `${spotStyle}:USDT` : spotStyle;
 }
