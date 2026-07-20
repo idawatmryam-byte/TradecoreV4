@@ -43,7 +43,7 @@ import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig, type Positi
 import { recordDecisions, pruneDecisions, planToRecord, rejectionToRecord, type DecisionRecord } from "./decisionRecorder";
 import { DEFAULT_FEE_RATE, FUTURES_FEE_RATE, FOREX_COST_RATE, DEFAULT_SLIPPAGE_RATE, FOREX_SLIPPAGE_RATE } from "./tradingCosts";
 import { requiredMarginUsd, minStopDistancePrice } from "./forexSizing";
-import { isInstrumentOpen, nextInstrumentOpen, instrumentClassOf } from "./marketHours";
+import { isInstrumentOpen, nextInstrumentOpen, instrumentClassOf, type InstrumentClass } from "./marketHours";
 import { loadStrategyConfigs } from "./strategyConfigLoader";
 import { ExitManager, type OpenOrderIds } from "./exitManager";
 import type { Section } from "./engineRegistry";
@@ -1133,19 +1133,39 @@ class BotEngine {
       // weekend calendar; metals/CFDs additionally sit out the daily
       // 17:00–18:00 New York maintenance break.
       if (this.activeMarketType === "forex") {
-        const closedNow: string[] = [];
+        const closedNow: Array<{ symbol: string; cls: InstrumentClass }> = [];
         pairs = pairs.filter((s) => {
           const cls = instrumentClassOf(ex.markets?.[this.toMarket(s)]?.info?.type);
           if (isInstrumentOpen(cls, now)) return true;
-          closedNow.push(s);
+          closedNow.push({ symbol: s, cls });
           return false;
         });
-        for (const sym of closedNow) {
-          const row = this.scannerData.get(sym);
-          if (row) this.scannerData.set(sym, { ...row, status: "skipped" });
+        for (const { symbol, cls } of closedNow) {
+          const row = this.scannerData.get(symbol);
+          if (row) this.scannerData.set(symbol, { ...row, status: "skipped" });
+          // Overwrite the symbol's decision-trace entry too. Without this the
+          // cockpit keeps Friday's last real scan ("No strategy produced a
+          // qualifying entry signal") as the headline all weekend — observed
+          // live and reported as "is the engine broken?". The honest state is
+          // a Market Hours block with the reopen time.
+          const reopens = nextInstrumentOpen(cls, now);
+          const reason = `Market closed — reopens ${reopens.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+          const closedStage = { name: "Market Hours", status: "fail" as const, detail: reason };
+          this.symbolDecisions.set(symbol, {
+            symbol,
+            timestamp: now.toISOString(),
+            confidence: 0,
+            finalDecision: "BLOCKED",
+            blockStage: "Market Hours",
+            blockReason: reason,
+            stages: [closedStage],
+          });
         }
         if (pairs.length === 0 && closedNow.length > 0) {
           const reopens = nextInstrumentOpen("CURRENCY", now);
+          // Mark the scan as having happened so "last scan" stays current on
+          // the dashboard while the market is closed.
+          this.state.lastScanAt = now.toISOString();
           logger.info(
             { closed: closedNow.length, reopensAt: reopens.toISOString() },
             "FOREX market closed — scan skipped; open positions remain protected by resting OANDA SL/TP",

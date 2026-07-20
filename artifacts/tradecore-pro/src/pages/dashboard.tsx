@@ -2,7 +2,7 @@ import { useGetBotStatus, useGetScannerData, useStartBot, useStopBot, useGetBina
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
 import { Link } from "wouter";
-import { Power, Square, Activity, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, WifiOff, X, Loader2, ChevronDown, ChevronUp, KeyRound } from "lucide-react";
+import { Power, Square, Activity, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, WifiOff, X, Loader2, ChevronDown, ChevronUp, KeyRound, Clock } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
@@ -314,6 +314,75 @@ function ConnectKeysBanner() {
   );
 }
 
+/** Server payload from GET /market/forex-hours (pure calendar math — works
+ *  even while the forex engine is stopped). */
+interface ForexHoursStatus {
+  now: string;
+  currency: { open: boolean; nextOpen: string | null; nextClose: string | null };
+  metalsAndIndices: { open: boolean; nextOpen: string | null; nextClose: string | null };
+}
+
+/** "Sun 22:00" in the VIEWER'S timezone — the server sends UTC instants. */
+function formatBoundary(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+/** "in 26h" / "in 45m" until the given instant. */
+function formatUntil(iso: string): string {
+  const mins = Math.max(0, Math.round((new Date(iso).getTime() - Date.now()) / 60_000));
+  if (mins < 90) return `in ${mins}m`;
+  return `in ${Math.round(mins / 60)}h`;
+}
+
+/**
+ * Forex-only banner: is the market tradeable RIGHT NOW? Answers the #1
+ * confusion of a 24/7-crypto user looking at a quiet forex engine on a
+ * weekend — the engine isn't broken, the market is closed. Also surfaces
+ * the metals/indices daily maintenance break when currencies are open but
+ * gold/index CFDs briefly aren't.
+ */
+function ForexMarketBanner() {
+  const { section } = useSection();
+  const { data } = useQuery<ForexHoursStatus>({
+    queryKey: ["forex-market-hours"],
+    enabled: section === "forex",
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const res = await fetch("/api/market/forex-hours", { credentials: "same-origin", headers: sectionHeaders() });
+      if (!res.ok) throw new Error("forex hours fetch failed");
+      return res.json();
+    },
+  });
+  if (section !== "forex" || !data) return null;
+
+  const fx = data.currency;
+  const metals = data.metalsAndIndices;
+  return (
+    <div className={cn(
+      "flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-4 py-2.5 text-xs font-mono",
+      fx.open ? "border-success/30 bg-success/5" : "border-warning/40 bg-warning/10",
+    )}>
+      <span className="relative flex h-2.5 w-2.5 shrink-0">
+        {fx.open && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />}
+        <span className={cn("relative inline-flex rounded-full h-2.5 w-2.5", fx.open ? "bg-success" : "bg-warning")} />
+      </span>
+      <span className={cn("font-bold tracking-wider uppercase", fx.open ? "text-success" : "text-warning")}>
+        {fx.open ? "Forex market open" : "Forex market closed"}
+      </span>
+      <span className="text-muted-foreground">
+        {fx.open && fx.nextClose != null && `closes ${formatBoundary(fx.nextClose)} (${formatUntil(fx.nextClose)})`}
+        {!fx.open && fx.nextOpen != null && `reopens ${formatBoundary(fx.nextOpen)} (${formatUntil(fx.nextOpen)})`}
+      </span>
+      {fx.open && !metals.open && metals.nextOpen != null && (
+        <span className="text-muted-foreground flex items-center gap-1.5 basis-full sm:basis-auto">
+          <Clock className="h-3 w-3 shrink-0" />
+          Gold &amp; indices on daily break — back {formatBoundary(metals.nextOpen)}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function Dashboard() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -388,6 +457,9 @@ export function Dashboard() {
       {/* First-run: prompt new accounts to connect their own Binance keys. */}
       <ConnectKeysBanner />
 
+      {/* Forex only: live market open/closed status with the next boundary. */}
+      <ForexMarketBanner />
+
       {/* Hero Control Panel */}
       <CollapsibleSection
         id="engine"
@@ -455,7 +527,13 @@ export function Dashboard() {
             valueClass={bot?.balanceUsdt == null ? "text-muted-foreground" : undefined}
             value={bot?.balanceUsdt == null ? "—" : formatCurrency(bot.balanceUsdt)}
             sub={bot?.balanceUsdt != null && (
-              <p className="text-[10px] font-mono text-muted-foreground mt-1 uppercase truncate">USDT · {bot?.mode}</p>
+              <p className="text-[10px] font-mono text-muted-foreground mt-1 uppercase truncate">
+                {/* OANDA has no "testnet" — it's a practice account, and the
+                    engine reports balances in USD (home currency converted). */}
+                {section === "forex"
+                  ? `USD · ${bot?.mode === "testnet" ? "practice" : bot?.mode}`
+                  : `USDT · ${bot?.mode}`}
+              </p>
             )}
           />
           <Stat

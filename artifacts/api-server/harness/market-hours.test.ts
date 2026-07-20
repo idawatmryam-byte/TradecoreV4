@@ -5,7 +5,7 @@
  *
  * Run:  tsx harness/market-hours.test.ts   (exit 0 = all pass)
  */
-import { isUsEasternDst, nyFivePmUtcHour, isInstrumentOpen, nextInstrumentOpen, instrumentClassOf } from "../src/lib/marketHours";
+import { isUsEasternDst, nyFivePmUtcHour, isInstrumentOpen, nextInstrumentOpen, nextInstrumentClose, instrumentClassOf } from "../src/lib/marketHours";
 
 let failures = 0;
 function expect(name: string, actual: unknown, wanted: unknown) {
@@ -61,6 +61,28 @@ expect(
   "already open returns now",
   nextInstrumentOpen("CURRENCY", at("2026-07-15T12:00:00Z")).toISOString(),
   "2026-07-15T12:00:00.000Z",
+);
+
+// ── nextInstrumentClose (feeds the dashboard "closes Fri 21:00" banner) ─────
+expect(
+  "Wednesday noon → Friday 21:00 UTC weekend close (currency, EDT)",
+  nextInstrumentClose("CURRENCY", at("2026-07-15T12:00:00Z")).toISOString(),
+  "2026-07-17T21:00:00.000Z",
+);
+expect(
+  "gold Monday noon → same-day 21:00 UTC daily break",
+  nextInstrumentClose("METAL", at("2026-07-13T12:00:00Z")).toISOString(),
+  "2026-07-13T21:00:00.000Z",
+);
+expect(
+  "winter Friday → 22:00 UTC close (EST)",
+  nextInstrumentClose("CURRENCY", at("2026-01-16T12:00:00Z")).toISOString(),
+  "2026-01-16T22:00:00.000Z",
+);
+expect(
+  "already closed returns now",
+  nextInstrumentClose("CURRENCY", at("2026-07-18T12:00:00Z")).toISOString(),
+  "2026-07-18T12:00:00.000Z",
 );
 
 // ── instrumentClassOf coercion ──────────────────────────────────────────────
