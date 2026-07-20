@@ -24,8 +24,24 @@ export async function loadStrategyConfigs(
   try {
     // Upsert defaults for each known strategy so they always exist in DB
     for (const strategy of ALL_STRATEGIES) {
-      const defaults = DEFAULT_STRATEGY_CONFIGS[strategy.strategyId];
+      let defaults = DEFAULT_STRATEGY_CONFIGS[strategy.strategyId];
       if (!defaults) continue;
+      // Forex seeds get FX-appropriate dollar plans. The crypto defaults
+      // (e.g. risk $40 → make $80 on $300 notional) imply double-digit-%
+      // price moves — EUR/USD moves ~0.5% a DAY, so those targets are
+      // unreachable and the section would never trade (observed live:
+      // "target 15% unreachable at any leverage" on every scan). FX gets
+      // big notional + small % targets + slower holds instead. Only
+      // affects NEW rows — existing user-edited configs are never touched.
+      if (section === "forex") {
+        defaults = {
+          ...defaults,
+          tradeAmountUsdt: 5000,
+          maxLossUsdt: 10,
+          targetProfitUsdt: 12,
+          maxHoldingSeconds: Math.min(defaults.maxHoldingSeconds * 4, 8 * 3600),
+        };
+      }
       await db
         .insert(strategyConfigsTable)
         .values({
