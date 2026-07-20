@@ -213,6 +213,8 @@ export interface DecisionContext {
   leverageCap: number;
   /** Taker fee fraction per leg for this market. */
   feeRate: number;
+  /** Slippage fraction per leg for this market (crypto 0.05%, forex 0.005%). */
+  slippageRate: number;
   /**
    * Resolved dollar plan for THIS strategy (per-strategy plan → global dollar
    * config → null = legacy %). Its `leverage` field equals leverageCap; the

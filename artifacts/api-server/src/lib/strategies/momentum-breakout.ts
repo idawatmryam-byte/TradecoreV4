@@ -161,7 +161,7 @@ export class MomentumBreakoutStrategy implements Strategy {
       );
     }
 
-    const fee = feeViability(lastPrice, solved.slPrice, solved.tpPrice, side);
+    const fee = feeViability(lastPrice, solved.slPrice, solved.tpPrice, side, ctx.feeRate, ctx.slippageRate);
     if (!fee.viable) {
       return rejection("reward-risk", fee.reason ?? "reward does not clear costs");
     }

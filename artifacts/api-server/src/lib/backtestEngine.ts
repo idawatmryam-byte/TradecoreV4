@@ -496,6 +496,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     marketType: isFutures ? "futures" : "spot",
     leverage,
     feeRate,
+    slippageRate,
     globalTradeAmountUsdt: params.positionSizeUsdt,
     ...(params.riskModel === "dollar" && {
       globalMaxLossUsdt: params.maxLossUsdt ?? 0,
