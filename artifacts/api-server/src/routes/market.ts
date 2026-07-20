@@ -1,7 +1,36 @@
 import { Router, type IRouter } from "express";
 import { getOrCreateEngine } from "../lib/engineRegistry";
+import {
+  isInstrumentOpen,
+  nextInstrumentOpen,
+  nextInstrumentClose,
+  type InstrumentClass,
+} from "../lib/marketHours";
 
 const router: IRouter = Router();
+
+// Forex market-hours status — pure calendar math (DST-aware NY 17:00
+// boundaries), no OANDA call and no engine needed, so it works even while
+// the forex engine is stopped. CURRENCY covers the majors; METAL/CFD add
+// the daily one-hour Globex maintenance break (gold, indices).
+router.get("/market/forex-hours", (_req, res): void => {
+  const now = new Date();
+  const classStatus = (cls: InstrumentClass) => {
+    const open = isInstrumentOpen(cls, now);
+    return {
+      open,
+      // Only the relevant boundary: when open, the next close; when closed,
+      // the next open. Null-padding the other keeps the client trivial.
+      nextOpen: open ? null : nextInstrumentOpen(cls, now).toISOString(),
+      nextClose: open ? nextInstrumentClose(cls, now).toISOString() : null,
+    };
+  };
+  res.json({
+    now: now.toISOString(),
+    currency: classStatus("CURRENCY"),
+    metalsAndIndices: classStatus("METAL"),
+  });
+});
 
 // Live market monitor: real ticker snapshots + exchange connection health.
 router.get("/market/live", async (req, res): Promise<void> => {

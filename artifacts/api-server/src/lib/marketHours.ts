@@ -89,6 +89,22 @@ export function nextInstrumentOpen(cls: InstrumentClass, now: Date): Date {
   return new Date(t); // unreachable in practice
 }
 
+/** Next instant this instrument closes (returns `now` if already closed).
+ *  Same stepping approach as nextInstrumentOpen so the one `isInstrumentOpen`
+ *  predicate stays the single source of truth. Longest open stretch is the
+ *  trading week (~5 days), so the bound is 7 days of 5-minute steps. */
+export function nextInstrumentClose(cls: InstrumentClass, now: Date): Date {
+  if (!isInstrumentOpen(cls, now)) return now;
+  const step = 5 * 60_000;
+  let t = Math.floor(now.getTime() / step) * step;
+  for (let i = 0; i < (60 / 5) * 24 * 7; i++) {
+    t += step;
+    const candidate = new Date(t);
+    if (!isInstrumentOpen(cls, candidate)) return candidate;
+  }
+  return new Date(t); // unreachable in practice
+}
+
 /** Coerce an OANDA instrument.type string to a known class (default CURRENCY). */
 export function instrumentClassOf(raw: unknown): InstrumentClass {
   return raw === "METAL" || raw === "CFD" ? raw : "CURRENCY";
