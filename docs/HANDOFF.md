@@ -45,7 +45,7 @@ account system.
   net reward:risk quality gate.
 - **Backtest engine** with a **validation harness** (see §6).
 
-Full reasoning is in the commit history and `CHANGES.md`.
+Full reasoning is in the commit history.
 
 ## 4. Deploy on the VPS (safely — other sites live here)
 
