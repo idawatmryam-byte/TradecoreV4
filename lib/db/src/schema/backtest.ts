@@ -60,6 +60,9 @@ export const backtestRunsTable = pgTable("backtest_runs", {
   /** Owning user — backtest_trades/equity_curve/optimization_results all
    *  cascade-scope via run_id, so only this table needs the column directly. */
   userId: integer("user_id").notNull(),
+  /** Which market section this run simulates ("crypto" | "forex") — the
+   *  Backtesting Lab lists are section-scoped like everything else. */
+  section: text("section").notNull().default("crypto"),
   strategyVersion: text("strategy_version").notNull().default("1.0"),
   strategyName: text("strategy_name").notNull().default("TradeCore v1"),
   symbols: text("symbols").notNull(), // comma-separated

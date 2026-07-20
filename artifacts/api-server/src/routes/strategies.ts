@@ -9,7 +9,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { strategyConfigsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { ALL_STRATEGIES, DEFAULT_STRATEGY_CONFIGS } from "../lib/strategies";
+import { strategiesForSection, DEFAULT_STRATEGY_CONFIGS } from "../lib/strategies";
 import { loadStrategyConfigs } from "../lib/strategyConfigLoader";
 import { getOrCreateEngine } from "../lib/engineRegistry";
 import { logger } from "../lib/logger";
@@ -55,7 +55,8 @@ router.get("/strategies", async (req, res) => {
       perfMap.set(row.strategy_id, row);
     }
 
-    const strategies = ALL_STRATEGIES.map((s) => {
+    // Only THIS SECTION'S catalog — forex and crypto trade different books.
+    const strategies = strategiesForSection(req.section === "forex" ? "forex" : "crypto").map((s) => {
       const config = configs.get(s.strategyId) ?? {
         strategyId: s.strategyId,
         ...(DEFAULT_STRATEGY_CONFIGS[s.strategyId] ?? {}),
@@ -133,10 +134,12 @@ router.get("/strategies/signals", (req, res) => {
 router.put("/strategies/:id", async (req, res) => {
   const strategyId = req.params.id;
 
-  // Validate strategy exists
-  const strategy = ALL_STRATEGIES.find((s) => s.strategyId === strategyId);
+  // Validate the strategy exists in THIS SECTION'S catalog — a forex request
+  // can't edit a crypto-only scalper and vice versa.
+  const strategy = strategiesForSection(req.section === "forex" ? "forex" : "crypto")
+    .find((s) => s.strategyId === strategyId);
   if (!strategy) {
-    return res.status(404).json({ error: `Strategy '${strategyId}' not found` });
+    return res.status(404).json({ error: `Strategy '${strategyId}' not found in this section` });
   }
 
   const b = req.body as Record<string, unknown>;

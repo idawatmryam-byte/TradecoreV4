@@ -33,8 +33,9 @@ import { computeTrailingStop } from "./tradeManager";
 import { loadStrategyConfigs } from "./strategyConfigLoader";
 import { buildEffectiveBacktestConfigs, buildPerStrategyBacktestConfigs } from "./backtestConfig";
 import { ensureCandles, loadCandles } from "./historicalData";
+import { ensureForexCandles } from "./oandaHistoricalData";
 import { logger } from "./logger";
-import { MIN_VIABLE_TAKE_PROFIT_PERCENT, DEFAULT_FEE_RATE, DEFAULT_SLIPPAGE_RATE } from "./tradingCosts";
+import { MIN_VIABLE_TAKE_PROFIT_PERCENT, DEFAULT_FEE_RATE, DEFAULT_SLIPPAGE_RATE, FOREX_COST_RATE, FOREX_SLIPPAGE_RATE } from "./tradingCosts";
 import { estimateLiquidationPrice, stopTooCloseToLiquidation } from "./futuresMath";
 import { type RiskModel } from "./dollarRisk";
 import { type DollarRiskContext } from "./strategies/selector";
@@ -106,8 +107,10 @@ export interface BacktestParams {
   strategyOverride?: { strategyId: string; patch: Record<string, unknown> };
 
   // ── Futures leverage modeling (spot is the default when unset) ─────────────
-  /** "spot" (no leverage/liquidation) | "futures". Default "spot". */
-  marketType?: "spot" | "futures";
+  /** "spot" (no leverage/liquidation) | "futures" | "forex" (OANDA candles,
+   *  forex costs, no leverage/liquidation — like spot with FX rates).
+   *  Default "spot". */
+  marketType?: "spot" | "futures" | "forex";
   /** Futures leverage. Only affects liquidation risk — NOT position size, to
    *  match the live engine's notional-based sizing. Default 1. */
   leverage?: number;
@@ -466,10 +469,13 @@ function computeMetrics(
 // ---------------------------------------------------------------------------
 
 export async function runBacktest(runId: number, params: BacktestParams, userId: number): Promise<void> {
-  const {
-    symbols, timeframe, startDate, endDate, startingBalance,
-    feeRate = DEFAULT_FEE_RATE, slippageRate = DEFAULT_SLIPPAGE_RATE,
-  } = params;
+  const { symbols, timeframe, startDate, endDate, startingBalance } = params;
+  // Cost defaults follow the market being simulated: FX spreads/slippage are
+  // ~10× tighter than crypto — charging crypto costs against FX-scale targets
+  // fails every plan at the reward:risk floor (the live-engine bug, mirrored).
+  const isForex = params.marketType === "forex";
+  const feeRate = params.feeRate ?? (isForex ? FOREX_COST_RATE : DEFAULT_FEE_RATE);
+  const slippageRate = params.slippageRate ?? (isForex ? FOREX_SLIPPAGE_RATE : DEFAULT_SLIPPAGE_RATE);
   // Maker fee defaults to taker when unset (i.e. no maker benefit) so existing
   // callers are unchanged. Passive fills (TP limits; maker entries) use it.
   const makerFeeRate = params.makerFeeRate ?? feeRate;
@@ -555,7 +561,10 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
 
     for (let i = 0; i < symbols.length; i++) {
       if (cancelledRuns.has(runId)) throw new Error("cancelled");
-      await ensureCandles(symbols[i]!, timeframe, downloadStart, endMs);
+      // Forex candles come from OANDA with the user's stored credentials
+      // (there is no public OANDA data API); crypto from Binance public REST.
+      if (isForex) await ensureForexCandles(userId, symbols[i]!, timeframe, downloadStart, endMs);
+      else await ensureCandles(symbols[i]!, timeframe, downloadStart, endMs);
       await db
         .update(backtestRunsTable)
         .set({ progress: Math.round(((i + 1) / symbols.length) * 40) })
@@ -598,7 +607,9 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     }
 
     // ── Strategy configs from DB (with defaults for any missing strategy) ──────
-    const dbStrategyConfigs = await loadStrategyConfigs(userId);
+    // Forex runs must replay the FOREX section's tuning — crypto and forex
+    // keep completely separate strategy configs (different dollar plans).
+    const dbStrategyConfigs = await loadStrategyConfigs(userId, isForex ? "forex" : "crypto");
 
     // Diagnostic checkpoint 2: what's actually sitting in Postgres right now
     // (this is the LIVE bot's configuration too — loadStrategyConfigs() is
