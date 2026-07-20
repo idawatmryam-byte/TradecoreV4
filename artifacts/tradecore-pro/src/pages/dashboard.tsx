@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { BlockingBanner, MarketMonitor, DecisionPanel } from "@/components/verification";
 import { PositionChart } from "@/components/position-chart";
 import { useState, type ReactNode } from "react";
+import { useSection, sectionHeaders } from "@/lib/section";
 
 /** Live per-position feed from GET /trades/monitor/active — entry vs current
  *  price, the actual SL/TP levels, and unrealized P&L, refreshed every 5s. */
@@ -319,11 +320,16 @@ export function Dashboard() {
 
   const { data: bot, isLoading: botLoading, isError: botError } = useGetBotStatus({ query: { refetchInterval: 5000, queryKey: getGetBotStatusQueryKey() } });
   const { data: scanner, isLoading: scannerLoading, isError: scannerError } = useGetScannerData({ query: { refetchInterval: 15000, queryKey: getGetScannerDataQueryKey() } });
+  // Raw fetch here MUST carry the X-Section header — without it the server
+  // defaults to "crypto" and crypto positions render on the Forex dashboard
+  // (observed live). Section is also part of the query key so a tab switch
+  // can never show the other section's cached rows.
+  const { section } = useSection();
   const { data: positions, isLoading: tradesLoading, isError: tradesError } = useQuery<ActivePosition[]>({
-    queryKey: ["trades-monitor-active"],
+    queryKey: ["trades-monitor-active", section],
     refetchInterval: 5000,
     queryFn: async () => {
-      const res = await fetch("/api/trades/monitor/active", { credentials: "same-origin" });
+      const res = await fetch("/api/trades/monitor/active", { credentials: "same-origin", headers: sectionHeaders() });
       if (!res.ok) throw new Error("monitor fetch failed");
       return res.json();
     },
@@ -336,7 +342,7 @@ export function Dashboard() {
   async function closePosition(tradeId: number, symbol: string) {
     setClosingId(tradeId);
     try {
-      const res = await fetch(`/api/trades/${tradeId}/close`, { method: "POST", credentials: "same-origin" });
+      const res = await fetch(`/api/trades/${tradeId}/close`, { method: "POST", credentials: "same-origin", headers: sectionHeaders() });
       const data = await res.json().catch(() => null);
       if (res.ok) {
         const pnl = typeof data?.pnl === "number" ? data.pnl : null;
@@ -365,7 +371,15 @@ export function Dashboard() {
   const startBot = useStartBot();
   const stopBot = useStopBot();
 
-  const handleStart = () => startBot.mutate(undefined, { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() }) });
+  const handleStart = () => startBot.mutate(undefined, {
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() });
+      // Exclusive mode: the server reports when it stopped the sibling
+      // section's engine — surface that so it never feels like a mystery.
+      const note = (data as { note?: string } | undefined)?.note;
+      if (note) toast({ title: "Engine started", description: note });
+    },
+  });
   const handleStop = () => stopBot.mutate(undefined, { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() }) });
 
   return (

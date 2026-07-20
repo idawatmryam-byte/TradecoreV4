@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { sectionHeaders } from "@/lib/section";
 import {
   createChart, CandlestickSeries, LineStyle,
   type IChartApi, type ISeriesApi, type IPriceLine, type UTCTimestamp,
@@ -62,7 +63,7 @@ export function PositionChart(props: PositionChartProps) {
       const params = new URLSearchParams({
         symbol: props.symbol, timeframe: "1m", limit: "180", marketType: props.marketType,
       });
-      const res = await fetch(`/api/market/candles?${params}`, { credentials: "same-origin" });
+      const res = await fetch(`/api/market/candles?${params}`, { credentials: "same-origin", headers: sectionHeaders() });
       if (!res.ok) throw new Error("candle fetch failed");
       return res.json();
     },

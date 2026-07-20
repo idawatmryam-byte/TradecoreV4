@@ -1,6 +1,6 @@
 import app from "./app";
-import { db, botConfigTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, botConfigTable, tradesTable } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
 import { logger } from "./lib/logger";
 import { validateEnv } from "./lib/env";
 import { getOrCreateEngine, isSection } from "./lib/engineRegistry";
@@ -24,10 +24,40 @@ async function resumeRunningEngines(): Promise<void> {
       .select({ userId: botConfigTable.userId, section: botConfigTable.section })
       .from(botConfigTable)
       .where(eq(botConfigTable.engineDesiredRunning, true));
-    // Each (user, section) whose desired state is running resumes independently
-    // — a user with both crypto and forex running gets both back.
+
+    // EXCLUSIVE MODE: only one section per user may run. If a user has BOTH
+    // sections flagged (state from before exclusivity, or a crash between
+    // stop/start), resume the one holding open positions — it needs its
+    // trade management back — preferring crypto on a tie, and clear the
+    // other's desired flag so the state converges.
+    const byUser = new Map<number, string[]>();
     for (const { userId, section } of rows) {
-      const sec = isSection(section) ? section : "crypto";
+      byUser.set(userId, [...(byUser.get(userId) ?? []), section]);
+    }
+
+    for (const [userId, sections] of byUser) {
+      let chosen = sections[0]!;
+      if (sections.length > 1) {
+        chosen = "crypto";
+        for (const section of sections) {
+          const open = await db
+            .select({ id: tradesTable.id })
+            .from(tradesTable)
+            .where(and(eq(tradesTable.userId, userId), eq(tradesTable.section, section), eq(tradesTable.status, "open")))
+            .limit(1);
+          if (open.length > 0) { chosen = section; break; }
+        }
+        for (const section of sections) {
+          if (section === chosen) continue;
+          await db
+            .update(botConfigTable)
+            .set({ engineDesiredRunning: false })
+            .where(and(eq(botConfigTable.userId, userId), eq(botConfigTable.section, section)));
+          logger.info({ userId, section, chosen }, "AUTO-RESUME: exclusive mode — sibling section's desired-running cleared");
+        }
+      }
+
+      const sec = isSection(chosen) ? chosen : "crypto";
       try {
         await getOrCreateEngine(userId, sec).start();
         logger.info({ userId, section: sec }, "AUTO-RESUME: engine restarted after server restart");

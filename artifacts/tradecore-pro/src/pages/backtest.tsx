@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSearch } from "wouter";
-import { useSection } from "@/lib/section";
+import { useSection, sectionHeaders } from "@/lib/section";
 import { AutopsyPanel } from "@/components/autopsy-panel";
 import {
   useListBacktests,
@@ -619,7 +619,7 @@ function EffectiveConfigPreview({ form }: { form: RunFormState }) {
     const t = setTimeout(() => {
       fetch("/api/backtests/preview-config", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...sectionHeaders() },
         body: JSON.stringify({
           stopLossPercent: form.stopLossPercent,
           takeProfitPercent: form.takeProfitPercent,

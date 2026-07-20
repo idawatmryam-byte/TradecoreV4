@@ -26,6 +26,20 @@ function readStored(): Section {
 let currentSection: Section = readStored();
 setSectionGetter(() => currentSection);
 
+/** The active section, for code OUTSIDE the generated API client. */
+export function getCurrentSection(): Section {
+  return currentSection;
+}
+
+/** Headers for RAW fetch() calls to section-scoped endpoints. The generated
+ *  client attaches X-Section automatically; anything using plain fetch must
+ *  spread this in — a missing header silently falls back to "crypto" on the
+ *  server, which is exactly how crypto positions once leaked onto the Forex
+ *  dashboard. */
+export function sectionHeaders(): Record<string, string> {
+  return { "X-Section": currentSection };
+}
+
 interface SectionContextValue {
   section: Section;
   setSection: (next: Section) => void;
