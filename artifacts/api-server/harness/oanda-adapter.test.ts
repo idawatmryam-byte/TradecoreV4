@@ -76,6 +76,84 @@ expect("forex plain fallback identity", plainFromUnifiedFallback("EUR_USD"), "EU
 expect("spot fallback unchanged", unifiedFromPlainFallback("BTCUSDT", "spot"), "BTC/USDT");
 expect("futures fallback unchanged", unifiedFromPlainFallback("BTCUSDT", "futures"), "BTC/USDT:USDT");
 
+// ── Execution surface against a scripted fake OANDA client (no network) ─────
+// Proves the exact request bodies OANDA receives and the close-emulation
+// rules — the two places a silent mistake would trade wrong live.
+import { OandaAdapter } from "../src/lib/brokers/oandaAdapter";
+
+function fakeClientAdapter(state: {
+  openTrades: Array<{ id: string; instrument: string; currentUnits: string }>;
+  calls: Array<{ method: string; path: string; body?: unknown }>;
+}) {
+  const adapter = new OandaAdapter({ token: "t", accountId: "a", practice: true });
+  (adapter as any).client = {
+    accountId: "a",
+    acct(method: string, path: string, body?: unknown) {
+      state.calls.push({ method, path, body });
+      if (path === "/openTrades") return Promise.resolve({ trades: state.openTrades });
+      if (path === "/orders" && method === "POST") {
+        return Promise.resolve({
+          orderFillTransaction: { id: "900", price: "1.0850", tradeOpened: { tradeID: "777", units: (body as any).order.units, price: "1.0851" } },
+        });
+      }
+      if (path === "/trades/777" && method === "GET") {
+        return Promise.resolve({ trade: { stopLossOrder: { id: "sl9" }, takeProfitOrder: { id: "tp9" } } });
+      }
+      if (path.endsWith("/close")) {
+        return Promise.resolve({ orderFillTransaction: { id: "901", price: "1.0900", units: (body as any).units === "ALL" ? "-4000" : `-${(body as any).units}` } });
+      }
+      if (path === "/orders/sl9" && method === "GET") {
+        return Promise.resolve({ order: { id: "sl9", state: "FILLED", price: "1.0800", type: "STOP_LOSS" } });
+      }
+      return Promise.reject(new Error(`fake client: unhandled ${method} ${path}`));
+    },
+    request() { return Promise.reject(new Error("fake client: request() not needed here")); },
+  };
+  (adapter as any).markets = {
+    EUR_USD: { id: "EUR_USD", symbol: "EUR_USD", active: true, precision: { price: 5, amount: 0 }, limits: { amount: { min: 1 } }, info: { pipLocation: -4, marginRate: 0.0333, type: "CURRENCY" } },
+  };
+  return adapter;
+}
+
+{
+  const state = { openTrades: [] as any[], calls: [] as any[] };
+  const ad = fakeClientAdapter(state);
+  const res = await ad.placeProtectedEntry("EUR_USD", "sell", 3000, 1.0900, 1.0800);
+  const body: any = state.calls.find((c) => c.path === "/orders")!.body;
+  expect("short entry sends NEGATIVE units", body.order.units, "-3000");
+  expect("bracket carries SL price string", body.order.stopLossOnFill.price, "1.09000");
+  expect("bracket carries TP price string", body.order.takeProfitOnFill.price, "1.08000");
+  expect("FOK + market order type", `${body.order.type}/${body.order.timeInForce}`, "MARKET/FOK");
+  expect("returns oandaTradeId + leg ids", `${res.oandaTradeId}/${res.slOrderId}/${res.tpOrderId}`, "777/sl9/tp9");
+  expect("filled units reported unsigned", res.filledUnits, 3000);
+}
+
+{
+  const state = { openTrades: [{ id: "555", instrument: "EUR_USD", currentUnits: "4000" }], calls: [] as any[] };
+  const ad = fakeClientAdapter(state);
+  const full: any = await ad.createOrder("EUR_USD", "market", "sell", 4000);
+  const closeCall: any = state.calls.find((c) => c.path === "/trades/555/close");
+  expect("full close uses ALL (no dust)", closeCall.body.units, "ALL");
+  expect("close returns fill price", full.average, 1.09);
+
+  state.calls.length = 0;
+  await ad.createOrder("EUR_USD", "market", "sell", 1500);
+  const partialCall: any = state.calls.find((c) => c.path === "/trades/555/close");
+  expect("partial close sends exact units", partialCall.body.units, "1500");
+
+  let refused = false;
+  await ad.createOrder("EUR_USD", "market", "buy", 1000).catch(() => { refused = true; });
+  expect("same-direction market order REFUSED (no bare entries)", refused, true);
+}
+
+{
+  const state = { openTrades: [] as any[], calls: [] as any[] };
+  const ad = fakeClientAdapter(state);
+  const o: any = await ad.fetchOrder("sl9");
+  expect("FILLED maps to ccxt closed", o.status, "closed");
+  expect("filled SL reports its price", o.price, 1.08);
+}
+
 if (failures > 0) {
   console.error(`\n${failures} failure(s)`);
   process.exit(1);
