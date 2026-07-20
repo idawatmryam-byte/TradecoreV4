@@ -42,6 +42,9 @@ export interface AutopsyRequest {
   timeframe: string;
   startDate: Date;
   endDate: Date;
+  /** Which section's tuning to diagnose — forex autopsies replay the forex
+   *  configs on OANDA candles with FX costs (crypto is the default). */
+  section: "crypto" | "forex";
 }
 
 interface Candidate {
@@ -55,7 +58,7 @@ export async function startAutopsy(userId: number, req: AutopsyRequest): Promise
   const trainEnd = new Date(req.startDate.getTime() + Math.round(totalMs * (2 / 3)));
   const strategyName = ALL_STRATEGIES.find((s) => s.strategyId === req.strategyId)?.strategyName ?? req.strategyId;
 
-  const configs = await loadStrategyConfigs(userId, "crypto");
+  const configs = await loadStrategyConfigs(userId, req.section);
   const cfg = configs.get(req.strategyId);
   if (!cfg) throw new Error(`Unknown strategy: ${req.strategyId}`);
 
@@ -70,7 +73,7 @@ export async function startAutopsy(userId: number, req: AutopsyRequest): Promise
     .insert(autopsyRunsTable)
     .values({
       userId,
-      section: "crypto",
+      section: req.section,
       strategyId: req.strategyId,
       strategyName,
       symbols: req.symbols.join(","),
@@ -119,6 +122,7 @@ async function runAutopsy(
       .insert(backtestRunsTable)
       .values({
         userId,
+        section: req.section,
         strategyName: `Autopsy child (${label})`,
         symbols: req.symbols.join(","),
         timeframe: req.timeframe,
@@ -146,6 +150,9 @@ async function runAutopsy(
       maxOpenPositions: 5,
       dailyLossLimitUsdt: 1_000_000,
       perStrategyConfigs: true,
+      // Forex children simulate the forex market (OANDA candles, FX costs,
+      // forex-section configs); crypto children keep the spot default.
+      ...(req.section === "forex" && { marketType: "forex" as const }),
       onlyStrategyId: req.strategyId,
       strategyOverride: {
         strategyId: req.strategyId,

@@ -24,7 +24,7 @@ import { runBacktest, cancelBacktestRun, getTimeframeMs } from "../lib/backtestE
 import { runOptimization } from "../lib/optimizer";
 import { loadStrategyConfigs } from "../lib/strategyConfigLoader";
 import { buildEffectiveBacktestConfigs } from "../lib/backtestConfig";
-import { minViableTakeProfitPercent, DEFAULT_FEE_RATE, FUTURES_FEE_RATE, DEFAULT_SLIPPAGE_RATE, DEFAULT_MAKER_FEE_RATE, FUTURES_MAKER_FEE_RATE } from "../lib/tradingCosts";
+import { minViableTakeProfitPercent, DEFAULT_FEE_RATE, FUTURES_FEE_RATE, DEFAULT_SLIPPAGE_RATE, DEFAULT_MAKER_FEE_RATE, FUTURES_MAKER_FEE_RATE, FOREX_COST_RATE, FOREX_SLIPPAGE_RATE } from "../lib/tradingCosts";
 import { planDollarRiskFractions } from "../lib/dollarRisk";
 import { logger } from "../lib/logger";
 
@@ -37,10 +37,11 @@ const VALID_TIMEFRAMES = new Set(["1m","3m","5m","15m","30m","1h","4h","1d"]);
 // ---------------------------------------------------------------------------
 
 router.get("/backtests", async (req, res) => {
+  const section = req.section === "forex" ? "forex" : "crypto";
   const runs = await db
     .select()
     .from(backtestRunsTable)
-    .where(eq(backtestRunsTable.userId, req.userId!))
+    .where(and(eq(backtestRunsTable.userId, req.userId!), eq(backtestRunsTable.section, section)))
     .orderBy(desc(backtestRunsTable.createdAt));
   // Autopsy child runs are internal machinery (deleted when the autopsy
   // completes) — never show them in the user's run list mid-flight.
@@ -168,12 +169,18 @@ router.post("/backtests/run", async (req, res) => {
   const maxOpenPositions = Number(b.maxOpenPositions ?? 5);
   const dailyLossLimitUsdt = Number(b.dailyLossLimitUsdt ?? 50);
   const riskPercent = Number(b.riskPercent ?? 0);
-  const marketType = b.marketType === "futures" ? "futures" : "spot";
+  // The section decides the simulated market: the Forex tab always runs
+  // forex simulations (OANDA candles, FX costs, no leverage) — spot/futures
+  // are Binance concepts that don't apply there.
+  const marketType = req.section === "forex" ? "forex" : b.marketType === "futures" ? "futures" : "spot";
   // Default the fee to the market being simulated: Binance USDⓈ-M taker is
   // 0.05%, half of spot's 0.1% — assuming spot fees for a futures run
-  // overstates round-trip costs 2×. An explicit feeRate still wins.
-  const feeRate = Number(b.feeRate ?? (marketType === "futures" ? FUTURES_FEE_RATE : DEFAULT_FEE_RATE));
-  const slippageRate = Number(b.slippageRate ?? DEFAULT_SLIPPAGE_RATE);
+  // overstates round-trip costs 2×. Forex costs are ~10× tighter still.
+  // An explicit feeRate always wins.
+  const feeRate = Number(
+    b.feeRate ?? (marketType === "forex" ? FOREX_COST_RATE : marketType === "futures" ? FUTURES_FEE_RATE : DEFAULT_FEE_RATE),
+  );
+  const slippageRate = Number(b.slippageRate ?? (marketType === "forex" ? FOREX_SLIPPAGE_RATE : DEFAULT_SLIPPAGE_RATE));
   // Maker modeling is a single opt-in. When OFF, every fill is taker exactly
   // as before (makerFeeRate === feeRate) so existing baselines are unchanged.
   // When ON: entries post as maker limits (honest fill/miss) AND passive exits
@@ -184,7 +191,7 @@ router.post("/backtests/run", async (req, res) => {
     ? Number(b.makerFeeRate)
     : (makerEntry ? (marketType === "futures" ? FUTURES_MAKER_FEE_RATE : DEFAULT_MAKER_FEE_RATE) : feeRate);
   const makerEntryFillWindowMinutes = Math.max(1, Math.min(1440, Number(b.makerEntryFillWindowMinutes ?? 30) || 30));
-  const leverage = Math.max(1, Math.min(125, Math.floor(Number(b.leverage ?? 1)) || 1));
+  const leverage = marketType === "forex" ? 1 : Math.max(1, Math.min(125, Math.floor(Number(b.leverage ?? 1)) || 1));
   const marginMode = b.marginMode === "cross" ? "cross" : "isolated";
   // Dollar risk model (Phase 8): size each trade from a fixed max-loss/target-
   // profit using the same planner as live. Percent (default) leaves behavior
@@ -232,7 +239,10 @@ router.post("/backtests/run", async (req, res) => {
       return res.status(400).json({ error: "Dollar risk model requires maxLossUsdt and targetProfitUsdt to be greater than 0." });
     }
     const plan = planDollarRiskFractions({
-      marketType, tradeAmountUsdt: positionSizeUsdt, leverage, maxLossUsdt, targetProfitUsdt, feeRate,
+      // Forex sizes like spot at 1× (no liquidation modeling) — the planner
+      // only distinguishes futures.
+      marketType: marketType === "futures" ? "futures" : "spot",
+      tradeAmountUsdt: positionSizeUsdt, leverage, maxLossUsdt, targetProfitUsdt, feeRate,
     });
     if (!plan.feasible || !plan.safe) {
       return res.status(400).json({
@@ -269,6 +279,7 @@ router.post("/backtests/run", async (req, res) => {
     .insert(backtestRunsTable)
     .values({
       userId: req.userId!,
+      section: marketType === "forex" ? "forex" : "crypto",
       symbols: symbols.join(","),
       timeframe: b.timeframe,
       startDate,
@@ -322,6 +333,12 @@ router.post("/backtests/run", async (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.post("/backtests/optimize", async (req, res) => {
+  if (req.section === "forex") {
+    // The %-grid optimizer is a crypto tool; the forex-appropriate diagnostic
+    // is the walk-forward Autopsy (POST /backtests/autopsy), which validates
+    // out-of-sample instead of sweeping raw percentages.
+    return res.status(400).json({ error: "Grid optimization is crypto-only — use the Optimization Autopsy for forex strategies." });
+  }
   const b = req.body as Record<string, unknown>;
 
   if (!Array.isArray(b.symbols) || b.symbols.length === 0) {

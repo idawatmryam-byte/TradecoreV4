@@ -5,14 +5,14 @@
  *   GET  /backtests/autopsy      — recent autopsies for this user
  *   GET  /backtests/autopsy/:id  — one autopsy (poll while running)
  *
- * Crypto-only in v1 — the forex backtest engine doesn't exist yet, and this
- * feature is honest about that rather than producing wrong numbers.
+ * Section-scoped: a forex autopsy diagnoses the FOREX section's configs on
+ * OANDA candles with forex costs; crypto uses Binance data. Never mixed.
  */
 import { Router, type IRouter } from "express";
 import { db, autopsyRunsTable, botConfigTable } from "@workspace/db";
 import { and, eq, desc } from "drizzle-orm";
 import { startAutopsy } from "../lib/autopsy/autopsyService";
-import { ALL_STRATEGIES } from "../lib/strategies";
+import { strategiesForSection } from "../lib/strategies";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -51,23 +51,21 @@ function serialize(r: typeof autopsyRunsTable.$inferSelect) {
 }
 
 router.post("/backtests/autopsy", async (req, res): Promise<void> => {
-  if (req.section === "forex") {
-    res.status(400).json({ error: "The Autopsy runs on the crypto section only for now — the forex backtest engine (market-hours-aware) hasn't shipped yet." });
-    return;
-  }
-
+  const section = req.section === "forex" ? "forex" : "crypto";
   const b = req.body as Record<string, unknown>;
   const strategyId = typeof b.strategyId === "string" ? b.strategyId : "";
-  if (!ALL_STRATEGIES.some((s) => s.strategyId === strategyId)) {
-    res.status(400).json({ error: `strategyId must be one of: ${ALL_STRATEGIES.map((s) => s.strategyId).join(", ")}` });
+  const catalog = strategiesForSection(section);
+  if (!catalog.some((s) => s.strategyId === strategyId)) {
+    res.status(400).json({ error: `strategyId must be one of: ${catalog.map((s) => s.strategyId).join(", ")}` });
     return;
   }
 
   const timeframe = typeof b.timeframe === "string" && VALID_TIMEFRAMES.has(b.timeframe) ? b.timeframe : "5m";
   const days = Math.min(120, Math.max(14, Number(b.days ?? 45)));
 
-  // Symbols: explicit list, else the user's configured crypto pairs (bounded —
-  // each extra symbol multiplies candle prep + sim time across ~30 backtests).
+  // Symbols: explicit list, else the user's configured pairs for THIS section
+  // (bounded — each extra symbol multiplies candle prep + sim time across
+  // ~30 backtests).
   let symbols = Array.isArray(b.symbols)
     ? (b.symbols as unknown[]).map((s) => String(s).trim().toUpperCase()).filter(Boolean)
     : [];
@@ -75,8 +73,9 @@ router.post("/backtests/autopsy", async (req, res): Promise<void> => {
     const [cfg] = await db
       .select({ pairs: botConfigTable.pairs })
       .from(botConfigTable)
-      .where(and(eq(botConfigTable.userId, req.userId!), eq(botConfigTable.section, "crypto")));
-    symbols = (cfg?.pairs ?? "BTCUSDT,ETHUSDT,SOLUSDT").split(",").map((s) => s.trim()).filter(Boolean);
+      .where(and(eq(botConfigTable.userId, req.userId!), eq(botConfigTable.section, section)));
+    symbols = (cfg?.pairs ?? (section === "forex" ? "EUR_USD,GBP_USD,XAU_USD" : "BTCUSDT,ETHUSDT,SOLUSDT"))
+      .split(",").map((s) => s.trim()).filter(Boolean);
   }
   symbols = symbols.slice(0, MAX_SYMBOLS);
 
@@ -84,8 +83,8 @@ router.post("/backtests/autopsy", async (req, res): Promise<void> => {
   const startDate = new Date(endDate.getTime() - days * 24 * 3600_000);
 
   try {
-    const id = await startAutopsy(req.userId!, { strategyId, symbols, timeframe, startDate, endDate });
-    logger.info({ userId: req.userId, autopsyId: id, strategyId, symbols, timeframe, days }, "AUTOPSY_STARTED");
+    const id = await startAutopsy(req.userId!, { strategyId, symbols, timeframe, startDate, endDate, section });
+    logger.info({ userId: req.userId, autopsyId: id, strategyId, symbols, timeframe, days, section }, "AUTOPSY_STARTED");
     res.status(202).json({ id, status: "pending" });
   } catch (err) {
     res.status(400).json({ error: String((err as Error)?.message ?? err) });
@@ -93,10 +92,13 @@ router.post("/backtests/autopsy", async (req, res): Promise<void> => {
 });
 
 router.get("/backtests/autopsy", async (req, res): Promise<void> => {
+  // Section-scoped like every other list: the forex Diagnose panel must not
+  // show crypto verdicts (different market, different configs) or vice versa.
+  const section = req.section === "forex" ? "forex" : "crypto";
   const rows = await db
     .select()
     .from(autopsyRunsTable)
-    .where(eq(autopsyRunsTable.userId, req.userId!))
+    .where(and(eq(autopsyRunsTable.userId, req.userId!), eq(autopsyRunsTable.section, section)))
     .orderBy(desc(autopsyRunsTable.createdAt))
     .limit(20);
   res.json(rows.map(serialize));

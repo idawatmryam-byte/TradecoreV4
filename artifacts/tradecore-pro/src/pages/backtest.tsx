@@ -54,6 +54,11 @@ const SYMBOLS_DEFAULT = [
   "BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT",
   "ADAUSDT","DOGEUSDT","AVAXUSDT","MATICUSDT","LINKUSDT",
 ];
+/** USD-quoted OANDA instruments (v1 forex scope: majors + gold + US indices). */
+const FOREX_SYMBOLS_DEFAULT = [
+  "EUR_USD","GBP_USD","AUD_USD","NZD_USD",
+  "XAU_USD","XAG_USD","SPX500_USD","NAS100_USD","US30_USD",
+];
 const TIMEFRAMES = ["1m","3m","5m","15m","30m","1h","4h","1d"];
 
 // ── Timeframe suitability guard ──────────────────────────────────────────────
@@ -133,13 +138,13 @@ interface RunFormState {
   makerEntry: boolean;
 }
 
-function defaultForm(): RunFormState {
+function defaultForm(section: "crypto" | "forex" = "crypto"): RunFormState {
   const end = new Date();
   const start = new Date(end);
   start.setMonth(start.getMonth() - 1);
   return {
     onlyStrategyId: "",
-    symbols: ["BTCUSDT", "ETHUSDT", "BNBUSDT"],
+    symbols: section === "forex" ? ["EUR_USD", "GBP_USD", "XAU_USD"] : ["BTCUSDT", "ETHUSDT", "BNBUSDT"],
     timeframe: "1m",
     startDate: isoDate(start),
     endDate: isoDate(end),
@@ -191,7 +196,9 @@ function statusBadge(status: string) {
 // Run Form
 // ---------------------------------------------------------------------------
 function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
-  const [form, setForm] = useState<RunFormState>(defaultForm());
+  const { section } = useSection();
+  const forex = section === "forex";
+  const [form, setForm] = useState<RunFormState>(defaultForm(forex ? "forex" : "crypto"));
   const [symbolInput, setSymbolInput] = useState(form.symbols.join(", "));
   const [runAnyway, setRunAnyway] = useState(false);
   const { mutate, isPending } = useRunBacktest();
@@ -300,7 +307,7 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
               Coins / Markets{selectedSymbols.length > 0 && ` · ${selectedSymbols.length} selected`}
             </label>
             <div className="flex flex-wrap gap-1.5">
-              {SYMBOLS_DEFAULT.map((sym) => {
+              {(forex ? FOREX_SYMBOLS_DEFAULT : SYMBOLS_DEFAULT).map((sym) => {
                 const on = selectedSymbols.includes(sym);
                 return (
                   <button
@@ -314,7 +321,7 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
                         : "border-border text-muted-foreground hover:border-primary/50",
                     )}
                   >
-                    {sym.replace("USDT", "")}
+                    {forex ? sym : sym.replace("USDT", "")}
                   </button>
                 );
               })}
@@ -376,7 +383,15 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
             {field("End Date", "endDate", "date")}
           </div>
 
-          {/* Market type + leverage (futures models liquidation) */}
+          {/* Market type + leverage (futures models liquidation). Forex has
+              neither concept — the server always simulates OANDA at 1×. */}
+          {forex ? (
+            <p className="text-[11px] text-muted-foreground">
+              Forex simulation: OANDA candles (downloaded with your connected account), forex spread-based
+              costs, no leverage/liquidation modeling. Weekends are naturally skipped — the market data has
+              no closed-hours candles.
+            </p>
+          ) : (
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Market Type</label>
@@ -404,7 +419,8 @@ function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
               />
             </div>
           </div>
-          {form.marketType === "futures" && (
+          )}
+          {!forex && form.marketType === "futures" && (
             <p className="text-[11px] text-muted-foreground -mt-2">
               In futures, Position Size is your <strong>margin per trade</strong> — notional exposure = size × leverage,
               so wins and losses scale with leverage, and so does liquidation risk. A stop too close to the liquidation
@@ -1265,6 +1281,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
 // ---------------------------------------------------------------------------
 export function Backtest() {
   const queryClient = useQueryClient();
+  const { section } = useSection();
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(true);
 
@@ -1299,30 +1316,6 @@ export function Backtest() {
     queryClient.invalidateQueries({ queryKey: getListBacktestsQueryKey() });
   }
 
-  // Forex backtesting needs a market-hours-aware simulation (the current
-  // engine assumes 24/7 candles and crypto fee structure) — visibly gated
-  // until that lands, rather than producing quietly wrong numbers.
-  const { section } = useSection();
-  if (section === "forex") {
-    return (
-      <div className="max-w-3xl mx-auto space-y-4">
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <FlaskConical className="h-6 w-6 text-primary" /> Backtesting Lab
-        </h1>
-        <Card>
-          <CardContent className="py-10 text-center space-y-3">
-            <p className="text-sm font-medium">Forex backtesting is coming soon.</p>
-            <p className="text-xs text-muted-foreground max-w-md mx-auto">
-              The simulator currently assumes 24/7 markets and crypto fee structure — running it on forex
-              instruments would produce misleading results. The forex section trades live/practice with the same
-              strategy brains; switch to the Crypto section for backtests today.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Page header */}
@@ -1351,7 +1344,9 @@ export function Backtest() {
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 items-start">
         {/* Left column: form + run list */}
         <div className="space-y-4">
-          {showForm && <RunForm onStarted={handleStarted} />}
+          {/* key=section: a tab switch re-initializes the form with that
+              section's default instruments (state never leaks across). */}
+          {showForm && <RunForm key={section} onStarted={handleStarted} />}
 
           {/* Run list */}
           <div>

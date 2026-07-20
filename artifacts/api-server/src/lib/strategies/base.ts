@@ -447,6 +447,29 @@ export const DEFAULT_STRATEGY_CONFIGS: Record<string, Omit<StrategyConfig, "stra
     emergencyTrailingRMultiple: 0, emergencyTrailingPercent: 0.3,
     exitPriority: ["stop_loss", "take_profit", "trailing_stop", "timeout"],
   },
+  london_breakout: {
+    // FOREX-ONLY (see FOREX_STRATEGIES in index.ts — never seeded for crypto).
+    // Session play: break of the Asian range at the London open, stop at the
+    // range midpoint. Dollar plan is FX-scale out of the box: $10 risk on
+    // $5,000 notional is a 0.2% stop — the size of a typical Asian-range
+    // midpoint distance on the majors.
+    enabled: true,
+    tradeAmountUsdt: 5000, maxLossUsdt: 10, targetProfitUsdt: 12,
+    riskPercent: 1.0,
+    confidenceThreshold: 62,
+    stopLossPercent: 0.2,  // legacy fallback (used only if the dollar plan is cleared)
+    takeProfitPercent: 0.3,
+    maxHoldingSeconds: 4 * 3600, // London morning resolves by early US hours
+    maxConcurrentPositions: 2,
+    cooldownMinutes: 120, // one bite per session, not a re-entry churn
+    breakEvenRMultiple: 0.7,
+    tp1RMultiple: 1.0, tp1ClosePercent: 50,
+    tp3Enabled: false, tp2RMultiple: 2.0, tp2ClosePercent: 25, tp3RMultiple: 3.0,
+    trailingStopMode: "atr", trailingStopAtrMultiplier: 1.5, trailingStopPercent: 0.3,
+    trailingAfterTp1Only: true,
+    emergencyTrailingRMultiple: 3.0, emergencyTrailingPercent: 0.2,
+    exitPriority: ["stop_loss", "take_profit", "trailing_stop", "timeout"],
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

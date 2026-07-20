@@ -8,7 +8,7 @@
 import { db } from "@workspace/db";
 import { strategyConfigsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { type StrategyConfig, DEFAULT_STRATEGY_CONFIGS, ALL_STRATEGIES } from "./strategies";
+import { type StrategyConfig, DEFAULT_STRATEGY_CONFIGS, CRYPTO_STRATEGIES, strategiesForSection } from "./strategies";
 import { logger } from "./logger";
 import type { Section } from "./engineRegistry";
 
@@ -21,9 +21,16 @@ export async function loadStrategyConfigs(
   userId: number,
   section: Section = "crypto",
 ): Promise<Map<string, StrategyConfig>> {
+  // Crypto and forex trade different books (see CRYPTO_STRATEGIES /
+  // FOREX_STRATEGIES in strategies/index.ts) — every step below (seeding,
+  // row filtering, default fill) operates on THIS SECTION'S catalog only.
+  const catalog = strategiesForSection(section);
+  const catalogIds = new Set<string>(catalog.map((s) => s.strategyId));
+
   try {
-    // Upsert defaults for each known strategy so they always exist in DB
-    for (const strategy of ALL_STRATEGIES) {
+    // Upsert defaults for each strategy in the section's catalog so they
+    // always exist in DB.
+    for (const strategy of catalog) {
       let defaults = DEFAULT_STRATEGY_CONFIGS[strategy.strategyId];
       if (!defaults) continue;
       // Forex seeds get FX-appropriate dollar plans. The crypto defaults
@@ -33,7 +40,10 @@ export async function loadStrategyConfigs(
       // "target 15% unreachable at any leverage" on every scan). FX gets
       // big notional + small % targets + slower holds instead. Only
       // affects NEW rows — existing user-edited configs are never touched.
-      if (section === "forex") {
+      // FX-NATIVE strategies (in the forex catalog only) already ship
+      // FX-scale defaults — they seed as written.
+      const sharedFromCrypto = CRYPTO_STRATEGIES.some((s) => s.strategyId === strategy.strategyId);
+      if (section === "forex" && sharedFromCrypto) {
         defaults = {
           ...defaults,
           tradeAmountUsdt: 5000,
@@ -99,6 +109,10 @@ export async function loadStrategyConfigs(
     for (const row of rows) {
       const crypto = DEFAULT_STRATEGY_CONFIGS[row.strategyId];
       if (!crypto) continue;
+      // Rows already carrying the FX seed values need no healing (and
+      // FX-native strategies ship those values as their crypto "defaults",
+      // which would otherwise re-trigger this every load).
+      if (sameNum(row.tradeAmountUsdt, 5000) && sameNum(row.maxLossUsdt, 10) && sameNum(row.targetProfitUsdt, 12)) continue;
       const stale =
         sameNum(row.tradeAmountUsdt, crypto.tradeAmountUsdt) &&
         sameNum(row.maxLossUsdt, crypto.maxLossUsdt) &&
@@ -154,6 +168,10 @@ export async function loadStrategyConfigs(
   }
 
   for (const row of rows) {
+    // Rows for strategies outside this section's catalog are ignored (e.g.
+    // crypto scalpers' old rows in the forex section after the catalogs
+    // split) — the data stays in DB but never loads or trades.
+    if (!catalogIds.has(row.strategyId)) continue;
     map.set(row.strategyId, {
       strategyId: row.strategyId,
       enabled: row.enabled,
@@ -186,8 +204,9 @@ export async function loadStrategyConfigs(
     });
   }
 
-  // Fill in any strategies not in DB with defaults (should not happen after upsert)
-  for (const strategy of ALL_STRATEGIES) {
+  // Fill in any catalog strategies not in DB with defaults (should not
+  // happen after upsert)
+  for (const strategy of catalog) {
     if (!map.has(strategy.strategyId)) {
       const d = DEFAULT_STRATEGY_CONFIGS[strategy.strategyId];
       if (d) map.set(strategy.strategyId, { strategyId: strategy.strategyId, ...d });
