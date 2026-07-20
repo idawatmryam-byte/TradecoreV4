@@ -10,6 +10,7 @@ import { BlockingBanner, MarketMonitor, DecisionPanel } from "@/components/verif
 import { PositionChart } from "@/components/position-chart";
 import { useState, type ReactNode } from "react";
 import { useSection, sectionHeaders } from "@/lib/section";
+import { useIsDemo } from "@/lib/account";
 
 /** Live per-position feed from GET /trades/monitor/active — entry vs current
  *  price, the actual SL/TP levels, and unrealized P&L, refreshed every 5s. */
@@ -289,10 +290,13 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
  *  engine can't place a single order, so point new accounts straight at the
  *  one setup step that matters. Hidden once keys are configured. */
 function ConnectKeysBanner() {
+  const isDemo = useIsDemo();
   const { data: creds, isLoading } = useGetBinanceCredentials({
     query: { queryKey: getGetBinanceCredentialsQueryKey() },
   });
-  if (isLoading || creds?.configured) return null;
+  // The demo has no keys by design and shows its own read-only banner — the
+  // "connect your keys" prompt would be misleading there.
+  if (isDemo || isLoading || creds?.configured) return null;
   return (
     <div className="rounded-lg border border-primary/40 bg-primary/10 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
       <div className="h-10 w-10 shrink-0 rounded-md bg-primary/20 border border-primary/40 flex items-center justify-center">
@@ -437,6 +441,7 @@ export function Dashboard() {
   // a failed fetch renders identically to a real 0-position, 0-PnL bot.
   const statusUnknown = botLoading || botError;
 
+  const isDemo = useIsDemo();
   const startBot = useStartBot();
   const stopBot = useStopBot();
 
@@ -500,18 +505,20 @@ export function Dashboard() {
             <div className="flex items-center gap-3 sm:gap-4">
               <Button
                 size="lg"
-                className={cn("flex-1 sm:flex-none sm:w-40 font-mono tracking-wider font-bold transition-all", bot?.running ? "opacity-50 cursor-not-allowed" : "bg-success text-success-foreground hover:bg-success/90")}
+                className={cn("flex-1 sm:flex-none sm:w-40 font-mono tracking-wider font-bold transition-all", (bot?.running || isDemo) ? "opacity-50 cursor-not-allowed" : "bg-success text-success-foreground hover:bg-success/90")}
                 onClick={handleStart}
-                disabled={bot?.running || startBot.isPending}
+                disabled={bot?.running || startBot.isPending || isDemo}
+                title={isDemo ? "Disabled in the read-only demo" : undefined}
               >
                 <Power className="mr-2 h-4 w-4" /> START
               </Button>
               <Button
                 size="lg"
                 variant="destructive"
-                className={cn("flex-1 sm:flex-none sm:w-40 font-mono tracking-wider font-bold transition-all", !bot?.running ? "opacity-50 cursor-not-allowed" : "")}
+                className={cn("flex-1 sm:flex-none sm:w-40 font-mono tracking-wider font-bold transition-all", (!bot?.running || isDemo) ? "opacity-50 cursor-not-allowed" : "")}
                 onClick={handleStop}
-                disabled={!bot?.running || stopBot.isPending}
+                disabled={!bot?.running || stopBot.isPending || isDemo}
+                title={isDemo ? "Disabled in the read-only demo" : undefined}
               >
                 <Square className="mr-2 h-4 w-4" /> STOP
               </Button>
@@ -584,10 +591,16 @@ export function Dashboard() {
       </CollapsibleSection>
 
 
-      {/* Why is / isn't it trading — exact blocking condition */}
-      <BlockingBanner />
+      {/* Why is / isn't it trading — exact blocking condition. Hidden in the
+          demo: there is no live scan loop, so "engine stopped / press START"
+          would contradict the labeled DEMO snapshot above. */}
+      {!isDemo && <BlockingBanner />}
 
-      {/* Verification: live market data + full strategy decision pipeline */}
+      {/* Verification: live market data + full strategy decision pipeline.
+          These are live-engine views (in-memory scan state), empty without a
+          running engine — hidden in the demo, whose depth lives on the fully
+          seeded Decisions, Trade Log, and Analytics pages instead. */}
+      {!isDemo && (
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 items-start">
         <CollapsibleSection id="market-monitor" title="Market Monitor" icon={Activity}>
           <div className="p-3"><MarketMonitor /></div>
@@ -596,8 +609,10 @@ export function Dashboard() {
           <div className="p-3"><DecisionPanel /></div>
         </CollapsibleSection>
       </div>
+      )}
 
-      {/* Scanner Table */}
+      {/* Scanner Table — live per-scan view, hidden in the demo (no engine). */}
+      {!isDemo && (
       <CollapsibleSection
         id="scanner"
         title="Live Market Scanner"
@@ -683,6 +698,7 @@ export function Dashboard() {
             </Table>
           </div>
       </CollapsibleSection>
+      )}
     </div>
   );
 }

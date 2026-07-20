@@ -1,9 +1,10 @@
 import { Link, useLocation } from "wouter";
-import { Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert, Layers, LogOut, Menu, X, UserCircle2, Scale, Bitcoin, CandlestickChart } from "lucide-react";
+import { Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert, Layers, LogOut, Menu, X, UserCircle2, Scale, Bitcoin, CandlestickChart, Eye } from "lucide-react";
 import { useGetBotStatus, useHealthCheck, getGetBotStatusQueryKey, getHealthCheckQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useSection, type Section } from "@/lib/section";
+import { useIsDemo } from "@/lib/account";
 
 const SECTION_TABS: { id: Section; label: string; icon: typeof Bitcoin }[] = [
   { id: "crypto", label: "Crypto", icon: Bitcoin },
@@ -60,6 +61,7 @@ const NAV_ITEMS = [
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isDemo = useIsDemo();
   const { data: botStatus } = useGetBotStatus({
     query: { refetchInterval: 5000, queryKey: getGetBotStatusQueryKey() }
   });
@@ -180,6 +182,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden relative">
+        {isDemo && (
+          <div className="bg-primary/10 border-b border-primary/40 text-primary px-6 py-2.5 flex items-center justify-center gap-2.5 text-xs sm:text-sm font-medium tracking-wide">
+            <Eye className="h-4 w-4 shrink-0" />
+            <span>
+              <span className="font-bold uppercase">Demo · read-only</span>
+              <span className="text-muted-foreground"> — a fully-loaded snapshot. Controls are disabled; </span>
+              <button
+                type="button"
+                className="underline hover:text-primary/80"
+                onClick={async () => {
+                  await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }).catch(() => {});
+                  window.location.href = `${window.location.pathname}?signup=1`;
+                }}
+              >
+                create a free account
+              </button>
+              <span className="text-muted-foreground"> to connect your own keys and trade.</span>
+            </span>
+          </div>
+        )}
         {botStatus?.circuitBreakerActive && (
           <div className="bg-destructive/10 border-b border-destructive text-destructive px-6 py-3 flex items-center justify-center gap-3 text-sm font-medium tracking-wide">
             <ShieldAlert className="h-5 w-5" />

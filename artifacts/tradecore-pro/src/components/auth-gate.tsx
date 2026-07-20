@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ShieldCheck, Loader2, User, KeyRound, Bot, FlaskConical, BrainCircuit,
-  Wallet, LineChart, CheckCircle2,
+  Wallet, LineChart, CheckCircle2, PlayCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -76,6 +76,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [providers, setProviders] = useState<{ google: boolean; apple: boolean }>({ google: false, apple: false });
+  const [demoAvailable, setDemoAvailable] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,7 +90,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       .catch(() => { if (!cancelled) setStatus("unauthenticated"); });
     fetch("/api/auth/providers", { credentials: "same-origin" })
       .then((r) => r.json())
-      .then((data) => { if (!cancelled && data) setProviders({ google: !!data.google, apple: !!data.apple }); })
+      .then((data) => {
+        if (cancelled || !data) return;
+        setProviders({ google: !!data.google, apple: !!data.apple });
+        setDemoAvailable(!!data.demo);
+      })
       .catch(() => {});
     // Surface a failed OAuth redirect (e.g. cancelled at Google) as a message.
     const params = new URLSearchParams(window.location.search);
@@ -133,6 +139,20 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       setError("Couldn't reach the server. Check your connection and try again.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleDemo() {
+    setDemoLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/demo", { method: "POST", credentials: "same-origin" });
+      if (res.ok) { setStatus("authenticated"); return; }
+      setError("The demo isn't available right now. Create an account to get started.");
+    } catch {
+      setError("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setDemoLoading(false);
     }
   }
 
@@ -221,9 +241,33 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 : "Your own engine, your own Binance keys — set up in minutes."}
             </p>
 
+            {/* One-click demo — the fastest path to seeing the product work,
+                no signup and no exchange keys. Read-only, clearly labeled. */}
+            {demoAvailable && (
+              <>
+                <Button
+                  type="button"
+                  className="mt-6 w-full gap-2 font-semibold"
+                  onClick={handleDemo}
+                  disabled={demoLoading}
+                >
+                  {demoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
+                  Explore the live demo — no signup
+                </Button>
+                <p className="mt-2 text-center text-[11px] text-muted-foreground">
+                  A fully-loaded read-only account. See real trades, decisions, backtests and analytics instantly.
+                </p>
+                <div className="my-5 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">or sign in</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+              </>
+            )}
+
             {anyOauth && (
               <>
-                <div className="mt-6 space-y-2.5">
+                <div className={demoAvailable ? "space-y-2.5" : "mt-6 space-y-2.5"}>
                   {providers.google && (
                     <Button
                       type="button"

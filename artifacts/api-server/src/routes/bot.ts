@@ -1,9 +1,18 @@
 import { Router, type IRouter } from "express";
 import { getOrCreateEngine, SECTIONS } from "../lib/engineRegistry";
+import { isDemoUser } from "../middleware/demoGuard";
+import { buildDemoStatus } from "../lib/demoStatus";
 
 const router: IRouter = Router();
 
 router.get("/bot/status", async (req, res): Promise<void> => {
+  // The read-only demo has no live engine — serve a DB-derived snapshot so the
+  // dashboard hero shows the seeded account's real aggregates (balance, today's
+  // P&L, win rate) instead of an empty null state.
+  if (await isDemoUser(req.userId!)) {
+    res.json(await buildDemoStatus(req.userId!, req.section!));
+    return;
+  }
   res.json(getOrCreateEngine(req.userId!, req.section!).getState());
 });
 
