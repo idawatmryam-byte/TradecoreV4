@@ -4,11 +4,16 @@ import { and, eq } from "drizzle-orm";
 import { logger } from "./lib/logger";
 import { validateEnv } from "./lib/env";
 import { getOrCreateEngine, isSection } from "./lib/engineRegistry";
+import { installOpsMonitor } from "./lib/opsMonitor";
 
 // app.ts already called validateEnv() at import time (fail fast before
 // building any middleware) — this call is free (memoized) and just gets us
 // the typed snapshot instead of re-parsing process.env by hand here.
 const { port, host } = validateEnv();
+
+// Capture uncaught exceptions / unhandled rejections (log always; optional
+// webhook alert when OPS_ALERT_WEBHOOK_URL is set) before anything runs.
+installOpsMonitor();
 
 /**
  * Auto-resume: every engine whose persisted desired state is "running"
