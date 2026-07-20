@@ -44,6 +44,16 @@ export const FUTURES_MAKER_FEE_RATE = 0.0002;
  *  both entry and exit in the backtest simulation. */
 export const DEFAULT_SLIPPAGE_RATE = 0.0005;
 
+/** Forex slippage per fill (0.00005 = 0.005%). Major-pair FX is the deepest
+ *  market in the world — realistic slippage on retail-size market orders is
+ *  a fraction of a pip, ~10× smaller than the crypto default above. This
+ *  matters structurally, not cosmetically: FX price targets are ~0.2-0.5%
+ *  (vs crypto's 2-15%), so charging crypto's 0.3% round-trip cost against an
+ *  FX-scale target makes EVERY forex plan fail the reward:risk floor — the
+ *  exact bug that silently vetoed all forex trades until the engine threaded
+ *  market-correct rates into netRewardRisk (see selector.ts reward-risk gate). */
+export const FOREX_SLIPPAGE_RATE = 0.00005;
+
 /**
  * The minimum takeProfitPercent that can theoretically break even against
  * round-trip trading costs (2 fee legs + 2 slippage legs), before the

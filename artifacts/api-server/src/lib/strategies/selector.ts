@@ -37,6 +37,7 @@ import {
   MIN_VIABLE_REWARD_RISK,
   DEFAULT_FEE_RATE,
   FUTURES_FEE_RATE,
+  DEFAULT_SLIPPAGE_RATE,
 } from "../tradingCosts";
 import { type DollarRiskConfig, planDollarRisk, type DollarRiskPlan } from "../dollarRisk";
 
@@ -97,6 +98,10 @@ export interface DollarRiskContext {
   marketType: "spot" | "futures";
   leverage: number;
   feeRate: number;
+  /** Slippage fraction per leg for this market (forex ≪ crypto). When unset,
+   *  DEFAULT_SLIPPAGE_RATE applies — correct for crypto, ruinous for forex,
+   *  so the engines always pass it explicitly. */
+  slippageRate?: number;
   /** Fallback trade amount when a strategy doesn't set its own (global positionSizeUsdt). */
   globalTradeAmountUsdt: number;
   /** Account-level dollar plan — set only when riskModel = "dollar". */
@@ -341,7 +346,14 @@ export class StrategySelector {
         // "well-defined risk/reward profile" discipline, enforced once,
         // centrally, so a single misconfigured strategy can't leak a
         // structurally-poor trade into either engine.
-        const rr = netRewardRisk(plan.entryPrice, plan.slPrice, plan.tpPrice, plan.side);
+        // Costs must be the ACTIVE market's, not the crypto defaults: FX
+        // targets (~0.25%) are smaller than crypto's 0.3% round-trip cost,
+        // so defaulted rates here rejected every forex plan ever produced.
+        const rr = netRewardRisk(
+          plan.entryPrice, plan.slPrice, plan.tpPrice, plan.side,
+          dollarRisk?.feeRate ?? DEFAULT_FEE_RATE,
+          dollarRisk?.slippageRate ?? DEFAULT_SLIPPAGE_RATE,
+        );
         if (rr < MIN_VIABLE_REWARD_RISK) {
           console.warn(
             `[selector] ${strategy.strategyId} rejected on ${symbol}: net reward:risk ${rr.toFixed(2)} below ${MIN_VIABLE_REWARD_RISK} floor`,
@@ -390,6 +402,7 @@ export class StrategySelector {
       marketType,
       leverageCap: Math.max(1, dollarRisk?.leverage ?? 1),
       feeRate: dollarRisk?.feeRate ?? (marketType === "futures" ? FUTURES_FEE_RATE : DEFAULT_FEE_RATE),
+      slippageRate: dollarRisk?.slippageRate ?? DEFAULT_SLIPPAGE_RATE,
       dollarPlan: resolveDollarPlan(config, dollarRisk),
     };
   }

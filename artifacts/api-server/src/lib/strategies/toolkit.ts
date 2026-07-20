@@ -419,8 +419,13 @@ export function feeViability(
   slPrice: number,
   tpPrice: number,
   side: PositionSide,
+  feeRate?: number,
+  slippageRate?: number,
 ): FeeViability {
-  const rr = netRewardRisk(entryPrice, slPrice, tpPrice, side);
+  // Callers should pass ctx.feeRate/ctx.slippageRate — the defaults are
+  // crypto-spot rates, which are ~10× too expensive for forex and would
+  // fail every FX-scale target against the floor.
+  const rr = netRewardRisk(entryPrice, slPrice, tpPrice, side, feeRate, slippageRate);
   if (rr < MIN_VIABLE_REWARD_RISK) {
     return {
       viable: false,

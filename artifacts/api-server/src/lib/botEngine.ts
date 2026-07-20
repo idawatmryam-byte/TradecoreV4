@@ -41,7 +41,7 @@ import {
 } from "./strategy";
 import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig, type PositionSide, type TradePlan } from "./strategies";
 import { recordDecisions, pruneDecisions, planToRecord, rejectionToRecord, type DecisionRecord } from "./decisionRecorder";
-import { DEFAULT_FEE_RATE, FUTURES_FEE_RATE, FOREX_COST_RATE } from "./tradingCosts";
+import { DEFAULT_FEE_RATE, FUTURES_FEE_RATE, FOREX_COST_RATE, DEFAULT_SLIPPAGE_RATE, FOREX_SLIPPAGE_RATE } from "./tradingCosts";
 import { requiredMarginUsd, minStopDistancePrice } from "./forexSizing";
 import { isInstrumentOpen, nextInstrumentOpen, instrumentClassOf } from "./marketHours";
 import { loadStrategyConfigs } from "./strategyConfigLoader";
@@ -227,6 +227,12 @@ class BotEngine {
     return this.activeMarketType === "futures" ? FUTURES_FEE_RATE
       : this.activeMarketType === "forex" ? FOREX_COST_RATE
       : DEFAULT_FEE_RATE;
+  }
+  /** Slippage per leg for the ACTIVE market — forex is ~10× tighter than
+   *  crypto. Feeds the reward:risk gate; using the crypto default there
+   *  rejected every FX plan (costs exceeded FX-scale targets). */
+  private get activeSlippageRate(): number {
+    return this.activeMarketType === "forex" ? FOREX_SLIPPAGE_RATE : DEFAULT_SLIPPAGE_RATE;
   }
   /** How many consecutive risk violations before trading is paused */
   private readonly MAX_RISK_VIOLATIONS = 3;
@@ -1385,6 +1391,7 @@ class BotEngine {
           marketType: config.marketType as "spot" | "futures",
           leverage: config.marketType === "futures" ? Math.max(1, config.leverage) : 1,
           feeRate: this.activeTakerFee,
+          slippageRate: this.activeSlippageRate,
           globalTradeAmountUsdt: Number(config.positionSizeUsdt),
           ...(config.riskModel === "dollar" && {
             globalMaxLossUsdt: Number(config.maxLossUsdt),

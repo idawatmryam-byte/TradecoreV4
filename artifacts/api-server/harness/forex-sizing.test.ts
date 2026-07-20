@@ -7,6 +7,13 @@
  * Run:  tsx harness/forex-sizing.test.ts   (exit 0 = all pass)
  */
 import { pipSize, requiredMarginUsd, minStopDistancePrice, roundUnits } from "../src/lib/forexSizing";
+import {
+  netRewardRisk,
+  MIN_VIABLE_REWARD_RISK,
+  FOREX_COST_RATE,
+  FOREX_SLIPPAGE_RATE,
+} from "../src/lib/tradingCosts";
+import { feeViability } from "../src/lib/strategies/toolkit";
 
 let failures = 0;
 function expect(name: string, actual: unknown, wanted: unknown) {
@@ -42,6 +49,41 @@ expect("crossed quote → floor", minStopDistancePrice(-4, 1.1003, 1.1000), 0.00
 expect("whole units truncate", roundUnits(1234.9, 0), 1234);
 expect("fractional precision", roundUnits(12.3456, 1), 12.3);
 expect("already precise unchanged", roundUnits(500, 0), 500);
+
+// ── Cost model regression: the bug that vetoed every forex trade ────────────
+// A representative FX plan from the live seeds ($10 risk / $12 target on
+// $5000 notional): entry 1.08500, stop 0.2% away, target 0.24% away — a
+// clean 1.2:1 gross trade. With CRYPTO cost defaults (0.1% fee + 0.05%
+// slippage per leg = 0.3% round trip) the round-trip cost EXCEEDS the
+// entire reward, so netRewardRisk goes negative and the selector's 0.5
+// floor rejects it — which is exactly what the live decisions journal
+// showed on every forex scan ("net reward:risk -0.14 below 0.5 floor").
+// With the real FX rates the same plan clears the floor comfortably.
+const fxEntry = 1.085;
+const fxStop = fxEntry * (1 - 0.002); // -0.20%
+const fxTarget = fxEntry * (1 + 0.0024); // +0.24%
+
+const rrCrypto = netRewardRisk(fxEntry, fxStop, fxTarget, "long");
+const rrForex = netRewardRisk(fxEntry, fxStop, fxTarget, "long", FOREX_COST_RATE, FOREX_SLIPPAGE_RATE);
+expect("FX plan REJECTED under crypto cost defaults (the old bug)", rrCrypto < MIN_VIABLE_REWARD_RISK, true);
+expect("crypto costs make the FX reward net-negative", rrCrypto <= 0, true);
+expect("same FX plan CLEARS the floor at forex costs", rrForex >= MIN_VIABLE_REWARD_RISK, true);
+// (0.24% - 0.03%) / (0.20% + 0.03%) ≈ 0.913 net — comfortably above 0.5.
+expect("forex net RR ≈ 0.91", Math.abs(rrForex - 0.9130) < 0.001, true);
+
+// Short side symmetric.
+const fxStopS = fxEntry * (1 + 0.002);
+const fxTargetS = fxEntry * (1 - 0.0024);
+const rrShort = netRewardRisk(fxEntry, fxStopS, fxTargetS, "short", FOREX_COST_RATE, FOREX_SLIPPAGE_RATE);
+expect("short FX plan clears the floor at forex costs", rrShort >= MIN_VIABLE_REWARD_RISK, true);
+
+// feeViability threads the same rates (strategy pre-check parity with the gate).
+expect(
+  "feeViability viable at forex rates",
+  feeViability(fxEntry, fxStop, fxTarget, "long", FOREX_COST_RATE, FOREX_SLIPPAGE_RATE).viable,
+  true,
+);
+expect("feeViability still rejects at crypto defaults", feeViability(fxEntry, fxStop, fxTarget, "long").viable, false);
 
 if (failures > 0) {
   console.error(`\n${failures} failure(s)`);

@@ -87,6 +87,57 @@ export async function loadStrategyConfigs(
     .select()
     .from(strategyConfigsTable)
     .where(and(eq(strategyConfigsTable.userId, userId), eq(strategyConfigsTable.section, section)));
+
+  // Self-heal FOREX rows that predate the FX-appropriate seeds above: a row
+  // whose dollar plan still EXACTLY equals the crypto default for its
+  // strategy was never adapted for forex (observed live as "target 15.02%
+  // unreachable" on every scan — 45/300 is a crypto-scale plan). Rows the
+  // user has edited never match the crypto defaults and are left alone.
+  if (section === "forex") {
+    const sameNum = (a: string | null, b: number | null) =>
+      (a == null && b == null) || (a != null && b != null && Number(a) === b);
+    for (const row of rows) {
+      const crypto = DEFAULT_STRATEGY_CONFIGS[row.strategyId];
+      if (!crypto) continue;
+      const stale =
+        sameNum(row.tradeAmountUsdt, crypto.tradeAmountUsdt) &&
+        sameNum(row.maxLossUsdt, crypto.maxLossUsdt) &&
+        sameNum(row.targetProfitUsdt, crypto.targetProfitUsdt);
+      if (!stale) continue;
+      const fxHolding =
+        row.maxHoldingSeconds === crypto.maxHoldingSeconds
+          ? Math.min(crypto.maxHoldingSeconds * 4, 8 * 3600)
+          : row.maxHoldingSeconds;
+      try {
+        await db
+          .update(strategyConfigsTable)
+          .set({
+            tradeAmountUsdt: "5000",
+            maxLossUsdt: "10",
+            targetProfitUsdt: "12",
+            maxHoldingSeconds: fxHolding,
+          })
+          .where(
+            and(
+              eq(strategyConfigsTable.userId, userId),
+              eq(strategyConfigsTable.section, section),
+              eq(strategyConfigsTable.strategyId, row.strategyId),
+            ),
+          );
+        row.tradeAmountUsdt = "5000";
+        row.maxLossUsdt = "10";
+        row.targetProfitUsdt = "12";
+        row.maxHoldingSeconds = fxHolding;
+        logger.info(
+          { userId, strategyId: row.strategyId },
+          "Migrated stale crypto-default dollar plan on forex strategy config to FX seeds (5000/10/12)",
+        );
+      } catch (err) {
+        logger.warn({ err, strategyId: row.strategyId }, "Forex config self-heal failed (non-fatal)");
+      }
+    }
+  }
+
   const map = new Map<string, StrategyConfig>();
 
   const VALID_PRIORITY_KEYS = new Set(["stop_loss", "take_profit", "trailing_stop", "timeout"]);
