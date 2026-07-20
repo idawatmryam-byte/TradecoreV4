@@ -8,7 +8,7 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx harness/futures-math.test.ts && tsx harness/adaptive-sltp.test.ts && tsx harness/market-symbols.test.ts && tsx harness/position-sizing.test.ts && tsx harness/dollar-risk.test.ts && tsx harness/toolkit.test.ts && tsx harness/oanda-adapter.test.ts && tsx harness/forex-sizing.test.ts && tsx harness/market-hours.test.ts && tsx harness/london-breakout.test.ts && tsx harness/autopsy.test.ts && tsx harness/live-engine.test.ts"
+    "test": "tsx harness/futures-math.test.ts && tsx harness/adaptive-sltp.test.ts && tsx harness/market-symbols.test.ts && tsx harness/position-sizing.test.ts && tsx harness/dollar-risk.test.ts && tsx harness/toolkit.test.ts && tsx harness/oanda-adapter.test.ts && tsx harness/forex-sizing.test.ts && tsx harness/market-hours.test.ts && tsx harness/london-breakout.test.ts && tsx harness/edge-forensics.test.ts && tsx harness/autopsy.test.ts && tsx harness/live-engine.test.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",

@@ -2,10 +2,12 @@ import { useGetStatsSummary, useGetHourlyStats, useGetDailyReport, getGetStatsSu
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
-import { BarChart2, Flame, TrendingDown, Target, Zap, FileText, Download } from "lucide-react";
+import { BarChart2, Flame, TrendingDown, Target, Zap, FileText, Download, Microscope, AlertTriangle, Info, CheckCircle2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Cell as PieCell } from 'recharts';
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useSection, sectionHeaders } from "@/lib/section";
 
 // ---------------------------------------------------------------------------
 // Daily trade report — same data the engine pushes to the alert webhook at
@@ -120,6 +122,202 @@ function DailyReportCard() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Edge Forensics — "where does the losing come from" (GET /reports/edge-forensics)
+// ---------------------------------------------------------------------------
+interface ForensicCell {
+  key: string; label: string; trades: number; wins: number; losses: number; scratches: number;
+  totalPnl: number; adjustedWinRate: number | null; avgPnl: number; avgR: number | null;
+}
+interface ForensicsData {
+  totalTrades: number; wins: number; losses: number; scratches: number;
+  rawWinRate: number | null; adjustedWinRate: number | null;
+  totalPnl: number; totalFees: number; grossPnl: number;
+  avgWin: number | null; avgLoss: number | null; expectancyPerTrade: number | null;
+  byExitReason: ForensicCell[]; byStrategy: ForensicCell[]; bySymbol: ForensicCell[]; byHourUtc: ForensicCell[];
+  rDistribution: Array<{ bucket: string; count: number }>;
+  verdicts: Array<{ severity: "critical" | "warning" | "info"; title: string; detail: string }>;
+  noiseFlags: Array<{ strategyId: string; symbol: string; impliedStopPct: number; atrPct: number; severity: string }>;
+  engineOffline: boolean;
+}
+
+function CellTable({ title, cells }: { title: string; cells: ForensicCell[] }) {
+  if (cells.length === 0) return null;
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">{title}</p>
+      <div className="overflow-x-auto rounded border border-border">
+        <table className="w-full text-xs font-mono">
+          <thead>
+            <tr className="text-muted-foreground border-b border-border bg-muted/30">
+              <th className="text-left px-2 py-1.5 font-normal">Cell</th>
+              <th className="text-right px-2 py-1.5 font-normal">Trades</th>
+              <th className="text-right px-2 py-1.5 font-normal">W / L / scratch</th>
+              <th className="text-right px-2 py-1.5 font-normal">Adj. WR</th>
+              <th className="text-right px-2 py-1.5 font-normal">Avg R</th>
+              <th className="text-right px-2 py-1.5 font-normal">Net P&L</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cells.map((c) => (
+              <tr key={c.key} className="border-b border-border/50 last:border-0">
+                <td className="px-2 py-1.5">{c.label}</td>
+                <td className="text-right px-2 py-1.5">{c.trades}</td>
+                <td className="text-right px-2 py-1.5 text-muted-foreground">{c.wins} / {c.losses} / {c.scratches}</td>
+                <td className="text-right px-2 py-1.5">{c.adjustedWinRate != null ? `${(c.adjustedWinRate * 100).toFixed(0)}%` : "—"}</td>
+                <td className="text-right px-2 py-1.5">{c.avgR ?? "—"}</td>
+                <td className={cn("text-right px-2 py-1.5 font-bold", c.totalPnl >= 0 ? "text-success" : "text-destructive")}>
+                  {c.totalPnl >= 0 ? "+" : ""}{c.totalPnl.toFixed(2)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function EdgeForensicsCard() {
+  const { section } = useSection();
+  const [open, setOpen] = useState(true);
+  const { data, isLoading } = useQuery<ForensicsData>({
+    queryKey: ["edge-forensics", section],
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const res = await fetch("/api/reports/edge-forensics", { credentials: "same-origin", headers: sectionHeaders() });
+      if (!res.ok) throw new Error("forensics fetch failed");
+      return res.json();
+    },
+  });
+
+  const sevIcon = {
+    critical: <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />,
+    warning: <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />,
+    info: <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />,
+  } as const;
+  const sevBorder = {
+    critical: "border-destructive/40 bg-destructive/5",
+    warning: "border-warning/40 bg-warning/5",
+    info: "border-primary/30 bg-primary/5",
+  } as const;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 cursor-pointer" onClick={() => setOpen((v) => !v)}>
+        <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+          <Microscope className="h-4 w-4 text-primary" /> Edge Forensics
+          <span className="text-muted-foreground normal-case tracking-normal font-normal">— where the losses actually come from</span>
+        </CardTitle>
+        <span className="text-xs font-mono text-muted-foreground">{open ? "hide" : "show"}</span>
+      </CardHeader>
+      {open && (
+        <CardContent className="space-y-4">
+          {isLoading || !data ? (
+            <p className="text-xs font-mono text-muted-foreground">Analyzing closed trades…</p>
+          ) : data.totalTrades === 0 ? (
+            <p className="text-xs font-mono text-muted-foreground">No closed live trades in this section yet — forensics start once trades close.</p>
+          ) : (
+            <>
+              {/* The honest headline: raw vs scratch-adjusted win rate. */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="rounded border border-border p-3">
+                  <p className="text-[10px] font-mono text-muted-foreground uppercase">Raw win rate</p>
+                  <p className="text-xl font-bold">{data.rawWinRate != null ? `${(data.rawWinRate * 100).toFixed(0)}%` : "—"}</p>
+                  <p className="text-[10px] text-muted-foreground">counts scratches as losses</p>
+                </div>
+                <div className="rounded border border-primary/40 bg-primary/5 p-3">
+                  <p className="text-[10px] font-mono text-muted-foreground uppercase">Adjusted win rate</p>
+                  <p className="text-xl font-bold text-primary">{data.adjustedWinRate != null ? `${(data.adjustedWinRate * 100).toFixed(0)}%` : "—"}</p>
+                  <p className="text-[10px] text-muted-foreground">scratches excluded — the honest number</p>
+                </div>
+                <div className="rounded border border-border p-3">
+                  <p className="text-[10px] font-mono text-muted-foreground uppercase">W / L / Scratch</p>
+                  <p className="text-xl font-bold">{data.wins} / {data.losses} / {data.scratches}</p>
+                  <p className="text-[10px] text-muted-foreground">{data.totalTrades} closed trades</p>
+                </div>
+                <div className="rounded border border-border p-3">
+                  <p className="text-[10px] font-mono text-muted-foreground uppercase">Expectancy / decided trade</p>
+                  <p className={cn("text-xl font-bold", (data.expectancyPerTrade ?? 0) >= 0 ? "text-success" : "text-destructive")}>
+                    {data.expectancyPerTrade != null ? `$${data.expectancyPerTrade.toFixed(2)}` : "—"}
+                  </p>
+                </div>
+                <div className="rounded border border-border p-3">
+                  <p className="text-[10px] font-mono text-muted-foreground uppercase">Fees paid</p>
+                  <p className="text-xl font-bold">${data.totalFees.toFixed(2)}</p>
+                  <p className="text-[10px] text-muted-foreground">gross {data.grossPnl >= 0 ? "+" : ""}{data.grossPnl.toFixed(2)} → net {data.totalPnl >= 0 ? "+" : ""}{data.totalPnl.toFixed(2)}</p>
+                </div>
+              </div>
+
+              {/* The convictions. */}
+              {data.verdicts.length > 0 && (
+                <div className="space-y-2">
+                  {data.verdicts.map((v, i) => (
+                    <div key={i} className={cn("flex gap-2.5 rounded border p-3", sevBorder[v.severity])}>
+                      {sevIcon[v.severity]}
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold">{v.title}</p>
+                        <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">{v.detail}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {data.engineOffline && (
+                <p className="text-[11px] font-mono text-muted-foreground flex items-center gap-1.5">
+                  <Info className="h-3 w-3" /> Noise-floor audit needs the engine running (live ATR readings) — start the engine and reload.
+                </p>
+              )}
+              {data.noiseFlags.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Stop-vs-noise audit (live ATR)</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {data.noiseFlags.map((f, i) => (
+                      <span key={i} className={cn("px-2 py-1 rounded text-[11px] font-mono border", f.severity === "inside_noise" ? "border-destructive/50 text-destructive bg-destructive/10" : "border-warning/50 text-warning bg-warning/10")}>
+                        {f.strategyId} × {f.symbol}: stop {f.impliedStopPct}% vs ATR {f.atrPct}%
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <CellTable title="By exit reason (most bleeding first)" cells={data.byExitReason} />
+                <CellTable title="By strategy" cells={data.byStrategy} />
+                <CellTable title="By symbol" cells={data.bySymbol} />
+                <CellTable title="By entry hour (UTC)" cells={data.byHourUtc.filter((c) => c.trades > 0)} />
+              </div>
+
+              {data.rDistribution.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">Realized R-multiple distribution</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {data.rDistribution.map((b) => (
+                      <span key={b.bucket} className="px-2 py-1 rounded text-[11px] font-mono border border-border text-muted-foreground">
+                        {b.bucket}: <span className="text-foreground font-bold">{b.count}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5 text-primary" />
+                <span>
+                  How to read this: a <strong>scratch</strong> is a break-even exit (stop moved to entry after TP1) or a wash within ±10% of planned risk —
+                  the market didn't beat the trade, it just didn't go anywhere. Cells with ≥5 trades and negative P&L are candidates for the
+                  selection filter: stop trading where you measurably lose, keep trading where you win.
+                </span>
+              </p>
+            </>
+          )}
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
 export function Stats() {
   const { data: summary } = useGetStatsSummary({ query: { queryKey: getGetStatsSummaryQueryKey() } });
   const { data: hourly } = useGetHourlyStats({ query: { queryKey: getGetHourlyStatsQueryKey() } });
@@ -142,6 +340,10 @@ export function Stats() {
         </h1>
         <p className="text-muted-foreground text-sm mt-1">Deep dive into historical edge and execution metrics.</p>
       </div>
+
+      {/* The diagnosis layer: decomposes the win-rate number into named,
+          dollar-quantified leaks (scratches, noise-stops, negative cells). */}
+      <EdgeForensicsCard />
 
       <DailyReportCard />
 
