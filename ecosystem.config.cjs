@@ -13,19 +13,27 @@
  * its scan loop on interval timers. Two instances would mean two engines
  * evaluating the same strategies against the same account and placing
  * DUPLICATE live orders. This must stay a single fork-mode process.
+ *
+ * Paths are derived from this file's own location (__dirname = repo root), so
+ * the config works wherever the repo is checked out — no hardcoded per-machine
+ * paths to keep in sync.
  */
+const path = require("node:path");
+
+const REPO_ROOT = __dirname;
+
 module.exports = {
   apps: [
     {
       name: "tradecore-api",
-      cwd: "/home/ubuntu/TradecoreV4/artifacts/api-server",
+      cwd: path.join(REPO_ROOT, "artifacts/api-server"),
       script: "./dist/index.mjs",
 
       // --enable-source-maps: keeps stack traces pointing at the TS sources.
       // --env-file: loads .env into process.env (Node >= 20.6; this box is 24).
       node_args: [
         "--enable-source-maps",
-        "--env-file=/home/ubuntu/TradecoreV4/.env",
+        `--env-file=${path.join(REPO_ROOT, ".env")}`,
       ],
 
       // See the warning above — single process, never clustered.
@@ -45,8 +53,8 @@ module.exports = {
 
       merge_logs: true,
       time: true,
-      out_file: "/home/ubuntu/.pm2/logs/tradecore-api-out.log",
-      error_file: "/home/ubuntu/.pm2/logs/tradecore-api-error.log",
+      // Log files default to PM2's own ~/.pm2/logs/<name>-{out,error}.log —
+      // left unset so this config carries no machine-specific absolute paths.
     },
   ],
 };

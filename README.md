@@ -134,9 +134,20 @@ The Backtest page runs the real engine over historical data. Key controls:
 Every run records the exact effective configuration used and exports full trade
 data as CSV for external analysis.
 
-> Backtesting currently covers the **crypto** section. Forex backtesting is
-> deliberately gated in the UI until the simulator models forex market hours and
-> spread-based costs — wrong numbers would be worse than no numbers.
+Backtesting covers **both** sections: crypto uses Binance public data, and forex
+downloads OANDA candles (with your connected account) and models forex costs and
+market hours. The **Optimization Autopsy** — a walk-forward diagnostic that only
+suggests a change when it beats your current config out-of-sample — works for
+both markets too.
+
+## Documentation
+
+- [`docs/PRODUCT_OVERVIEW.md`](./docs/PRODUCT_OVERVIEW.md) — what the platform is,
+  what's included, and its honest limitations (for evaluators/buyers).
+- [`docs/USER_GUIDE.md`](./docs/USER_GUIDE.md) — plain-language guide to using the
+  dashboard and reading the Decisions / Autopsy / Forensics tools.
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — the exit/risk pipeline internals.
+- [`docs/HANDOFF.md`](./docs/HANDOFF.md) — the VPS deployment runbook.
 
 ## Disclaimer
 
