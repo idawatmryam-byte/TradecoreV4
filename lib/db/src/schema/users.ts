@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, timestamp, unique } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, timestamp, unique, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -22,6 +22,12 @@ export const usersTable = pgTable("users", {
   email: text("email"),
   /** Optional friendly display name (defaults to username in the UI). */
   displayName: text("display_name"),
+  /** Read-only DEMO account: a shared, pre-seeded account anyone can enter via
+   *  the "Explore the live demo" button (POST /auth/demo) with no signup and no
+   *  exchange keys. The server rejects every state-changing request for a demo
+   *  user (see middleware/demoGuard.ts), so it can view the fully-populated
+   *  product but can never run an engine, place an order, or edit config. */
+  isDemo: boolean("is_demo").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

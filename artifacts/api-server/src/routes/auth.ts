@@ -107,6 +107,30 @@ router.post("/auth/login", async (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------------------------------------------------------------------------
+// POST /auth/demo — one-click, no-signup entry into the shared READ-ONLY demo
+// account (users.isDemo). Sets the same signed session cookie as a real login;
+// the demo user can view the fully-seeded product but every state-changing
+// request is rejected server-side (middleware/demoGuard.ts), and it holds no
+// exchange credentials, so it can never place an order. Returns 404 when no
+// demo account has been seeded (scripts/seedDemo.ts) so the frontend can hide
+// the button gracefully.
+// ---------------------------------------------------------------------------
+router.post("/auth/demo", async (req, res) => {
+  const [demo] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.isDemo, true))
+    .limit(1);
+  if (!demo) {
+    res.status(404).json({ error: "No demo account is available." });
+    return;
+  }
+  logger.info({ userId: demo.id, ip: req.ip }, "AUTH_DEMO_LOGIN");
+  setSessionCookie(res, demo.id);
+  res.json({ ok: true });
+});
+
 router.post("/auth/logout", (req, res) => {
   res.clearCookie(SESSION_COOKIE_NAME, { path: "/" });
   res.json({ ok: true });
@@ -145,9 +169,15 @@ function setOauthStateCookie(res: Response, state: string): void {
   });
 }
 
-/** Which social sign-in buttons the login page should render. */
-router.get("/auth/providers", (_req, res) => {
-  res.json({ google: googleEnabled(), apple: appleEnabled() });
+/** Which social sign-in buttons the login page should render, and whether a
+ *  one-click demo account exists to offer an "Explore the live demo" button. */
+router.get("/auth/providers", async (_req, res) => {
+  const [demo] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.isDemo, true))
+    .limit(1);
+  res.json({ google: googleEnabled(), apple: appleEnabled(), demo: !!demo });
 });
 
 /**

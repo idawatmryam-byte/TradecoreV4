@@ -10,6 +10,7 @@ import { corsMiddleware, securityHeaders } from "./middleware/security";
 import { rateLimit } from "./middleware/rateLimit";
 import { requireAuth } from "./middleware/auth";
 import { resolveSection } from "./middleware/section";
+import { demoGuard } from "./middleware/demoGuard";
 
 // Fail fast and loud on a misconfigured deploy rather than discovering it
 // later — see lib/env.ts for the full rationale and the list of everything
@@ -79,7 +80,9 @@ app.use("/api", publicRouter);
 // Everything else requires a valid session cookie or Basic-auth credentials.
 // resolveSection runs after auth to set req.section (crypto|forex) from the
 // X-Section header (defaults to crypto).
-app.use("/api", requireAuth, resolveSection, router);
+// demoGuard runs after auth (needs req.userId): a read-only demo user may GET
+// anything but is blocked from every state-changing request.
+app.use("/api", requireAuth, resolveSection, demoGuard, router);
 
 // Unknown /api/* routes: return a JSON 404 instead of falling through to the SPA.
 app.use("/api/{*path}", (_req, res) => {

@@ -43,6 +43,7 @@ router.get("/me/account", async (req, res) => {
     displayName: user.displayName ?? null,
     createdAt: user.createdAt,
     hasPassword: user.passwordHash != null,
+    isDemo: user.isDemo,
     providers: identities.map((i) => ({ provider: i.provider, email: i.email ?? null })),
   });
 });
