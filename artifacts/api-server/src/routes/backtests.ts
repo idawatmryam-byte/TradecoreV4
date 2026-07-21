@@ -19,7 +19,7 @@ import {
   equityCurveTable,
   optimizationResultsTable,
 } from "@workspace/db";
-import { and, eq, desc, asc } from "drizzle-orm";
+import { and, eq, desc, asc, lte, sql } from "drizzle-orm";
 import { runBacktest, cancelBacktestRun, getTimeframeMs } from "../lib/backtestEngine";
 import { runOptimization } from "../lib/optimizer";
 import { loadStrategyConfigs } from "../lib/strategyConfigLoader";
@@ -46,7 +46,11 @@ router.get("/backtests", async (req, res) => {
   // Autopsy child runs are internal machinery (deleted when the autopsy
   // completes) — never show them in the user's run list mid-flight.
   const visible = runs.filter((r) => (r.params as { type?: string } | null)?.type !== "autopsy-child");
-  res.json(visible.map(serializeRun));
+  // Per-section run numbering over the VISIBLE runs only (children never
+  // consume a number), oldest = #1, independent of the global DB id.
+  const ascById = [...visible].sort((a, b) => a.id - b.id);
+  const seqById = new Map(ascById.map((r, i) => [r.id, i + 1]));
+  res.json(visible.map((r) => serializeRun(r, seqById.get(r.id))));
 });
 
 // ---------------------------------------------------------------------------
@@ -62,6 +66,18 @@ router.get("/backtests/:id", async (req, res) => {
     .from(backtestRunsTable)
     .where(and(eq(backtestRunsTable.id, id), eq(backtestRunsTable.userId, req.userId!)));
   if (!run) return res.status(404).json({ error: "Run not found" });
+
+  // displayNo = this run's position within its own section's VISIBLE runs
+  // (autopsy-child rows excluded), so the detail header matches the list.
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(backtestRunsTable)
+    .where(and(
+      eq(backtestRunsTable.userId, req.userId!),
+      eq(backtestRunsTable.section, run.section),
+      lte(backtestRunsTable.id, run.id),
+      sql`(${backtestRunsTable.params}->>'type') is distinct from 'autopsy-child'`,
+    ));
 
   const [trades, equity, optimizations] = await Promise.all([
     db
@@ -82,7 +98,7 @@ router.get("/backtests/:id", async (req, res) => {
   ]);
 
   return res.json({
-    run: serializeRun(run),
+    run: serializeRun(run, n),
     trades: trades.map(serializeTrade),
     equityCurve: equity.map((p) => ({
       timestamp: p.timestamp,
@@ -663,9 +679,14 @@ function renderHtmlReport(run: ReturnType<typeof serializeRun>, trades: ReturnTy
 // Serializers
 // ---------------------------------------------------------------------------
 
-function serializeRun(run: typeof backtestRunsTable.$inferSelect) {
+function serializeRun(run: typeof backtestRunsTable.$inferSelect, displayNo?: number) {
   return {
     id: run.id,
+    // Friendly per-SECTION run number (1, 2, 3…). `id` is the global DB key —
+    // shared across users and sections, and heavily inflated by the hidden
+    // child runs each Autopsy spawns — so it must NEVER be shown as the run
+    // number. See the list/detail handlers for how displayNo is computed.
+    displayNo: displayNo ?? run.id,
     strategyVersion: run.strategyVersion,
     strategyName: run.strategyName,
     symbols: run.symbols.split(","),

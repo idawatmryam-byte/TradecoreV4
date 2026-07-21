@@ -1726,9 +1726,10 @@ components:
 
     AutopsyRun:
       type: object
-      required: [id, strategyId, symbols, timeframe, trainStart, trainEnd, valStart, valEnd, status, progress, totalBacktests, truncated, currentParams, createdAt]
+      required: [id, displayNo, strategyId, symbols, timeframe, trainStart, trainEnd, valStart, valEnd, status, progress, totalBacktests, truncated, currentParams, createdAt]
       properties:
-        id: { type: integer }
+        id: { type: integer, description: "Global DB id — for links/API only, never shown as the run number." }
+        displayNo: { type: integer, description: "Per-section run number (1..N) shown in the UI." }
         strategyId: { type: string }
         strategyName: { type: ["string", "null"] }
         symbols:
@@ -1790,10 +1791,14 @@ components:
 
     BacktestRun:
       type: object
-      required: [id, strategyVersion, strategyName, symbols, timeframe, startDate, endDate, startingBalance, status, progress, createdAt]
+      required: [id, displayNo, strategyVersion, strategyName, symbols, timeframe, startDate, endDate, startingBalance, status, progress, createdAt]
       properties:
         id:
           type: integer
+          description: "Global DB id — for links/API/export only, never shown as the run number."
+        displayNo:
+          type: integer
+          description: "Per-section run number (1..N) shown in the UI."
         strategyVersion:
           type: string
         strategyName:

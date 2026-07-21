@@ -720,7 +720,8 @@ export const StartAutopsyResponse = zod.object({
  * @summary Recent Optimization Autopsies for the logged-in user
  */
 export const ListAutopsiesResponseItem = zod.object({
-  "id": zod.number(),
+  "id": zod.number().describe('Global DB id — for links\/API only, never shown as the run number.'),
+  "displayNo": zod.number().describe('Per-section run number (1..N) shown in the UI.'),
   "strategyId": zod.string(),
   "strategyName": zod.string().nullish(),
   "symbols": zod.array(zod.string()),
@@ -810,7 +811,8 @@ export const GetAutopsyParams = zod.object({
 })
 
 export const GetAutopsyResponse = zod.object({
-  "id": zod.number(),
+  "id": zod.number().describe('Global DB id — for links\/API only, never shown as the run number.'),
+  "displayNo": zod.number().describe('Per-section run number (1..N) shown in the UI.'),
   "strategyId": zod.string(),
   "strategyName": zod.string().nullish(),
   "symbols": zod.array(zod.string()),
@@ -895,7 +897,8 @@ export const GetAutopsyResponse = zod.object({
  * @summary List all backtest runs
  */
 export const ListBacktestsResponseItem = zod.object({
-  "id": zod.number(),
+  "id": zod.number().describe('Global DB id — for links\/API\/export only, never shown as the run number.'),
+  "displayNo": zod.number().describe('Per-section run number (1..N) shown in the UI.'),
   "strategyVersion": zod.string(),
   "strategyName": zod.string(),
   "symbols": zod.array(zod.string()),
@@ -1045,7 +1048,8 @@ export const GetBacktestParams = zod.object({
 
 export const GetBacktestResponse = zod.object({
   "run": zod.object({
-  "id": zod.number(),
+  "id": zod.number().describe('Global DB id — for links\/API\/export only, never shown as the run number.'),
+  "displayNo": zod.number().describe('Per-section run number (1..N) shown in the UI.'),
   "strategyVersion": zod.string(),
   "strategyName": zod.string(),
   "symbols": zod.array(zod.string()),

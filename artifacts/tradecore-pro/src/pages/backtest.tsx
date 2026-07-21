@@ -716,7 +716,7 @@ function RunListItem({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium font-mono">#{run.id}</span>
+            <span className="text-sm font-medium font-mono">#{run.displayNo}</span>
             <Badge variant={statusBadge(run.status) as any} className="text-[10px] uppercase tracking-wider">
               {run.status}
             </Badge>
@@ -823,7 +823,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
     return (
       <Card className="flex flex-col gap-4 p-6">
         <div className="flex items-center justify-between">
-          <span className="font-mono font-bold text-lg">Run #{run.id}</span>
+          <span className="font-mono font-bold text-lg">Run #{run.displayNo}</span>
           <Badge variant="secondary">
             <RefreshCw className="h-3 w-3 animate-spin mr-1" /> {run.status}
           </Badge>
@@ -907,7 +907,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="font-bold text-lg font-mono">Run #{run.id}</h2>
+          <h2 className="font-bold text-lg font-mono">Run #{run.displayNo}</h2>
           <p className="text-xs text-muted-foreground font-mono">
             {run.symbols.join(", ")} · {run.timeframe} ·{" "}
             {new Date(run.startDate).toLocaleDateString()} →{" "}

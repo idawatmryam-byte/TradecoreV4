@@ -716,7 +716,10 @@ export const AutopsyRunStatus = {
 } as const;
 
 export interface AutopsyRun {
+  /** Global DB id — for links/API only, never shown as the run number. */
   id: number;
+  /** Per-section run number (1..N) shown in the UI. */
+  displayNo: number;
   strategyId: string;
   /** @nullable */
   strategyName?: string | null;
@@ -771,7 +774,10 @@ export const BacktestRunStatus = {
 } as const;
 
 export interface BacktestRun {
+  /** Global DB id — for links/API/export only, never shown as the run number. */
   id: number;
+  /** Per-section run number (1..N) shown in the UI. */
+  displayNo: number;
   strategyVersion: string;
   strategyName: string;
   symbols: string[];
