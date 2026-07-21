@@ -449,6 +449,19 @@
       netRR = (grossReward − cost) <span class="a">/</span> (grossRisk + cost)<br>
       <span class="c">// a plan below the floor is a structurally poor trade — rejected, and recorded as such</span>
     </div>
+
+    <h3><span class="k">5.3</span>User-defined strategies (the no-code builder)</h3>
+    <p>
+      Beyond the built-in catalogs, users compose their own strategies from the engine's indicator
+      vocabulary — simple AND condition lists per side, plus a stop model (ATR multiple, fixed %, or
+      swing level) — stored as <strong>zod-validated data, never user code</strong>, and interpreted
+      by one bounded engine-side class. Because every custom strategy flows through the same pipeline
+      above (dollar-risk solver, time/room feasibility, the cost-aware quality gate, the decisions
+      journal, backtesting, and the Autopsy), a user rule set can never bypass a risk control. A
+      <em>backtest-first gate</em> blocks live enablement until the current rules have completed a
+      backtest; editing the rules re-arms the gate. Developers wanting logic beyond threshold rules
+      implement the TypeScript <code>Strategy</code> interface directly.
+    </p>
   </section>
 
   <!-- ══════════════════ 6 ══════════════════ -->

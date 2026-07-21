@@ -45,6 +45,40 @@ position notional), *Max Loss* (the most you'll lose if the stop hits), and
 *Target Profit*. You can enable/disable each one. The engine only lets a
 strategy act in the market **regime** it's designed for.
 
+## Build your own strategy (Strategy Builder)
+
+The **Builder** page lets you create your own strategies without writing any
+code. You compose entry rules from the indicators the engine already computes
+every scan — RSI, ADX, volume, market regime, MACD, time of day, distance
+from recent highs/lows, and more:
+
+1. **Add conditions** to the long and/or short side. Each side is an AND
+   list — *every* condition must hold for that side to propose a trade
+   (e.g. *long when RSI < 32 AND regime is range AND volume > 1.2×*).
+2. **Pick a stop mode**: an ATR multiple (volatility-scaled), a fixed %, or
+   a swing level (the lowest low / highest high of recent 15-minute bars —
+   "the price that proves the idea wrong").
+3. **Save.** The strategy appears on the Strategies page next to the
+   built-ins, where you give it a dollar plan like any other strategy.
+
+Two safety properties are built in:
+
+- **Backtest first.** A new (or edited) custom strategy cannot be enabled
+  for live trading until a backtest of its current rules has completed —
+  use the *Backtest now* shortcut on its card. Editing the rules re-arms
+  this gate, because a changed strategy is an untested strategy.
+- **Same risk pipeline.** Custom strategies run through exactly the same
+  engine machinery as the built-ins — dollar-risk sizing, cost gates, the
+  reward:risk floor, the circuit breaker, and the Decisions journal (each
+  of your conditions appears in the decision report with its observed
+  value). A custom strategy can never bypass a risk control; the worst a
+  bad rule set can do is lose its configured Max Loss per trade.
+
+Up to 10 custom strategies per market section. The builder covers
+threshold-style rules; developers who want logic beyond that (multi-bar
+patterns, cross-indicator math) can implement the engine's TypeScript
+`Strategy` interface directly — see the white paper.
+
 ## Decisions feed
 
 The engine's "why I traded / why I passed" journal. Every setup it genuinely

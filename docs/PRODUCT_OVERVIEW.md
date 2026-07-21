@@ -41,6 +41,12 @@ to *use* the running app, see [`USER_GUIDE.md`](./USER_GUIDE.md); for how to
   dollar-quantified leaks (break-even scratches miscounted as losses,
   stops sitting inside market noise, negative strategy/symbol/hour cells) so
   the operator improves on evidence instead of guesswork.
+- **No-code Strategy Builder.** Users compose their own strategies from the
+  engine's indicator vocabulary (simple AND rules per side + a stop mode),
+  stored as validated data — never user code — and run through the exact
+  same risk pipeline as the built-ins. A backtest-first gate blocks live
+  enablement until the current rules have been backtested; editing the
+  rules re-arms the gate.
 - **Full audit trail.** Every considered trade — taken, passed, or rejected —
   is logged with its reasoning; every closed trade is automatically analyzed
   and graded.

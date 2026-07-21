@@ -23,8 +23,10 @@ import {
   strategyDecisionsTable, hourlyStatsTable, tradeAnalysesTable,
   autopsyRunsTable, backtestRunsTable, blacklistTable,
   userBinanceCredentialsTable, userOandaCredentialsTable, strategyConfigsTable,
+  customStrategiesTable,
 } from "@workspace/db";
 import { and, eq, inArray } from "drizzle-orm";
+import { DEFAULT_CUSTOM_STRATEGY_CONFIG } from "./strategies/custom";
 
 const DEMO_USERNAME = "demo";
 
@@ -191,6 +193,7 @@ async function wipeDemo(userId: number): Promise<void> {
   await db.delete(autopsyRunsTable).where(eq(autopsyRunsTable.userId, userId));
   await db.delete(backtestRunsTable).where(eq(backtestRunsTable.userId, userId));
   await db.delete(strategyConfigsTable).where(eq(strategyConfigsTable.userId, userId));
+  await db.delete(customStrategiesTable).where(eq(customStrategiesTable.userId, userId));
   await db.delete(botConfigTable).where(eq(botConfigTable.userId, userId));
   // Demo holds no exchange creds — clear defensively in case a prior seed added any.
   await db.delete(userBinanceCredentialsTable).where(eq(userBinanceCredentialsTable.userId, userId));
@@ -289,6 +292,45 @@ async function seedSection(userId: number, spec: SectionSpec): Promise<void> {
   }
 }
 
+/**
+ * One showcase CUSTOM strategy per section (the no-code builder feature).
+ * Seeded already-backtested and enabled with a sensible dollar plan, and
+ * returned so the section seeder tags a share of trades with it — its card
+ * on the Strategies page shows real performance. Demo users can't edit it
+ * (demoGuard), which is exactly the point: look, don't touch.
+ */
+async function seedCustomStrategy(
+  userId: number,
+  section: "crypto" | "forex",
+  args: { name: string; description: string; rules: object; tradeAmount: number; maxLoss: number; target: number },
+): Promise<{ id: string; name: string }> {
+  const [inserted] = await db.insert(customStrategiesTable).values({
+    userId, section, name: args.name, description: args.description, rules: args.rules,
+    lastBacktestAt: new Date(Date.now() - 3 * 86400_000),
+  }).returning();
+  const strategyId = `custom_${inserted!.id}`;
+  await db.update(customStrategiesTable).set({ strategyId }).where(eq(customStrategiesTable.id, inserted!.id));
+
+  const d = DEFAULT_CUSTOM_STRATEGY_CONFIG;
+  await db.insert(strategyConfigsTable).values({
+    userId, section, strategyId, strategyName: args.name,
+    enabled: true,
+    tradeAmountUsdt: String(args.tradeAmount), maxLossUsdt: String(args.maxLoss), targetProfitUsdt: String(args.target),
+    riskPercent: String(d.riskPercent), confidenceThreshold: d.confidenceThreshold,
+    stopLossPercent: String(d.stopLossPercent), takeProfitPercent: String(d.takeProfitPercent),
+    maxHoldingSeconds: d.maxHoldingSeconds, maxConcurrentPositions: d.maxConcurrentPositions,
+    cooldownMinutes: d.cooldownMinutes, breakEvenRMultiple: String(d.breakEvenRMultiple),
+    tp1RMultiple: String(d.tp1RMultiple), tp1ClosePercent: d.tp1ClosePercent,
+    tp3Enabled: d.tp3Enabled, tp2RMultiple: String(d.tp2RMultiple), tp2ClosePercent: d.tp2ClosePercent,
+    tp3RMultiple: String(d.tp3RMultiple), trailingStopMode: d.trailingStopMode,
+    trailingStopAtrMultiplier: String(d.trailingStopAtrMultiplier), trailingStopPercent: String(d.trailingStopPercent),
+    trailingAfterTp1Only: d.trailingAfterTp1Only,
+    emergencyTrailingRMultiple: String(d.emergencyTrailingRMultiple), emergencyTrailingPercent: String(d.emergencyTrailingPercent),
+    exitPriority: d.exitPriority.join(","),
+  });
+  return { id: strategyId, name: args.name };
+}
+
 async function seedAutopsy(userId: number): Promise<void> {
   const now = Date.now();
   const trainStart = new Date(now - 45 * 86400_000);
@@ -352,8 +394,40 @@ export async function seedDemoAccount(): Promise<number> {
   const userId = demo!.id;
 
   await wipeDemo(userId);
-  await seedSection(userId, CRYPTO);
-  await seedSection(userId, FOREX);
+
+  // Showcase customs first, so the section seeders tag trades with them.
+  const cryptoCustom = await seedCustomStrategy(userId, "crypto", {
+    name: "RSI Dip Hunter",
+    description: "Buys oversold dips in ranging markets on elevated volume — built with the Strategy Builder.",
+    rules: {
+      long: [
+        { indicator: "rsi", op: "lt", value: 32 },
+        { indicator: "regime", op: "eq", value: "range" },
+        { indicator: "volumeRatio", op: "gt", value: 1.2 },
+      ],
+      stop: { mode: "atr", atrMult: 1.5 },
+      confidence: 70,
+    },
+    tradeAmount: 300, maxLoss: 40, target: 80,
+  });
+  const forexCustom = await seedCustomStrategy(userId, "forex", {
+    name: "London Range Fade",
+    description: "Fades overbought pushes during the London morning — built with the Strategy Builder.",
+    rules: {
+      short: [
+        { indicator: "rsi", op: "gt", value: 68 },
+        { indicator: "hourUtc", op: "gte", value: 7 },
+        { indicator: "hourUtc", op: "lte", value: 11 },
+      ],
+      stop: { mode: "swing", lookback: 20 },
+      confidence: 68,
+    },
+    tradeAmount: 5000, maxLoss: 10, target: 12,
+  });
+
+  // Copies, not mutation — the module-level specs must stay pristine across re-seeds.
+  await seedSection(userId, { ...CRYPTO, strategies: [...CRYPTO.strategies, cryptoCustom] });
+  await seedSection(userId, { ...FOREX, strategies: [...FOREX.strategies, forexCustom] });
   await seedAutopsy(userId);
   await seedBacktests(userId);
   return userId;
