@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import { TrendingUp, Target, Waves, Zap, ArrowUpDown, BarChart3, Edit2, X, Check, RefreshCw, Flame, ChevronDown, ChevronUp, Stethoscope } from 'lucide-react';
+import { TrendingUp, Target, Waves, Zap, ArrowUpDown, BarChart3, Edit2, X, Check, RefreshCw, Flame, ChevronDown, ChevronUp, Stethoscope, Hammer, FlaskConical, ShieldAlert, Plus } from 'lucide-react';
 
 /** Account context the dollar-plan preview needs (from Configuration). */
 interface AccountCtx {
@@ -114,7 +114,7 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
     },
   });
 
-  const Icon = STRATEGY_ICONS[strategy.strategyId] ?? BarChart3;
+  const Icon = STRATEGY_ICONS[strategy.strategyId] ?? ((strategy as any).custom ? Hammer : BarChart3);
   const perf = strategy.performance;
   const winRatePct = perf.winRate != null ? (perf.winRate * 100).toFixed(1) + '%' : '—';
   const pnlColor = perf.totalPnl >= 0 ? 'text-success' : 'text-destructive';
@@ -166,9 +166,25 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
               <Icon className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2 flex-wrap">
                 {strategy.strategyName}
-                {(strategy as any).decisionMaker && (
+                {(strategy as any).custom && (
+                  <span
+                    className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border bg-primary/10 text-primary border-primary/40 flex items-center gap-1"
+                    title="Built with the Strategy Builder — edit its rules on the Builder page"
+                  >
+                    <Hammer className="h-2.5 w-2.5" /> Custom
+                  </span>
+                )}
+                {(strategy as any).custom && !(strategy as any).backtested && (
+                  <span
+                    className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border bg-yellow-500/10 text-yellow-400 border-yellow-500/40 flex items-center gap-1"
+                    title="Run a backtest with this strategy selected before it can be enabled for live trading"
+                  >
+                    <ShieldAlert className="h-2.5 w-2.5" /> Test first
+                  </span>
+                )}
+                {!(strategy as any).custom && (strategy as any).decisionMaker && (
                   <span
                     className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border bg-primary/10 text-primary border-primary/40"
                     title="Full decision-maker: plans its own entry, structural stop, leverage and duration, with written reasoning on the Decisions page"
@@ -208,7 +224,13 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
                 <Edit2 className="h-3.5 w-3.5" />
               </Button>
             )}
-            <Switch checked={strategy.config.enabled} onCheckedChange={handleToggle} />
+            <span title={(strategy as any).custom && !(strategy as any).backtested ? 'Backtest this strategy first to unlock live trading' : undefined}>
+              <Switch
+                checked={strategy.config.enabled}
+                disabled={(strategy as any).custom && !(strategy as any).backtested && !strategy.config.enabled}
+                onCheckedChange={handleToggle}
+              />
+            </span>
           </div>
         </div>
       </CardHeader>
@@ -235,12 +257,22 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
         {/* Diagnose: jump to the Backtesting Lab's Optimization Autopsy with
             this strategy pre-selected — the fix belongs where the problem was
             noticed, without duplicating the Autopsy's run/progress/report UI. */}
-        <Link
-          href={`/backtest?autopsy=${strategy.strategyId}`}
-          className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-md border border-dashed text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
-        >
-          <Stethoscope className="h-3 w-3" /> Diagnose
-        </Link>
+        <div className="flex gap-2">
+          {(strategy as any).custom && !(strategy as any).backtested && (
+            <Link
+              href={`/backtest?strategy=${strategy.strategyId}`}
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-yellow-500/50 text-[11px] font-mono uppercase tracking-wider text-yellow-400 hover:border-yellow-400 transition-colors"
+            >
+              <FlaskConical className="h-3 w-3" /> Backtest now
+            </Link>
+          )}
+          <Link
+            href={`/backtest?autopsy=${strategy.strategyId}`}
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
+          >
+            <Stethoscope className="h-3 w-3" /> Diagnose
+          </Link>
+        </div>
 
         {/* Config display or edit form */}
         {editing ? (
@@ -473,11 +505,19 @@ export function Strategies() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Strategies</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {totalCount > 0 ? `${totalCount} specialized algorithms` : "Specialized algorithms"} running in parallel, each tuned for a specific market regime.
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Strategies</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {totalCount > 0 ? `${totalCount} specialized algorithms` : "Specialized algorithms"} running in parallel, each tuned for a specific market regime.
+          </p>
+        </div>
+        <Link
+          href="/builder"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-mono uppercase tracking-wider text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" /> New strategy
+        </Link>
       </div>
 
       {/* Live opportunities */}

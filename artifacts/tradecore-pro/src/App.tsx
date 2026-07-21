@@ -10,6 +10,7 @@ import { Memory } from '@/pages/memory';
 import { Settings } from '@/pages/settings';
 import { Backtest } from '@/pages/backtest';
 import { Strategies } from '@/pages/strategies';
+import { StrategyBuilder } from '@/pages/strategy-builder';
 import { Account } from '@/pages/account';
 import { Decisions } from '@/pages/decisions';
 import { SectionProvider } from '@/lib/section';
@@ -36,6 +37,7 @@ function Router() {
         <Route path="/memory" component={Memory} />
         <Route path="/backtest" component={Backtest} />
         <Route path="/strategies" component={Strategies} />
+        <Route path="/builder" component={StrategyBuilder} />
         <Route path="/settings" component={Settings} />
         <Route path="/account" component={Account} />
         <Route component={NotFound} />

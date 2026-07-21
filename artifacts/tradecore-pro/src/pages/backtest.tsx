@@ -195,10 +195,13 @@ function statusBadge(status: string) {
 // ---------------------------------------------------------------------------
 // Run Form
 // ---------------------------------------------------------------------------
-function RunForm({ onStarted }: { onStarted: (id: number) => void }) {
+function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => void; initialStrategyId?: string }) {
   const { section } = useSection();
   const forex = section === "forex";
-  const [form, setForm] = useState<RunFormState>(defaultForm(forex ? "forex" : "crypto"));
+  const [form, setForm] = useState<RunFormState>(() => ({
+    ...defaultForm(forex ? "forex" : "crypto"),
+    ...(initialStrategyId ? { onlyStrategyId: initialStrategyId } : {}),
+  }));
   const [symbolInput, setSymbolInput] = useState(form.symbols.join(", "));
   const [runAnyway, setRunAnyway] = useState(false);
   const { mutate, isPending } = useRunBacktest();
@@ -1299,7 +1302,11 @@ export function Backtest() {
   const { mutate: deleteRun } = useDeleteBacktest();
 
   // Deep-link from the Strategies page's "Diagnose" button (/backtest?autopsy=<strategyId>).
-  const autopsyStrategyId = new URLSearchParams(useSearch()).get("autopsy") ?? undefined;
+  const search = new URLSearchParams(useSearch());
+  const autopsyStrategyId = search.get("autopsy") ?? undefined;
+  // Deep-link from a custom strategy's "Backtest now" shortcut
+  // (/backtest?strategy=<strategyId>) — pre-selects single-strategy mode.
+  const prefillStrategyId = search.get("strategy") ?? undefined;
 
   function handleDelete(id: number) {
     deleteRun({ id }, {
@@ -1346,7 +1353,7 @@ export function Backtest() {
         <div className="space-y-4">
           {/* key=section: a tab switch re-initializes the form with that
               section's default instruments (state never leaks across). */}
-          {showForm && <RunForm key={section} onStarted={handleStarted} />}
+          {showForm && <RunForm key={section} onStarted={handleStarted} initialStrategyId={prefillStrategyId} />}
 
           {/* Run list */}
           <div>
