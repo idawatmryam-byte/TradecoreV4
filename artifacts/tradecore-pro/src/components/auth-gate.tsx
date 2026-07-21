@@ -78,6 +78,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [providers, setProviders] = useState<{ google: boolean; apple: boolean }>({ google: false, apple: false });
   const [demoAvailable, setDemoAvailable] = useState(false);
   const [demoLoading, setDemoLoading] = useState(false);
+  // Landing-page deep link: /app/?demo=1 lands here wanting the demo launched
+  // immediately (fired once the /auth/providers check confirms one exists).
+  const [autoDemoWanted, setAutoDemoWanted] = useState(() =>
+    new URLSearchParams(window.location.search).has("demo"),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -101,12 +106,22 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     if (params.get("auth_error")) {
       setError("Social sign-in didn't complete. Try again, or log in with username and password.");
     }
-    // Clean one-shot query flags (signup, auth_error) out of the address bar.
-    if (params.has("auth_error") || params.has("signup")) {
+    // Clean one-shot query flags (signup, auth_error, demo) out of the address bar.
+    if (params.has("auth_error") || params.has("signup") || params.has("demo")) {
       window.history.replaceState({}, "", window.location.pathname);
     }
     return () => { cancelled = true; };
   }, []);
+
+  // Auto-launch the demo when arriving via /app/?demo=1, once we've confirmed a
+  // demo account exists. Fires at most once.
+  useEffect(() => {
+    if (autoDemoWanted && demoAvailable && status === "unauthenticated" && !demoLoading) {
+      setAutoDemoWanted(false);
+      void handleDemo();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoDemoWanted, demoAvailable, status]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
