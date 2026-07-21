@@ -73,7 +73,8 @@ window `generate-data.ts` prints.
 | `generate-data.ts` | Deterministic, regime-diverse synthetic 1m candles → `historical_candles`. |
 | `run.ts` | Runs `runBacktest` (faithful mode), snapshots metrics → `results/<label>.json`. |
 | `compare.ts` | Side-by-side diff of two snapshots, with a better/worse verdict per metric. |
-| `results/` | Snapshot JSONs (gitignored — reproducible on demand). |
+| `calibrate-defaults.ts` | Multi-window walk-forward voting: proposes better `DEFAULT_STRATEGY_CONFIGS` values, changing a default only when a majority of independent folds agree out-of-sample. **Run on real data** — see `docs/STRATEGY_CALIBRATION.md`. |
+| `results/` | Snapshot + calibration JSONs (gitignored — reproducible on demand). |
 
 ## Reading a comparison
 
