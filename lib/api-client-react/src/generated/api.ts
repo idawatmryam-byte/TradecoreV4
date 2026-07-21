@@ -31,9 +31,13 @@ import type {
   BotConfig,
   BotConfigUpdate,
   BotStatus,
+  CustomStrategy,
+  CustomStrategyCreate,
+  CustomStrategyUpdate,
   DailyReport,
   DailyStats,
   DeleteBacktest200,
+  DeleteCustomStrategy200,
   ErrorResponse,
   ExportBacktest200One,
   ExportBacktestParams,
@@ -3039,6 +3043,296 @@ export function useGetStrategies<TData = Awaited<ReturnType<typeof getStrategies
 
 
 
+
+export const getGetCustomStrategiesUrl = () => {
+
+
+
+
+  return `/api/custom-strategies`
+}
+
+/**
+ * @summary List this user's custom strategies (section-scoped)
+ */
+export const getCustomStrategies = async ( options?: RequestInit): Promise<CustomStrategy[]> => {
+
+  return customFetch<CustomStrategy[]>(getGetCustomStrategiesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCustomStrategiesQueryKey = () => {
+    return [
+    `/api/custom-strategies`
+    ] as const;
+    }
+
+
+export const getGetCustomStrategiesQueryOptions = <TData = Awaited<ReturnType<typeof getCustomStrategies>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCustomStrategies>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCustomStrategiesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCustomStrategies>>> = ({ signal }) => getCustomStrategies({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCustomStrategies>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCustomStrategiesQueryResult = NonNullable<Awaited<ReturnType<typeof getCustomStrategies>>>
+export type GetCustomStrategiesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List this user's custom strategies (section-scoped)
+ */
+
+export function useGetCustomStrategies<TData = Awaited<ReturnType<typeof getCustomStrategies>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCustomStrategies>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCustomStrategiesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCustomStrategyUrl = () => {
+
+
+
+
+  return `/api/custom-strategies`
+}
+
+/**
+ * Rules are validated server-side against the builder's bounded indicator vocabulary. The new strategy starts DISABLED with no dollar plan, and must complete a single-strategy backtest before it can be enabled for live trading.
+ * @summary Create a custom strategy (no-code builder)
+ */
+export const createCustomStrategy = async (customStrategyCreate: CustomStrategyCreate, options?: RequestInit): Promise<CustomStrategy> => {
+
+  return customFetch<CustomStrategy>(getCreateCustomStrategyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(customStrategyCreate)
+  }
+);}
+
+
+
+
+export const getCreateCustomStrategyMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCustomStrategy>>, TError,{data: BodyType<CustomStrategyCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCustomStrategy>>, TError,{data: BodyType<CustomStrategyCreate>}, TContext> => {
+
+const mutationKey = ['createCustomStrategy'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCustomStrategy>>, {data: BodyType<CustomStrategyCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCustomStrategy(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCustomStrategyMutationResult = NonNullable<Awaited<ReturnType<typeof createCustomStrategy>>>
+    export type CreateCustomStrategyMutationBody = BodyType<CustomStrategyCreate>
+    export type CreateCustomStrategyMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Create a custom strategy (no-code builder)
+ */
+export const useCreateCustomStrategy = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCustomStrategy>>, TError,{data: BodyType<CustomStrategyCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCustomStrategy>>,
+        TError,
+        {data: BodyType<CustomStrategyCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCustomStrategyMutationOptions(options));
+    }
+
+export const getUpdateCustomStrategyUrl = (id: number,) => {
+
+
+
+
+  return `/api/custom-strategies/${id}`
+}
+
+/**
+ * Editing the rules resets the backtest stamp — the strategy must be re-backtested before it can be (re-)enabled for live trading.
+ * @summary Update a custom strategy
+ */
+export const updateCustomStrategy = async (id: number,
+    customStrategyUpdate: CustomStrategyUpdate, options?: RequestInit): Promise<CustomStrategy> => {
+
+  return customFetch<CustomStrategy>(getUpdateCustomStrategyUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(customStrategyUpdate)
+  }
+);}
+
+
+
+
+export const getUpdateCustomStrategyMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCustomStrategy>>, TError,{id: number;data: BodyType<CustomStrategyUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCustomStrategy>>, TError,{id: number;data: BodyType<CustomStrategyUpdate>}, TContext> => {
+
+const mutationKey = ['updateCustomStrategy'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCustomStrategy>>, {id: number;data: BodyType<CustomStrategyUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCustomStrategy(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCustomStrategyMutationResult = NonNullable<Awaited<ReturnType<typeof updateCustomStrategy>>>
+    export type UpdateCustomStrategyMutationBody = BodyType<CustomStrategyUpdate>
+    export type UpdateCustomStrategyMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Update a custom strategy
+ */
+export const useUpdateCustomStrategy = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCustomStrategy>>, TError,{id: number;data: BodyType<CustomStrategyUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCustomStrategy>>,
+        TError,
+        {id: number;data: BodyType<CustomStrategyUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCustomStrategyMutationOptions(options));
+    }
+
+export const getDeleteCustomStrategyUrl = (id: number,) => {
+
+
+
+
+  return `/api/custom-strategies/${id}`
+}
+
+/**
+ * @summary Delete a custom strategy (and its risk/exit config)
+ */
+export const deleteCustomStrategy = async (id: number, options?: RequestInit): Promise<DeleteCustomStrategy200> => {
+
+  return customFetch<DeleteCustomStrategy200>(getDeleteCustomStrategyUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteCustomStrategyMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCustomStrategy>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCustomStrategy>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteCustomStrategy'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCustomStrategy>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteCustomStrategy(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCustomStrategyMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCustomStrategy>>>
+
+    export type DeleteCustomStrategyMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Delete a custom strategy (and its risk/exit config)
+ */
+export const useDeleteCustomStrategy = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCustomStrategy>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCustomStrategy>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteCustomStrategyMutationOptions(options));
+    }
 
 export const getGetStrategySignalsUrl = () => {
 

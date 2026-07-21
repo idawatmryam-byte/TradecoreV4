@@ -11,6 +11,7 @@ import configRouter from "./config";
 import backtestsRouter from "./backtests";
 import autopsyRouter from "./autopsy";
 import strategiesRouter from "./strategies";
+import customStrategiesRouter from "./customStrategies";
 import credentialsRouter from "./credentials";
 import reportsRouter from "./reports";
 import accountRouter from "./account";
@@ -41,6 +42,7 @@ router.use(configRouter);
 // otherwise swallow /backtests/autopsy as id="autopsy".
 router.use(autopsyRouter);
 router.use(backtestsRouter);
+router.use(customStrategiesRouter);
 router.use(strategiesRouter);
 router.use(credentialsRouter);
 router.use(reportsRouter);

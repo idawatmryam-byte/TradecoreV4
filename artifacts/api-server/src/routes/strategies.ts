@@ -7,9 +7,11 @@
  */
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { strategyConfigsTable } from "@workspace/db";
-import { sql } from "drizzle-orm";
+import { strategyConfigsTable, customStrategiesTable } from "@workspace/db";
+import { sql, and, eq } from "drizzle-orm";
 import { strategiesForSection, DEFAULT_STRATEGY_CONFIGS } from "../lib/strategies";
+import { DEFAULT_CUSTOM_STRATEGY_CONFIG } from "../lib/strategies/custom";
+import { describeRules, parseCustomRules } from "../lib/customRules";
 import { loadStrategyConfigs } from "../lib/strategyConfigLoader";
 import { getOrCreateEngine } from "../lib/engineRegistry";
 import { logger } from "../lib/logger";
@@ -88,6 +90,42 @@ router.get("/strategies", async (req, res) => {
       };
     });
 
+    // The user's CUSTOM strategies render on the same grid — same config +
+    // performance shape, plus builder metadata (custom flag, backtest gate).
+    const customRows = await db
+      .select()
+      .from(customStrategiesTable)
+      .where(and(eq(customStrategiesTable.userId, req.userId!), eq(customStrategiesTable.section, req.section!)))
+      .orderBy(customStrategiesTable.id);
+    for (const row of customRows) {
+      let indicators: string[] = [];
+      try { indicators = describeRules(parseCustomRules(row.rules)); } catch { /* invalid rows still list, engine skips them */ }
+      const perf = perfMap.get(row.strategyId);
+      const total = perf?.total_trades ?? 0;
+      const wins = perf?.winning_trades ?? 0;
+      strategies.push({
+        strategyId: row.strategyId,
+        strategyName: row.name,
+        supportedRegimes: ["strong_trend", "weak_trend", "range", "high_volatility", "low_volatility"],
+        indicators,
+        decisionMaker: true,
+        custom: true,
+        customId: row.id,
+        backtested: row.lastBacktestAt != null,
+        config: configs.get(row.strategyId) ?? { strategyId: row.strategyId, ...DEFAULT_CUSTOM_STRATEGY_CONFIG },
+        performance: {
+          totalTrades: total,
+          winningTrades: wins,
+          losingTrades: perf?.losing_trades ?? 0,
+          winRate: total > 0 ? wins / total : null,
+          totalPnl: perf?.total_pnl ?? 0,
+          avgWin: perf?.avg_win ?? 0,
+          avgLoss: perf?.avg_loss ?? 0,
+          avgDurationSeconds: perf?.avg_duration_seconds ?? 0,
+        },
+      } as unknown as (typeof strategies)[number]);
+    }
+
     res.json(strategies);
   } catch (err) {
     logger.error({ err }, "GET /strategies failed");
@@ -135,14 +173,36 @@ router.put("/strategies/:id", async (req, res) => {
   const strategyId = req.params.id;
 
   // Validate the strategy exists in THIS SECTION'S catalog — a forex request
-  // can't edit a crypto-only scalper and vice versa.
+  // can't edit a crypto-only scalper and vice versa. Custom strategies count
+  // as catalog members of their own section.
   const strategy = strategiesForSection(req.section === "forex" ? "forex" : "crypto")
     .find((s) => s.strategyId === strategyId);
-  if (!strategy) {
+  let customRow = null;
+  if (!strategy && strategyId.startsWith("custom_")) {
+    [customRow] = await db
+      .select()
+      .from(customStrategiesTable)
+      .where(and(
+        eq(customStrategiesTable.userId, req.userId!),
+        eq(customStrategiesTable.section, req.section!),
+        eq(customStrategiesTable.strategyId, strategyId),
+      ));
+  }
+  if (!strategy && !customRow) {
     return res.status(404).json({ error: `Strategy '${strategyId}' not found in this section` });
   }
 
   const b = req.body as Record<string, unknown>;
+
+  // BACKTEST-FIRST LIVE GATE: a custom strategy can only be enabled after a
+  // completed single-strategy backtest of its CURRENT rules (editing the
+  // rules resets the stamp). The engine's loader enforces the same gate —
+  // this just gives the user the honest error instead of a silent no-op.
+  if (customRow && b.enabled === true && customRow.lastBacktestAt == null) {
+    return res.status(400).json({
+      error: "Backtest this strategy first — run a backtest with this strategy selected, then enable it for live trading.",
+    });
+  }
 
   // Phase 5B: previously this handler only coerced types (Number()/String())
   // with no bounds at all — e.g. takeProfitPercent: 0 or -5 would be written
@@ -197,7 +257,7 @@ router.put("/strategies/:id", async (req, res) => {
   }
 
   try {
-    const d = DEFAULT_STRATEGY_CONFIGS[strategyId] ?? {
+    const d = (customRow ? DEFAULT_CUSTOM_STRATEGY_CONFIG : DEFAULT_STRATEGY_CONFIGS[strategyId]) ?? {
       enabled: true, riskPercent: 1.0, confidenceThreshold: 65,
       stopLossPercent: 1.5, takeProfitPercent: 2.5,
       maxHoldingSeconds: 3600, maxConcurrentPositions: 2, cooldownMinutes: 30,
@@ -222,7 +282,7 @@ router.put("/strategies/:id", async (req, res) => {
         userId: req.userId!,
         section: req.section!,
         strategyId,
-        strategyName: strategy.strategyName,
+        strategyName: strategy?.strategyName ?? customRow!.name,
         enabled:                b.enabled                !== undefined ? Boolean(b.enabled) : d.enabled,
         tradeAmountUsdt:        b.tradeAmountUsdt  !== undefined ? (b.tradeAmountUsdt  === null ? null : String(b.tradeAmountUsdt))  : null,
         maxLossUsdt:            b.maxLossUsdt      !== undefined ? (b.maxLossUsdt      === null ? null : String(b.maxLossUsdt))      : null,
