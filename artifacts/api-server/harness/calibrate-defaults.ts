@@ -86,6 +86,8 @@ interface Ctx {
   symbols: string[];
   timeframe: string;
   createdRunIds: number[];
+  done: number;   // backtests completed so far (live heartbeat)
+  total: number;  // rough estimate for the heartbeat denominator
 }
 
 /** Run ONE candidate on ONE window through the real engine; harvest metrics.
@@ -137,6 +139,10 @@ async function evaluate(
   };
 
   await runBacktest(child!.id, btParams, CALIB_USER_ID);
+  // Live heartbeat so a long run never looks frozen (newline-terminated so it
+  // survives line-buffering / tee / tail -f).
+  ctx.done++;
+  if (ctx.done % 5 === 0) console.log(`   … ${ctx.done}/~${ctx.total} backtests done`);
   const [run] = await db.select().from(backtestRunsTable).where(eq(backtestRunsTable.id, child!.id));
   if (!run || run.status !== "completed") return null;
 
@@ -256,12 +262,18 @@ async function main() {
   if (strategyIds.length === 0) throw new Error(`No such strategy in ${section} catalog: ${onlyStrategy}`);
 
   const folds = buildFolds(start, end, nFolds);
-  const ctx: Ctx = { section, symbols, timeframe, createdRunIds: [] };
+  // ~27 backtests per (strategy × fold): the dollar grid + timing grid on
+  // train, plus baseline + top-candidate validation. Just for the heartbeat.
+  const estTotal = strategyIds.length * nFolds * 27;
+  const ctx: Ctx = { section, symbols, timeframe, createdRunIds: [], done: 0, total: estTotal };
 
   console.log(`\n═══ Default calibration — ${section} · ${symbols.join(",")} · ${timeframe} ═══`);
   console.log(`Window ${start.toISOString().slice(0, 10)} → ${end.toISOString().slice(0, 10)}, ${nFolds} folds`);
-  console.log(`Strategies: ${strategyIds.join(", ")}\n`);
-  console.log(`⚠ Only trust this on REAL data. On synthetic candles the machinery runs but conclusions are meaningless.\n`);
+  console.log(`Strategies: ${strategyIds.join(", ")}`);
+  console.log(`\n⏱  This runs ~${estTotal} backtests and is SLOW on real data (many minutes${strategyIds.length > 1 ? "; the whole catalog can take 30-60+ min" : ""}).`);
+  console.log(`   Progress prints below as it goes — it is NOT frozen. Do not pipe through 'tail' (that hides output until it finishes).`);
+  if (strategyIds.length > 1) console.log(`   Tip: run one strategy first — pass e.g. --strategy ${strategyIds[0]} (or './calibrate.sh ${section} ${strategyIds[0]}').`);
+  console.log(`⚠  Only trust this on REAL data. On synthetic candles the machinery runs but conclusions are meaningless.\n`);
 
   const results: Array<{ strategyId: string; current: AutopsyParams; folds: FoldResult[]; votes: ParamVote[]; proposed: AutopsyParams; changed: boolean }> = [];
 
@@ -275,12 +287,13 @@ async function main() {
       maxHoldingSeconds: d.maxHoldingSeconds,
     };
 
-    process.stdout.write(`▸ ${strategyId}: `);
+    console.log(`▸ ${strategyId} — ${folds.length} folds…`);
     const foldResults: FoldResult[] = [];
     for (const fold of folds) {
       const r = await calibrateFold(ctx, strategyId, current, fold);
       foldResults.push(r);
-      process.stdout.write(`fold${fold.index + 1}=${r.verdict === "improved" ? "▲" : r.verdict === "no_better" ? "=" : "·"} `);
+      const mark = r.verdict === "improved" ? "▲ better config found" : r.verdict === "no_better" ? "= current is fine" : "· too few trades";
+      console.log(`    fold ${fold.index + 1}/${folds.length}: ${mark}`);
     }
     const votes = aggregate(current, foldResults);
     const proposed: AutopsyParams = { ...current };
