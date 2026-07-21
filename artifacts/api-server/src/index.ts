@@ -1,5 +1,5 @@
 import app from "./app";
-import { db, botConfigTable, tradesTable } from "@workspace/db";
+import { db, botConfigTable, tradesTable, usersTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { logger } from "./lib/logger";
 import { validateEnv } from "./lib/env";
@@ -26,9 +26,15 @@ installOpsMonitor();
 async function resumeRunningEngines(): Promise<void> {
   try {
     const rows = await db
-      .select({ userId: botConfigTable.userId, section: botConfigTable.section })
+      .select({ userId: botConfigTable.userId, section: botConfigTable.section, isDemo: usersTable.isDemo })
       .from(botConfigTable)
+      .leftJoin(usersTable, eq(usersTable.id, botConfigTable.userId))
       .where(eq(botConfigTable.engineDesiredRunning, true));
+
+    // The read-only demo account must never run a live engine (it holds no
+    // exchange keys and every mutation is blocked), so exclude it defensively
+    // in case its desired-running flag was ever set outside the API.
+    const resumable = rows.filter((r) => !r.isDemo);
 
     // EXCLUSIVE MODE: only one section per user may run. If a user has BOTH
     // sections flagged (state from before exclusivity, or a crash between
@@ -36,7 +42,7 @@ async function resumeRunningEngines(): Promise<void> {
     // trade management back — preferring crypto on a tie, and clear the
     // other's desired flag so the state converges.
     const byUser = new Map<number, string[]>();
-    for (const { userId, section } of rows) {
+    for (const { userId, section } of resumable) {
       byUser.set(userId, [...(byUser.get(userId) ?? []), section]);
     }
 
@@ -70,7 +76,7 @@ async function resumeRunningEngines(): Promise<void> {
         logger.error({ err, userId, section: sec }, "AUTO-RESUME: engine failed to restart — user must press Start manually");
       }
     }
-    if (rows.length === 0) logger.info("AUTO-RESUME: no engines were running before restart");
+    if (resumable.length === 0) logger.info("AUTO-RESUME: no engines were running before restart");
   } catch (err) {
     logger.error({ err }, "AUTO-RESUME: could not query desired engine states");
   }

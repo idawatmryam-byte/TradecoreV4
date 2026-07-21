@@ -89,7 +89,7 @@ const FOREX: SectionSpec = {
 
 interface GenTrade {
   section: string; symbol: string; side: "buy" | "sell"; strategyId: string; strategyName: string;
-  entryPrice: number; exitPrice: number; quantity: number; plannedStopLoss: number; stopLoss: number;
+  entryPrice: number; exitPrice: number | null; quantity: number; plannedStopLoss: number; stopLoss: number;
   takeProfit: number; plannedQuantity: number; pnl: number; grossPnl: number; feesUsdt: number;
   status: "closed" | "open"; exitReason: string | null; entryTime: Date; exitTime: Date | null;
   holdingSeconds: number | null; marketType: string; confidence: number;
@@ -118,7 +118,7 @@ function genTrade(spec: SectionSpec, hoursAgo: number, outcome: Outcome, open = 
   if (open) {
     return {
       section: spec.section, symbol: sm.symbol, side, strategyId: strat.id, strategyName: strat.name,
-      entryPrice: entry, exitPrice: entry, quantity: qty, plannedStopLoss: slPrice, stopLoss: slPrice,
+      entryPrice: entry, exitPrice: null, quantity: qty, plannedStopLoss: slPrice, stopLoss: slPrice,
       takeProfit: tpPrice, plannedQuantity: qty, pnl: 0, grossPnl: 0, feesUsdt: fees / 2,
       status: "open", exitReason: null, entryTime, exitTime: null, holdingSeconds: null,
       marketType: spec.marketType, confidence: 60 + Math.round(rand() * 30),
@@ -214,7 +214,7 @@ async function seedSection(userId: number, spec: SectionSpec): Promise<void> {
   for (const t of trades) {
     const [row] = await db.insert(tradesTable).values({
       userId, section: t.section, symbol: t.symbol, side: t.side,
-      entryPrice: t.entryPrice.toFixed(8), exitPrice: t.exitPrice.toFixed(8),
+      entryPrice: t.entryPrice.toFixed(8), exitPrice: t.exitPrice != null ? t.exitPrice.toFixed(8) : null,
       quantity: t.quantity.toFixed(8), plannedQuantity: t.plannedQuantity.toFixed(8),
       pnl: t.pnl.toFixed(8), grossPnl: t.grossPnl.toFixed(8), feesUsdt: t.feesUsdt.toFixed(8),
       status: t.status, confidence: t.confidence.toFixed(2),
