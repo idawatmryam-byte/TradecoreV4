@@ -1,0 +1,686 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0}</style></head><body>
+<title>TradeCore Pro — Architecture &amp; Technical White Paper</title>
+<style>
+  :root {
+    --bg: #F4F7F6;
+    --surface: #FFFFFF;
+    --ink: #101A1C;
+    --muted: #55666A;
+    --faint: #7B8C8E;
+    --hairline: #E2E9E7;
+    --hairline-strong: #CBD6D4;
+    --accent: #0A6E68;
+    --accent-bright: #0FA595;
+    --accent-soft: #E4F3F0;
+    --good: #1E8A4C;
+    --warn: #A8690A;
+    --bad: #B83A2C;
+    --panel: #0C1A1C;
+    --panel-ink: #DDEBE8;
+    --panel-muted: #7F9C98;
+    --panel-accent: #3ED6C4;
+    --panel-hair: #21332F;
+    --shadow: 0 1px 2px rgba(16,26,28,.04), 0 8px 24px -12px rgba(16,26,28,.10);
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+    --measure: 68ch;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0A1214;
+      --surface: #0F1D1F;
+      --ink: #E7EEEC;
+      --muted: #93A6A3;
+      --faint: #6F8482;
+      --hairline: #1E2C2B;
+      --hairline-strong: #2C3F3D;
+      --accent: #35CFBE;
+      --accent-bright: #5AE2D2;
+      --accent-soft: #10302C;
+      --good: #3DBB74;
+      --warn: #D69134;
+      --bad: #E0685A;
+      --panel: #071113;
+      --panel-hair: #1A2A28;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0A1214; --surface: #0F1D1F; --ink: #E7EEEC; --muted: #93A6A3; --faint: #6F8482;
+    --hairline: #1E2C2B; --hairline-strong: #2C3F3D; --accent: #35CFBE; --accent-bright: #5AE2D2;
+    --accent-soft: #10302C; --good: #3DBB74; --warn: #D69134; --bad: #E0685A;
+    --panel: #071113; --panel-hair: #1A2A28;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F7F6; --surface: #FFFFFF; --ink: #101A1C; --muted: #55666A; --faint: #7B8C8E;
+    --hairline: #E2E9E7; --hairline-strong: #CBD6D4; --accent: #0A6E68; --accent-bright: #0FA595;
+    --accent-soft: #E4F3F0; --good: #1E8A4C; --warn: #A8690A; --bad: #B83A2C;
+    --panel: #0C1A1C; --panel-hair: #21332F;
+    --shadow: 0 1px 2px rgba(16,26,28,.04), 0 8px 24px -12px rgba(16,26,28,.10);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 16.5px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  .doc { max-width: 940px; margin: 0 auto; padding: 0 24px 120px; }
+  p { margin: 0 0 1.05em; max-width: var(--measure); }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid color-mix(in oklab, var(--accent) 35%, transparent); }
+  strong { font-weight: 650; }
+  .mono { font-family: var(--mono); }
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  /* ── Cover ─────────────────────────────────────────────── */
+  .cover { padding: 84px 0 40px; border-bottom: 1px solid var(--hairline); }
+  .brandline { display: flex; align-items: center; gap: 12px; margin-bottom: 56px; }
+  .glyph {
+    width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center;
+    background: var(--accent-soft); border: 1px solid color-mix(in oklab, var(--accent) 40%, transparent);
+    color: var(--accent); font-family: var(--mono); font-weight: 700; font-size: 17px;
+  }
+  .brandname { font-family: var(--mono); font-weight: 700; letter-spacing: .18em; font-size: 13px; text-transform: uppercase; }
+  .brandsub { font-family: var(--mono); font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--faint); }
+  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  h1.title {
+    font-size: clamp(38px, 6vw, 60px); line-height: 1.02; letter-spacing: -.02em; font-weight: 720;
+    margin: 18px 0 20px; text-wrap: balance; max-width: 16ch;
+  }
+  .lede { font-size: 19px; line-height: 1.55; color: var(--muted); max-width: 60ch; margin: 0 0 40px; }
+  .metatable {
+    display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 1px;
+    background: var(--hairline); border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden;
+    max-width: 620px;
+  }
+  .metatable div { background: var(--surface); padding: 14px 16px; }
+  .metatable dt { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin-bottom: 3px; }
+  .metatable dd { margin: 0; font-size: 14px; font-weight: 550; }
+  .classif {
+    display: inline-flex; align-items: center; gap: 8px; margin-top: 22px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .06em; color: var(--warn);
+    border: 1px solid color-mix(in oklab, var(--warn) 35%, transparent); background: color-mix(in oklab, var(--warn) 8%, transparent);
+    padding: 6px 11px; border-radius: 999px;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: inline-block; }
+
+  /* ── Contents ──────────────────────────────────────────── */
+  .toc { margin: 40px 0 8px; }
+  .toc h2 { font-size: 13px; font-family: var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--faint); font-weight: 600; margin: 0 0 16px; }
+  .toc ol { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 44px; }
+  .toc li { break-inside: avoid; display: flex; gap: 12px; align-items: baseline; padding: 7px 0; border-bottom: 1px dotted var(--hairline-strong); }
+  .toc .n { font-family: var(--mono); font-size: 12px; color: var(--accent); width: 22px; flex: none; }
+  .toc a { color: var(--ink); border: none; font-size: 14.5px; }
+
+  /* ── Sections ──────────────────────────────────────────── */
+  section.chapter { padding-top: 64px; }
+  .sechead { display: flex; gap: 18px; align-items: baseline; margin-bottom: 8px; padding-bottom: 14px; border-bottom: 2px solid var(--ink); }
+  .secnum { font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--accent); letter-spacing: .04em; }
+  h2.sectitle { font-size: clamp(24px, 3.4vw, 30px); line-height: 1.12; letter-spacing: -.015em; font-weight: 680; margin: 0; text-wrap: balance; }
+  h3 { font-size: 16.5px; letter-spacing: -.005em; margin: 34px 0 6px; font-weight: 650; }
+  h3 .k { font-family: var(--mono); font-size: 12px; color: var(--accent); margin-right: 8px; }
+  .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin: 0 0 10px; }
+  ul.tight { margin: 0 0 1.1em; padding-left: 1.15em; max-width: var(--measure); }
+  ul.tight li { margin: 0 0 .5em; }
+  ul.tight li::marker { color: var(--accent); }
+
+  /* ── Components ────────────────────────────────────────── */
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px,1fr)); gap: 14px; margin: 22px 0; }
+  .card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; padding: 18px 18px; box-shadow: var(--shadow); }
+  .card h4 { margin: 0 0 6px; font-size: 14.5px; font-weight: 650; display: flex; align-items: center; gap: 8px; }
+  .card p { font-size: 13.5px; color: var(--muted); margin: 0; max-width: none; }
+  .card .ico { font-family: var(--mono); color: var(--accent); font-size: 13px; }
+
+  .panel {
+    background: var(--panel); color: var(--panel-ink); border-radius: 12px; padding: 20px 22px; margin: 24px 0;
+    font-family: var(--mono); font-size: 13px; line-height: 1.7; border: 1px solid var(--panel-hair);
+    overflow-x: auto;
+  }
+  .panel .c { color: var(--panel-muted); }
+  .panel .a { color: var(--panel-accent); }
+  .panel .lbl { display:block; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--panel-muted); margin-bottom: 12px; }
+
+  figure { margin: 26px 0; }
+  figcaption { font-family: var(--mono); font-size: 11px; letter-spacing: .04em; color: var(--faint); margin-top: 10px; text-align: center; }
+  figcaption b { color: var(--muted); font-weight: 600; }
+
+  /* flow diagram */
+  .flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+  .flow .step { flex: 1 1 120px; min-width: 110px; background: var(--surface); border: 1px solid var(--hairline-strong); border-radius: 10px; padding: 12px 12px; position: relative; }
+  .flow .step .s-n { font-family: var(--mono); font-size: 10px; color: var(--accent); letter-spacing: .1em; }
+  .flow .step .s-t { font-size: 13px; font-weight: 620; margin-top: 3px; }
+  .flow .step .s-d { font-size: 11.5px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+  .flow .arr { align-self: center; color: var(--faint); font-family: var(--mono); }
+
+  /* layered stack */
+  .stack { display: grid; gap: 6px; margin: 22px 0; }
+  .layer { display: grid; grid-template-columns: 150px 1fr; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--hairline); border-left: 3px solid var(--accent); border-radius: 8px; padding: 12px 16px; }
+  .layer .lname { font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
+  .layer .ldesc { font-size: 13px; color: var(--muted); }
+
+  /* matrix */
+  .matrix { width: 100%; border-collapse: collapse; margin: 22px 0; font-size: 13.5px; }
+  .matrix th, .matrix td { text-align: left; padding: 11px 14px; border: 1px solid var(--hairline); vertical-align: top; }
+  .matrix thead th { background: var(--accent-soft); color: var(--accent); font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
+  .matrix tbody th { font-weight: 650; background: color-mix(in oklab, var(--ink) 3%, var(--surface)); white-space: nowrap; }
+  .matrix td { color: var(--muted); }
+
+  .callout { border: 1px solid var(--hairline-strong); border-left: 3px solid var(--warn); background: color-mix(in oklab, var(--warn) 6%, var(--surface)); border-radius: 8px; padding: 16px 18px; margin: 24px 0; }
+  .callout .t { font-weight: 650; font-size: 14px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .callout p { font-size: 13.5px; color: var(--muted); margin: 0; max-width: none; }
+  .callout.good { border-left-color: var(--good); background: color-mix(in oklab, var(--good) 6%, var(--surface)); }
+  .callout.good .t { color: var(--good); }
+  .callout.warn .t { color: var(--warn); }
+
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap: 1px; background: var(--hairline); border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; margin: 22px 0; }
+  .metrics div { background: var(--surface); padding: 16px; }
+  .metrics .v { font-family: var(--mono); font-size: 24px; font-weight: 650; letter-spacing: -.02em; }
+  .metrics .l { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.35; }
+
+  hr.rule { border: none; border-top: 1px solid var(--hairline); margin: 0; }
+  .foot { margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--hairline); font-size: 12px; color: var(--faint); font-family: var(--mono); letter-spacing: .02em; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  code.inl { font-family: var(--mono); font-size: .88em; background: color-mix(in oklab, var(--accent) 9%, transparent); color: var(--accent); padding: 1px 5px; border-radius: 4px; }
+
+  @media (max-width: 640px) {
+    .metatable, .toc ol { grid-template-columns: 1fr; columns: 1; }
+    .layer { grid-template-columns: 1fr; gap: 4px; }
+    .doc { padding: 0 18px 80px; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    a { transition: color .15s ease; }
+  }
+  @media print {
+    :root { --bg:#fff; --surface:#fff; }
+    body { font-size: 11pt; }
+    .doc { max-width: none; padding: 0; }
+    section.chapter { page-break-inside: auto; }
+    .sechead { page-break-after: avoid; }
+    .card, .callout, .panel, figure, .metrics, .matrix { page-break-inside: avoid; }
+    .cover { padding-top: 12px; }
+  }
+</style>
+
+<div class="doc">
+
+  <!-- ══════════════════ COVER ══════════════════ -->
+  <header class="cover">
+    <div class="brandline">
+      <div class="glyph">◭</div>
+      <div>
+        <div class="brandname">TradeCore&nbsp;Pro</div>
+        <div class="brandsub">Dual-Market Algorithmic Trading Platform</div>
+      </div>
+    </div>
+
+    <div class="eyebrow">Architecture &amp; Technical White Paper</div>
+    <h1 class="title">The engineering behind a two-market trading engine.</h1>
+    <p class="lede">
+      A self-hosted, multi-user platform that trades crypto (Binance spot &amp; futures) and
+      forex (OANDA) through one decision core — with dollar-denominated risk, live-parity
+      backtesting, walk-forward strategy diagnosis, and a full per-trade audit trail. This
+      document describes how it is built, how each subsystem works, and — candidly — where its
+      limits are.
+    </p>
+
+    <dl class="metatable">
+      <div><dt>Document</dt><dd>Architecture &amp; Technical White Paper</dd></div>
+      <div><dt>Version</dt><dd>1.0</dd></div>
+      <div><dt>Subject</dt><dd>TradeCore Pro trading platform</dd></div>
+      <div><dt>Prepared</dt><dd>2026 · for technical evaluation</dd></div>
+    </dl>
+
+    <div class="classif"><span class="dot"></span> Confidential — prepared for prospective evaluators &amp; acquirers</div>
+  </header>
+
+  <!-- ══════════════════ CONTENTS ══════════════════ -->
+  <nav class="toc">
+    <h2>Contents</h2>
+    <ol>
+      <li><span class="n mono">01</span><a href="#s1">Executive summary</a></li>
+      <li><span class="n mono">02</span><a href="#s2">System overview &amp; the two-axis model</a></li>
+      <li><span class="n mono">03</span><a href="#s3">Architecture &amp; repository structure</a></li>
+      <li><span class="n mono">04</span><a href="#s4">Data model &amp; multi-tenancy</a></li>
+      <li><span class="n mono">05</span><a href="#s5">The decision engine</a></li>
+      <li><span class="n mono">06</span><a href="#s6">Order execution</a></li>
+      <li><span class="n mono">07</span><a href="#s7">Risk &amp; capital protection</a></li>
+      <li><span class="n mono">08</span><a href="#s8">Backtesting, parity &amp; the Autopsy</a></li>
+      <li><span class="n mono">09</span><a href="#s9">Edge Forensics</a></li>
+      <li><span class="n mono">10</span><a href="#s10">Security</a></li>
+      <li><span class="n mono">11</span><a href="#s11">Testing &amp; verification</a></li>
+      <li><span class="n mono">12</span><a href="#s12">Deployment, operations &amp; scaling</a></li>
+      <li><span class="n mono">13</span><a href="#s13">Honest limitations &amp; roadmap</a></li>
+      <li><span class="n mono">A</span><a href="#sA">Appendix — technology stack</a></li>
+    </ol>
+  </nav>
+
+  <!-- ══════════════════ 1 ══════════════════ -->
+  <section class="chapter" id="s1">
+    <div class="sechead"><span class="secnum">01</span><h2 class="sectitle">Executive summary</h2></div>
+    <p>
+      TradeCore Pro is an autonomous, multi-strategy trading platform written in TypeScript as a
+      pnpm monorepo. A single codebase runs <strong>two fully independent markets</strong> — a
+      crypto section on Binance (spot and USDⓈ-M futures, long and short) and a forex section on
+      OANDA (majors, gold, and USD-quoted indices) — through <strong>one shared decision core</strong>.
+      Each market has its own connection, strategy tuning, positions, trade log, decision journal,
+      and on/off switch; the two can be configured side by side.
+    </p>
+    <p>
+      The platform is built around a professional's discipline rather than a black box. The operator
+      states risk in <strong>dollars</strong> — the most they will lose and aim to win per trade — and
+      the engine derives position size, stop price, and target from that plan and the instrument's
+      structure. Every trade the engine considers, whether taken or declined, is logged with its
+      reasoning; every closed trade is automatically analysed and graded; and the same code that
+      trades live also drives the backtester, so simulated results reflect real behaviour.
+    </p>
+    <div class="metrics">
+      <div><div class="v tnum">2</div><div class="l">independent markets, one engine</div></div>
+      <div><div class="v tnum">13</div><div class="l">automated verification suites</div></div>
+      <div><div class="v tnum">8&nbsp;+&nbsp;6</div><div class="l">crypto / forex strategies</div></div>
+      <div><div class="v">AES-256</div><div class="l">per-user key encryption</div></div>
+    </div>
+    <p>
+      This paper is written for a technical reader evaluating the platform. It favours precision over
+      salesmanship: §13 states the genuine limitations — no proven profit record, a deliberate
+      single-process design, and the work a buyer would inherit — as plainly as the strengths. That
+      candour is itself a design value of the product, whose entire premise is honest, auditable
+      automation.
+    </p>
+  </section>
+
+  <!-- ══════════════════ 2 ══════════════════ -->
+  <section class="chapter" id="s2">
+    <div class="sechead"><span class="secnum">02</span><h2 class="sectitle">System overview &amp; the two-axis model</h2></div>
+    <p>
+      The whole system is organised around two orthogonal concepts. Keeping them separate is what
+      lets one codebase serve two very different markets without special-casing.
+    </p>
+    <ul class="tight">
+      <li><strong>Section</strong> (<code class="inl">crypto</code> | <code class="inl">forex</code>) scopes
+        <em>everything a user owns</em> — configuration, strategies, positions, trade history,
+        decisions, statistics, and the engine's on/off state. It is carried on every API request via an
+        <code class="inl">X-Section</code> header and threaded through every database query.</li>
+      <li><strong>Broker × market type</strong> (<code class="inl">binance</code>/<code class="inl">oanda</code>
+        with <code class="inl">spot</code>/<code class="inl">futures</code>/<code class="inl">forex</code>)
+        selects the <em>execution adapter and sizing semantics</em> — which exchange to call, how orders
+        are shaped, and whether leverage and liquidation apply.</li>
+    </ul>
+
+    <figure>
+      <table class="matrix">
+        <thead>
+          <tr><th>Section</th><th>Broker</th><th>Market types</th><th>Instruments</th><th>Order model</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>Crypto</th>
+            <td>Binance (ccxt)</td>
+            <td>spot · USDⓈ-M futures</td>
+            <td>Majors &amp; alts (long / short)</td>
+            <td>Independent stop / take-profit orders</td>
+          </tr>
+          <tr>
+            <th>Forex</th>
+            <td>OANDA v20</td>
+            <td>forex</td>
+            <td>FX majors · XAU · US indices</td>
+            <td>Native atomic bracket (entry + SL + TP)</td>
+          </tr>
+        </tbody>
+      </table>
+      <figcaption><b>Fig. 1</b> — Two independent sections, each mapped to a broker adapter and order model.</figcaption>
+    </figure>
+
+    <p>
+      Because a market type of <code class="inl">forex</code> is treated by the sizing math like
+      un-leveraged spot, the existing dollar-risk engine applies unchanged to FX — the only place
+      home currency and market-hours logic enter is at clearly-bounded adapter and gating layers.
+      Crypto behaviour is regression-locked throughout: a deterministic parity harness proves that
+      adding forex changed the crypto engine's output by exactly zero.
+    </p>
+  </section>
+
+  <!-- ══════════════════ 3 ══════════════════ -->
+  <section class="chapter" id="s3">
+    <div class="sechead"><span class="secnum">03</span><h2 class="sectitle">Architecture &amp; repository structure</h2></div>
+    <p>
+      The monorepo separates the trading server, the dashboard, the database schema, and a
+      generated API contract. A single Node process serves both the REST API and the built
+      single-page app, so production runs one service.
+    </p>
+
+    <div class="stack">
+      <div class="layer"><div class="lname">tradecore-pro</div><div class="ldesc">React / Vite dashboard (wouter routing, TanStack Query). Section switcher, cockpit, trade log, decisions feed, analytics, backtesting.</div></div>
+      <div class="layer"><div class="lname">api-server</div><div class="ldesc">Express API + the trading engine. One <code class="inl">BotEngine</code> per (user, section); ccxt for Binance, a ccxt-shaped adapter for OANDA.</div></div>
+      <div class="layer"><div class="lname">lib/db</div><div class="ldesc">Drizzle ORM over PostgreSQL — the single source of truth for users, config, trades, decisions, memory, and backtests.</div></div>
+      <div class="layer"><div class="lname">lib/api-spec</div><div class="ldesc">OpenAPI specification → generates a typed React client and Zod validators, so frontend and backend can never silently drift.</div></div>
+    </div>
+
+    <p>
+      The generated contract is the load-bearing idea: an endpoint's request and response shapes are
+      defined once and compiled into both a typed client hook and a runtime validator. A change to the
+      API that the frontend hasn't accounted for fails at compile time, not in production.
+    </p>
+
+    <h3><span class="k">3.1</span>The engine registry</h3>
+    <p>
+      Live trading state is held per user and per section. A registry keys each running engine on
+      <code class="inl">${userId}:${section}</code>; a request resolves to its owner's engine and can
+      touch no other. The engine owns the scan loop, ticker polling, open-position tracking, and the
+      exit pipeline for its slice of the world.
+    </p>
+  </section>
+
+  <!-- ══════════════════ 4 ══════════════════ -->
+  <section class="chapter" id="s4">
+    <div class="sechead"><span class="secnum">04</span><h2 class="sectitle">Data model &amp; multi-tenancy</h2></div>
+    <p>
+      Every user runs an isolated instance against their own encrypted credentials. Isolation is
+      enforced in the data layer: each user-owned table carries a <code class="inl">user_id</code>, and
+      the two markets are further separated by a <code class="inl">section</code> column, so no query
+      can cross a tenant or a market boundary by accident.
+    </p>
+    <div class="grid2">
+      <div class="card"><h4><span class="ico">›</span> users &amp; identities</h4><p>Accounts, hashed passwords, optional linked OAuth identities, and the read-only demo flag.</p></div>
+      <div class="card"><h4><span class="ico">›</span> credentials</h4><p>Binance and OANDA secrets, AES-256-GCM encrypted at rest; only a masked preview is ever returned.</p></div>
+      <div class="card"><h4><span class="ico">›</span> bot_config</h4><p>Per-(user, section) settings: risk model, dollar plan, pairs, market type, leverage, desired run state.</p></div>
+      <div class="card"><h4><span class="ico">›</span> trades &amp; partial exits</h4><p>Full execution record — planned vs actual SL/TP/qty, fees, slippage, P&amp;L, the exact plan executed.</p></div>
+      <div class="card"><h4><span class="ico">›</span> strategy_decisions</h4><p>The journal of every considered trade — executed, approved-not-taken, or rejected with a reason.</p></div>
+      <div class="card"><h4><span class="ico">›</span> memory &amp; analyses</h4><p>Hourly stats, a poor-performer blacklist, and an automatic post-trade grade for each closed trade.</p></div>
+      <div class="card"><h4><span class="ico">›</span> backtest_runs</h4><p>Backtest results with trades and equity curves, section-scoped, sharing the live-parity engine.</p></div>
+      <div class="card"><h4><span class="ico">›</span> autopsy_runs</h4><p>Walk-forward optimisation diagnoses — train/validation windows, verdicts, and evidence.</p></div>
+    </div>
+    <p>
+      Account deletion is complete and ordered: the engines stop, then every row the user owns is
+      removed across all tables before the account itself, leaving no orphaned trading state.
+    </p>
+  </section>
+
+  <!-- ══════════════════ 5 ══════════════════ -->
+  <section class="chapter" id="s5">
+    <div class="sechead"><span class="secnum">05</span><h2 class="sectitle">The decision engine</h2></div>
+    <p>
+      On each scan the engine turns market data into a decision through an explicit pipeline. Every
+      stage can reject a trade with a stated, recorded reason — the engine is never a black box that
+      simply "didn't trade".
+    </p>
+
+    <figure>
+      <div class="flow">
+        <div class="step"><div class="s-n">01</div><div class="s-t">Market data</div><div class="s-d">Multi-timeframe candles + live tickers per symbol.</div></div>
+        <div class="arr">→</div>
+        <div class="step"><div class="s-n">02</div><div class="s-t">Regime</div><div class="s-d">Trend / range / volatility classification, with hysteresis.</div></div>
+        <div class="arr">→</div>
+        <div class="step"><div class="s-n">03</div><div class="s-t">Strategy</div><div class="s-d">Only regime-appropriate strategies may propose a plan.</div></div>
+        <div class="arr">→</div>
+        <div class="step"><div class="s-n">04</div><div class="s-t">Dollar risk</div><div class="s-d">Size, stop, and target derived from the risk plan.</div></div>
+        <div class="arr">→</div>
+        <div class="step"><div class="s-n">05</div><div class="s-t">Quality gate</div><div class="s-d">Net reward:risk after costs must clear a floor.</div></div>
+        <div class="arr">→</div>
+        <div class="step"><div class="s-n">06</div><div class="s-t">Execute</div><div class="s-d">Order placed; plan &amp; reasoning persisted.</div></div>
+      </div>
+      <figcaption><b>Fig. 2</b> — The decision pipeline. A rejection at any stage is journaled with its cause.</figcaption>
+    </figure>
+
+    <h3><span class="k">5.1</span>Strategies as reasoning brains</h3>
+    <p>
+      Each strategy is a self-contained decision-maker. Rather than emit a bare signal, a strategy
+      produces a full <em>trade plan</em>: side, entry, a <strong>structural</strong> stop (placed
+      where the thesis is actually wrong — a broken level, a range midpoint — not an arbitrary
+      percentage), a target, sizing solved from the dollar plan, an expected hold time, and a written
+      rationale. Crypto and forex carry <strong>different catalogs</strong>, because they are different
+      markets: the crypto book keeps its eight strategies; the forex book keeps the structural
+      strategies that translate and adds a forex-native London-session breakout, while dropping the
+      crypto-microstructure scalpers whose edge depends on 24/7 flow.
+    </p>
+
+    <h3><span class="k">5.2</span>The cost-aware quality gate</h3>
+    <p>
+      A single central gate enforces that a trade's reward justifies its risk <em>after</em> round-trip
+      costs. Crucially, the cost model is market-correct: forex spreads and slippage are roughly an
+      order of magnitude tighter than crypto, and the gate uses the active market's real rates. Using
+      the wrong rates here is not cosmetic — charging crypto costs against forex-scale targets rejects
+      every forex trade outright, a failure mode the platform explicitly guards against.
+    </p>
+    <div class="panel">
+      <span class="lbl">Net reward-to-risk, after round-trip costs</span>
+      <span class="c">// costs widen effective risk and shrink effective reward on both legs</span><br>
+      cost&nbsp;&nbsp;= entry × (2·fee + 2·slippage)<br>
+      netRR = (grossReward − cost) <span class="a">/</span> (grossRisk + cost)<br>
+      <span class="c">// a plan below the floor is a structurally poor trade — rejected, and recorded as such</span>
+    </div>
+  </section>
+
+  <!-- ══════════════════ 6 ══════════════════ -->
+  <section class="chapter" id="s6">
+    <div class="sechead"><span class="secnum">06</span><h2 class="sectitle">Order execution</h2></div>
+    <p>
+      Execution is where the two markets diverge most, so the platform abstracts the broker behind a
+      common adapter interface and lets each implementation express its venue faithfully.
+    </p>
+    <div class="grid2">
+      <div class="card">
+        <h4>Binance</h4>
+        <p>Spot and USDⓈ-M futures via ccxt. Because Binance futures has no atomic OCO, protection is
+          placed as independent <span class="mono">STOP_MARKET</span> / <span class="mono">TAKE_PROFIT_MARKET</span>
+          orders, with a fail-safe that flattens a position if its stop cannot be placed — the engine
+          never holds an unprotected fill.</p>
+      </div>
+      <div class="card">
+        <h4>OANDA</h4>
+        <p>A ccxt-shaped adapter over the v20 REST API. Entry, stop, and take-profit are submitted in a
+          <em>single atomic bracket</em> order, so a fill is protected the instant it exists. Balances in
+          a non-USD home currency are converted at a live rate at one boundary, leaving the engine's
+          internal math entirely in USD.</p>
+      </div>
+    </div>
+    <p>
+      Broker-native trade identifiers are persisted, not held only in memory, so stop/target
+      replacement and position closes survive a process restart. On startup the engine reconciles its
+      in-memory tracking against the broker's actual open positions, closing the gap that a restart
+      mid-trade would otherwise open.
+    </p>
+  </section>
+
+  <!-- ══════════════════ 7 ══════════════════ -->
+  <section class="chapter" id="s7">
+    <div class="sechead"><span class="secnum">07</span><h2 class="sectitle">Risk &amp; capital protection</h2></div>
+    <p>
+      Risk control is layered, and every layer is enforced by the engine rather than left to the
+      operator's discipline.
+    </p>
+    <ul class="tight">
+      <li><strong>Dollar-denominated sizing.</strong> The operator states max loss and target profit
+        per trade; the engine derives quantity, stop price, and target from that plan and the position's
+        notional — one planner shared by the live engine and the backtester.</li>
+      <li><strong>Daily-loss circuit breaker.</strong> Once the day's losses hit the configured limit,
+        no new entries open; open positions continue to be managed. State is persisted so a restart
+        cannot silently reset it.</li>
+      <li><strong>Consecutive-violation pause.</strong> If realised losses exceed their expected maximum
+        repeatedly, trading pauses and requires a manual reset — a guard against a strategy or market
+        behaving outside its modelled bounds.</li>
+      <li><strong>Futures liquidation safety.</strong> Leverage is clamped to the exchange's per-symbol
+        maximum and to the platform's own lower cap; a trade whose stop would sit inside the liquidation
+        distance is refused before it is placed, and margin sufficiency is pre-checked.</li>
+      <li><strong>Market-hours gating (forex).</strong> A DST-aware calendar skips closed instruments
+        entirely — no evaluation against a stale Friday close — while still managing any open position,
+        since a resting stop can fill whenever the venue is open.</li>
+    </ul>
+    <div class="callout good">
+      <div class="t"><span class="dot"></span> Design principle</div>
+      <p>A stopped section's open positions always keep their exchange-side stop-loss and take-profit.
+        They may lose <em>active</em> management (the partial-profit ladder, trailing, time exits) until
+        the section is restarted, but they are never left unprotected.</p>
+    </div>
+  </section>
+
+  <!-- ══════════════════ 8 ══════════════════ -->
+  <section class="chapter" id="s8">
+    <div class="sechead"><span class="secnum">08</span><h2 class="sectitle">Backtesting, parity &amp; the Optimization Autopsy</h2></div>
+    <p>
+      The backtester runs the <strong>same decision code</strong> as live trading — the same signals,
+      the same dollar-risk planner, the same fee and slippage model. Results therefore describe what the
+      live engine would have done, not a parallel simulation that might disagree. Crypto uses public
+      exchange data; forex downloads OANDA candles and models forex costs and market hours.
+    </p>
+    <h3><span class="k">8.1</span>The Optimization Autopsy</h3>
+    <p>
+      The Autopsy answers a sharper question than a raw backtest: <em>what is wrong with this
+      strategy's current configuration?</em> It sweeps one strategy's real knobs — dollar plan,
+      confidence floor, hold time — on a <strong>training window</strong>, then re-tests the leading
+      candidates and the current config on a later <strong>validation window they were never fitted
+      to</strong>. Only a candidate that beats the current configuration <em>out of sample</em> becomes
+      a suggestion.
+    </p>
+    <figure>
+      <div class="flow">
+        <div class="step"><div class="s-n">A</div><div class="s-t">Train ⅔</div><div class="s-d">Coordinate-descent sweep of the strategy's knobs.</div></div>
+        <div class="arr">→</div>
+        <div class="step"><div class="s-n">B</div><div class="s-t">Validate ⅓</div><div class="s-d">Top candidates re-run on unseen data.</div></div>
+        <div class="arr">→</div>
+        <div class="step"><div class="s-n">C</div><div class="s-t">Verdict</div><div class="s-d">improved · no&nbsp;better · insufficient&nbsp;data.</div></div>
+      </div>
+      <figcaption><b>Fig. 3</b> — Walk-forward validation is what separates a diagnostic from a curve-fitter.</figcaption>
+    </figure>
+    <p>
+      "No better" is a first-class, honest verdict — the tool is designed to tell the operator when
+      their configuration is already sound, not to manufacture a change. This discipline is deliberately
+      the opposite of an unvalidated auto-tuner that would chase noise.
+    </p>
+  </section>
+
+  <!-- ══════════════════ 9 ══════════════════ -->
+  <section class="chapter" id="s9">
+    <div class="sechead"><span class="secnum">09</span><h2 class="sectitle">Edge Forensics</h2></div>
+    <p>
+      A raw win rate is a symptom, not a diagnosis. Edge Forensics decomposes realised performance into
+      named, dollar-quantified causes so the operator improves on evidence.
+    </p>
+    <ul class="tight">
+      <li><strong>Scratch-adjusted win rate.</strong> Break-even exits and washes are separated from real
+        losses — a strategy that mostly <em>scratches</em> can show a frightening raw win rate while its
+        capital is barely moving; the adjusted figure is the truthful one.</li>
+      <li><strong>Leak verdicts.</strong> The biggest bleeds are ranked in dollars: fast "noise" stop-outs
+        (stops sitting inside ordinary volatility), fee drag, and negative strategy / symbol / hour
+        cells.</li>
+      <li><strong>Stop-vs-noise audit.</strong> Any strategy whose implied stop is tighter than the
+        instrument's current volatility is flagged — a classic cause of pathological win rates.</li>
+    </ul>
+    <p>
+      The output is a to-do list grounded in the account's own history: widen a too-tight stop, retune a
+      bleeding strategy, or stop trading a losing hour.
+    </p>
+  </section>
+
+  <!-- ══════════════════ 10 ══════════════════ -->
+  <section class="chapter" id="s10">
+    <div class="sechead"><span class="secnum">10</span><h2 class="sectitle">Security</h2></div>
+    <div class="grid2">
+      <div class="card"><h4>Secrets at rest</h4><p>Exchange keys are AES-256-GCM encrypted; the server never returns plaintext, only a masked preview. All runtime config comes from a gitignored environment file — nothing sensitive is committed.</p></div>
+      <div class="card"><h4>Sessions</h4><p>Stateless, HMAC-signed, HttpOnly session cookies with an expiry. No server-side session store to breach; rotating the signing secret invalidates every outstanding session at once.</p></div>
+      <div class="card"><h4>Authentication</h4><p>scrypt password hashing with constant-time verification; login attempts for unknown and known users cost the same, so timing can't enumerate accounts. Login and registration are separately rate-limited.</p></div>
+      <div class="card"><h4>Supply chain</h4><p>Dependencies are held to a minimum-release-age policy — a new package version must have been public for a day before it can be installed, blunting the most common npm compromise vector.</p></div>
+      <div class="card"><h4>Tenant isolation</h4><p>Every request resolves to exactly one user's engine and data; a demo account is enforced read-only at the server, not merely in the UI, and holds no exchange credentials.</p></div>
+      <div class="card"><h4>Transport &amp; headers</h4><p>Security headers, a strict CORS allow-list, and body-size caps guard the single public surface; the trading engine reaches exchanges over authenticated HTTPS only.</p></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ 11 ══════════════════ -->
+  <section class="chapter" id="s11">
+    <div class="sechead"><span class="secnum">11</span><h2 class="sectitle">Testing &amp; verification</h2></div>
+    <p>
+      Correctness is defended by a suite of deterministic checks that run offline — no exchange required
+      — plus a parity discipline that treats any unexplained change in engine output as a bug.
+    </p>
+    <div class="grid2">
+      <div class="card"><h4>Unit &amp; math suites</h4><p>Futures math, adaptive SL/TP, position sizing, the dollar-risk planner, the trader toolkit, symbol mapping, forex sizing, and market-hours all have dedicated checks.</p></div>
+      <div class="card"><h4>Adapter proofs</h4><p>The OANDA adapter is verified against a scripted fake client that asserts the exact request bodies sent to the venue — units, bracket prices, order type — and the close-emulation rules.</p></div>
+      <div class="card"><h4>Live-engine rig</h4><p>A mock exchange drives the real engine through entry, stop-fill, partial-take-profit, restart reconciliation, and failed-stop flatten — the full lifecycle, end to end.</p></div>
+      <div class="card"><h4>Parity harness</h4><p>The real backtest engine runs a fixed dataset; any change to the decision core must show a zero delta on the crypto path unless the change is intended and measured.</p></div>
+    </div>
+    <div class="callout good">
+      <div class="t"><span class="dot"></span> Regression discipline</div>
+      <p>When the forex market, the new strategy catalog, and the cost-model fixes were added, the crypto
+        engine's backtest output was proven <strong>byte-identical</strong> to its prior baseline on both
+        spot and futures — new capability, zero disturbance to what already worked.</p>
+    </div>
+  </section>
+
+  <!-- ══════════════════ 12 ══════════════════ -->
+  <section class="chapter" id="s12">
+    <div class="sechead"><span class="secnum">12</span><h2 class="sectitle">Deployment, operations &amp; scaling</h2></div>
+    <p>
+      The platform is self-hosted and deploys as a single service. A one-command update script pulls,
+      installs, applies additive schema changes, builds the frontend then the backend, and restarts the
+      process under a supervisor configured to survive crashes without thrashing.
+    </p>
+    <ul class="tight">
+      <li><strong>Health.</strong> A liveness endpoint (is the process up) and a readiness endpoint (can
+        it reach its database) support load balancers and uptime monitors.</li>
+      <li><strong>Resilience.</strong> On restart, every engine whose persisted desired state is
+        "running" auto-resumes, so a deploy or reboot never silently halts trading.</li>
+      <li><strong>Observability.</strong> Structured logging throughout; uncaught exceptions and unhandled
+        rejections are captured and can be forwarded to an operator's alert webhook.</li>
+    </ul>
+
+    <h3><span class="k">12.1</span>The single-process model — a deliberate choice</h3>
+    <p>
+      The engine keeps live trading state in one process and <strong>must not</strong> be clustered:
+      two instances would evaluate the same strategies against the same account and place duplicate
+      orders. This is the correct default for correctness and comfortably serves tens of concurrent
+      users on one machine. It is also the platform's principal scaling boundary — see §13.
+    </p>
+  </section>
+
+  <!-- ══════════════════ 13 ══════════════════ -->
+  <section class="chapter" id="s13">
+    <div class="sechead"><span class="secnum">13</span><h2 class="sectitle">Honest limitations &amp; roadmap</h2></div>
+    <p>
+      The platform is offered on the strength of its engineering, not on a track record. Stated plainly,
+      so due diligence holds no surprises:
+    </p>
+    <div class="callout warn">
+      <div class="t"><span class="dot"></span> No verified profitability</div>
+      <p>The bundled strategies are a competent starting point, not a guaranteed edge. No live-money
+        performance record is claimed. A buyer should expect to validate and tune strategies — the
+        Backtester, Autopsy, and Edge Forensics exist precisely to make that rigorous.</p>
+    </div>
+    <div class="callout warn">
+      <div class="t"><span class="dot"></span> Single-process scaling ceiling</div>
+      <p>Serving hundreds or thousands of concurrent users would require moving engines to distributed
+        workers with shared state — a scoped, well-understood piece of work, not a rewrite, but real
+        work a SaaS operator would undertake.</p>
+    </div>
+    <div class="callout warn">
+      <div class="t"><span class="dot"></span> Operational &amp; commercial gaps</div>
+      <p>There is no built-in billing or admin console, and no bundled third-party error-monitoring SDK.
+        Index-CFD stops can slip beyond plan in a fast spike (flagged by the risk audit); majors and gold
+        behave to plan.</p>
+    </div>
+    <p>
+      None of these are hidden defects — they are the honest edges of a cleanly-built platform, and each
+      is a defined next step rather than an unknown. A prospective owner inherits a coherent, documented,
+      test-defended codebase and a clear map of where to take it.
+    </p>
+  </section>
+
+  <!-- ══════════════════ APPENDIX ══════════════════ -->
+  <section class="chapter" id="sA">
+    <div class="sechead"><span class="secnum">A</span><h2 class="sectitle">Appendix — technology stack</h2></div>
+    <div class="stack">
+      <div class="layer"><div class="lname">Language</div><div class="ldesc">TypeScript end to end, strict mode; pnpm workspaces monorepo.</div></div>
+      <div class="layer"><div class="lname">Backend</div><div class="ldesc">Node.js · Express · ccxt (Binance) · a custom OANDA v20 adapter · pino logging.</div></div>
+      <div class="layer"><div class="lname">Frontend</div><div class="ldesc">React · Vite · wouter · TanStack Query · a generated typed API client.</div></div>
+      <div class="layer"><div class="lname">Data</div><div class="ldesc">PostgreSQL via Drizzle ORM; schema-as-code with additive migrations.</div></div>
+      <div class="layer"><div class="lname">Contract</div><div class="ldesc">OpenAPI → generated client hooks + Zod runtime validators (single source of truth).</div></div>
+      <div class="layer"><div class="lname">Ops</div><div class="ldesc">PM2 process supervision · one-command deploy script · health &amp; readiness probes.</div></div>
+    </div>
+
+    <div class="foot">
+      <span>TradeCore Pro — Architecture &amp; Technical White Paper · v1.0</span>
+      <span>Confidential · for evaluation</span>
+    </div>
+  </section>
+
+</div>
+</body></html>
