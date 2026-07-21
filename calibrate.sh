@@ -53,10 +53,16 @@ else
 fi
 FOLDS="${FOLDS:-3}"
 MONTHS="${MONTHS:-12}"
+# End the window a few days BACK, not today: the most recent candles are often
+# partial or not-yet-downloaded, and the final fold runs right up to the cutoff
+# — so a trailing-to-today window calibrates that last fold on thin, half-formed
+# data. A small buffer keeps the last fold honest. Set BUFFER_DAYS=0 to run
+# right up to now.
+BUFFER_DAYS="${BUFFER_DAYS:-7}"
 
-# Trailing window ending today unless START/END are given explicitly.
-END="${END:-$(date -u +%Y-%m-%d)}"
-START="${START:-$(date -u -d "${MONTHS} months ago" +%Y-%m-%d 2>/dev/null || date -u -v-"${MONTHS}"m +%Y-%m-%d)}"
+# Trailing window, ending BUFFER_DAYS ago, unless START/END are given explicitly.
+END="${END:-$(date -u -d "${BUFFER_DAYS} days ago" +%Y-%m-%d 2>/dev/null || date -u -v-"${BUFFER_DAYS}"d +%Y-%m-%d)}"
+START="${START:-$(date -u -d "${END} -${MONTHS} months" +%Y-%m-%d 2>/dev/null || date -u -v-"${MONTHS}"m +%Y-%m-%d)}"
 
 echo "─────────────────────────────────────────────────────────────"
 echo " Default calibration"
