@@ -11,6 +11,7 @@ import { db, tradesTable } from "@workspace/db";
 import { and, eq, ne, isNotNull } from "drizzle-orm";
 import { buildDailyReport } from "../lib/dailyReport";
 import { analyzeEdge, type ForensicTradeRow } from "../lib/edgeForensics";
+import { analyzeSelection } from "../lib/selectionFilter";
 import { loadStrategyConfigs } from "../lib/strategyConfigLoader";
 import { getOrCreateEngine } from "../lib/engineRegistry";
 import { GetDailyReportResponse } from "@workspace/api-zod";
@@ -50,6 +51,11 @@ router.get("/reports/edge-forensics", async (req, res): Promise<void> => {
   }));
 
   const report = analyzeEdge(forensicRows);
+
+  // Selection filter (analysis half): which cells is it statistically SAFE
+  // to stop trading? Sample-gated so it can't act on noise. Read-only — this
+  // never changes engine behavior; it just surfaces the actionable table.
+  const selectionFilter = analyzeSelection(forensicRows);
 
   // ── Live noise-floor audit ────────────────────────────────────────────────
   // A dollar plan implies a stop distance of maxLoss/tradeAmount. If that
@@ -91,7 +97,71 @@ router.get("/reports/edge-forensics", async (req, res): Promise<void> => {
     });
   }
 
-  res.json({ ...report, noiseFlags, engineOffline });
+  res.json({ ...report, selectionFilter, noiseFlags, engineOffline });
+});
+
+// ---------------------------------------------------------------------------
+// GET /reports/trades.csv — the user's closed live trades as CSV.
+//
+// Data portability (a due-diligence plus) and the bridge for offline edge
+// analysis: this is the exact history the Edge Forensics + Selection Filter
+// run on. Section-scoped, closed trades only, newest first.
+// ---------------------------------------------------------------------------
+router.get("/reports/trades.csv", async (req, res): Promise<void> => {
+  const rows = await db
+    .select()
+    .from(tradesTable)
+    .where(
+      and(
+        eq(tradesTable.userId, req.userId!),
+        eq(tradesTable.section, req.section!),
+        eq(tradesTable.isBacktest, false),
+        ne(tradesTable.status, "open"),
+      ),
+    );
+  rows.sort((a, b) => b.entryTime.getTime() - a.entryTime.getTime());
+
+  const COLUMNS: Array<[string, (t: (typeof rows)[number]) => string | number | null]> = [
+    ["id", (t) => t.id],
+    ["section", (t) => t.section],
+    ["symbol", (t) => t.symbol],
+    ["side", (t) => t.side],
+    ["strategyId", (t) => t.strategyId],
+    ["strategyName", (t) => t.strategyName],
+    ["status", (t) => t.status],
+    ["confidence", (t) => t.confidence],
+    ["entryTime", (t) => t.entryTime.toISOString()],
+    ["exitTime", (t) => (t.exitTime ? t.exitTime.toISOString() : "")],
+    ["holdingSeconds", (t) => t.holdingSeconds],
+    ["entryPrice", (t) => t.entryPrice],
+    ["exitPrice", (t) => t.exitPrice],
+    ["quantity", (t) => t.quantity],
+    ["plannedQuantity", (t) => t.plannedQuantity],
+    ["stopLoss", (t) => t.stopLoss],
+    ["plannedStopLoss", (t) => t.plannedStopLoss],
+    ["takeProfit", (t) => t.takeProfit],
+    ["exitReason", (t) => t.exitReason],
+    ["tp1Filled", (t) => String(t.tp1Filled)],
+    ["pnl", (t) => t.pnl],
+    ["grossPnl", (t) => t.grossPnl],
+    ["feesUsdt", (t) => t.feesUsdt],
+    ["slippageUsdt", (t) => t.slippageUsdt],
+    ["marketType", (t) => t.marketType],
+  ];
+
+  const esc = (v: string | number | null): string => {
+    if (v == null) return "";
+    const s = String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const header = COLUMNS.map(([name]) => name).join(",");
+  const body = rows.map((t) => COLUMNS.map(([, get]) => esc(get(t))).join(",")).join("\n");
+  const csv = `${header}\n${body}\n`;
+
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", `attachment; filename="tradecore_${req.section}_trades.csv"`);
+  res.send(csv);
 });
 
 router.get("/reports/daily", async (req, res): Promise<void> => {
