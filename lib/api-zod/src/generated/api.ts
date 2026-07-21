@@ -1188,9 +1188,206 @@ export const GetStrategiesResponseItem = zod.object({
   "avgWin": zod.number(),
   "avgLoss": zod.number(),
   "avgDurationSeconds": zod.number()
-})
+}),
+  "custom": zod.boolean().optional().describe('True when this is a user-built custom strategy (no-code builder), not a built-in.'),
+  "customId": zod.number().optional().describe('The custom strategy\'s numeric id (for \/custom-strategies\/{id} CRUD). Present only when custom.'),
+  "backtested": zod.boolean().optional().describe('Custom strategies only — true once a single-strategy backtest of the CURRENT rules has completed (required before live enable).')
 })
 export const GetStrategiesResponse = zod.array(GetStrategiesResponseItem)
+
+
+/**
+ * @summary List this user's custom strategies (section-scoped)
+ */
+export const GetCustomStrategiesResponseItem = zod.object({
+  "id": zod.number(),
+  "strategyId": zod.string().describe('Engine-facing id, custom_<id> — the key used on \/strategies, backtests and autopsies.'),
+  "section": zod.enum(['crypto', 'forex']),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "rules": zod.object({
+  "long": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison — gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.'),
+  "short": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison — gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.'),
+  "stop": zod.object({
+  "mode": zod.enum(['atr', 'percent', 'swing']),
+  "atrMult": zod.number().optional().describe('atr mode — stop at N × ATR from entry (0.5–10).'),
+  "pct": zod.number().optional().describe('percent mode — fixed % distance from entry (0.05–20).'),
+  "lookback": zod.number().optional().describe('swing mode — lowest low \/ highest high of the last N 15m bars (3–50).')
+}),
+  "confidence": zod.number().describe('Static plan confidence (50–95); the per-strategy confidence threshold still applies on top.')
+}),
+  "indicators": zod.array(zod.string()).describe('Human-readable rendering of the rules (\"LONG when RSI < 30 …\").'),
+  "rulesValid": zod.boolean(),
+  "backtested": zod.boolean().describe('True once a single-strategy backtest of the CURRENT rules completed. Editing rules resets this — and live enablement requires it.'),
+  "lastBacktestAt": zod.coerce.date().nullish(),
+  "rulesUpdatedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const GetCustomStrategiesResponse = zod.array(GetCustomStrategiesResponseItem)
+
+
+/**
+ * Rules are validated server-side against the builder's bounded indicator vocabulary. The new strategy starts DISABLED with no dollar plan, and must complete a single-strategy backtest before it can be enabled for live trading.
+ * @summary Create a custom strategy (no-code builder)
+ */
+export const createCustomStrategyBodyNameMax = 60;
+
+export const createCustomStrategyBodyDescriptionMax = 500;
+
+
+
+export const CreateCustomStrategyBody = zod.object({
+  "name": zod.string().min(1).max(createCustomStrategyBodyNameMax),
+  "description": zod.string().max(createCustomStrategyBodyDescriptionMax).optional(),
+  "rules": zod.object({
+  "long": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison — gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.'),
+  "short": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison — gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.'),
+  "stop": zod.object({
+  "mode": zod.enum(['atr', 'percent', 'swing']),
+  "atrMult": zod.number().optional().describe('atr mode — stop at N × ATR from entry (0.5–10).'),
+  "pct": zod.number().optional().describe('percent mode — fixed % distance from entry (0.05–20).'),
+  "lookback": zod.number().optional().describe('swing mode — lowest low \/ highest high of the last N 15m bars (3–50).')
+}),
+  "confidence": zod.number().describe('Static plan confidence (50–95); the per-strategy confidence threshold still applies on top.')
+})
+})
+
+export const CreateCustomStrategyResponse = zod.object({
+  "id": zod.number(),
+  "strategyId": zod.string().describe('Engine-facing id, custom_<id> — the key used on \/strategies, backtests and autopsies.'),
+  "section": zod.enum(['crypto', 'forex']),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "rules": zod.object({
+  "long": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison — gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.'),
+  "short": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison — gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.'),
+  "stop": zod.object({
+  "mode": zod.enum(['atr', 'percent', 'swing']),
+  "atrMult": zod.number().optional().describe('atr mode — stop at N × ATR from entry (0.5–10).'),
+  "pct": zod.number().optional().describe('percent mode — fixed % distance from entry (0.05–20).'),
+  "lookback": zod.number().optional().describe('swing mode — lowest low \/ highest high of the last N 15m bars (3–50).')
+}),
+  "confidence": zod.number().describe('Static plan confidence (50–95); the per-strategy confidence threshold still applies on top.')
+}),
+  "indicators": zod.array(zod.string()).describe('Human-readable rendering of the rules (\"LONG when RSI < 30 …\").'),
+  "rulesValid": zod.boolean(),
+  "backtested": zod.boolean().describe('True once a single-strategy backtest of the CURRENT rules completed. Editing rules resets this — and live enablement requires it.'),
+  "lastBacktestAt": zod.coerce.date().nullish(),
+  "rulesUpdatedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * Editing the rules resets the backtest stamp — the strategy must be re-backtested before it can be (re-)enabled for live trading.
+ * @summary Update a custom strategy
+ */
+export const UpdateCustomStrategyParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const updateCustomStrategyBodyNameMax = 60;
+
+export const updateCustomStrategyBodyDescriptionMax = 500;
+
+
+
+export const UpdateCustomStrategyBody = zod.object({
+  "name": zod.string().min(1).max(updateCustomStrategyBodyNameMax).optional(),
+  "description": zod.string().max(updateCustomStrategyBodyDescriptionMax).nullish(),
+  "rules": zod.object({
+  "long": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison — gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.'),
+  "short": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison — gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.'),
+  "stop": zod.object({
+  "mode": zod.enum(['atr', 'percent', 'swing']),
+  "atrMult": zod.number().optional().describe('atr mode — stop at N × ATR from entry (0.5–10).'),
+  "pct": zod.number().optional().describe('percent mode — fixed % distance from entry (0.05–20).'),
+  "lookback": zod.number().optional().describe('swing mode — lowest low \/ highest high of the last N 15m bars (3–50).')
+}),
+  "confidence": zod.number().describe('Static plan confidence (50–95); the per-strategy confidence threshold still applies on top.')
+}).optional()
+})
+
+export const UpdateCustomStrategyResponse = zod.object({
+  "id": zod.number(),
+  "strategyId": zod.string().describe('Engine-facing id, custom_<id> — the key used on \/strategies, backtests and autopsies.'),
+  "section": zod.enum(['crypto', 'forex']),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "rules": zod.object({
+  "long": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison — gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.'),
+  "short": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison — gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.'),
+  "stop": zod.object({
+  "mode": zod.enum(['atr', 'percent', 'swing']),
+  "atrMult": zod.number().optional().describe('atr mode — stop at N × ATR from entry (0.5–10).'),
+  "pct": zod.number().optional().describe('percent mode — fixed % distance from entry (0.05–20).'),
+  "lookback": zod.number().optional().describe('swing mode — lowest low \/ highest high of the last N 15m bars (3–50).')
+}),
+  "confidence": zod.number().describe('Static plan confidence (50–95); the per-strategy confidence threshold still applies on top.')
+}),
+  "indicators": zod.array(zod.string()).describe('Human-readable rendering of the rules (\"LONG when RSI < 30 …\").'),
+  "rulesValid": zod.boolean(),
+  "backtested": zod.boolean().describe('True once a single-strategy backtest of the CURRENT rules completed. Editing rules resets this — and live enablement requires it.'),
+  "lastBacktestAt": zod.coerce.date().nullish(),
+  "rulesUpdatedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a custom strategy (and its risk/exit config)
+ */
+export const DeleteCustomStrategyParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteCustomStrategyResponse = zod.object({
+  "success": zod.boolean(),
+  "strategyId": zod.string()
+})
 
 
 /**

@@ -1166,6 +1166,113 @@ export interface StrategyInfo {
   decisionMaker: boolean;
   config: StrategyConfig;
   performance: StrategyPerformance;
+  /** True when this is a user-built custom strategy (no-code builder), not a built-in. */
+  custom?: boolean;
+  /** The custom strategy's numeric id (for /custom-strategies/{id} CRUD). Present only when custom. */
+  customId?: number;
+  /** Custom strategies only — true once a single-strategy backtest of the CURRENT rules has completed (required before live enable). */
+  backtested?: boolean;
+}
+
+/**
+ * Comparison — gt/gte/lt/lte for numeric indicators, eq for enum/boolean ones.
+ */
+export type CustomStrategyConditionOp = typeof CustomStrategyConditionOp[keyof typeof CustomStrategyConditionOp];
+
+
+export const CustomStrategyConditionOp = {
+  gt: 'gt',
+  gte: 'gte',
+  lt: 'lt',
+  lte: 'lte',
+  eq: 'eq',
+} as const;
+
+export interface CustomStrategyCondition {
+  /** One of the builder's indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50). */
+  indicator: string;
+  /** Comparison — gt/gte/lt/lte for numeric indicators, eq for enum/boolean ones. */
+  op: CustomStrategyConditionOp;
+  /** Number for numeric indicators; string for enum/boolean ones ("true"/"false" or a regime name). */
+  value: number | string;
+}
+
+export type CustomStrategyStopMode = typeof CustomStrategyStopMode[keyof typeof CustomStrategyStopMode];
+
+
+export const CustomStrategyStopMode = {
+  atr: 'atr',
+  percent: 'percent',
+  swing: 'swing',
+} as const;
+
+export interface CustomStrategyStop {
+  mode: CustomStrategyStopMode;
+  /** atr mode — stop at N × ATR from entry (0.5–10). */
+  atrMult?: number;
+  /** percent mode — fixed % distance from entry (0.05–20). */
+  pct?: number;
+  /** swing mode — lowest low / highest high of the last N 15m bars (3–50). */
+  lookback?: number;
+}
+
+export interface CustomStrategyRules {
+  /** AND-list of conditions that must ALL hold to propose a long. Omit to disable longs. */
+  long?: CustomStrategyCondition[];
+  /** AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts. */
+  short?: CustomStrategyCondition[];
+  stop: CustomStrategyStop;
+  /** Static plan confidence (50–95); the per-strategy confidence threshold still applies on top. */
+  confidence: number;
+}
+
+export type CustomStrategySection = typeof CustomStrategySection[keyof typeof CustomStrategySection];
+
+
+export const CustomStrategySection = {
+  crypto: 'crypto',
+  forex: 'forex',
+} as const;
+
+export interface CustomStrategy {
+  id: number;
+  /** Engine-facing id, custom_<id> — the key used on /strategies, backtests and autopsies. */
+  strategyId: string;
+  section: CustomStrategySection;
+  name: string;
+  description?: string | null;
+  rules: CustomStrategyRules;
+  /** Human-readable rendering of the rules ("LONG when RSI < 30 …"). */
+  indicators: string[];
+  rulesValid: boolean;
+  /** True once a single-strategy backtest of the CURRENT rules completed. Editing rules resets this — and live enablement requires it. */
+  backtested: boolean;
+  lastBacktestAt?: string | null;
+  rulesUpdatedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomStrategyCreate {
+  /**
+     * @minLength 1
+     * @maxLength 60
+     */
+  name: string;
+  /** @maxLength 500 */
+  description?: string;
+  rules: CustomStrategyRules;
+}
+
+export interface CustomStrategyUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 60
+     */
+  name?: string;
+  /** @maxLength 500 */
+  description?: string | null;
+  rules?: CustomStrategyRules;
 }
 
 export interface StrategySignalItem {
@@ -1303,6 +1410,11 @@ export type StartAutopsy202 = {
 
 export type DeleteBacktest200 = {
   deleted: boolean;
+};
+
+export type DeleteCustomStrategy200 = {
+  success: boolean;
+  strategyId: string;
 };
 
 export type UpdateStrategyConfig200 = {

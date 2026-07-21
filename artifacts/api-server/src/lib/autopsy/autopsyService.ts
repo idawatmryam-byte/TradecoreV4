@@ -19,7 +19,7 @@
  * time (the VPS also hosts the live engines), and a wall-clock budget
  * truncates the sweep rather than letting it run away.
  */
-import { db, backtestRunsTable, backtestTradesTable, autopsyRunsTable } from "@workspace/db";
+import { db, backtestRunsTable, backtestTradesTable, autopsyRunsTable, customStrategiesTable } from "@workspace/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { runBacktest, type BacktestParams } from "../backtestEngine";
 import { loadStrategyConfigs } from "../strategyConfigLoader";
@@ -56,7 +56,19 @@ interface Candidate {
 export async function startAutopsy(userId: number, req: AutopsyRequest): Promise<number> {
   const totalMs = req.endDate.getTime() - req.startDate.getTime();
   const trainEnd = new Date(req.startDate.getTime() + Math.round(totalMs * (2 / 3)));
-  const strategyName = ALL_STRATEGIES.find((s) => s.strategyId === req.strategyId)?.strategyName ?? req.strategyId;
+  let strategyName = ALL_STRATEGIES.find((s) => s.strategyId === req.strategyId)?.strategyName ?? req.strategyId;
+  if (strategyName === req.strategyId && req.strategyId.startsWith("custom_")) {
+    // A user-built strategy — its display name lives on its own row.
+    const [customRow] = await db
+      .select({ name: customStrategiesTable.name })
+      .from(customStrategiesTable)
+      .where(and(
+        eq(customStrategiesTable.userId, userId),
+        eq(customStrategiesTable.section, req.section),
+        eq(customStrategiesTable.strategyId, req.strategyId),
+      ));
+    if (customRow) strategyName = customRow.name;
+  }
 
   const configs = await loadStrategyConfigs(userId, req.section);
   const cfg = configs.get(req.strategyId);

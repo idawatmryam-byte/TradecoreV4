@@ -9,7 +9,7 @@
  * OANDA candles with forex costs; crypto uses Binance data. Never mixed.
  */
 import { Router, type IRouter } from "express";
-import { db, autopsyRunsTable, botConfigTable } from "@workspace/db";
+import { db, autopsyRunsTable, botConfigTable, customStrategiesTable } from "@workspace/db";
 import { and, eq, desc, asc, sql, lte } from "drizzle-orm";
 import { startAutopsy } from "../lib/autopsy/autopsyService";
 import { strategiesForSection } from "../lib/strategies";
@@ -62,8 +62,22 @@ router.post("/backtests/autopsy", async (req, res): Promise<void> => {
   const strategyId = typeof b.strategyId === "string" ? b.strategyId : "";
   const catalog = strategiesForSection(section);
   if (!catalog.some((s) => s.strategyId === strategyId)) {
-    res.status(400).json({ error: `strategyId must be one of: ${catalog.map((s) => s.strategyId).join(", ")}` });
-    return;
+    // Not a built-in — the user's own custom strategies are valid autopsy
+    // subjects too (their config rows live in the same table).
+    const [customRow] = strategyId.startsWith("custom_")
+      ? await db
+          .select({ id: customStrategiesTable.id })
+          .from(customStrategiesTable)
+          .where(and(
+            eq(customStrategiesTable.userId, req.userId!),
+            eq(customStrategiesTable.section, section),
+            eq(customStrategiesTable.strategyId, strategyId),
+          ))
+      : [];
+    if (!customRow) {
+      res.status(400).json({ error: `strategyId must be one of: ${catalog.map((s) => s.strategyId).join(", ")} — or one of your custom strategies` });
+      return;
+    }
   }
 
   const timeframe = typeof b.timeframe === "string" && VALID_TIMEFRAMES.has(b.timeframe) ? b.timeframe : "5m";

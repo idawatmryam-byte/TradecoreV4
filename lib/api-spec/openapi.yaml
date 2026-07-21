@@ -867,6 +867,106 @@ paths:
                 items:
                   $ref: "#/components/schemas/StrategyInfo"
 
+  /custom-strategies:
+    get:
+      operationId: getCustomStrategies
+      tags: [strategies]
+      summary: List this user's custom strategies (section-scoped)
+      responses:
+        "200":
+          description: Custom strategy list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CustomStrategy"
+    post:
+      operationId: createCustomStrategy
+      tags: [strategies]
+      summary: Create a custom strategy (no-code builder)
+      description: Rules are validated server-side against the builder's bounded indicator vocabulary. The new strategy starts DISABLED with no dollar plan, and must complete a single-strategy backtest before it can be enabled for live trading.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomStrategyCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomStrategy"
+        "400":
+          description: Invalid name or rules, or per-section limit reached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /custom-strategies/{id}:
+    put:
+      operationId: updateCustomStrategy
+      tags: [strategies]
+      summary: Update a custom strategy
+      description: Editing the rules resets the backtest stamp — the strategy must be re-backtested before it can be (re-)enabled for live trading.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomStrategyUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomStrategy"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteCustomStrategy
+      tags: [strategies]
+      summary: Delete a custom strategy (and its risk/exit config)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, strategyId]
+                properties:
+                  success:
+                    type: boolean
+                  strategyId:
+                    type: string
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /strategies/signals:
     get:
       operationId: getStrategySignals
@@ -2303,6 +2403,140 @@ components:
           $ref: "#/components/schemas/StrategyConfig"
         performance:
           $ref: "#/components/schemas/StrategyPerformance"
+        custom:
+          description: True when this is a user-built custom strategy (no-code builder), not a built-in.
+          type: boolean
+        customId:
+          description: The custom strategy's numeric id (for /custom-strategies/{id} CRUD). Present only when custom.
+          type: integer
+        backtested:
+          description: Custom strategies only — true once a single-strategy backtest of the CURRENT rules has completed (required before live enable).
+          type: boolean
+
+    CustomStrategyCondition:
+      type: object
+      required: [indicator, op, value]
+      properties:
+        indicator:
+          description: One of the builder's indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).
+          type: string
+        op:
+          description: Comparison — gt/gte/lt/lte for numeric indicators, eq for enum/boolean ones.
+          type: string
+          enum: [gt, gte, lt, lte, eq]
+        value:
+          description: Number for numeric indicators; string for enum/boolean ones ("true"/"false" or a regime name).
+          oneOf:
+            - type: number
+            - type: string
+
+    CustomStrategyStop:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [atr, percent, swing]
+        atrMult:
+          description: atr mode — stop at N × ATR from entry (0.5–10).
+          type: number
+        pct:
+          description: percent mode — fixed % distance from entry (0.05–20).
+          type: number
+        lookback:
+          description: swing mode — lowest low / highest high of the last N 15m bars (3–50).
+          type: integer
+
+    CustomStrategyRules:
+      type: object
+      required: [stop, confidence]
+      properties:
+        long:
+          description: AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomStrategyCondition"
+        short:
+          description: AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomStrategyCondition"
+        stop:
+          $ref: "#/components/schemas/CustomStrategyStop"
+        confidence:
+          description: Static plan confidence (50–95); the per-strategy confidence threshold still applies on top.
+          type: number
+
+    CustomStrategy:
+      type: object
+      required: [id, strategyId, section, name, rules, indicators, rulesValid, backtested, rulesUpdatedAt, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        strategyId:
+          description: Engine-facing id, custom_<id> — the key used on /strategies, backtests and autopsies.
+          type: string
+        section:
+          type: string
+          enum: [crypto, forex]
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+        indicators:
+          description: Human-readable rendering of the rules ("LONG when RSI < 30 …").
+          type: array
+          items:
+            type: string
+        rulesValid:
+          type: boolean
+        backtested:
+          description: True once a single-strategy backtest of the CURRENT rules completed. Editing rules resets this — and live enablement requires it.
+          type: boolean
+        lastBacktestAt:
+          type: string
+          format: date-time
+          nullable: true
+        rulesUpdatedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CustomStrategyCreate:
+      type: object
+      required: [name, rules]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+
+    CustomStrategyUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
 
     StrategySignalItem:
       type: object

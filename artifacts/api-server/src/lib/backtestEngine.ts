@@ -20,8 +20,9 @@ import {
   backtestTradesTable,
   backtestTradePartialExitsTable,
   equityCurveTable,
+  customStrategiesTable,
 } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import {
   buildSignalRow,
   type Candle,
@@ -31,7 +32,7 @@ import {
 import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig, type PositionSide } from "./strategies";
 import { computeTrailingStop } from "./tradeManager";
 import { loadStrategyConfigs } from "./strategyConfigLoader";
-import { loadCustomStrategies } from "./customStrategyLoader";
+import { loadCustomStrategies, invalidateCustomStrategies } from "./customStrategyLoader";
 import { buildEffectiveBacktestConfigs, buildPerStrategyBacktestConfigs } from "./backtestConfig";
 import { ensureCandles, loadCandles } from "./historicalData";
 import { ensureForexCandles } from "./oandaHistoricalData";
@@ -1443,6 +1444,28 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         trailingStopRate: metrics.trailingStopRate.toFixed(4),
       })
       .where(eq(backtestRunsTable.id, runId));
+
+    // Backtest-first live gate: a COMPLETED single-strategy run of a CUSTOM
+    // strategy is what earns it live eligibility. Stamp lastBacktestAt on
+    // the row (scoped to this run's user + section) and drop the loader
+    // cache so the live engine sees the promotion within one config refresh.
+    if (params.onlyStrategyId?.startsWith("custom_")) {
+      const section = isForex ? "forex" as const : "crypto" as const;
+      try {
+        await db
+          .update(customStrategiesTable)
+          .set({ lastBacktestAt: new Date() })
+          .where(and(
+            eq(customStrategiesTable.userId, userId),
+            eq(customStrategiesTable.section, section),
+            eq(customStrategiesTable.strategyId, params.onlyStrategyId),
+          ));
+        invalidateCustomStrategies(userId, section);
+        logger.info({ runId, strategyId: params.onlyStrategyId, section }, "Custom strategy backtest completed — lastBacktestAt stamped (live-eligible once enabled)");
+      } catch (err) {
+        logger.warn({ err, runId, strategyId: params.onlyStrategyId }, "Failed to stamp custom strategy lastBacktestAt (non-fatal)");
+      }
+    }
 
     logger.info(
       { runId, ...metrics, effectiveConfigApplied: effectiveConfig.runLevelOverrides },
