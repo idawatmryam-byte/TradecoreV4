@@ -2,7 +2,7 @@ import { useGetStatsSummary, useGetHourlyStats, useGetDailyReport, getGetStatsSu
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
-import { BarChart2, Flame, TrendingDown, Target, Zap, FileText, Download, Microscope, AlertTriangle, Info, CheckCircle2 } from "lucide-react";
+import { BarChart2, Flame, TrendingDown, Target, Zap, FileText, Download, Microscope, AlertTriangle, Info, CheckCircle2, Filter } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Cell as PieCell } from 'recharts';
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -139,6 +139,87 @@ interface ForensicsData {
   verdicts: Array<{ severity: "critical" | "warning" | "info"; title: string; detail: string }>;
   noiseFlags: Array<{ strategyId: string; symbol: string; impliedStopPct: number; atrPct: number; severity: string }>;
   engineOffline: boolean;
+  selectionFilter: SelectionFilterData;
+}
+interface SelectionCell {
+  key: string; label: string; dimension: string; trades: number;
+  wins: number; losses: number; scratches: number; totalPnl: number;
+  expectancy: number; stdErr: number; tStat: number;
+  adjustedWinRate: number | null; avgR: number | null; verdict: string;
+}
+interface SelectionFilterData {
+  vetoMinSample: number;
+  vetoCandidates: SelectionCell[];
+  watchCandidates: SelectionCell[];
+  concentrateCandidates: SelectionCell[];
+  projected: { vetoedTrades: number; filteredPnl: number; largestCellTrades: number };
+  ready: boolean;
+  summary: string;
+}
+
+const DIMENSION_LABEL: Record<string, string> = {
+  strategy: "strategy", symbol: "symbol", strategy_symbol: "strategy × symbol", hour: "entry hour",
+};
+
+function SelectionFilterBlock({ sf }: { sf: SelectionFilterData }) {
+  const row = (c: SelectionCell, tone: "veto" | "concentrate") => (
+    <tr key={`${c.dimension}-${c.key}`} className="border-b border-border/50 last:border-0">
+      <td className="px-2 py-1.5">
+        <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-mono border mr-1.5",
+          tone === "veto" ? "border-destructive/50 text-destructive bg-destructive/10" : "border-success/50 text-success bg-success/10")}>
+          {tone === "veto" ? "VETO" : "CONCENTRATE"}
+        </span>
+        {c.label}
+        <span className="text-muted-foreground"> ({DIMENSION_LABEL[c.dimension] ?? c.dimension})</span>
+      </td>
+      <td className="text-right px-2 py-1.5">{c.trades}</td>
+      <td className="text-right px-2 py-1.5">{c.adjustedWinRate != null ? `${(c.adjustedWinRate * 100).toFixed(0)}%` : "—"}</td>
+      <td className="text-right px-2 py-1.5">{c.avgR ?? "—"}</td>
+      <td className="text-right px-2 py-1.5 text-muted-foreground">{Number.isFinite(c.tStat) ? c.tStat.toFixed(1) : "∞"}σ</td>
+      <td className={cn("text-right px-2 py-1.5 font-bold", c.totalPnl >= 0 ? "text-success" : "text-destructive")}>
+        {c.totalPnl >= 0 ? "+" : ""}{c.totalPnl.toFixed(2)}
+      </td>
+    </tr>
+  );
+  const actionable = [...sf.vetoCandidates, ...sf.concentrateCandidates];
+  return (
+    <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+      <p className="text-[11px] font-mono text-primary uppercase tracking-wider flex items-center gap-1.5">
+        <Filter className="h-3.5 w-3.5" /> Selection filter — where it's safe to stop trading
+      </p>
+      <p className="text-[11px] text-muted-foreground leading-snug">{sf.summary}</p>
+      {actionable.length > 0 && (
+        <div className="overflow-x-auto rounded border border-border">
+          <table className="w-full text-xs font-mono">
+            <thead>
+              <tr className="text-muted-foreground border-b border-border bg-muted/30">
+                <th className="text-left px-2 py-1.5 font-normal">Cell</th>
+                <th className="text-right px-2 py-1.5 font-normal">Trades</th>
+                <th className="text-right px-2 py-1.5 font-normal">Adj. WR</th>
+                <th className="text-right px-2 py-1.5 font-normal">Avg R</th>
+                <th className="text-right px-2 py-1.5 font-normal" title="Standard errors of confidence the edge is real">Conf.</th>
+                <th className="text-right px-2 py-1.5 font-normal">Net P&L</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sf.vetoCandidates.map((c) => row(c, "veto"))}
+              {sf.concentrateCandidates.map((c) => row(c, "concentrate"))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {sf.ready && sf.vetoCandidates.length > 0 && (
+        <p className="text-[11px] text-muted-foreground">
+          Filtering the {sf.vetoCandidates.length} VETO cell(s) would have removed{" "}
+          <span className="font-mono text-foreground">{sf.projected.vetoedTrades}</span> trades worth{" "}
+          <span className={cn("font-mono font-bold", sf.projected.filteredPnl < 0 ? "text-success" : "text-destructive")}>
+            {sf.projected.filteredPnl >= 0 ? "+" : ""}{sf.projected.filteredPnl.toFixed(2)}
+          </span>{" "}
+          historically — <strong>in-sample</strong>, so confirm with a backtest before acting.
+        </p>
+      )}
+    </div>
+  );
 }
 
 function CellTable({ title, cells }: { title: string; cells: ForensicCell[] }) {
@@ -209,7 +290,17 @@ function EdgeForensicsCard() {
           <Microscope className="h-4 w-4 text-primary" /> Edge Forensics
           <span className="text-muted-foreground normal-case tracking-normal font-normal">— where the losses actually come from</span>
         </CardTitle>
-        <span className="text-xs font-mono text-muted-foreground">{open ? "hide" : "show"}</span>
+        <div className="flex items-center gap-3">
+          <a
+            href="/api/reports/trades.csv"
+            onClick={(e) => { e.stopPropagation(); }}
+            className="text-[11px] font-mono text-muted-foreground hover:text-primary flex items-center gap-1"
+            title="Download this section's closed trades as CSV"
+          >
+            <Download className="h-3 w-3" /> trades.csv
+          </a>
+          <span className="text-xs font-mono text-muted-foreground">{open ? "hide" : "show"}</span>
+        </div>
       </CardHeader>
       {open && (
         <CardContent className="space-y-4">
@@ -263,6 +354,10 @@ function EdgeForensicsCard() {
                   ))}
                 </div>
               )}
+
+              {/* Selection filter: the actionable "stop trading where you
+                  measurably lose" table (sample-gated so it can't act on noise). */}
+              {data.selectionFilter && <SelectionFilterBlock sf={data.selectionFilter} />}
 
               {data.engineOffline && (
                 <p className="text-[11px] font-mono text-muted-foreground flex items-center gap-1.5">
