@@ -142,6 +142,8 @@ both markets too.
 
 ## Documentation
 
+- [`docs/WHITE_PAPER.html`](./docs/WHITE_PAPER.html) — a 13-section Architecture &
+  Technical White Paper (self-contained HTML; open in a browser, print to PDF).
 - [`docs/PRODUCT_OVERVIEW.md`](./docs/PRODUCT_OVERVIEW.md) — what the platform is,
   what's included, and its honest limitations (for evaluators/buyers).
 - [`docs/USER_GUIDE.md`](./docs/USER_GUIDE.md) — plain-language guide to using the
