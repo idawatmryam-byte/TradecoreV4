@@ -45,6 +45,8 @@ import { DEFAULT_FEE_RATE, FUTURES_FEE_RATE, FOREX_COST_RATE, DEFAULT_SLIPPAGE_R
 import { requiredMarginUsd, minStopDistancePrice } from "./forexSizing";
 import { isInstrumentOpen, nextInstrumentOpen, instrumentClassOf, type InstrumentClass } from "./marketHours";
 import { loadStrategyConfigs } from "./strategyConfigLoader";
+import { loadCustomStrategies, liveEligible } from "./customStrategyLoader";
+import type { Strategy } from "./strategies";
 import { ExitManager, type OpenOrderIds } from "./exitManager";
 import type { Section } from "./engineRegistry";
 import { TradeManager } from "./tradeManager";
@@ -217,6 +219,11 @@ class BotEngine {
   private strategyConfigs: Map<string, StrategyConfig> = new Map();
   private lastStrategyConfigLoad = 0;
   private readonly STRATEGY_CONFIG_CACHE_MS = 60_000;
+  // Live-eligible custom strategies (backtest-first gate applied), refreshed
+  // on the same cadence as strategy configs so an enable/edit shows up within
+  // a minute without per-tick DB work.
+  private customStrategies: Strategy[] = [];
+  private lastCustomStrategyLoad = 0;
 
   // ── Phase 2.5: Risk management protection ───────────────────────────────────
   /** Taker fee per side for the ACTIVE market type — spot 0.1%, futures 0.05%
@@ -617,6 +624,28 @@ class BotEngine {
     this.strategyConfigs = await loadStrategyConfigs(this.userId, this.section);
     this.lastStrategyConfigLoad = now;
     return this.highFreqStrategyConfigs(this.strategyConfigs);
+  }
+
+  /**
+   * The user's custom strategies allowed in the LIVE selector: valid rules
+   * AND backtested since their last edit (backtest-first gate). Whether each
+   * one may actually trade is still governed by its strategy_configs row —
+   * the selector skips ids with no enabled config, same as built-ins.
+   */
+  private async getCustomStrategies(): Promise<Strategy[]> {
+    const now = Date.now();
+    if (now - this.lastCustomStrategyLoad < this.STRATEGY_CONFIG_CACHE_MS) {
+      return this.customStrategies;
+    }
+    try {
+      const loaded = await loadCustomStrategies(this.userId, this.section);
+      this.customStrategies = liveEligible(loaded).map((l) => l.strategy);
+    } catch (err) {
+      logger.warn({ err, userId: this.userId, section: this.section }, "Failed to load custom strategies — scan continues with built-ins");
+      this.customStrategies = [];
+    }
+    this.lastCustomStrategyLoad = now;
+    return this.customStrategies;
   }
 
   /**
@@ -1213,6 +1242,9 @@ class BotEngine {
       // Loaded once per scan (cached internally) — used both for the
       // max-holding-time exit check below and for entry evaluation further down.
       const strategyConfigs = await this.getStrategyConfigs();
+      // User-built strategies that passed the backtest-first gate — injected
+      // into the selector per-call, never into the shared built-in roster.
+      const customStrategies = await this.getCustomStrategies();
 
       // ── Scan diagnostics accumulators ────────────────────────────────────
       // Aggregate funnel for the end-of-scan structured summary log — answers
@@ -1419,7 +1451,7 @@ class BotEngine {
           }),
         };
         const { plans, rejections } = strategySelector.decideSymbol(
-          symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt, dollarRisk
+          symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt, dollarRisk, customStrategies
         );
         // Considered-and-rejected trades are first-class output now — queue
         // them for the persistent decision journal (flushed once per scan).

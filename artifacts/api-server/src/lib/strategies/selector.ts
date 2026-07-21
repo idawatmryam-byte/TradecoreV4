@@ -317,11 +317,23 @@ export class StrategySelector {
      * Shared by live + backtest so both size identically.
      */
     dollarRisk?: DollarRiskContext,
+    /**
+     * Per-user CUSTOM strategies (the no-code builder) evaluated AFTER the
+     * built-in catalog under identical gates — regime, config-enabled, the
+     * central cost floor, the per-strategy try/catch. Absent (the default)
+     * keeps behavior byte-identical to the pre-builder engine, which is what
+     * the crypto parity harness locks in.
+     */
+    extraStrategies?: Strategy[],
   ): SymbolDecisions {
     const plans: TradePlan[] = [];
     const rejections: TradeRejection[] = [];
 
-    for (const strategy of this.strategies) {
+    const roster: Strategy[] = extraStrategies?.length
+      ? [...this.strategies, ...extraStrategies]
+      : this.strategies;
+
+    for (const strategy of roster) {
       if (!strategy.supportedRegimes.includes(row.regime as any)) continue;
 
       const config = configs.get(strategy.strategyId);
