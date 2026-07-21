@@ -10,7 +10,7 @@
  */
 import { Router, type IRouter } from "express";
 import { db, autopsyRunsTable, botConfigTable } from "@workspace/db";
-import { and, eq, desc } from "drizzle-orm";
+import { and, eq, desc, asc, sql, lte } from "drizzle-orm";
 import { startAutopsy } from "../lib/autopsy/autopsyService";
 import { strategiesForSection } from "../lib/strategies";
 import { logger } from "../lib/logger";
@@ -20,9 +20,15 @@ const router: IRouter = Router();
 const VALID_TIMEFRAMES = new Set(["1m", "3m", "5m", "15m", "30m", "1h"]);
 const MAX_SYMBOLS = 4;
 
-function serialize(r: typeof autopsyRunsTable.$inferSelect) {
+function serialize(r: typeof autopsyRunsTable.$inferSelect, displayNo?: number) {
   return {
     id: r.id,
+    // Friendly per-SECTION run number (1, 2, 3…) computed from this run's
+    // position within its own section's history. `id` above is the global DB
+    // key (shared across users and both sections) — used only for links; it
+    // must never be shown as "the run number" or forex would read #9, #10…
+    // continuing crypto's global counter. See the list/detail handlers.
+    displayNo: displayNo ?? r.id,
     strategyId: r.strategyId,
     strategyName: r.strategyName,
     symbols: r.symbols.split(",").filter(Boolean),
@@ -95,13 +101,23 @@ router.get("/backtests/autopsy", async (req, res): Promise<void> => {
   // Section-scoped like every other list: the forex Diagnose panel must not
   // show crypto verdicts (different market, different configs) or vice versa.
   const section = req.section === "forex" ? "forex" : "crypto";
+  // Per-section run numbering: rank ALL of this user's autopsies in this
+  // section by creation order (oldest = #1), so each section counts 1..N
+  // independently regardless of the global DB id.
+  const ordered = await db
+    .select({ id: autopsyRunsTable.id })
+    .from(autopsyRunsTable)
+    .where(and(eq(autopsyRunsTable.userId, req.userId!), eq(autopsyRunsTable.section, section)))
+    .orderBy(asc(autopsyRunsTable.id));
+  const seqById = new Map(ordered.map((r, i) => [r.id, i + 1]));
+
   const rows = await db
     .select()
     .from(autopsyRunsTable)
     .where(and(eq(autopsyRunsTable.userId, req.userId!), eq(autopsyRunsTable.section, section)))
     .orderBy(desc(autopsyRunsTable.createdAt))
     .limit(20);
-  res.json(rows.map(serialize));
+  res.json(rows.map((r) => serialize(r, seqById.get(r.id))));
 });
 
 router.get("/backtests/autopsy/:id", async (req, res): Promise<void> => {
@@ -112,7 +128,17 @@ router.get("/backtests/autopsy/:id", async (req, res): Promise<void> => {
     .from(autopsyRunsTable)
     .where(and(eq(autopsyRunsTable.id, id), eq(autopsyRunsTable.userId, req.userId!)));
   if (!row) { res.status(404).json({ error: "Autopsy not found" }); return; }
-  res.json(serialize(row));
+  // displayNo = this run's position within its own section (count of same-user,
+  // same-section autopsies created up to and including it).
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(autopsyRunsTable)
+    .where(and(
+      eq(autopsyRunsTable.userId, req.userId!),
+      eq(autopsyRunsTable.section, row.section),
+      lte(autopsyRunsTable.id, row.id),
+    ));
+  res.json(serialize(row, n));
 });
 
 export default router;

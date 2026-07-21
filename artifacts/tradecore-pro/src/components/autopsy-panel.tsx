@@ -282,7 +282,7 @@ export function AutopsyPanel({ initialStrategyId }: { initialStrategyId?: string
                       : "border-border text-muted-foreground hover:border-primary/50",
                   )}
                 >
-                  #{a.id} {a.strategyName ?? a.strategyId}
+                  #{a.displayNo} {a.strategyName ?? a.strategyId}
                   {a.status === "completed"
                     ? a.verdict === "improved" ? " ✓" : a.verdict === "no_better" ? " ·" : " ?"
                     : a.status === "failed" ? " ✗" : " …"}
