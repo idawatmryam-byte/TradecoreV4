@@ -83,13 +83,14 @@ PORT="$BUILD_PORT" BASE_PATH="$BASE_PATH" pnpm --filter @workspace/tradecore-pro
 log "building backend"
 pnpm --filter @workspace/api-server run build
 
-# ── 4b. (Optional) Seed / refresh the read-only demo account ──────────────────
-# Set SEED_DEMO=1 in .env to enable the one-click "Explore the live demo" login
-# (a pre-seeded, read-only account). Idempotent: it wipes and re-seeds the demo
-# user's data each run so the demo stays pristine across deploys. Off by default
-# so a normal deploy never creates a public demo login unexpectedly.
+# ── 4b. (Optional) Force a FRESH re-seed of the read-only demo account ────────
+# The server now auto-creates + seeds the demo account on startup if none
+# exists (see ensureDemoAccount), so the "Explore the live demo" button works
+# out of the box — no flag needed. Set SEED_DEMO=1 only to force a full WIPE +
+# re-seed on this deploy (e.g. to refresh the demo data). Set DEMO_DISABLED=1
+# in .env to turn the demo off entirely.
 if [[ "${SEED_DEMO:-}" == "1" && -n "${DATABASE_URL:-}" ]]; then
-  log "seeding/refreshing the demo account (SEED_DEMO=1)"
+  log "force-refreshing the demo account (SEED_DEMO=1)"
   pnpm --filter @workspace/api-server run seed:demo
 fi
 

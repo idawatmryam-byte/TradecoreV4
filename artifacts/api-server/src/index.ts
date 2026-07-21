@@ -5,6 +5,7 @@ import { logger } from "./lib/logger";
 import { validateEnv } from "./lib/env";
 import { getOrCreateEngine, isSection } from "./lib/engineRegistry";
 import { installOpsMonitor } from "./lib/opsMonitor";
+import { ensureDemoAccount } from "./lib/demoSeed";
 
 // app.ts already called validateEnv() at import time (fail fast before
 // building any middleware) — this call is free (memoized) and just gets us
@@ -90,7 +91,29 @@ const onListening = (err?: Error) => {
 
   logger.info({ port, host: host ?? "0.0.0.0" }, "Server listening");
   void resumeRunningEngines();
+  void ensureDemoOnStartup();
 };
+
+/**
+ * Make the one-click "Explore the live demo" path work out of the box: if no
+ * demo account exists yet, create and seed one on startup. Never wipes an
+ * existing demo (that's the explicit `seed:demo` / SEED_DEMO refresh). The
+ * demo is read-only and holds no exchange keys, so it's safe to have by
+ * default; an operator who doesn't want a public demo sets DEMO_DISABLED=1.
+ */
+async function ensureDemoOnStartup(): Promise<void> {
+  if (process.env["DEMO_DISABLED"] === "1") {
+    logger.info("DEMO: disabled via DEMO_DISABLED=1 — skipping demo account setup");
+    return;
+  }
+  try {
+    const { created, userId } = await ensureDemoAccount();
+    if (created) logger.info({ userId }, "DEMO: no demo account existed — created and seeded one");
+    else logger.info({ userId }, "DEMO: demo account present");
+  } catch (err) {
+    logger.error({ err }, "DEMO: could not ensure the demo account (non-fatal)");
+  }
+}
 
 // Node binds every interface when no host is passed — so the unset case must
 // omit the argument entirely rather than pass undefined through.
