@@ -6,11 +6,12 @@
  * and upserts the defaults so they appear in the UI immediately.
  */
 import { db } from "@workspace/db";
-import { strategyConfigsTable } from "@workspace/db";
+import { strategyConfigsTable, customStrategiesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { type StrategyConfig, DEFAULT_STRATEGY_CONFIGS, CRYPTO_STRATEGIES, strategiesForSection } from "./strategies";
 import { logger } from "./logger";
 import type { Section } from "./engineRegistry";
+import { DEFAULT_CUSTOM_STRATEGY_CONFIG } from "./strategies/custom";
 
 /**
  * Load all strategy configs for one (user, section) from DB, seeding defaults
@@ -26,6 +27,22 @@ export async function loadStrategyConfigs(
   // row filtering, default fill) operates on THIS SECTION'S catalog only.
   const catalog = strategiesForSection(section);
   const catalogIds = new Set<string>(catalog.map((s) => s.strategyId));
+
+  // The user's CUSTOM strategies count as catalog members too — their config
+  // rows (same table, same shape) must survive the section filter below and
+  // get a conservative default when missing. Failure is non-fatal: built-ins
+  // must keep loading even if the custom table is unreachable.
+  let customIds: string[] = [];
+  try {
+    const customRows = await db
+      .select({ strategyId: customStrategiesTable.strategyId })
+      .from(customStrategiesTable)
+      .where(and(eq(customStrategiesTable.userId, userId), eq(customStrategiesTable.section, section)));
+    customIds = customRows.map((r) => r.strategyId).filter((id) => id.length > 0);
+    for (const id of customIds) catalogIds.add(id);
+  } catch (err) {
+    logger.warn({ err, userId, section }, "Custom strategy id lookup failed (non-fatal) — configs load built-ins only");
+  }
 
   try {
     // Upsert defaults for each strategy in the section's catalog so they
@@ -211,6 +228,13 @@ export async function loadStrategyConfigs(
       const d = DEFAULT_STRATEGY_CONFIGS[strategy.strategyId];
       if (d) map.set(strategy.strategyId, { strategyId: strategy.strategyId, ...d });
     }
+  }
+
+  // Same safety net for custom strategies missing a config row (the create
+  // route seeds one; this covers rows created out-of-band): disabled + no
+  // dollar plan, so nothing trades until the user configures it.
+  for (const id of customIds) {
+    if (!map.has(id)) map.set(id, { strategyId: id, ...DEFAULT_CUSTOM_STRATEGY_CONFIG });
   }
 
   return map;

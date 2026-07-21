@@ -31,6 +31,7 @@ import {
 import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig, type PositionSide } from "./strategies";
 import { computeTrailingStop } from "./tradeManager";
 import { loadStrategyConfigs } from "./strategyConfigLoader";
+import { loadCustomStrategies } from "./customStrategyLoader";
 import { buildEffectiveBacktestConfigs, buildPerStrategyBacktestConfigs } from "./backtestConfig";
 import { ensureCandles, loadCandles } from "./historicalData";
 import { ensureForexCandles } from "./oandaHistoricalData";
@@ -611,6 +612,13 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     // keep completely separate strategy configs (different dollar plans).
     const dbStrategyConfigs = await loadStrategyConfigs(userId, isForex ? "forex" : "crypto");
 
+    // The user's custom strategies (no-code builder). The BACKTEST accepts
+    // ALL of them — this is precisely where a never-backtested strategy earns
+    // its live eligibility — while the live engine only accepts backtested
+    // ones. Loaded once per run; injected per decideSymbol call, never into
+    // the shared built-in roster.
+    const customStrategies = (await loadCustomStrategies(userId, isForex ? "forex" : "crypto")).map((l) => l.strategy);
+
     // Diagnostic checkpoint 2: what's actually sitting in Postgres right now
     // (this is the LIVE bot's configuration too — loadStrategyConfigs() is
     // shared with botEngine.ts). Logged BEFORE the override below so a
@@ -1071,7 +1079,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       const row = buildSignalRow(symbol, mtf, symbolRegime.get(symbol));
       symbolRegime.set(symbol, row.regime);
       const { plans, rejections } = strategySelector.decideSymbol(
-        symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt, dollarRisk
+        symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt, dollarRisk, customStrategies
       );
       // Decision telemetry — AGGREGATED, never row-per-event (a 2-week 1m run
       // evaluates ~45k candles; per-event rows would explode the table).
