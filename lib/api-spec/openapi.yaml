@@ -1790,7 +1790,7 @@ components:
 
     BotConfig:
       type: object
-      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, confidenceThreshold, riskModel, stopLossPercent, takeProfitPercent, maxLossUsdt, targetProfitUsdt, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode, broker]
+      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, confidenceThreshold, riskModel, stopLossPercent, takeProfitPercent, maxLossUsdt, targetProfitUsdt, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode, broker, executionTarget, mode, demoStartingBalanceUsdt]
       properties:
         broker:
           type: string
@@ -1845,6 +1845,17 @@ components:
           type: array
           items:
             type: string
+        executionTarget:
+          type: string
+          enum: [demo, live]
+          description: "Where approved TradePlans execute. 'demo' = TradeCore's internal simulation on live market data (no broker, no API keys, no real money); 'live' = real orders through the connected broker."
+        mode:
+          type: string
+          enum: [research, copilot, autopilot]
+          description: "What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three."
+        demoStartingBalanceUsdt:
+          type: number
+          description: "Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades."
         testnet:
           type: boolean
         backtestMode:
@@ -1931,6 +1942,17 @@ components:
           type: array
           items:
             type: string
+        executionTarget:
+          type: string
+          enum: [demo, live]
+          description: "Where approved TradePlans execute. 'demo' = TradeCore's internal simulation on live market data (no broker, no API keys, no real money); 'live' = real orders through the connected broker."
+        mode:
+          type: string
+          enum: [research, copilot, autopilot]
+          description: "What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three."
+        demoStartingBalanceUsdt:
+          type: number
+          description: "Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades."
         testnet:
           type: boolean
         backtestMode:

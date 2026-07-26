@@ -29,6 +29,11 @@ export const tradesTable = pgTable("trades", {
   // trailing_stop | manual | emergency_stop | circuit_breaker — see lib/exitTypes.ts
   exitReason: text("exit_reason"),
   isBacktest: boolean("is_backtest").notNull().default(false),
+  /** Where this trade was executed: "live" (real broker order) or "demo"
+   *  (TradeCore's internal simulation). Analytics must be able to separate
+   *  them — a demo win rate presented as a live one would be a lie. Existing
+   *  rows backfill to "live", which is what they were. */
+  executionTarget: text("execution_target").notNull().default("live"),
   /** Phase 2: which strategy generated this trade */
   strategyId: text("strategy_id"),
   strategyName: text("strategy_name"),
