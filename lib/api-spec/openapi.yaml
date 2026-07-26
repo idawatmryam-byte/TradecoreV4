@@ -346,6 +346,113 @@ paths:
                 items:
                   $ref: "#/components/schemas/JournalEntry"
 
+  /copilot/inbox:
+    get:
+      operationId: getCopilotInbox
+      tags: [bot]
+      summary: Co-Pilot recommendations awaiting a decision
+      description: >
+        TradePlans the engine produced in Co-Pilot mode and handed to you
+        instead of executing. Each is byte-identical to what AutoPilot would
+        have traded for the same scan — the planFingerprint proves it.
+      parameters:
+        - name: status
+          in: query
+          description: Comma-separated statuses. Defaults to `created` (the actionable ones).
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        "200":
+          description: Recommendations, newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendationList"
+
+  /copilot/recommendations/{id}/execute:
+    post:
+      operationId: executeRecommendation
+      tags: [bot]
+      summary: Approve and execute a recommendation
+      description: >
+        Re-validates before placing anything: expiry, price drift measured in
+        the plan's own R units, and every account-level risk gate. Approval
+        means "is this still a good idea?", not "place this order". A plan that
+        fails becomes `blocked`, which is terminal and read-only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Outcome, with every re-validation check that ran
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendationActionResult"
+
+  /copilot/recommendations/{id}/reject:
+    post:
+      operationId: rejectRecommendation
+      tags: [bot]
+      summary: Decline a recommendation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+      responses:
+        "200":
+          description: Outcome
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendationActionResult"
+
+  /copilot/recommendations/{id}/modify:
+    post:
+      operationId: modifyRecommendation
+      tags: [bot]
+      summary: Create a user-authored variant of a recommendation
+      description: >
+        Does NOT edit the plan. Creates a NEW plan referencing the original,
+        authored by you and re-validated from scratch; the original is marked
+        `superseded` and keeps its numbers forever. That is what lets a later
+        post-mortem say whether a loss was the engine's decision or yours.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                slPrice: { type: number }
+                tpPrice: { type: number }
+                qty: { type: number }
+      responses:
+        "200":
+          description: Outcome, including the new plan's id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendationActionResult"
+
   /notifications:
     get:
       operationId: getNotifications
@@ -1350,6 +1457,76 @@ components:
           type: integer
         lastSeenAt:
           type: string
+
+    Recommendation:
+      type: object
+      required: [id, status, authoredBy, symbol, strategyId, side, confidence, entryPrice, slPrice, tpPrice, qty, leverage, planFingerprint, expiresAt, createdAt]
+      properties:
+        id: { type: integer }
+        status:
+          type: string
+          enum: [created, executed, rejected, expired, superseded, blocked]
+        authoredBy:
+          type: string
+          enum: [engine, user]
+          description: "\"user\" marks a plan the trader modified — outcome attribution depends on it."
+        derivedFromId:
+          type: ["integer", "null"]
+        symbol: { type: string }
+        strategyId: { type: string }
+        strategyName: { type: ["string", "null"] }
+        side: { type: string, enum: [long, short] }
+        confidence: { type: number }
+        entryPrice: { type: number }
+        slPrice: { type: number }
+        tpPrice: { type: number }
+        qty: { type: number }
+        leverage: { type: integer }
+        planFingerprint:
+          type: string
+          description: "SHA-256 of the decision content. Identical to the plan AutoPilot would have executed for the same scan."
+        entryReason: { type: ["string", "null"] }
+        expiresAt: { type: string }
+        createdAt: { type: string }
+        actedAt: { type: ["string", "null"] }
+        tradeId: { type: ["integer", "null"] }
+        resolutionReason: { type: ["string", "null"] }
+
+    RecommendationList:
+      type: object
+      required: [recommendations]
+      properties:
+        recommendations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Recommendation"
+
+    RevalidationCheck:
+      type: object
+      required: [name, passed, detail]
+      properties:
+        name: { type: string }
+        passed: { type: boolean }
+        detail: { type: string }
+
+    RecommendationActionResult:
+      type: object
+      required: [ok, status, reason]
+      properties:
+        ok: { type: boolean }
+        status:
+          type: string
+          enum: [created, executed, rejected, expired, superseded, blocked]
+        reason: { type: string }
+        checks:
+          type: array
+          description: "Every re-validation check that ran, pass or fail — not just the first failure."
+          items:
+            $ref: "#/components/schemas/RevalidationCheck"
+        tradeId: { type: integer }
+        newRecommendationId:
+          type: integer
+          description: "Set by modify(): the new user-authored plan."
 
     Notification:
       type: object

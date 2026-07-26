@@ -42,8 +42,13 @@ export const botConfigTable = pgTable("bot_config", {
    *   "research"  — never execute; analysis surfaces only.
    *
    * The intelligence pipeline is identical in all three; only the executor
-   * differs. Default stays "autopilot" until Co-Pilot ships, since defaulting
-   * to a mode that does not exist yet would leave new accounts doing nothing.
+   * differs.
+   *
+   * The COLUMN default stays "autopilot" so existing rows backfill to the
+   * behaviour they already had — an account that was auto-trading keeps
+   * auto-trading. NEW sections are created in "copilot" (see
+   * BotEngine.loadConfig): a fresh account should show its reasoning and let
+   * the human decide before it is trusted to act alone.
    */
   mode: text("mode").notNull().default("autopilot"), // research | copilot | autopilot
   /**

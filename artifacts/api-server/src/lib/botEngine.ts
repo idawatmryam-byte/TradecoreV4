@@ -52,6 +52,7 @@ import { ExitManager, type OpenOrderIds } from "./exitManager";
 import type { ExecutionResult, TradeExecutor } from "./execution/executor";
 import { LiveExecutor, ResearchExecutor } from "./execution/liveExecutor";
 import { DemoExecutor } from "./execution/demoExecutor";
+import { expireStaleRecommendations, RecommendExecutor } from "./execution/recommendExecutor";
 import { simulateDemoExit } from "./execution/demoExit";
 import { buildDemoMarketData } from "./execution/demoMarketData";
 import type { FillCosts } from "./execution/fillModel";
@@ -270,6 +271,10 @@ class BotEngine {
     this.enterTrade(req.symbol, req.row, req.plan, req.config, req.now, req.stratConfig),
   );
   private readonly researchExecutor: TradeExecutor = new ResearchExecutor();
+  private readonly copilotExecutor: TradeExecutor = new RecommendExecutor({
+    userId: () => this.userId,
+    section: () => this.section,
+  });
   private readonly demoExecutor: TradeExecutor = new DemoExecutor({
     userId: () => this.userId,
     section: () => this.section,
@@ -293,6 +298,10 @@ class BotEngine {
   private resolveExecutor(config: { mode?: string | null; executionTarget?: string | null }): TradeExecutor {
     if (this.executorOverride) return this.executorOverride;
     if (config.mode === "research") return this.researchExecutor;
+    // Co-Pilot forks BEFORE the demo/live choice: the plan is not executed at
+    // all, it is handed to the user. Which target it eventually runs against
+    // is decided at approval time, from the config as it stands then.
+    if (config.mode === "copilot") return this.copilotExecutor;
     return config.executionTarget === "demo" ? this.demoExecutor : this.liveExecutor;
   }
 
@@ -1137,6 +1146,99 @@ class BotEngine {
     return this.executionTarget === "demo";
   }
 
+  /**
+   * Gather the live account state a Co-Pilot approval must be re-checked
+   * against. Everything here can have changed since the plan was produced —
+   * that is the entire reason approval is not the same as execution.
+   *
+   * Reads current state only; the verdict is `revalidate()`'s (pure, testable).
+   */
+  async gatherRevalidationState(plan: {
+    symbol: string; strategyId: string; entryPrice: number; slPrice: number; qty: number;
+  }): Promise<{
+    engineRunning: boolean;
+    circuitBreakerActive: boolean;
+    riskPaused: boolean;
+    openPositions: number;
+    maxOpenPositions: number;
+    strategyOpenCount: number;
+    maxConcurrentPerStrategy: number;
+    openRiskUsdt: number;
+    maxPortfolioRiskUsdt: number;
+    onCooldown: boolean;
+    blacklisted: boolean;
+    symbolAlreadyOpen: boolean;
+    currentPrice?: number;
+  }> {
+    const now = new Date();
+    const config = await this.loadConfig();
+    const openTrades = await db
+      .select()
+      .from(tradesTable)
+      .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.section, this.section), eq(tradesTable.status, "open")));
+
+    const openRiskUsdt = openTrades.reduce((sum, t) => {
+      const entry = Number(t.entryPrice);
+      const stop = Number(t.plannedStopLoss ?? t.stopLoss);
+      const qty = Number(t.remainingQuantity ?? t.quantity);
+      return sum + Math.abs(entry - stop) * qty;
+    }, 0);
+
+    const balance = await this.getBalance();
+    const strategyConfigs = await this.getStrategyConfigs();
+    const stratCfg = strategyConfigs.get(plan.strategyId);
+    const blacklist = await this.loadActiveBlacklist(now);
+
+    // Prefer the poller's cached tick; fall back to a direct fetch. Undefined
+    // means drift simply is not checked, rather than the approval failing on
+    // a transient data problem.
+    let currentPrice: number | undefined = this.liveTickers.get(plan.symbol)?.last;
+    if (currentPrice === undefined && this.exchange) {
+      try {
+        const ticker = await this.exchange.fetchTicker(this.toMarket(plan.symbol));
+        const last = Number(ticker?.last ?? ticker?.close);
+        if (Number.isFinite(last) && last > 0) currentPrice = last;
+      } catch {
+        // Leave undefined — see above.
+      }
+    }
+
+    return {
+      engineRunning: this.state.running,
+      circuitBreakerActive: this.state.circuitBreakerActive,
+      riskPaused: this.riskPaused,
+      openPositions: openTrades.length,
+      maxOpenPositions: config.maxOpenPositions,
+      strategyOpenCount: openTrades.filter((t) => t.strategyId === plan.strategyId).length,
+      maxConcurrentPerStrategy: stratCfg?.maxConcurrentPositions ?? 1,
+      openRiskUsdt,
+      maxPortfolioRiskUsdt: balance * (Number(config.maxPortfolioRiskPercent) / 100),
+      onCooldown: this.isOnCooldown(plan.symbol),
+      blacklisted: blacklist.has(plan.symbol),
+      symbolAlreadyOpen: openTrades.some((t) => t.symbol === plan.symbol),
+      ...(currentPrice !== undefined && { currentPrice }),
+    };
+  }
+
+  /**
+   * Execute an already-revalidated plan through this section's real executor
+   * (live or demo). Used by the Co-Pilot approval path, which has done the
+   * re-checks — so this deliberately routes through the SAME executor a scan
+   * would have used, rather than a separate approval-only order path.
+   */
+  async executeApprovedPlan(plan: TradePlan, row: SignalRow, now: Date): Promise<ExecutionResult> {
+    const config = this.applyHighFreqOverrides(await this.loadConfig());
+    this.executionTarget = config.executionTarget === "demo" ? "demo" : "live";
+    const strategyConfigs = await this.getStrategyConfigs();
+    const stratConfig = strategyConfigs.get(plan.strategyId);
+    // Co-Pilot's own executor must never be chosen here — that would record a
+    // second recommendation instead of opening the position the user approved.
+    const executor = this.executionTarget === "demo" ? this.demoExecutor : this.liveExecutor;
+    return executor.execute({
+      symbol: plan.symbol, plan, row, config, now, ...(stratConfig && { stratConfig }),
+    });
+  }
+
   /** Did the user leave this section switched on? Survives pauses and restarts. */
   async isDesiredRunning(): Promise<boolean> {
     const [row] = await db
@@ -1897,6 +1999,12 @@ class BotEngine {
       }
       if (uncaptured.size > 0) {
         void recordScanCounters(this.userId, this.section, now, uncaptured).catch(() => {});
+      }
+      // Never leave an actionable-looking plan in the inbox that is no longer
+      // actionable. Expiry is enforced again at approval time regardless —
+      // this sweep is for the UI's honesty, not for safety.
+      if (config.mode === "copilot") {
+        void expireStaleRecommendations(this.userId, this.section, now).catch(() => {});
       }
       if (Date.now() - this.lastDecisionPruneAt > 3600_000) {
         this.lastDecisionPruneAt = Date.now();
@@ -3362,6 +3470,11 @@ class BotEngine {
         // purpose — that governs backfill of pre-existing rows, and nobody who
         // was already trading for real gets silently moved to paper.
         executionTarget: "demo",
+        // And in Co-Pilot: a new account sees the engine's reasoning and
+        // decides for itself before the engine is trusted to act alone. The
+        // COLUMN default stays "autopilot" so existing rows keep the behaviour
+        // they already had.
+        mode: "copilot",
         // Forex practice accounts are conventionally much larger than crypto
         // ones; mirrors the balances the read-only showroom demo displays.
         demoStartingBalanceUsdt: this.section === "forex" ? "100000" : "10000",
