@@ -24,6 +24,7 @@ import {
   hourlyStatsTable,
   tradePartialExitsTable,
   tradeAnalysesTable,
+  notificationsTable,
 } from "@workspace/db";
 import { analyzeTrade } from "./tradeAnalysis";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
@@ -3008,11 +3009,19 @@ class BotEngine {
   // ---------------------------------------------------------------------------
 
   /**
-   * POST a risk alert to the configured Discord / Telegram / Slack webhook.
+   * POST a risk alert to the configured Discord / Telegram / Slack webhook,
+   * AND persist it as an in-app notification — the webhook is opt-in
+   * (requires a configured URL) and easy to miss setting up; the in-app
+   * copy means every user sees the alert on their next dashboard visit
+   * regardless. One chokepoint, every alert already flows through it.
    * Supports both Discord (content) and generic JSON (text) webhook formats.
    * If alertWebhookUrl is not set, logs the alert message instead.
    */
   private async sendAlert(message: string): Promise<void> {
+    db.insert(notificationsTable)
+      .values({ userId: this.userId, section: this.section, message })
+      .catch((err) => logger.warn({ err }, "Failed to persist in-app notification (non-fatal)"));
+
     try {
       const config = await this.loadConfig();
       const webhookUrl = config.alertWebhookUrl;

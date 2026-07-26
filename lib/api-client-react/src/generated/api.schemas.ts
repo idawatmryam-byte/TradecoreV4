@@ -189,6 +189,30 @@ export interface StrategyDecisionEntry {
   lastSeenAt: string;
 }
 
+export type NotificationSeverity = typeof NotificationSeverity[keyof typeof NotificationSeverity];
+
+
+export const NotificationSeverity = {
+  info: 'info',
+  warning: 'warning',
+  critical: 'critical',
+} as const;
+
+export interface Notification {
+  id: number;
+  type: string;
+  message: string;
+  severity: NotificationSeverity;
+  createdAt: string;
+  /** @nullable */
+  readAt: string | null;
+}
+
+export interface NotificationList {
+  unreadCount: number;
+  notifications: Notification[];
+}
+
 export type JournalEntryOutcome = typeof JournalEntryOutcome[keyof typeof JournalEntryOutcome];
 
 
@@ -1417,6 +1441,27 @@ export const GetJournalOutcome = {
   loss: 'loss',
   breakeven: 'breakeven',
 } as const;
+
+export type GetNotificationsParams = {
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+/**
+ * Return rows with id lower than this (cursor pagination)
+ */
+before?: number;
+unreadOnly?: boolean;
+};
+
+export type MarkNotificationRead200 = {
+  success: boolean;
+};
+
+export type MarkAllNotificationsRead200 = {
+  success: boolean;
+};
 
 export type GetTradesParams = {
 status?: GetTradesStatus;
