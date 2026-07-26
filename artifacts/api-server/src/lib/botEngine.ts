@@ -50,7 +50,11 @@ import { loadCustomStrategies, liveEligible } from "./customStrategyLoader";
 import type { Strategy } from "./strategies";
 import { ExitManager, type OpenOrderIds } from "./exitManager";
 import type { ExecutionResult, TradeExecutor } from "./execution/executor";
-import { LiveExecutor } from "./execution/liveExecutor";
+import { LiveExecutor, ResearchExecutor } from "./execution/liveExecutor";
+import { DemoExecutor } from "./execution/demoExecutor";
+import { simulateDemoExit } from "./execution/demoExit";
+import { buildDemoMarketData } from "./execution/demoMarketData";
+import type { FillCosts } from "./execution/fillModel";
 import { advanceIntent, attachTrade, openIntent, type IntentHandle } from "./execution/intentLog";
 import { planFingerprint } from "./plan/fingerprint";
 import {
@@ -262,13 +266,46 @@ class BotEngine {
   // it. Today that is always LiveExecutor (real orders, unchanged behaviour);
   // DemoExecutor and RecommendExecutor slot in here without the intelligence
   // pipeline noticing.
-  private executor: TradeExecutor = new LiveExecutor((req) =>
+  private readonly liveExecutor: TradeExecutor = new LiveExecutor((req) =>
     this.enterTrade(req.symbol, req.row, req.plan, req.config, req.now, req.stratConfig),
   );
+  private readonly researchExecutor: TradeExecutor = new ResearchExecutor();
+  private readonly demoExecutor: TradeExecutor = new DemoExecutor({
+    userId: () => this.userId,
+    section: () => this.section,
+    costs: () => this.fillCosts(),
+    balance: () => this.getDemoBalance(),
+  });
+  /** Resolved from config each scan — "demo" | "live". */
+  private executionTarget: "demo" | "live" = "live";
+  /** Optional override, used by tests to inject a stand-in executor. */
+  private executorOverride: TradeExecutor | null = null;
 
-  /** Swap the execution target. Live is the default; nothing else exists yet. */
-  setExecutor(executor: TradeExecutor): void {
-    this.executor = executor;
+  /** Force a specific executor regardless of config. Test seam. */
+  setExecutor(executor: TradeExecutor | null): void {
+    this.executorOverride = executor;
+  }
+
+  /**
+   * Pick the executor for this scan. The intelligence pipeline above the fork
+   * point is identical in every case; only this differs.
+   */
+  private resolveExecutor(config: { mode?: string | null; executionTarget?: string | null }): TradeExecutor {
+    if (this.executorOverride) return this.executorOverride;
+    if (config.mode === "research") return this.researchExecutor;
+    return config.executionTarget === "demo" ? this.demoExecutor : this.liveExecutor;
+  }
+
+  /**
+   * Cost model for simulated fills — the SAME rates the backtest uses for this
+   * market type, so a demo fill and a backtest fill are comparable.
+   */
+  private fillCosts(): FillCosts {
+    return {
+      feeRate: this.activeTakerFee,
+      makerFeeRate: this.activeTakerFee,
+      slippageRate: this.activeSlippageRate,
+    };
   }
 
   // ── Phase 4A: centralized exit pipeline ─────────────────────────────────────
@@ -454,6 +491,14 @@ class BotEngine {
    *  type. Used by initExchange, and directly by closeTradeManually when the
    *  trade's market type differs from whatever the engine is running. */
   private async buildExchange(testnet: boolean, marketType: MarketType): Promise<any> {
+    // Demo needs market DATA, not a broker connection: orders are filled by
+    // execution/fillModel.ts and never reach a venue. Crypto reads Binance's
+    // public endpoints keyless; forex needs the platform's own OANDA practice
+    // token, because OANDA publishes no public market data.
+    if (this.executionTarget === "demo") {
+      return buildDemoMarketData(marketType);
+    }
+
     if (marketType === "forex") {
       // Forex section → OANDA. Practice vs live is only a base-URL choice,
       // reusing the same testnet flag the crypto path uses for paper trading.
@@ -526,7 +571,44 @@ class BotEngine {
   // Balance cache (for risk-based position sizing)
   // ---------------------------------------------------------------------------
 
+  /**
+   * Virtual balance for a demo account: its configured starting balance plus
+   * the realised P&L of every demo trade it has closed.
+   *
+   * Derived rather than stored, deliberately. A running-total column would be
+   * one more thing that can drift out of step with the trade log after a crash
+   * mid-close; computing it means the balance is always exactly what the
+   * trades say it is.
+   */
+  private async getDemoBalance(): Promise<number> {
+    const [cfg] = await db
+      .select({ start: botConfigTable.demoStartingBalanceUsdt })
+      .from(botConfigTable)
+      .where(and(eq(botConfigTable.userId, this.userId), eq(botConfigTable.section, this.section)))
+      .limit(1);
+    const starting = Number(cfg?.start ?? 10_000);
+
+    const [realised] = await db
+      .select({ total: sql<number>`coalesce(sum(${tradesTable.pnl}), 0)::float8` })
+      .from(tradesTable)
+      .where(and(
+        eq(tradesTable.userId, this.userId),
+        eq(tradesTable.section, this.section),
+        eq(tradesTable.executionTarget, "demo"),
+        eq(tradesTable.status, "closed"),
+      ));
+
+    const balance = starting + Number(realised?.total ?? 0);
+    this.state.balanceUsdt = balance;
+    this.cachedBalance = balance;
+    return Math.max(0, balance);
+  }
+
   private async getBalance(): Promise<number> {
+    // Demo has no broker to ask. Never cached against the exchange path — the
+    // virtual balance moves the moment a simulated trade closes.
+    if (this.executionTarget === "demo") return this.getDemoBalance();
+
     const now = Date.now();
     if (now - this.lastBalanceFetch < this.BALANCE_CACHE_MS && this.cachedBalance > 0) {
       return this.cachedBalance;
@@ -905,6 +987,9 @@ class BotEngine {
     this.riskPaused = config.riskPaused;
     this.riskViolationCount = config.riskViolationCount;
     this.activeMarketType = toMarketType(config.marketType);
+    // Must be resolved BEFORE initExchange: it decides whether we build a
+    // credentialed broker client or a keyless market-data client.
+    this.executionTarget = config.executionTarget === "demo" ? "demo" : "live";
     const ex = await this.initExchange(config.testnet, this.activeMarketType);
 
     logger.info(`Loading ${this.activeMarketType === "forex" ? "OANDA instruments" : "Binance markets"}…`);
@@ -1042,6 +1127,26 @@ class BotEngine {
     logger.info({ intervalMs, mode: this.state.mode }, "Bot engine started");
   }
 
+  /** Is the scan loop currently running? */
+  isRunning(): boolean {
+    return this.state.running;
+  }
+
+  /** Is this engine executing into the demo simulation rather than a broker? */
+  isDemoTarget(): boolean {
+    return this.executionTarget === "demo";
+  }
+
+  /** Did the user leave this section switched on? Survives pauses and restarts. */
+  async isDesiredRunning(): Promise<boolean> {
+    const [row] = await db
+      .select({ desired: botConfigTable.engineDesiredRunning })
+      .from(botConfigTable)
+      .where(and(eq(botConfigTable.userId, this.userId), eq(botConfigTable.section, this.section)))
+      .limit(1);
+    return Boolean(row?.desired);
+  }
+
   async stop(): Promise<void> {
     if (!this.state.running) return;
     // Clear the persisted desired state FIRST — an explicit Stop must never
@@ -1054,6 +1159,26 @@ class BotEngine {
     } catch (err) {
       logger.warn({ err }, "Could not persist engine desired-running=false");
     }
+    this.teardown("Bot engine stopped");
+  }
+
+  /**
+   * Pause an idle DEMO engine's scan loop while preserving the user's intent
+   * to be running.
+   *
+   * Deliberately not stop(): stop() clears `engineDesiredRunning`, which is
+   * correct for an explicit Stop and wrong here. A demo engine paused for
+   * inactivity must come back on its own — on the next boot's auto-resume, or
+   * the moment the user returns — and clearing the flag would strand it off
+   * until they noticed and pressed Start.
+   */
+  async pauseForIdle(): Promise<void> {
+    if (!this.state.running) return;
+    this.teardown("Demo engine paused — idle, will resume on next activity");
+  }
+
+  /** Shared teardown for stop() and pauseForIdle(). */
+  private teardown(message: string): void {
     if (this.scanTimer) {
       clearInterval(this.scanTimer);
       this.scanTimer = null;
@@ -1084,7 +1209,7 @@ class BotEngine {
     this.state.balanceUsdt = null;
     this.state.running = false;
     this.state.startedAt = null;
-    logger.info("Bot engine stopped");
+    logger.info(message);
   }
 
   // ---------------------------------------------------------------------------
@@ -1103,6 +1228,9 @@ class BotEngine {
       // overrides (a no-op unless highFrequencyTestMode is on AND on testnet).
       // This also sets this.highFreqActive for getStrategyConfigs/isToxicHour.
       const config = this.applyHighFreqOverrides(await this.loadConfig());
+      // Re-resolved each scan so a mid-session switch takes effect on the next
+      // tick rather than requiring a restart.
+      this.executionTarget = config.executionTarget === "demo" ? "demo" : "live";
       const ex = await this.initExchange(config.testnet, toMarketType(config.marketType));
       const now = new Date();
       this.state.lastScanAt = now.toISOString();
@@ -1649,7 +1777,7 @@ class BotEngine {
         // THE FORK POINT. Everything above this line is the deterministic
         // intelligence pipeline and is identical in every mode; everything
         // below is only a question of what to do with the finished plan.
-        const execResult = await this.executor.execute({
+        const execResult = await this.resolveExecutor(config).execute({
           symbol, plan: bestSignal, row, config, now, ...(stratConfig && { stratConfig }),
         });
         const { entered, reason } = execResult;
@@ -2545,6 +2673,19 @@ class BotEngine {
     // market genuinely refute the thesis?" was answerable in simulation only.
     // Runs here rather than in TradeManager because TradeManager returns early
     // for strategies with laddering disabled — this must hold for every trade.
+    // ── Demo positions resolve against the fill model, not an exchange ──────
+    // There is no venue to confirm a fill against, so the market simulation
+    // decides whether this bar took the position out — and the SAME
+    // ExitManager path a live close runs then settles it. Returns before any
+    // exchange call below, all of which would be meaningless here.
+    if (trade.executionTarget === "demo") {
+      await simulateDemoExit({
+        trade, candles1m, now, cooldownMinutes,
+        stratConfig, costs: this.fillCosts(), exitManager: this.exitManager,
+      });
+      return;
+    }
+
     await this.trackExcursion(trade, candles1m);
 
     // Futures Phase: liquidation proximity is only checked once, right after
@@ -3215,6 +3356,15 @@ class BotEngine {
         // the engine would try to trade Binance from the Forex tab.
         broker: this.section === "forex" ? "oanda" : "binance",
         ...(this.section === "forex" && { marketType: "forex", pairs: "EUR_USD,GBP_USD,AUD_USD,NZD_USD,XAU_USD" }),
+        // A NEW section starts in the demo simulation, so an account can trade
+        // within minutes of signing up and reaching real money is a deliberate
+        // step rather than the only option. The COLUMN default stays "live" on
+        // purpose — that governs backfill of pre-existing rows, and nobody who
+        // was already trading for real gets silently moved to paper.
+        executionTarget: "demo",
+        // Forex practice accounts are conventionally much larger than crypto
+        // ones; mirrors the balances the read-only showroom demo displays.
+        demoStartingBalanceUsdt: this.section === "forex" ? "100000" : "10000",
       })
       .returning();
     return inserted!;

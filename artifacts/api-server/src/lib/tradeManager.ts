@@ -28,7 +28,7 @@ import { db } from "@workspace/db";
 import { tradesTable, tradePartialExitsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "./logger";
-import { calcAtr, type Candle } from "./strategy";
+import { type Candle } from "./strategy";
 import type { StrategyConfig } from "./strategies";
 import type { OpenOrderIds } from "./exitManager";
 
@@ -56,48 +56,11 @@ export interface TradeManagerHost {
   cancelOrder(ex: any, market: string, orderId: string): Promise<void>;
 }
 
-/**
- * Pure trailing-stop distance calculation — no DB/exchange access, safe to
- * call from anywhere (live TradeManager below, and backtestEngine.ts's
- * simulation for Phase 7 backtest/live parity). Extracted verbatim from
- * TradeManager's private method with zero behavior change — same formula,
- * same thresholds, now just reusable instead of duplicated.
- */
-export function computeTrailingStop(
-  mode: string,
-  currentPrice: number,
-  candles1m: Candle[],
-  cfg: StrategyConfig,
-  emergency: boolean,
-  isShort = false,
-): number {
-  // A short's trailing stop sits ABOVE current price (mirror of long, which
-  // sits below) — every formula below just flips its distance's sign.
-  const sign = isShort ? 1 : -1;
-  if (emergency) {
-    return currentPrice * (1 + sign * cfg.emergencyTrailingPercent / 100);
-  }
-  switch (mode) {
-    case "percent":
-      return currentPrice * (1 + sign * cfg.trailingStopPercent / 100);
-    case "atr": {
-      const atr = calcAtr(candles1m, 14);
-      return currentPrice + sign * atr * cfg.trailingStopAtrMultiplier;
-    }
-    case "dynamic": {
-      // "Dynamic" = ATR-based distance that also never exceeds a percent cap,
-      // so trailing doesn't get dangerously wide during a volatility spike.
-      const atr = calcAtr(candles1m, 14);
-      const atrStop = currentPrice + sign * atr * cfg.trailingStopAtrMultiplier;
-      const pctStop = currentPrice * (1 + sign * cfg.trailingStopPercent / 100);
-      // Long: the LESS generous (higher) of the two candidate stops wins —
-      // i.e. Math.max, tighter risk control. Short: mirror is the lower one.
-      return isShort ? Math.min(atrStop, pctStop) : Math.max(atrStop, pctStop);
-    }
-    default:
-      return isShort ? Infinity : -Infinity; // "none" — never tightens
-  }
-}
+// computeTrailingStop moved to execution/trailing.ts so the simulated fill
+// model can share the exact live formula without importing the database.
+// Re-exported here: existing importers (backtestEngine, tests) are unaffected.
+import { computeTrailingStop } from "./execution/trailing";
+export { computeTrailingStop };
 
 /** Merge a successful order-replacement result into the OpenOrderIds that
  *  should now be tracked — builds a fresh object even when `prev` is

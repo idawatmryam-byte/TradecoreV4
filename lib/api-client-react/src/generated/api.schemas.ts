@@ -568,6 +568,29 @@ export const BotConfigRiskModel = {
   dollar: 'dollar',
 } as const;
 
+/**
+ * Where approved TradePlans execute. 'demo' = TradeCore's internal simulation on live market data (no broker, no API keys, no real money); 'live' = real orders through the connected broker.
+ */
+export type BotConfigExecutionTarget = typeof BotConfigExecutionTarget[keyof typeof BotConfigExecutionTarget];
+
+
+export const BotConfigExecutionTarget = {
+  demo: 'demo',
+  live: 'live',
+} as const;
+
+/**
+ * What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three.
+ */
+export type BotConfigMode = typeof BotConfigMode[keyof typeof BotConfigMode];
+
+
+export const BotConfigMode = {
+  research: 'research',
+  copilot: 'copilot',
+  autopilot: 'autopilot',
+} as const;
+
 export interface BotConfig {
   /** Which broker this section's engine connects to — binance (crypto section) or oanda (forex section). Fixed per section, not user-editable. */
   broker: BotConfigBroker;
@@ -598,6 +621,12 @@ export interface BotConfig {
   cooldownMinutes: number;
   scanIntervalSeconds: number;
   pairs: string[];
+  /** Where approved TradePlans execute. 'demo' = TradeCore's internal simulation on live market data (no broker, no API keys, no real money); 'live' = real orders through the connected broker. */
+  executionTarget: BotConfigExecutionTarget;
+  /** What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three. */
+  mode: BotConfigMode;
+  /** Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades. */
+  demoStartingBalanceUsdt: number;
   testnet: boolean;
   backtestMode: boolean;
   /** Testnet/demo only: when on, the live engine overrides its turnover-limiting gates (cooldown, confidence floor, toxic hours, max positions, daily-loss breaker, max holding time) to generate a high volume of trades for end-to-end testing. Ignored on real-money keys. Not a profitable configuration. */
@@ -632,6 +661,29 @@ export type BotConfigUpdateRiskModel = typeof BotConfigUpdateRiskModel[keyof typ
 export const BotConfigUpdateRiskModel = {
   percent: 'percent',
   dollar: 'dollar',
+} as const;
+
+/**
+ * Where approved TradePlans execute. 'demo' = TradeCore's internal simulation on live market data (no broker, no API keys, no real money); 'live' = real orders through the connected broker.
+ */
+export type BotConfigUpdateExecutionTarget = typeof BotConfigUpdateExecutionTarget[keyof typeof BotConfigUpdateExecutionTarget];
+
+
+export const BotConfigUpdateExecutionTarget = {
+  demo: 'demo',
+  live: 'live',
+} as const;
+
+/**
+ * What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three.
+ */
+export type BotConfigUpdateMode = typeof BotConfigUpdateMode[keyof typeof BotConfigUpdateMode];
+
+
+export const BotConfigUpdateMode = {
+  research: 'research',
+  copilot: 'copilot',
+  autopilot: 'autopilot',
 } as const;
 
 export interface BotConfigUpdate {
@@ -710,6 +762,12 @@ export interface BotConfigUpdate {
      */
   scanIntervalSeconds?: number;
   pairs?: string[];
+  /** Where approved TradePlans execute. 'demo' = TradeCore's internal simulation on live market data (no broker, no API keys, no real money); 'live' = real orders through the connected broker. */
+  executionTarget?: BotConfigUpdateExecutionTarget;
+  /** What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three. */
+  mode?: BotConfigUpdateMode;
+  /** Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades. */
+  demoStartingBalanceUsdt?: number;
   testnet?: boolean;
   backtestMode?: boolean;
   /** Testnet/demo only: when on, the live engine overrides its turnover-limiting gates to generate a high volume of trades for end-to-end testing. Ignored on real-money keys. */

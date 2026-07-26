@@ -31,3 +31,22 @@ export class LiveExecutor implements TradeExecutor {
     return this.place(req);
   }
 }
+
+/**
+ * Research mode: the pipeline runs in full and the plan is produced, analysed,
+ * and captured — but execution is unreachable by construction. Not a flag
+ * checked before placing an order (which could be forgotten on a new code
+ * path) but an executor with no order path at all.
+ */
+export class ResearchExecutor implements TradeExecutor {
+  // Reported as "recommend" because, like Co-Pilot, it declines to act on the
+  // plan itself; the difference is that Research offers no way to act later.
+  readonly kind = "recommend" as const;
+
+  async execute(req: ExecutionRequest): Promise<ExecutionResult> {
+    return {
+      entered: false,
+      reason: `Research mode — plan produced and recorded for ${req.symbol}, execution disabled`,
+    };
+  }
+}

@@ -226,6 +226,7 @@ export function Settings() {
     dailyLossLimitUsdt: -10,
     scanIntervalSeconds: 15,
     pairs: "BTCUSDT,ETHUSDT",
+    executionTarget: "demo" as "demo" | "live",
     testnet: true,
     backtestMode: false,
     highFrequencyTestMode: false,
@@ -242,6 +243,7 @@ export function Settings() {
         dailyLossLimitUsdt: config.dailyLossLimitUsdt,
         scanIntervalSeconds: config.scanIntervalSeconds,
         pairs: config.pairs.join(", "),
+        executionTarget: config.executionTarget,
         testnet: config.testnet,
         backtestMode: config.backtestMode,
         highFrequencyTestMode: config.highFrequencyTestMode,
@@ -467,15 +469,50 @@ export function Settings() {
             </div>
             
             <div className="pt-4 mt-4 border-t border-border space-y-4">
+              {/* The primary choice a user makes: paper or real money. Demo is
+                  self-contained (no broker, no keys), so it sits above the
+                  broker-specific settings rather than inside them. */}
+              <div className={`p-3 border rounded-md ${formData.executionTarget === 'demo' ? 'bg-muted/30' : 'border-warning/50 bg-warning/5'}`}>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5 pr-3">
+                    <Label className="text-sm font-bold flex items-center gap-2">
+                      <TestTube2 className="h-4 w-4 text-warning" /> Execution
+                    </Label>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      {formData.executionTarget === 'demo'
+                        ? "DEMO — trades are simulated inside TradeCore on live market data. No broker, no API keys, no real money."
+                        : "LIVE — real orders are placed through your connected broker with real money."}
+                    </p>
+                  </div>
+                  <Switch
+                    aria-label="Trade live with real money"
+                    checked={formData.executionTarget === 'live'}
+                    onCheckedChange={(v) => handleChange('executionTarget', v ? 'live' : 'demo')}
+                  />
+                </div>
+                {formData.executionTarget === 'demo' && (
+                  <p className="text-xs text-muted-foreground font-mono mt-2 pt-2 border-t border-border/60">
+                    Demo fills use the same model the backtester uses, so paper results and
+                    backtest results mean the same thing.
+                  </p>
+                )}
+              </div>
+
+              {/* Broker-side paper trading. Superseded by Demo for everyday use,
+                  but kept: it is the only path that exercises REAL broker order
+                  flow (rejections, minimum notional, partial fills), which an
+                  internal simulation cannot rehearse. Hidden unless trading
+                  live, where it is the safe first step. */}
+              {formData.executionTarget === 'live' && (
               <div className="flex items-center justify-between p-3 border rounded-md bg-muted/30">
-                <div className="space-y-0.5">
+                <div className="space-y-0.5 pr-3">
                   <Label className="text-sm font-bold flex items-center gap-2">
                     <TestTube2 className="h-4 w-4 text-warning" /> {isForexSection ? "OANDA Practice Account" : "Binance Testnet"}
                   </Label>
                   <p className="text-xs text-muted-foreground font-mono">
                     {isForexSection
-                      ? "Trade with practice (demo) money. Off = live account — live tokens required."
-                      : "Execute trades using paper money."}
+                      ? "Route live orders to your practice account instead of the real one — real broker order flow, practice money."
+                      : "Route live orders to Binance Testnet instead of the real exchange — real order flow, paper money. The recommended last step before real funds."}
                   </p>
                 </div>
                 <Switch
@@ -483,6 +520,7 @@ export function Settings() {
                   onCheckedChange={(v) => handleChange('testnet', v)}
                 />
               </div>
+              )}
 
               {/* High-frequency test mode — testnet only. Kept out of sight on
                   live keys since the engine ignores it there anyway. */}
