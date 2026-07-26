@@ -423,6 +423,25 @@ export interface MarketMonitor {
   tickers: LiveTicker[];
 }
 
+export interface CorrelationCell {
+  a: string;
+  b: string;
+  /** Pearson r over the days both symbols share. Null means too little shared history to measure — render "insufficient history", not a number. */
+  correlation: number | null;
+}
+
+export interface CorrelationHeatMap {
+  symbols: string[];
+  /** Upper triangle only — correlation is symmetric and the diagonal is trivially 1. */
+  cells: CorrelationCell[];
+  /** Symbols currently carrying a position. */
+  openSymbols: string[];
+  /** Reinforcement level at which two symbols count as the same bet. */
+  threshold: number;
+  /** Shared days required before a correlation is reported at all. */
+  minObservations: number;
+}
+
 export interface BlockingReason {
   stage: string;
   reason: string;
@@ -680,6 +699,17 @@ export const BotConfigMarginMode = {
 } as const;
 
 /**
+ * What to do when a pair has too little shared history to measure. Never silently treated as uncorrelated.
+ */
+export type BotConfigCorrelationUnknownPolicy = typeof BotConfigCorrelationUnknownPolicy[keyof typeof BotConfigCorrelationUnknownPolicy];
+
+
+export const BotConfigCorrelationUnknownPolicy = {
+  allow: 'allow',
+  block: 'block',
+} as const;
+
+/**
  * How SL/TP are decided. 'percent': SL/TP are a % of price (stopLossPercent/takeProfitPercent) and size comes from riskPercent/positionSizeUsdt. 'dollar': SL/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt/targetProfitUsdt).
  */
 export type BotConfigRiskModel = typeof BotConfigRiskModel[keyof typeof BotConfigRiskModel];
@@ -733,6 +763,12 @@ export interface BotConfig {
   maxSymbolConcentrationPercent: number;
   /** Max net long-short notional exposure across all open positions, as % of balance. Default 200 (permissive — no effective limit) until tightened. */
   maxNetExposurePercent: number;
+  /** Max notional across one correlated cluster (the candidate plus every open position measured to be the same directional bet), as % of balance. Default 200 (permissive) until tightened. */
+  maxCorrelatedExposurePercent: number;
+  /** Reinforcement level (r adjusted for trade direction) at which two symbols count as the same bet. */
+  correlationThreshold: number;
+  /** What to do when a pair has too little shared history to measure. Never silently treated as uncorrelated. */
+  correlationUnknownPolicy: BotConfigCorrelationUnknownPolicy;
   confidenceThreshold: number;
   /** How SL/TP are decided. 'percent': SL/TP are a % of price (stopLossPercent/takeProfitPercent) and size comes from riskPercent/positionSizeUsdt. 'dollar': SL/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt/targetProfitUsdt). */
   riskModel: BotConfigRiskModel;
@@ -776,6 +812,17 @@ export type BotConfigUpdateMarginMode = typeof BotConfigUpdateMarginMode[keyof t
 export const BotConfigUpdateMarginMode = {
   isolated: 'isolated',
   cross: 'cross',
+} as const;
+
+/**
+ * Policy for pairs with too little shared history to measure.
+ */
+export type BotConfigUpdateCorrelationUnknownPolicy = typeof BotConfigUpdateCorrelationUnknownPolicy[keyof typeof BotConfigUpdateCorrelationUnknownPolicy];
+
+
+export const BotConfigUpdateCorrelationUnknownPolicy = {
+  allow: 'allow',
+  block: 'block',
 } as const;
 
 /**
@@ -859,6 +906,20 @@ export interface BotConfigUpdate {
      * @maximum 200
      */
   maxNetExposurePercent?: number;
+  /**
+     * Max notional across one correlated cluster, as % of balance.
+     * @minimum 1
+     * @maximum 200
+     */
+  maxCorrelatedExposurePercent?: number;
+  /**
+     * Reinforcement level at which two symbols count as the same bet.
+     * @minimum 0
+     * @maximum 1
+     */
+  correlationThreshold?: number;
+  /** Policy for pairs with too little shared history to measure. */
+  correlationUnknownPolicy?: BotConfigUpdateCorrelationUnknownPolicy;
   /**
      * @minimum 0
      * @maximum 100

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import { BlockingBanner, MarketMonitor, DecisionPanel } from "@/components/verification";
 import { PositionChart } from "@/components/position-chart";
+import { CorrelationHeatMap } from "@/components/correlation-heatmap";
 import { useState, type ReactNode } from "react";
 import { useSection, sectionHeaders } from "@/lib/section";
 import { useIsDemo } from "@/lib/account";
@@ -684,6 +685,11 @@ export function Dashboard() {
         </CollapsibleSection>
       </div>
       )}
+
+      {/* Portfolio risk: which configured pairs are really the same bet. Unlike
+          the two views above this reads daily history rather than in-memory
+          scan state, so it is informative even with the engine stopped. */}
+      {!isDemo && <CorrelationHeatMap />}
 
       {/* Scanner Table — live per-scan view, hidden in the demo (no engine). */}
       {!isDemo && (

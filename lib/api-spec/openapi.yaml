@@ -571,6 +571,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/MarketMonitor"
 
+  /portfolio/correlation:
+    get:
+      operationId: getPortfolioCorrelation
+      tags: [portfolio]
+      summary: Correlation heat map across the configured pairs
+      description: >-
+        Pairwise Pearson correlation of daily log returns over a 30-day
+        lookback, plus which symbols currently hold a position. A cell is null
+        when the two symbols share fewer than `minObservations` days of
+        history — never 0, which would read as "measured, and unrelated".
+      responses:
+        "200":
+          description: Correlation heat map
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CorrelationHeatMap"
+
   /trades:
     get:
       operationId: getTrades
@@ -1727,6 +1745,47 @@ components:
           items:
             $ref: "#/components/schemas/LiveTicker"
 
+    CorrelationCell:
+      type: object
+      required: [a, b, correlation]
+      properties:
+        a:
+          type: string
+        b:
+          type: string
+        correlation:
+          type: number
+          nullable: true
+          description: >-
+            Pearson r over the days both symbols share. Null means too little
+            shared history to measure — render "insufficient history", not a
+            number.
+
+    CorrelationHeatMap:
+      type: object
+      required: [symbols, cells, openSymbols, threshold, minObservations]
+      properties:
+        symbols:
+          type: array
+          items:
+            type: string
+        cells:
+          type: array
+          description: Upper triangle only — correlation is symmetric and the diagonal is trivially 1.
+          items:
+            $ref: "#/components/schemas/CorrelationCell"
+        openSymbols:
+          type: array
+          description: Symbols currently carrying a position.
+          items:
+            type: string
+        threshold:
+          type: number
+          description: Reinforcement level at which two symbols count as the same bet.
+        minObservations:
+          type: integer
+          description: Shared days required before a correlation is reported at all.
+
     BlockingReason:
       type: object
       required: [stage, reason, count, symbols]
@@ -2030,7 +2089,7 @@ components:
 
     BotConfig:
       type: object
-      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, maxSymbolConcentrationPercent, maxNetExposurePercent, confidenceThreshold, riskModel, stopLossPercent, takeProfitPercent, maxLossUsdt, targetProfitUsdt, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode, broker, executionTarget, mode, demoStartingBalanceUsdt]
+      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, maxSymbolConcentrationPercent, maxNetExposurePercent, maxCorrelatedExposurePercent, correlationThreshold, correlationUnknownPolicy, confidenceThreshold, riskModel, stopLossPercent, takeProfitPercent, maxLossUsdt, targetProfitUsdt, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode, broker, executionTarget, mode, demoStartingBalanceUsdt]
       properties:
         broker:
           type: string
@@ -2065,6 +2124,16 @@ components:
         maxNetExposurePercent:
           type: number
           description: "Max net long-short notional exposure across all open positions, as % of balance. Default 200 (permissive — no effective limit) until tightened."
+        maxCorrelatedExposurePercent:
+          type: number
+          description: "Max notional across one correlated cluster (the candidate plus every open position measured to be the same directional bet), as % of balance. Default 200 (permissive) until tightened."
+        correlationThreshold:
+          type: number
+          description: "Reinforcement level (r adjusted for trade direction) at which two symbols count as the same bet."
+        correlationUnknownPolicy:
+          type: string
+          enum: [allow, block]
+          description: "What to do when a pair has too little shared history to measure. Never silently treated as uncorrelated."
         confidenceThreshold:
           type: integer
         riskModel:
@@ -2159,6 +2228,20 @@ components:
           minimum: 1
           maximum: 200
           description: "Max net long-short notional exposure across all open positions, as % of balance."
+        maxCorrelatedExposurePercent:
+          type: number
+          minimum: 1
+          maximum: 200
+          description: "Max notional across one correlated cluster, as % of balance."
+        correlationThreshold:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: "Reinforcement level at which two symbols count as the same bet."
+        correlationUnknownPolicy:
+          type: string
+          enum: [allow, block]
+          description: "Policy for pairs with too little shared history to measure."
         confidenceThreshold:
           type: integer
           minimum: 0

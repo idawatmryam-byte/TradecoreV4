@@ -31,6 +31,7 @@ import type {
   BotConfig,
   BotConfigUpdate,
   BotStatus,
+  CorrelationHeatMap,
   CustomStrategy,
   CustomStrategyCreate,
   CustomStrategyUpdate,
@@ -1842,6 +1843,84 @@ export function useGetMarketLive<TData = Awaited<ReturnType<typeof getMarketLive
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetMarketLiveQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPortfolioCorrelationUrl = () => {
+
+
+
+
+  return `/api/portfolio/correlation`
+}
+
+/**
+ * Pairwise Pearson correlation of daily log returns over a 30-day lookback, plus which symbols currently hold a position. A cell is null when the two symbols share fewer than `minObservations` days of history — never 0, which would read as "measured, and unrelated".
+ * @summary Correlation heat map across the configured pairs
+ */
+export const getPortfolioCorrelation = async ( options?: RequestInit): Promise<CorrelationHeatMap> => {
+
+  return customFetch<CorrelationHeatMap>(getGetPortfolioCorrelationUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortfolioCorrelationQueryKey = () => {
+    return [
+    `/api/portfolio/correlation`
+    ] as const;
+    }
+
+
+export const getGetPortfolioCorrelationQueryOptions = <TData = Awaited<ReturnType<typeof getPortfolioCorrelation>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortfolioCorrelation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortfolioCorrelationQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortfolioCorrelation>>> = ({ signal }) => getPortfolioCorrelation({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortfolioCorrelation>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortfolioCorrelationQueryResult = NonNullable<Awaited<ReturnType<typeof getPortfolioCorrelation>>>
+export type GetPortfolioCorrelationQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Correlation heat map across the configured pairs
+ */
+
+export function useGetPortfolioCorrelation<TData = Awaited<ReturnType<typeof getPortfolioCorrelation>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortfolioCorrelation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortfolioCorrelationQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

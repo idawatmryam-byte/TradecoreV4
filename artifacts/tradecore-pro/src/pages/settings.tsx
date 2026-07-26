@@ -224,6 +224,9 @@ export function Settings() {
     marginMode: "isolated" as "isolated" | "cross",
     maxOpenPositions: 5,
     dailyLossLimitUsdt: -10,
+    maxCorrelatedExposurePercent: 200,
+    correlationThreshold: 0.7,
+    correlationUnknownPolicy: "allow" as "allow" | "block",
     scanIntervalSeconds: 15,
     pairs: "BTCUSDT,ETHUSDT",
     executionTarget: "demo" as "demo" | "live",
@@ -241,6 +244,9 @@ export function Settings() {
         marginMode: config.marginMode,
         maxOpenPositions: config.maxOpenPositions,
         dailyLossLimitUsdt: config.dailyLossLimitUsdt,
+        maxCorrelatedExposurePercent: config.maxCorrelatedExposurePercent,
+        correlationThreshold: config.correlationThreshold,
+        correlationUnknownPolicy: config.correlationUnknownPolicy,
         scanIntervalSeconds: config.scanIntervalSeconds,
         pairs: config.pairs.join(", "),
         executionTarget: config.executionTarget,
@@ -403,6 +409,51 @@ export function Settings() {
                 value={formData.dailyLossLimitUsdt} 
                 onChange={(e) => handleChange('dailyLossLimitUsdt', Number(e.target.value))} 
               />
+            </div>
+            {/* Correlated exposure: the cap the other three cannot see. Five
+                "independent" longs across correlated majors is one position to
+                the market, and no count/notional/direction cap notices. */}
+            <div className="space-y-2">
+              <Label>Max Correlated Exposure (% of balance)</Label>
+              <Input
+                type="number"
+                value={formData.maxCorrelatedExposurePercent}
+                onChange={(e) => handleChange('maxCorrelatedExposurePercent', Number(e.target.value))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Caps the total size of one correlated cluster — this trade plus every open
+                position measured to be the same directional bet. 200% leaves it effectively off.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Correlation Threshold</Label>
+              <Input
+                type="number"
+                step="0.05"
+                min="0"
+                max="1"
+                value={formData.correlationThreshold}
+                onChange={(e) => handleChange('correlationThreshold', Number(e.target.value))}
+              />
+              <p className="text-xs text-muted-foreground">
+                How alike two symbols must move to count as one bet. 0.70 is the conventional
+                "strongly correlated" line.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>When Correlation Cannot Be Measured</Label>
+              <select
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                value={formData.correlationUnknownPolicy}
+                onChange={(e) => handleChange('correlationUnknownPolicy', e.target.value)}
+              >
+                <option value="allow">Allow the trade</option>
+                <option value="block">Block the trade</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                A new pair has too little shared history to measure. It is never assumed to be
+                uncorrelated — you choose whether to trade anyway.
+              </p>
             </div>
           </CardContent>
         </Card>
