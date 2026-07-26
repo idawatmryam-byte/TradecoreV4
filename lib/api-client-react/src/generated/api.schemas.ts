@@ -297,18 +297,190 @@ export interface PortfolioImpact {
 }
 
 /**
- * Deliberately not a statistic. Feature-similarity search is a later phase; showing even a zero here risks reading as a computed number.
+ * Outcome summary for one bucket of closed trades. Counts and net P&L are facts and are always present; every rate is null while `gated` is true.
  */
-export interface SimilarTradesPlaceholder {
-  available: false;
+export interface CellStats {
+  samples: number;
+  wins: number;
+  losses: number;
+  /** Break-even washes — excluded from the win-rate denominator, not counted as losses. */
+  scratches: number;
+  /** samples < minSamples. Every rate below is null. */
+  gated: boolean;
+  minSamples: number;
+  /**
+     * Scratch-adjusted: wins / (wins + losses).
+     * @nullable
+     */
+  winRate: number | null;
+  /**
+     * Lower bound of the 95% Wilson interval on winRate.
+     * @nullable
+     */
+  winRateLow: number | null;
+  /** @nullable */
+  winRateHigh: number | null;
+  /** @nullable */
+  expectancyUsdt: number | null;
+  /** @nullable */
+  profitFactor: number | null;
+  /** @nullable */
+  avgR: number | null;
+  netPnlUsdt: number;
+}
+
+export interface CellSignificance {
+  /** Exact two-sided binomial test against the account baseline win rate. */
+  pValue: number;
+  /** Benjamini–Hochberg adjusted p-value: the false-discovery rate incurred by treating this cell as a real edge. */
+  qValue: number;
+  /** qValue is within the family's FDR budget. */
+  significant: boolean;
+}
+
+export type KnowledgeCellDimension = typeof KnowledgeCellDimension[keyof typeof KnowledgeCellDimension];
+
+
+export const KnowledgeCellDimension = {
+  strategy_regime: 'strategy_regime',
+  symbol_strategy: 'symbol_strategy',
+  session: 'session',
+  volatility: 'volatility',
+} as const;
+
+export type KnowledgeCell = CellStats & ({
+  dimension: KnowledgeCellDimension;
+  key: string;
+  label: string;
+  /** Null when the cell is gated, or when there is no trustworthy baseline to test against. */
+  significance: CellSignificance | null;
+});
+
+export interface ReliabilityBin {
+  low: number;
+  high: number;
+  count: number;
+  /** @nullable */
+  meanPredicted: number | null;
+  /**
+     * Observed win frequency in the bin. Perfect calibration puts this on the diagonal.
+     * @nullable
+     */
+  observedRate: number | null;
+}
+
+export interface CalibrationScores {
+  /** @nullable */
+  brier: number | null;
+  /** @nullable */
+  logLoss: number | null;
+  /**
+     * Expected Calibration Error — sample-weighted average gap between promised and observed frequency.
+     * @nullable
+     */
+  ece: number | null;
+}
+
+/**
+ * Whether strategy confidence behaves like a probability on this account's record. Fitted on an earlier chronological slice and scored on a later one — never on its own training data. Gated on the VALIDATION set, since that is where every published number is measured.
+ */
+export interface CalibrationReport {
+  gated: boolean;
+  minSamples: number;
+  totalSamples: number;
+  trainSamples: number;
+  validationSamples: number;
+  /** Further validation-set trades needed to open the gate; 0 once open. */
+  samplesNeeded: number;
+  raw: CalibrationScores;
+  calibrated: CalibrationScores;
+  /**
+     * Brier score of predicting the base rate for every trade — the bar any calibration must clear to be worth anything.
+     * @nullable
+     */
+  climatologyBrier: number | null;
+  /** calibrated.brier < climatologyBrier. False means confidence carries no usable information on this record. */
+  beatsClimatology: boolean;
+  bins: ReliabilityBin[];
+}
+
+/**
+ * Which record these numbers describe. Demo and live are never pooled.
+ */
+export type KnowledgeOverviewExecutionTarget = typeof KnowledgeOverviewExecutionTarget[keyof typeof KnowledgeOverviewExecutionTarget];
+
+
+export const KnowledgeOverviewExecutionTarget = {
+  demo: 'demo',
+  live: 'live',
+} as const;
+
+export interface KnowledgeOverview {
+  /** Which record these numbers describe. Demo and live are never pooled. */
+  executionTarget: KnowledgeOverviewExecutionTarget;
+  /** The point-in-time cut. Every claim is 'given only what was knowable at this moment'. */
+  asOf: string;
+  totalTrades: number;
+  /**
+     * The account's own scratch-adjusted win rate — the null hypothesis each cell is tested against. Null below the gate.
+     * @nullable
+     */
+  baselineWinRate: number | null;
+  minSamples: number;
+  /** False-discovery-rate budget for the significance family. */
+  fdr: number;
+  /** How many cells entered the multiple-comparison family. */
+  cellsTested: number;
+  cells: KnowledgeCell[];
+  calibration: CalibrationReport;
+}
+
+export type SimilarMatchOutcome = typeof SimilarMatchOutcome[keyof typeof SimilarMatchOutcome];
+
+
+export const SimilarMatchOutcome = {
+  win: 'win',
+  loss: 'loss',
+  scratch: 'scratch',
+} as const;
+
+export interface SimilarMatch {
+  tradeId: number;
+  symbol: string;
+  /** @nullable */
+  strategyId: string | null;
+  /** Epoch milliseconds the outcome was settled. */
+  closedAt: number;
+  /** Cosine similarity on z-score-normalised feature vectors, in [-1, 1]. */
+  similarity: number;
+  pnl: number;
+  /** @nullable */
+  rMultiple: number | null;
+  outcome: SimilarMatchOutcome;
+}
+
+/**
+ * Closed trades whose entry conditions resembled the candidate. Cosine similarity over z-scored vectors — raw cosine would be dominated by whichever features have the largest magnitude. A similarity FLOOR comes before any top-N cap, so a sparse account gets "nothing comparable" rather than its N least-dissimilar trades. `reason` is always populated.
+ */
+export interface SimilarTrades {
+  available: boolean;
   reason: string;
+  /** Closed trades carrying recorded indicator readings. */
+  poolSize: number;
+  /** Pool needed before z-scores are trustworthy enough to normalise with. */
+  minPoolSize: number;
+  similarityFloor: number;
+  matches: SimilarMatch[];
+  /** Aggregate outcome of the matches, gated separately — individual trades are facts, their win rate is an estimate. */
+  stats: CellStats | null;
+  featuresUsed: string[];
 }
 
 export interface RecommendationWorkspace {
   recommendation: Recommendation;
   decisionTrace: PipelineStage[];
   portfolioImpact: PortfolioImpact;
-  similarTrades: SimilarTradesPlaceholder;
+  similarTrades: SimilarTrades;
 }
 
 export type NotificationSeverity = typeof NotificationSeverity[keyof typeof NotificationSeverity];
