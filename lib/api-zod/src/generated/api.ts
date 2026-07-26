@@ -352,9 +352,38 @@ export const GetRecommendationWorkspaceResponse = zod.object({
   "maxPortfolioRiskUsdt": zod.number()
 }),
   "similarTrades": zod.object({
-  "available": zod.literal(false),
-  "reason": zod.string()
-}).describe('Deliberately not a statistic. Feature-similarity search is a later phase; showing even a zero here risks reading as a computed number.')
+  "available": zod.boolean(),
+  "reason": zod.string(),
+  "poolSize": zod.number().describe('Closed trades carrying recorded indicator readings.'),
+  "minPoolSize": zod.number().describe('Pool needed before z-scores are trustworthy enough to normalise with.'),
+  "similarityFloor": zod.number(),
+  "matches": zod.array(zod.object({
+  "tradeId": zod.number(),
+  "symbol": zod.string(),
+  "strategyId": zod.string().nullable(),
+  "closedAt": zod.number().describe('Epoch milliseconds the outcome was settled.'),
+  "similarity": zod.number().describe('Cosine similarity on z-score-normalised feature vectors, in [-1, 1].'),
+  "pnl": zod.number(),
+  "rMultiple": zod.number().nullable(),
+  "outcome": zod.enum(['win', 'loss', 'scratch'])
+})),
+  "stats": zod.union([zod.object({
+  "samples": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "scratches": zod.number().describe('Break-even washes — excluded from the win-rate denominator, not counted as losses.'),
+  "gated": zod.boolean().describe('samples < minSamples. Every rate below is null.'),
+  "minSamples": zod.number(),
+  "winRate": zod.number().nullable().describe('Scratch-adjusted: wins \/ (wins + losses).'),
+  "winRateLow": zod.number().nullable().describe('Lower bound of the 95% Wilson interval on winRate.'),
+  "winRateHigh": zod.number().nullable(),
+  "expectancyUsdt": zod.number().nullable(),
+  "profitFactor": zod.number().nullable(),
+  "avgR": zod.number().nullable(),
+  "netPnlUsdt": zod.number()
+}).describe('Outcome summary for one bucket of closed trades. Counts and net P&L are facts and are always present; every rate is null while `gated` is true.'),zod.null()]).describe('Aggregate outcome of the matches, gated separately — individual trades are facts, their win rate is an estimate.'),
+  "featuresUsed": zod.array(zod.string())
+}).describe('Closed trades whose entry conditions resembled the candidate. Cosine similarity over z-scored vectors — raw cosine would be dominated by whichever features have the largest magnitude. A similarity FLOOR comes before any top-N cap, so a sparse account gets \"nothing comparable\" rather than its N least-dissimilar trades. `reason` is always populated.')
 })
 
 
@@ -528,6 +557,89 @@ export const GetMarketLiveResponse = zod.object({
   "changePercent": zod.number(),
   "timestamp": zod.number()
 }))
+})
+
+
+/**
+ * Pairwise Pearson correlation of daily log returns over a 30-day lookback, plus which symbols currently hold a position. A cell is null when the two symbols share fewer than `minObservations` days of history — never 0, which would read as "measured, and unrelated".
+ * @summary Correlation heat map across the configured pairs
+ */
+export const GetPortfolioCorrelationResponse = zod.object({
+  "symbols": zod.array(zod.string()),
+  "cells": zod.array(zod.object({
+  "a": zod.string(),
+  "b": zod.string(),
+  "correlation": zod.number().nullable().describe('Pearson r over the days both symbols share. Null means too little shared history to measure — render \"insufficient history\", not a number.')
+})).describe('Upper triangle only — correlation is symmetric and the diagonal is trivially 1.'),
+  "openSymbols": zod.array(zod.string()).describe('Symbols currently carrying a position.'),
+  "threshold": zod.number().describe('Reinforcement level at which two symbols count as the same bet.'),
+  "minObservations": zod.number().describe('Shared days required before a correlation is reported at all.')
+})
+
+
+/**
+ * What this account's own closed trades support saying, as of now. Cells below `minSamples` report their counts and null for every rate — never a provisional figure. Cells above it are tested against the account baseline with an exact binomial test and a Benjamini–Hochberg correction across the whole family, so `significant` accounts for the fact that slicing a history finely enough always produces a winner. Demo and live records are never pooled; `executionTarget` says which one this is.
+ * @summary Market knowledge cells and confidence calibration
+ */
+export const GetKnowledgeResponse = zod.object({
+  "executionTarget": zod.enum(['demo', 'live']).describe('Which record these numbers describe. Demo and live are never pooled.'),
+  "asOf": zod.string().describe('The point-in-time cut. Every claim is \'given only what was knowable at this moment\'.'),
+  "totalTrades": zod.number(),
+  "baselineWinRate": zod.number().nullable().describe('The account\'s own scratch-adjusted win rate — the null hypothesis each cell is tested against. Null below the gate.'),
+  "minSamples": zod.number(),
+  "fdr": zod.number().describe('False-discovery-rate budget for the significance family.'),
+  "cellsTested": zod.number().describe('How many cells entered the multiple-comparison family.'),
+  "cells": zod.array(zod.object({
+  "samples": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "scratches": zod.number().describe('Break-even washes — excluded from the win-rate denominator, not counted as losses.'),
+  "gated": zod.boolean().describe('samples < minSamples. Every rate below is null.'),
+  "minSamples": zod.number(),
+  "winRate": zod.number().nullable().describe('Scratch-adjusted: wins \/ (wins + losses).'),
+  "winRateLow": zod.number().nullable().describe('Lower bound of the 95% Wilson interval on winRate.'),
+  "winRateHigh": zod.number().nullable(),
+  "expectancyUsdt": zod.number().nullable(),
+  "profitFactor": zod.number().nullable(),
+  "avgR": zod.number().nullable(),
+  "netPnlUsdt": zod.number()
+}).describe('Outcome summary for one bucket of closed trades. Counts and net P&L are facts and are always present; every rate is null while `gated` is true.').and(zod.object({
+  "dimension": zod.enum(['strategy_regime', 'symbol_strategy', 'session', 'volatility']),
+  "key": zod.string(),
+  "label": zod.string(),
+  "significance": zod.union([zod.object({
+  "pValue": zod.number().describe('Exact two-sided binomial test against the account baseline win rate.'),
+  "qValue": zod.number().describe('Benjamini–Hochberg adjusted p-value: the false-discovery rate incurred by treating this cell as a real edge.'),
+  "significant": zod.boolean().describe('qValue is within the family\'s FDR budget.')
+}),zod.null()]).describe('Null when the cell is gated, or when there is no trustworthy baseline to test against.')
+}))),
+  "calibration": zod.object({
+  "gated": zod.boolean(),
+  "minSamples": zod.number(),
+  "totalSamples": zod.number(),
+  "trainSamples": zod.number(),
+  "validationSamples": zod.number(),
+  "samplesNeeded": zod.number().describe('Further validation-set trades needed to open the gate; 0 once open.'),
+  "raw": zod.object({
+  "brier": zod.number().nullable(),
+  "logLoss": zod.number().nullable(),
+  "ece": zod.number().nullable().describe('Expected Calibration Error — sample-weighted average gap between promised and observed frequency.')
+}),
+  "calibrated": zod.object({
+  "brier": zod.number().nullable(),
+  "logLoss": zod.number().nullable(),
+  "ece": zod.number().nullable().describe('Expected Calibration Error — sample-weighted average gap between promised and observed frequency.')
+}),
+  "climatologyBrier": zod.number().nullable().describe('Brier score of predicting the base rate for every trade — the bar any calibration must clear to be worth anything.'),
+  "beatsClimatology": zod.boolean().describe('calibrated.brier < climatologyBrier. False means confidence carries no usable information on this record.'),
+  "bins": zod.array(zod.object({
+  "low": zod.number(),
+  "high": zod.number(),
+  "count": zod.number(),
+  "meanPredicted": zod.number().nullable(),
+  "observedRate": zod.number().nullable().describe('Observed win frequency in the bin. Perfect calibration puts this on the diagonal.')
+}))
+}).describe('Whether strategy confidence behaves like a probability on this account\'s record. Fitted on an earlier chronological slice and scored on a later one — never on its own training data. Gated on the VALIDATION set, since that is where every published number is measured.')
 })
 
 
@@ -764,6 +876,125 @@ export const GetToxicHoursResponse = zod.array(GetToxicHoursResponseItem)
 
 
 /**
+ * The only mechanism by which the account's own history changes what the engine does. Memory can raise the confidence bar a plan must clear; it can never lower one and never originate a plan, so the worst case of a bad rule is a trade not taken. `active` is true only when the user enabled it, qualifying cells exist, and — on live — a walk-forward validation approved this exact rule-set version.
+ * @summary Gated memory influence — status, rules, and audit trail
+ */
+export const GetMemoryInfluenceResponse = zod.object({
+  "enabled": zod.boolean().describe('What the user asked for. Not the same as `active`.'),
+  "maxDelta": zod.number().describe('Hard cap in confidence points, applied after summing every matching cell.'),
+  "approvedVersion": zod.string().nullable(),
+  "active": zod.boolean().describe('Whether the engine is actually acting on memory right now.'),
+  "needsValidation": zod.boolean().describe('Live influence is requested but blocked for want of a matching passing validation.'),
+  "executionTarget": zod.string(),
+  "reason": zod.string(),
+  "summary": zod.string(),
+  "version": zod.string().describe('\"memory-0\" when inert; \"memory-1:<hash>\" when it carries rules.'),
+  "rules": zod.array(zod.object({
+  "dimension": zod.enum(['strategy_regime', 'symbol_strategy', 'session', 'volatility']),
+  "key": zod.string(),
+  "label": zod.string(),
+  "samples": zod.number(),
+  "winRate": zod.number(),
+  "baselineWinRate": zod.number(),
+  "qValue": zod.number(),
+  "delta": zod.number().describe('Confidence points this cell adds to the bar. Always positive — memory only tightens.')
+}).describe('One knowledge cell memory is acting on. Present only for cells that cleared the sample gate AND whose q-value survived the multiple-comparison correction.')),
+  "latestValidation": zod.union([zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['pending', 'running', 'completed', 'failed']),
+  "verdict": zod.union([zod.literal('improved'),zod.literal('no_better'),zod.literal('insufficient_data'),zod.literal(null)]).nullable(),
+  "summary": zod.string().nullable(),
+  "stateVersion": zod.string().nullable().describe('The rule-set version this run approved. Permission is version-scoped — a refit revokes it.'),
+  "executionTarget": zod.string(),
+  "trainTrades": zod.number(),
+  "validationTrades": zod.number(),
+  "withheld": zod.number(),
+  "withheldPnlUsdt": zod.number().nullable(),
+  "expectancyDelta": zod.number().nullable(),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "recent": zod.array(zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "strategyId": zod.string(),
+  "admitted": zod.boolean().describe('True when the plan cleared the raised bar anyway.'),
+  "confidence": zod.number(),
+  "requiredConfidence": zod.number(),
+  "delta": zod.number(),
+  "memoryVersion": zod.string(),
+  "executionTarget": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.string()
+}).describe('One time memory raised a plan\'s bar. Both outcomes are recorded — logging only the withheld trades would read as a list of saves and hide every time a rule fired harmlessly.'))
+})
+
+
+/**
+ * Disabling is the kill switch: it clears the flag, the approved version and the cached state together, and the next scan is already inert. Enabling here never grants LIVE permission on its own — only a passing walk-forward validation does that.
+ * @summary Enable, disable, or bound memory influence
+ */
+export const updateMemoryInfluenceBodyMaxDeltaMin = 0;
+export const updateMemoryInfluenceBodyMaxDeltaMax = 25;
+
+
+
+export const UpdateMemoryInfluenceBody = zod.object({
+  "enabled": zod.boolean().optional(),
+  "maxDelta": zod.number().min(updateMemoryInfluenceBodyMaxDeltaMin).max(updateMemoryInfluenceBodyMaxDeltaMax).optional().describe('Hard cap in confidence points. Bounded server-side; memory is not permitted an unlimited reach.')
+})
+
+export const UpdateMemoryInfluenceResponse = zod.object({
+  "enabled": zod.boolean(),
+  "active": zod.boolean(),
+  "needsValidation": zod.boolean(),
+  "version": zod.string(),
+  "reason": zod.string()
+})
+
+
+/**
+ * Fits cells on an earlier window and tests them on a later one the fit never saw, against the same window with memory off. `no_better` is a first-class verdict and the expected one on most accounts. Only `improved` writes the approval that unlocks live influence, and only for that exact rule-set version.
+ * @summary Walk-forward validation of memory influence
+ */
+export const RunMemoryValidationResponse = zod.object({
+  "verdict": zod.enum(['improved', 'no_better', 'insufficient_data']),
+  "summary": zod.string(),
+  "stateVersion": zod.string(),
+  "trainTrades": zod.number(),
+  "validationTrades": zod.number(),
+  "withheld": zod.number().describe('Out-of-sample trades memory would have withheld.'),
+  "withheldPnlUsdt": zod.number().describe('P&L of the withheld trades. Negative is the point.'),
+  "expectancyDelta": zod.number(),
+  "baseline": zod.object({
+  "trades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number().nullable(),
+  "netPnlUsdt": zod.number(),
+  "expectancyUsdt": zod.number()
+}),
+  "withMemory": zod.object({
+  "trades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number().nullable(),
+  "netPnlUsdt": zod.number(),
+  "expectancyUsdt": zod.number()
+}),
+  "rules": zod.array(zod.object({
+  "dimension": zod.enum(['strategy_regime', 'symbol_strategy', 'session', 'volatility']),
+  "key": zod.string(),
+  "label": zod.string(),
+  "samples": zod.number(),
+  "winRate": zod.number(),
+  "baselineWinRate": zod.number(),
+  "qValue": zod.number(),
+  "delta": zod.number().describe('Confidence points this cell adds to the bar. Always positive — memory only tightens.')
+}).describe('One knowledge cell memory is acting on. Present only for cells that cleared the sample gate AND whose q-value survived the multiple-comparison correction.'))
+})
+
+
+/**
  * @summary Get bot configuration
  */
 export const GetConfigResponse = zod.object({
@@ -778,6 +1009,9 @@ export const GetConfigResponse = zod.object({
   "dailyLossLimitUsdt": zod.number(),
   "maxSymbolConcentrationPercent": zod.number().describe('Max notional (entry price × qty) allowed in a single symbol, as % of balance. Default 100 (permissive — no effective limit) until tightened.'),
   "maxNetExposurePercent": zod.number().describe('Max net long-short notional exposure across all open positions, as % of balance. Default 200 (permissive — no effective limit) until tightened.'),
+  "maxCorrelatedExposurePercent": zod.number().describe('Max notional across one correlated cluster (the candidate plus every open position measured to be the same directional bet), as % of balance. Default 200 (permissive) until tightened.'),
+  "correlationThreshold": zod.number().describe('Reinforcement level (r adjusted for trade direction) at which two symbols count as the same bet.'),
+  "correlationUnknownPolicy": zod.enum(['allow', 'block']).describe('What to do when a pair has too little shared history to measure. Never silently treated as uncorrelated.'),
   "confidenceThreshold": zod.number(),
   "riskModel": zod.enum(['percent', 'dollar']).describe('How SL\/TP are decided. \'percent\': SL\/TP are a % of price (stopLossPercent\/takeProfitPercent) and size comes from riskPercent\/positionSizeUsdt. \'dollar\': SL\/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt\/targetProfitUsdt).'),
   "stopLossPercent": zod.number().describe('Stop-loss distance as a % below entry price (used when riskModel = percent)'),
@@ -818,6 +1052,11 @@ export const updateConfigBodyMaxSymbolConcentrationPercentMax = 100;
 
 export const updateConfigBodyMaxNetExposurePercentMax = 200;
 
+export const updateConfigBodyMaxCorrelatedExposurePercentMax = 200;
+
+export const updateConfigBodyCorrelationThresholdMin = 0;
+export const updateConfigBodyCorrelationThresholdMax = 1;
+
 export const updateConfigBodyConfidenceThresholdMin = 0;
 export const updateConfigBodyConfidenceThresholdMax = 100;
 
@@ -852,6 +1091,9 @@ export const UpdateConfigBody = zod.object({
   "dailyLossLimitUsdt": zod.number().min(updateConfigBodyDailyLossLimitUsdtMin).optional().describe('Stored as a positive magnitude; the circuit breaker trips when dailyPnl <= -this value.'),
   "maxSymbolConcentrationPercent": zod.number().min(1).max(updateConfigBodyMaxSymbolConcentrationPercentMax).optional().describe('Max notional allowed in a single symbol, as % of balance.'),
   "maxNetExposurePercent": zod.number().min(1).max(updateConfigBodyMaxNetExposurePercentMax).optional().describe('Max net long-short notional exposure across all open positions, as % of balance.'),
+  "maxCorrelatedExposurePercent": zod.number().min(1).max(updateConfigBodyMaxCorrelatedExposurePercentMax).optional().describe('Max notional across one correlated cluster, as % of balance.'),
+  "correlationThreshold": zod.number().min(updateConfigBodyCorrelationThresholdMin).max(updateConfigBodyCorrelationThresholdMax).optional().describe('Reinforcement level at which two symbols count as the same bet.'),
+  "correlationUnknownPolicy": zod.enum(['allow', 'block']).optional().describe('Policy for pairs with too little shared history to measure.'),
   "confidenceThreshold": zod.number().min(updateConfigBodyConfidenceThresholdMin).max(updateConfigBodyConfidenceThresholdMax).optional(),
   "riskModel": zod.enum(['percent', 'dollar']).optional().describe('percent = %-based SL\/TP + riskPercent sizing; dollar = fixed max-loss\/target-profit sizing (maxLossUsdt\/targetProfitUsdt).'),
   "stopLossPercent": zod.number().min(updateConfigBodyStopLossPercentMin).max(updateConfigBodyStopLossPercentMax).optional(),
@@ -882,6 +1124,9 @@ export const UpdateConfigResponse = zod.object({
   "dailyLossLimitUsdt": zod.number(),
   "maxSymbolConcentrationPercent": zod.number().describe('Max notional (entry price × qty) allowed in a single symbol, as % of balance. Default 100 (permissive — no effective limit) until tightened.'),
   "maxNetExposurePercent": zod.number().describe('Max net long-short notional exposure across all open positions, as % of balance. Default 200 (permissive — no effective limit) until tightened.'),
+  "maxCorrelatedExposurePercent": zod.number().describe('Max notional across one correlated cluster (the candidate plus every open position measured to be the same directional bet), as % of balance. Default 200 (permissive) until tightened.'),
+  "correlationThreshold": zod.number().describe('Reinforcement level (r adjusted for trade direction) at which two symbols count as the same bet.'),
+  "correlationUnknownPolicy": zod.enum(['allow', 'block']).describe('What to do when a pair has too little shared history to measure. Never silently treated as uncorrelated.'),
   "confidenceThreshold": zod.number(),
   "riskModel": zod.enum(['percent', 'dollar']).describe('How SL\/TP are decided. \'percent\': SL\/TP are a % of price (stopLossPercent\/takeProfitPercent) and size comes from riskPercent\/positionSizeUsdt. \'dollar\': SL\/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt\/targetProfitUsdt).'),
   "stopLossPercent": zod.number().describe('Stop-loss distance as a % below entry price (used when riskModel = percent)'),

@@ -12,7 +12,11 @@
 --
 --   psql "$DATABASE_URL" -v app_role=tradecore -f scripts/sql/capture-grants.sql
 --
--- Re-running is safe.
+-- Re-running is safe, and you SHOULD re-run it after any schema push that adds
+-- a capture table (P8 added capture.memory_influences). The ALTER DEFAULT
+-- PRIVILEGES below covers tables created afterwards by the same role, but
+-- re-running is the cheap way to be certain rather than reasoning about which
+-- role ran which migration.
 --
 -- NOTE: if the application currently connects as the database OWNER (common in
 -- single-role setups, including the harness), these grants have no effect —

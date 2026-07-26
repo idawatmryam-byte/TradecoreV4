@@ -155,8 +155,16 @@ async function main() {
   expect("portfolio impact reports this plan's own risk",
     Math.abs(workspace!.portfolioImpact.candidateRiskUsdt - Math.abs(p.entryPrice - p.slPrice) * p.qty) < 1e-9,
     String(workspace!.portfolioImpact.candidateRiskUsdt));
-  expect("similar trades is an honest gated placeholder, never a number",
-    workspace!.similarTrades.available === false && typeof workspace!.similarTrades.reason === "string");
+  // Feature-similarity search runs for real here, against a test account with
+  // essentially no history — so the correct result is a refusal that explains
+  // itself, not a thin list of "similar" trades.
+  const similar = workspace!.similarTrades;
+  expect("similar trades refuses to answer from an empty record",
+    similar.available === false, `available=${similar.available} pool=${similar.poolSize}`);
+  expect("...and returns no matches at all rather than a short list", similar.matches.length === 0);
+  expect("...and no aggregate stats", similar.stats === null);
+  expect("...while stating the pool it needs and the pool it has",
+    typeof similar.reason === "string" && similar.reason.length > 10 && similar.minPoolSize > 0);
   expect("workspace on an unknown id returns null", (await getRecommendationWorkspace(USER, "crypto", 9_999_999)) === null);
 
   // ── 2. Modify creates a NEW plan; the original is untouched ──────────────

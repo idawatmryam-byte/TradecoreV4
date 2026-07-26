@@ -57,7 +57,13 @@ import { simulateDemoExit } from "./execution/demoExit";
 import { buildDemoMarketData } from "./execution/demoMarketData";
 import type { FillCosts } from "./execution/fillModel";
 import { advanceIntent, attachTrade, openIntent, type IntentHandle } from "./execution/intentLog";
+import {
+  buildHeatMap, correlation, dailyLogReturns, evaluateCorrelation, validateSizing,
+  MIN_CORRELATION_OBSERVATIONS, type HeatMapCell,
+} from "./risk/portfolioRisk";
 import { planFingerprint } from "./plan/fingerprint";
+import { evaluateInfluence } from "./memory/influence";
+import { loadMemoryPermission, logInfluence } from "./memory/memoryState";
 import {
   captureDecisions, configVersionOf, recordScanCounters,
   type CaptureDecision, type CaptureSnapshot,
@@ -172,6 +178,19 @@ class BotEngine {
   private activeMarketType: MarketType = "spot";
   private scannerData: Map<string, ScannerRow> = new Map();
   private openOrderIds: Map<number, OpenOrderIds> = new Map();
+
+  // ── Correlation inputs (P6) ────────────────────────────────────────────────
+  /**
+   * Daily log returns per symbol, keyed by UTC day. Cached because these are
+   * DAILY numbers read on a 15-second scan loop: recomputing per scan would
+   * mean thousands of pointless candle fetches a day and would not fit the
+   * scan budget. A stale-by-an-hour correlation is still an honest
+   * correlation — the underlying series only gains one point per day.
+   */
+  private dailyReturnsCache: Map<string, { at: number; returns: Map<number, number> }> = new Map();
+  private static readonly CORRELATION_CACHE_TTL_MS = 60 * 60_000;
+  /** Days of history requested for correlation (30 returns needs 31 closes). */
+  private static readonly CORRELATION_LOOKBACK_DAYS = 31;
 
   // ── Verification surfaces: decision trace + live market monitor ─────────────
   /** Per-symbol full pipeline decision from the most recent scan. */
@@ -832,6 +851,101 @@ class BotEngine {
       await ex.loadMarkets();
     }
     return ex.fetchOHLCV(unifiedFromPlainFallback(symbol, marketType), timeframe, undefined, limit);
+  }
+
+  /**
+   * Daily log returns for one symbol, cached for an hour.
+   *
+   * Failure is deliberately soft: a symbol whose candles cannot be fetched
+   * yields an EMPTY return series, which makes every correlation involving it
+   * unmeasurable (null) rather than zero. The gate then applies the user's
+   * explicit unknown-policy. Throwing here would let a transient data hiccup
+   * halt trading, and defaulting to 0 would silently claim independence the
+   * data never demonstrated.
+   */
+  private async dailyReturnsFor(symbol: string, marketType: MarketType): Promise<Map<number, number>> {
+    const cached = this.dailyReturnsCache.get(symbol);
+    if (cached && Date.now() - cached.at < BotEngine.CORRELATION_CACHE_TTL_MS) {
+      return cached.returns;
+    }
+    let returns = new Map<number, number>();
+    try {
+      const candles = await this.getRecentCandles(symbol, "1d", BotEngine.CORRELATION_LOOKBACK_DAYS, marketType);
+      returns = dailyLogReturns(
+        candles.map((c) => ({ timestamp: Number(c[0]), close: Number(c[4]) })),
+      );
+    } catch (err) {
+      logger.warn({ err, symbol }, "Could not load daily candles for correlation — pair will read as unmeasurable");
+    }
+    this.dailyReturnsCache.set(symbol, { at: Date.now(), returns });
+    return returns;
+  }
+
+  /**
+   * corr(candidate, each open symbol). Unmeasurable pairs map to null and are
+   * the caller's policy decision, never a silent zero.
+   */
+  private async correlationsAgainst(
+    candidateSymbol: string,
+    openSymbols: string[],
+    marketType: MarketType,
+    minObservations: number,
+  ): Promise<Map<string, number | null>> {
+    const out = new Map<string, number | null>();
+    const unique = [...new Set(openSymbols)].filter((s) => s !== candidateSymbol);
+    if (unique.length === 0) return out;
+
+    const candidateReturns = await this.dailyReturnsFor(candidateSymbol, marketType);
+    for (const other of unique) {
+      const otherReturns = await this.dailyReturnsFor(other, marketType);
+      out.set(other, correlation(candidateReturns, otherReturns, minObservations));
+    }
+    // A second position in the SAME symbol is perfectly correlated with itself
+    // by definition; no measurement needed, and none is possible from one series.
+    for (const s of openSymbols) if (s === candidateSymbol) out.set(s, 1);
+    return out;
+  }
+
+  /**
+   * Pairwise correlation matrix across the user's configured pairs, plus which
+   * of them currently carry a position — everything the dashboard heat map
+   * needs. Read-only; changes no engine state.
+   *
+   * Cells with too little shared history stay null so the card can render
+   * "insufficient history" instead of inventing a number.
+   */
+  async correlationHeatMap(): Promise<{
+    symbols: string[];
+    cells: HeatMapCell[];
+    openSymbols: string[];
+    threshold: number;
+    minObservations: number;
+  }> {
+    const config = await this.loadConfig();
+    const symbols = this.getPairs(config);
+    const marketType = toMarketType(config.marketType);
+
+    const returnsBySymbol = new Map<string, Map<number, number>>();
+    for (const s of symbols) {
+      returnsBySymbol.set(s, await this.dailyReturnsFor(s, marketType));
+    }
+
+    const openTrades = await db
+      .select({ symbol: tradesTable.symbol })
+      .from(tradesTable)
+      .where(and(
+        eq(tradesTable.userId, this.userId),
+        eq(tradesTable.section, this.section),
+        eq(tradesTable.status, "open"),
+      ));
+
+    return {
+      symbols,
+      cells: buildHeatMap(returnsBySymbol),
+      openSymbols: [...new Set(openTrades.map((t) => t.symbol))],
+      threshold: Number(config.correlationThreshold),
+      minObservations: MIN_CORRELATION_OBSERVATIONS,
+    };
   }
 
   // ── Live market monitor ─────────────────────────────────────────────────────
@@ -1504,6 +1618,13 @@ class BotEngine {
       this.symbolDecisions.clear();
 
       const confThreshold = Number(config.confidenceThreshold);
+      // P8: resolved ONCE per scan, not per symbol. The state must be stable
+      // across a scan — a rule set that changed halfway through would make
+      // the last symbol evaluated answerable to different evidence than the
+      // first. Returns the inert state on every path where influence is off,
+      // unapproved, or unreadable, and costs a single indexed config read in
+      // the overwhelmingly common case where the feature is disabled.
+      const memoryPermission = await loadMemoryPermission(this.userId, this.section, now.getTime());
       // Loaded once per scan (cached internally) — used both for the
       // max-holding-time exit check below and for entry evaluation further down.
       const strategyConfigs = await this.getStrategyConfigs();
@@ -1837,6 +1958,63 @@ class BotEngine {
           { name: "Position Size", passed: true, detail: `Qty ${bestSignal.qty}` },
         );
 
+        // ── P8: gated memory influence ───────────────────────────────────────
+        // The account's own record may RAISE the bar this plan must clear. It
+        // can never lower one and never originate a plan, so the worst case is
+        // a trade not taken. `memoryPermission` is the inert state unless the
+        // user enabled it, qualifying cells exist, and — on live — a
+        // walk-forward validation approved this exact rule-set version.
+        //
+        // With the inert state `evaluateInfluence` returns applied:false and
+        // admitted:true for every plan, so this block is a no-op and the scan
+        // is byte-identical to the pre-P8 engine. That is asserted in
+        // harness/memory-influence.test.ts rather than argued here.
+        const influence = evaluateInfluence(memoryPermission.state, {
+          strategyId: bestSignal.strategyId,
+          symbol,
+          regime: bestSignal.regime,
+          entryTime: now.getTime(),
+          atrPercent: row.atrPercent,
+          confidence: bestSignal.confidence,
+          strategyThreshold: stratConfig?.confidenceThreshold ?? confThreshold,
+        });
+
+        if (influence.applied) {
+          preChecks.push({
+            name: "Memory Influence",
+            passed: influence.admitted,
+            detail: `${influence.confidence.toFixed(0)}% vs a ${influence.requiredConfidence}% bar (+${influence.delta} from ${influence.rules.length} cell${influence.rules.length === 1 ? "" : "s"})`,
+          });
+          void logInfluence({
+            userId: this.userId,
+            section: this.section,
+            outcome: influence,
+            symbol,
+            strategyId: bestSignal.strategyId,
+            executionTarget: config.executionTarget === "demo" ? "demo" : "live",
+            dataTimestampMs: scanSnapshots.get(symbol)?.dataTimestampMs ?? now.getTime(),
+          }).catch(() => {});
+        }
+
+        if (!influence.admitted) {
+          this.scannerData.set(symbol, {
+            ...row, status: "skipped",
+            strategyId: bestSignal.strategyId, strategyName: bestSignal.strategyName, side: bestSignal.side,
+          });
+          riskStage.status = "fail";
+          riskStage.detail = `Withheld by memory: ${influence.reason}`;
+          record("BLOCKED", "Risk Checks", "Withheld by memory influence", bestSignal.confidence);
+          noteDecision(planToRecord(bestSignal, "approved_not_taken", {
+            stage: "Memory Influence",
+            reason: influence.reason,
+          }));
+          logger.info(
+            { symbol, strategyId: bestSignal.strategyId, memoryVersion: influence.version, delta: influence.delta },
+            "MEMORY_WITHHELD",
+          );
+          continue;
+        }
+
         // Portfolio risk check (maxPortfolioRiskPercent): aggregate $ risk
         // across every open position — using each trade's CURRENT stop, since
         // break-even/trailing moves change the real worst-case loss over a
@@ -1942,6 +2120,101 @@ class BotEngine {
             reason: `net exposure $${netExposureUsdt.toFixed(2)} would exceed the $${maxNetExposureUsdt.toFixed(2)} cap`,
           }));
           continue;
+        }
+
+        // Sizing sanity (P6). Pure arithmetic on values already in hand, so it
+        // sits ahead of the correlation gate below — a candidate with an
+        // invalid stop or a size that rounds to zero must never pay for a
+        // correlation computation. Each of these would otherwise slip past
+        // every dollar-risk cap above: a stop at entry makes risk zero, and a
+        // sub-minimum qty is an order the exchange will simply reject.
+        const sizing = validateSizing({
+          balance,
+          entryPrice: bestSignal.entryPrice,
+          slPrice: bestSignal.slPrice,
+          qty: bestSignal.qty,
+          side: bestSignal.side,
+        });
+        preChecks.push({
+          name: "Sizing Sanity",
+          passed: sizing.ok,
+          detail: sizing.ok ? "Entry, stop and size are all tradable" : sizing.reason!,
+        });
+        if (!sizing.ok) {
+          this.scannerData.set(symbol, {
+            ...row, status: "skipped",
+            strategyId: bestSignal.strategyId, strategyName: bestSignal.strategyName, side: bestSignal.side,
+          });
+          riskStage.status = "fail";
+          riskStage.detail = `Blocked: ${sizing.reason}`;
+          record("BLOCKED", "Risk Checks", `Sizing rejected (${sizing.code})`, bestSignal.confidence);
+          noteDecision(planToRecord(bestSignal, "approved_not_taken", {
+            stage: "Sizing Sanity",
+            reason: sizing.reason!,
+          }));
+          continue;
+        }
+
+        // Correlated-exposure check (maxCorrelatedExposurePercent): the gate
+        // the other three cannot see. Portfolio Risk, Symbol Concentration and
+        // Net Exposure all treat BTCUSDT and ETHUSDT as two independent
+        // positions; measured correlation says they are very nearly one. Runs
+        // LAST because it is the only check here that can touch the network.
+        const correlationCandidates = openTrades
+          .map((t) => ({
+            symbol: t.symbol,
+            side: (t.side === "sell" ? "short" : "long") as "long" | "short",
+            notionalUsdt: Number(t.entryPrice) * Number(t.remainingQuantity ?? t.quantity),
+          }))
+          .concat(enteredThisScan.map((e) => ({
+            symbol: e.symbol,
+            side: e.side as "long" | "short",
+            notionalUsdt: e.notionalUsdt,
+          })));
+
+        // Skip the whole computation when nothing is open to correlate
+        // against, or when the cap is permissive enough that no cluster could
+        // breach it — no reason to spend candle fetches proving that.
+        const maxCorrelatedUsdt = balance * (Number(config.maxCorrelatedExposurePercent) / 100);
+        const totalPossibleCluster =
+          candidateNotionalUsdt + correlationCandidates.reduce((s, p) => s + p.notionalUsdt, 0);
+        if (correlationCandidates.length > 0 && totalPossibleCluster > maxCorrelatedUsdt) {
+          const correlations = await this.correlationsAgainst(
+            symbol,
+            correlationCandidates.map((p) => p.symbol),
+            this.activeMarketType,
+            MIN_CORRELATION_OBSERVATIONS,
+          );
+          const corrVerdict = evaluateCorrelation({
+            candidate: { symbol, side: bestSignal.side, notionalUsdt: candidateNotionalUsdt },
+            open: correlationCandidates,
+            correlations,
+            balance,
+            maxCorrelatedExposurePercent: Number(config.maxCorrelatedExposurePercent),
+            threshold: Number(config.correlationThreshold),
+            unknownPolicy: config.correlationUnknownPolicy === "block" ? "block" : "allow",
+          });
+          preChecks.push({
+            name: "Correlated Exposure",
+            passed: corrVerdict.ok,
+            detail: corrVerdict.ok
+              ? `$${corrVerdict.clusterNotionalUsdt.toFixed(2)} / $${corrVerdict.maxClusterNotionalUsdt.toFixed(2)} max in the ${symbol} cluster${corrVerdict.clusterSymbols.length ? ` (with ${corrVerdict.clusterSymbols.join(", ")})` : " (no correlated positions open)"}`
+              : corrVerdict.reason!,
+          });
+          if (!corrVerdict.ok) {
+            this.scannerData.set(symbol, {
+              ...row, status: "skipped",
+              strategyId: bestSignal.strategyId, strategyName: bestSignal.strategyName, side: bestSignal.side,
+            });
+            riskStage.status = "fail";
+            riskStage.detail = `Blocked: ${corrVerdict.reason}`;
+            record("BLOCKED", "Risk Checks", "Correlated exposure limit reached", bestSignal.confidence);
+            noteDecision(planToRecord(bestSignal, "approved_not_taken", {
+              stage: "Correlated Exposure",
+              reason: corrVerdict.reason!,
+            }));
+            continue;
+          }
         }
 
         riskStage.status = "pass";
@@ -2073,6 +2346,8 @@ class BotEngine {
           venue: config.marketType,
           timeframe: "1m",
           configVersion: configVersionOf([...strategyConfigs.entries()].sort(([a], [b]) => (a < b ? -1 : 1))),
+          // "memory-0" unless gated influence was genuinely acting this scan.
+          memoryVersion: memoryPermission.state.enabled ? memoryPermission.state.version : undefined,
           decisions: scanCaptures,
           snapshots: scanSnapshots,
         }).catch(() => {});

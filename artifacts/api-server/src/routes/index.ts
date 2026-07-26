@@ -19,6 +19,8 @@ import decisionsRouter from "./decisions";
 import journalRouter from "./journal";
 import notificationsRouter from "./notifications";
 import copilotRouter from "./copilot";
+import portfolioRouter from "./portfolio";
+import knowledgeRouter from "./knowledge";
 
 // Deliberately NOT behind requireAuth (Phase 5B) — mounted separately in
 // app.ts, before the auth gate. /healthz needs to stay reachable for
@@ -38,6 +40,8 @@ router.use(decisionsRouter);
 router.use(journalRouter);
 router.use(notificationsRouter);
 router.use(copilotRouter);
+router.use(portfolioRouter);
+router.use(knowledgeRouter);
 router.use(scannerRouter);
 router.use(marketRouter);
 router.use(tradesRouter);
