@@ -285,6 +285,32 @@ export interface RecommendationActionResult {
   newRecommendationId?: number;
 }
 
+export interface PortfolioImpact {
+  currentOpenPositions: number;
+  maxOpenPositions: number;
+  /** This plan's own worst-case dollar risk: |entry − stop| × qty. */
+  candidateRiskUsdt: number;
+  currentPortfolioRiskUsdt: number;
+  /** currentPortfolioRiskUsdt + candidateRiskUsdt — what the cap would read if this trade executes. */
+  afterPortfolioRiskUsdt: number;
+  maxPortfolioRiskUsdt: number;
+}
+
+/**
+ * Deliberately not a statistic. Feature-similarity search is a later phase; showing even a zero here risks reading as a computed number.
+ */
+export interface SimilarTradesPlaceholder {
+  available: false;
+  reason: string;
+}
+
+export interface RecommendationWorkspace {
+  recommendation: Recommendation;
+  decisionTrace: PipelineStage[];
+  portfolioImpact: PortfolioImpact;
+  similarTrades: SimilarTradesPlaceholder;
+}
+
 export type NotificationSeverity = typeof NotificationSeverity[keyof typeof NotificationSeverity];
 
 

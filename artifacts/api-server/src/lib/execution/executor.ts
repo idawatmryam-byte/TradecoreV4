@@ -28,6 +28,7 @@
  */
 import type { SignalRow } from "../strategy";
 import type { StrategyConfig, TradePlan } from "../strategies";
+import type { PipelineStage } from "../decisionTrace";
 // Type-only: erased at compile time, so this does NOT create a runtime cycle
 // with botEngine (which imports LiveExecutor).
 import type { BotEngine } from "../botEngine";
@@ -48,6 +49,15 @@ export interface ExecutionRequest {
   now: Date;
   /** Per-strategy config (drives the TP1/TP2 ladder). */
   stratConfig?: StrategyConfig;
+  /**
+   * The Market Data / Indicators / Signal / Risk Checks stages, already
+   * finalized — reaching this call means all four passed. Only
+   * RecommendExecutor uses this today (to snapshot the reasoning onto the
+   * recommendation, since the live in-memory trace is overwritten every scan
+   * tick); LiveExecutor and DemoExecutor ignore it, since a trades row's own
+   * columns are that record for an executed position.
+   */
+  precedingStages?: PipelineStage[];
 }
 
 export interface ExecutionResult {

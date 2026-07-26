@@ -813,8 +813,18 @@ class BotEngine {
       return this.exchange.fetchOHLCV(this.toMarket(symbol), timeframe, undefined, limit);
     }
     if (marketType === "forex") {
-      // Every OANDA endpoint (candles included) requires the user's token —
-      // there is no keyless public client to fall back to like Binance's.
+      // Demo has its own fallback: the platform's practice OANDA token (the
+      // same one buildExchange() would have used had the engine actually
+      // started). Worth the extra branch because session-scoped demo engines
+      // are DESIGNED to pause after 30 minutes idle — a user opening a
+      // recommendation's chart after that pause is the common case, not an
+      // edge case, and it must not read as "forex is broken".
+      if (this.executionTarget === "demo") {
+        const ex = await buildDemoMarketData("forex");
+        return ex.fetchOHLCV(this.toMarket(symbol), timeframe, undefined, limit);
+      }
+      // A LIVE account genuinely has no fallback here — every OANDA endpoint
+      // requires the user's own token, unlike Binance's public data.
       throw new Error("Forex charts need the forex engine running (OANDA has no public keyless data feed) — press Start on the Forex section.");
     }
     const ex = publicDataClient(marketType);
@@ -1952,6 +1962,11 @@ class BotEngine {
         // below is only a question of what to do with the finished plan.
         const execResult = await this.resolveExecutor(config).execute({
           symbol, plan: bestSignal, row, config, now, ...(stratConfig && { stratConfig }),
+          // Snapshot, not a live reference: these four objects are still
+          // owned by this scan-loop iteration and orderStage is mutated right
+          // below — copy each so a recommendation's stored trace can never be
+          // retroactively changed by that mutation.
+          precedingStages: [marketStage, indicatorStage, signalStage, riskStage].map((s) => ({ ...s })),
         });
         const { entered, reason } = execResult;
         if (entered) {

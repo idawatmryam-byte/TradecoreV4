@@ -45,7 +45,15 @@ router.get("/market/candles", async (req, res): Promise<void> => {
     ? String(req.query.timeframe)
     : "1m";
   const limit = Math.max(20, Math.min(500, Number(req.query.limit) || 180));
-  const marketType = req.query.marketType === "futures" ? "futures" : "spot";
+  // A forex-section request is ALWAYS marketType=forex — there is no spot/
+  // futures distinction there. Deriving from req.section (rather than trusting
+  // the query param alone) is what actually matters: previously a caller
+  // passing marketType=forex here silently coerced to "spot" (anything not
+  // exactly "futures" fell through to it), which sent a forex symbol like
+  // EUR_USD to a Binance spot client. Found while wiring the Co-Pilot
+  // workspace chart onto this same endpoint — a pre-existing bug in the
+  // dashboard's own open-position chart, not something new.
+  const marketType = req.section === "forex" ? "forex" : req.query.marketType === "futures" ? "futures" : "spot";
   if (!symbol) {
     res.status(400).json({ error: "symbol is required" });
     return;

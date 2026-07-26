@@ -371,6 +371,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/RecommendationList"
 
+  /copilot/recommendations/{id}:
+    get:
+      operationId: getRecommendationWorkspace
+      tags: [bot]
+      summary: One recommendation's full picture — the workspace
+      description: >
+        The plan, the five-stage reasoning that produced it (Market Data →
+        Indicators → Signal → Risk Checks → Order) captured at the moment it
+        was created, and what taking it would do to the portfolio right now.
+        Read-only; changes nothing.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Workspace detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendationWorkspace"
+        "404":
+          description: Not found (wrong id, or belongs to another user/section)
+
   /copilot/recommendations/{id}/execute:
     post:
       operationId: executeRecommendation
@@ -1527,6 +1552,44 @@ components:
         newRecommendationId:
           type: integer
           description: "Set by modify(): the new user-authored plan."
+
+    PortfolioImpact:
+      type: object
+      required: [currentOpenPositions, maxOpenPositions, candidateRiskUsdt, currentPortfolioRiskUsdt, afterPortfolioRiskUsdt, maxPortfolioRiskUsdt]
+      properties:
+        currentOpenPositions: { type: integer }
+        maxOpenPositions: { type: integer }
+        candidateRiskUsdt:
+          type: number
+          description: "This plan's own worst-case dollar risk: |entry − stop| × qty."
+        currentPortfolioRiskUsdt: { type: number }
+        afterPortfolioRiskUsdt:
+          type: number
+          description: "currentPortfolioRiskUsdt + candidateRiskUsdt — what the cap would read if this trade executes."
+        maxPortfolioRiskUsdt: { type: number }
+
+    SimilarTradesPlaceholder:
+      type: object
+      required: [available, reason]
+      description: "Deliberately not a statistic. Feature-similarity search is a later phase; showing even a zero here risks reading as a computed number."
+      properties:
+        available: { type: boolean, enum: [false] }
+        reason: { type: string }
+
+    RecommendationWorkspace:
+      type: object
+      required: [recommendation, decisionTrace, portfolioImpact, similarTrades]
+      properties:
+        recommendation:
+          $ref: "#/components/schemas/Recommendation"
+        decisionTrace:
+          type: array
+          items:
+            $ref: "#/components/schemas/PipelineStage"
+        portfolioImpact:
+          $ref: "#/components/schemas/PortfolioImpact"
+        similarTrades:
+          $ref: "#/components/schemas/SimilarTradesPlaceholder"
 
     Notification:
       type: object
