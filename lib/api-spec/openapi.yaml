@@ -346,6 +346,71 @@ paths:
                 items:
                   $ref: "#/components/schemas/JournalEntry"
 
+  /notifications:
+    get:
+      operationId: getNotifications
+      tags: [bot]
+      summary: Get in-app notifications
+      description: >
+        The in-app channel for the same alerts that fire the risk-alert
+        webhook (circuit breaker, risk pause, untracked-position detection,
+        startup reconciliation failures) — visible even if no webhook is
+        configured. Unread-first (newest first within that), cursor
+        paginated via ?before=<id>.
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: before
+          in: query
+          description: Return rows with id lower than this (cursor pagination)
+          schema: { type: integer }
+        - name: unreadOnly
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Notifications, with the current unread count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationList"
+
+  /notifications/{id}/read:
+    post:
+      operationId: markNotificationRead
+      tags: [bot]
+      summary: Mark one notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Marked read
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties: { success: { type: boolean } }
+
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [bot]
+      summary: Mark all of this section's notifications as read
+      responses:
+        "200":
+          description: Marked all read
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties: { success: { type: boolean } }
+
   /bot/blocking-summary:
     get:
       operationId: getBlockingSummary
@@ -1285,6 +1350,35 @@ components:
           type: integer
         lastSeenAt:
           type: string
+
+    Notification:
+      type: object
+      required: [id, type, message, severity, createdAt, readAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        message:
+          type: string
+        severity:
+          type: string
+          enum: [info, warning, critical]
+        createdAt:
+          type: string
+        readAt:
+          type: ["string", "null"]
+
+    NotificationList:
+      type: object
+      required: [unreadCount, notifications]
+      properties:
+        unreadCount:
+          type: integer
+        notifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
 
     JournalEntry:
       type: object

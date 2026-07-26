@@ -265,6 +265,54 @@ export const GetJournalResponse = zod.array(GetJournalResponseItem)
 
 
 /**
+ * The in-app channel for the same alerts that fire the risk-alert webhook (circuit breaker, risk pause, untracked-position detection, startup reconciliation failures) — visible even if no webhook is configured. Unread-first (newest first within that), cursor paginated via ?before=<id>.
+ * @summary Get in-app notifications
+ */
+export const getNotificationsQueryLimitDefault = 50;
+export const getNotificationsQueryLimitMax = 200;
+
+
+
+export const GetNotificationsQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(getNotificationsQueryLimitMax).default(getNotificationsQueryLimitDefault),
+  "before": zod.coerce.number().optional().describe('Return rows with id lower than this (cursor pagination)'),
+  "unreadOnly": zod.coerce.boolean().optional()
+})
+
+export const GetNotificationsResponse = zod.object({
+  "unreadCount": zod.number(),
+  "notifications": zod.array(zod.object({
+  "id": zod.number(),
+  "type": zod.string(),
+  "message": zod.string(),
+  "severity": zod.enum(['info', 'warning', 'critical']),
+  "createdAt": zod.string(),
+  "readAt": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Mark one notification as read
+ */
+export const MarkNotificationReadParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const MarkNotificationReadResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+/**
+ * @summary Mark all of this section's notifications as read
+ */
+export const MarkAllNotificationsReadResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+/**
  * Aggregated explanation of why trades are or are not being executed
  * @summary Get blocking summary
  */

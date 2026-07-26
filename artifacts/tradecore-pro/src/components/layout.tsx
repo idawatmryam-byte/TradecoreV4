@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useSection, type Section } from "@/lib/section";
 import { useIsDemo } from "@/lib/account";
+import { NotificationBell } from "@/components/notification-bell";
 
 const SECTION_TABS: { id: Section; label: string; icon: typeof Bitcoin }[] = [
   { id: "crypto", label: "Crypto", icon: Bitcoin },
@@ -93,6 +94,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
         <div className="flex items-center gap-3">
           <span className={cn("h-2 w-2 rounded-full", online ? "bg-success" : "bg-destructive")} />
+          <NotificationBell />
           <button
             onClick={() => setMobileOpen((o) => !o)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
@@ -113,10 +115,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="h-8 w-8 rounded bg-primary/20 flex items-center justify-center border border-primary/50">
             <Activity className="h-5 w-5 text-primary" />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="font-bold tracking-tight text-lg leading-none">TradeCore Pro</h1>
             <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">Algorithmic Engine</span>
           </div>
+          <NotificationBell />
         </div>
 
         <div className="p-4 flex-1">

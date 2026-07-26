@@ -17,6 +17,7 @@ import reportsRouter from "./reports";
 import accountRouter from "./account";
 import decisionsRouter from "./decisions";
 import journalRouter from "./journal";
+import notificationsRouter from "./notifications";
 
 // Deliberately NOT behind requireAuth (Phase 5B) — mounted separately in
 // app.ts, before the auth gate. /healthz needs to stay reachable for
@@ -34,6 +35,7 @@ const router: IRouter = Router();
 router.use(botRouter);
 router.use(decisionsRouter);
 router.use(journalRouter);
+router.use(notificationsRouter);
 router.use(scannerRouter);
 router.use(marketRouter);
 router.use(tradesRouter);
