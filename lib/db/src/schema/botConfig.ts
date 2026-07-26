@@ -92,6 +92,29 @@ export const botConfigTable = pgTable("bot_config", {
    * they opt in to a tighter value.
    */
   maxNetExposurePercent: numeric("max_net_exposure_percent", { precision: 6, scale: 2 }).notNull().default("200.0"),
+  /**
+   * Max NOTIONAL allowed across one CORRELATED cluster — the candidate plus
+   * every open position measured to be the same directional bet — as a % of
+   * balance. The gate the other three miss: five "independent" longs across
+   * correlated majors is one large position wearing a disguise, and no count,
+   * per-symbol or net-direction cap notices it. Defaults permissive (200%)
+   * so existing users and the harness are unaffected until they opt in.
+   */
+  maxCorrelatedExposurePercent: numeric("max_correlated_exposure_percent", { precision: 6, scale: 2 }).notNull().default("200.0"),
+  /**
+   * Reinforcement level (r adjusted for trade direction) at which two symbols
+   * count as the same bet. 0.7 is the conventional "strongly correlated"
+   * line; below ~0.5 almost everything in crypto would cluster together and
+   * the gate would stop being informative.
+   */
+  correlationThreshold: numeric("correlation_threshold", { precision: 4, scale: 3 }).notNull().default("0.700"),
+  /**
+   * What to do when a pair has too little shared history to measure:
+   * "allow" (default — a new account has no history yet and must stay
+   * tradable) or "block" (never trade blind). Never silently treated as
+   * uncorrelated, which would be an unearned claim of independence.
+   */
+  correlationUnknownPolicy: text("correlation_unknown_policy").notNull().default("allow"),
 
   // ── Signal / confidence ────────────────────────────────────────────────────
   confidenceThreshold: integer("confidence_threshold").notNull().default(55),

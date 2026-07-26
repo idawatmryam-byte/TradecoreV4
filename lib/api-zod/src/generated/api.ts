@@ -532,6 +532,23 @@ export const GetMarketLiveResponse = zod.object({
 
 
 /**
+ * Pairwise Pearson correlation of daily log returns over a 30-day lookback, plus which symbols currently hold a position. A cell is null when the two symbols share fewer than `minObservations` days of history — never 0, which would read as "measured, and unrelated".
+ * @summary Correlation heat map across the configured pairs
+ */
+export const GetPortfolioCorrelationResponse = zod.object({
+  "symbols": zod.array(zod.string()),
+  "cells": zod.array(zod.object({
+  "a": zod.string(),
+  "b": zod.string(),
+  "correlation": zod.number().nullable().describe('Pearson r over the days both symbols share. Null means too little shared history to measure — render \"insufficient history\", not a number.')
+})).describe('Upper triangle only — correlation is symmetric and the diagonal is trivially 1.'),
+  "openSymbols": zod.array(zod.string()).describe('Symbols currently carrying a position.'),
+  "threshold": zod.number().describe('Reinforcement level at which two symbols count as the same bet.'),
+  "minObservations": zod.number().describe('Shared days required before a correlation is reported at all.')
+})
+
+
+/**
  * Returns trade log with optional status and source filter
  * @summary List all trades
  */
@@ -778,6 +795,9 @@ export const GetConfigResponse = zod.object({
   "dailyLossLimitUsdt": zod.number(),
   "maxSymbolConcentrationPercent": zod.number().describe('Max notional (entry price × qty) allowed in a single symbol, as % of balance. Default 100 (permissive — no effective limit) until tightened.'),
   "maxNetExposurePercent": zod.number().describe('Max net long-short notional exposure across all open positions, as % of balance. Default 200 (permissive — no effective limit) until tightened.'),
+  "maxCorrelatedExposurePercent": zod.number().describe('Max notional across one correlated cluster (the candidate plus every open position measured to be the same directional bet), as % of balance. Default 200 (permissive) until tightened.'),
+  "correlationThreshold": zod.number().describe('Reinforcement level (r adjusted for trade direction) at which two symbols count as the same bet.'),
+  "correlationUnknownPolicy": zod.enum(['allow', 'block']).describe('What to do when a pair has too little shared history to measure. Never silently treated as uncorrelated.'),
   "confidenceThreshold": zod.number(),
   "riskModel": zod.enum(['percent', 'dollar']).describe('How SL\/TP are decided. \'percent\': SL\/TP are a % of price (stopLossPercent\/takeProfitPercent) and size comes from riskPercent\/positionSizeUsdt. \'dollar\': SL\/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt\/targetProfitUsdt).'),
   "stopLossPercent": zod.number().describe('Stop-loss distance as a % below entry price (used when riskModel = percent)'),
@@ -818,6 +838,11 @@ export const updateConfigBodyMaxSymbolConcentrationPercentMax = 100;
 
 export const updateConfigBodyMaxNetExposurePercentMax = 200;
 
+export const updateConfigBodyMaxCorrelatedExposurePercentMax = 200;
+
+export const updateConfigBodyCorrelationThresholdMin = 0;
+export const updateConfigBodyCorrelationThresholdMax = 1;
+
 export const updateConfigBodyConfidenceThresholdMin = 0;
 export const updateConfigBodyConfidenceThresholdMax = 100;
 
@@ -852,6 +877,9 @@ export const UpdateConfigBody = zod.object({
   "dailyLossLimitUsdt": zod.number().min(updateConfigBodyDailyLossLimitUsdtMin).optional().describe('Stored as a positive magnitude; the circuit breaker trips when dailyPnl <= -this value.'),
   "maxSymbolConcentrationPercent": zod.number().min(1).max(updateConfigBodyMaxSymbolConcentrationPercentMax).optional().describe('Max notional allowed in a single symbol, as % of balance.'),
   "maxNetExposurePercent": zod.number().min(1).max(updateConfigBodyMaxNetExposurePercentMax).optional().describe('Max net long-short notional exposure across all open positions, as % of balance.'),
+  "maxCorrelatedExposurePercent": zod.number().min(1).max(updateConfigBodyMaxCorrelatedExposurePercentMax).optional().describe('Max notional across one correlated cluster, as % of balance.'),
+  "correlationThreshold": zod.number().min(updateConfigBodyCorrelationThresholdMin).max(updateConfigBodyCorrelationThresholdMax).optional().describe('Reinforcement level at which two symbols count as the same bet.'),
+  "correlationUnknownPolicy": zod.enum(['allow', 'block']).optional().describe('Policy for pairs with too little shared history to measure.'),
   "confidenceThreshold": zod.number().min(updateConfigBodyConfidenceThresholdMin).max(updateConfigBodyConfidenceThresholdMax).optional(),
   "riskModel": zod.enum(['percent', 'dollar']).optional().describe('percent = %-based SL\/TP + riskPercent sizing; dollar = fixed max-loss\/target-profit sizing (maxLossUsdt\/targetProfitUsdt).'),
   "stopLossPercent": zod.number().min(updateConfigBodyStopLossPercentMin).max(updateConfigBodyStopLossPercentMax).optional(),
@@ -882,6 +910,9 @@ export const UpdateConfigResponse = zod.object({
   "dailyLossLimitUsdt": zod.number(),
   "maxSymbolConcentrationPercent": zod.number().describe('Max notional (entry price × qty) allowed in a single symbol, as % of balance. Default 100 (permissive — no effective limit) until tightened.'),
   "maxNetExposurePercent": zod.number().describe('Max net long-short notional exposure across all open positions, as % of balance. Default 200 (permissive — no effective limit) until tightened.'),
+  "maxCorrelatedExposurePercent": zod.number().describe('Max notional across one correlated cluster (the candidate plus every open position measured to be the same directional bet), as % of balance. Default 200 (permissive) until tightened.'),
+  "correlationThreshold": zod.number().describe('Reinforcement level (r adjusted for trade direction) at which two symbols count as the same bet.'),
+  "correlationUnknownPolicy": zod.enum(['allow', 'block']).describe('What to do when a pair has too little shared history to measure. Never silently treated as uncorrelated.'),
   "confidenceThreshold": zod.number(),
   "riskModel": zod.enum(['percent', 'dollar']).describe('How SL\/TP are decided. \'percent\': SL\/TP are a % of price (stopLossPercent\/takeProfitPercent) and size comes from riskPercent\/positionSizeUsdt. \'dollar\': SL\/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt\/targetProfitUsdt).'),
   "stopLossPercent": zod.number().describe('Stop-loss distance as a % below entry price (used when riskModel = percent)'),
