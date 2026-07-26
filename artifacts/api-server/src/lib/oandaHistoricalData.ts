@@ -135,6 +135,7 @@ async function persist(symbol: string, timeframe: string, candles: Candle[]): Pr
     low: c[3].toFixed(8),
     close: c[4].toFixed(8),
     volume: c[5].toFixed(8),
+    source: "exchange" as const, // real OANDA data — see schema note on `source`
   }));
   for (let i = 0; i < rows.length; i += 500) {
     await db.insert(historicalCandlesTable).values(rows.slice(i, i + 500)).onConflictDoNothing();

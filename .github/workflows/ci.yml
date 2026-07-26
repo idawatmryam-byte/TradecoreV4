@@ -1,0 +1,84 @@
+name: CI
+
+# The repo had 15 passing harness tests and nothing that ran them. This runs
+# them on every push and PR, so a regression is caught before it reaches the
+# VPS rather than after.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Deliberately NOT set: TRADECORE_ALLOW_SYNTHETIC_CANDLES. CI must exercise
+  # the same refusal a production backtest would hit on harness-seeded data.
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # The live-engine integration test drives the real BotEngine against a
+    # scripted mock exchange, but needs a real database for its assertions.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tradecore
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Builds the lib/* project references first, then typechecks every
+      # artifact — matches the root `typecheck` script developers run.
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      # Pure tests: no database, no network. Includes the determinism suite
+      # (same inputs ⇒ identical TradePlan fingerprint) and the metrics-kernel
+      # suite (one definition per metric, no silently changed numbers).
+      - name: Test (pure)
+        run: pnpm --filter @workspace/api-server run test
+
+      - name: Apply schema
+        run: pnpm --filter @workspace/db run push
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/tradecore
+
+      - name: Test (integration)
+        run: pnpm --filter @workspace/api-server run test:integration
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/tradecore
+
+      # Catches a broken build before deploy, and is the same command the VPS
+      # runs (docs/HANDOFF.md §4). Frontend FIRST — the backend build copies
+      # its output into dist/public. PORT is required by vite.config.ts; the
+      # value only bakes the dev-proxy target, so any port works here.
+      - name: Build
+        run: |
+          PORT=8090 BASE_PATH=/ pnpm --filter @workspace/tradecore-pro run build
+          pnpm --filter @workspace/api-server run build
