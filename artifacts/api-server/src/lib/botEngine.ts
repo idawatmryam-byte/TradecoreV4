@@ -49,6 +49,10 @@ import { loadStrategyConfigs } from "./strategyConfigLoader";
 import { loadCustomStrategies, liveEligible } from "./customStrategyLoader";
 import type { Strategy } from "./strategies";
 import { ExitManager, type OpenOrderIds } from "./exitManager";
+import type { ExecutionResult, TradeExecutor } from "./execution/executor";
+import { LiveExecutor } from "./execution/liveExecutor";
+import { advanceIntent, attachTrade, openIntent, type IntentHandle } from "./execution/intentLog";
+import { planFingerprint } from "./plan/fingerprint";
 import type { Section } from "./engineRegistry";
 import { TradeManager } from "./tradeManager";
 import { placeSellOco, cancelOco } from "./binanceOco";
@@ -246,6 +250,22 @@ class BotEngine {
   private readonly MAX_RISK_VIOLATIONS = 3;
   private riskViolationCount = 0;
   private riskPaused = false;
+
+  // ── P1: the execution fork point ────────────────────────────────────────────
+  // Everything up to the approved TradePlan is identical for every mode; only
+  // what happens AFTER the plan differs. The scan loop hands the finished plan
+  // to whichever executor is configured and does not care what it does with
+  // it. Today that is always LiveExecutor (real orders, unchanged behaviour);
+  // DemoExecutor and RecommendExecutor slot in here without the intelligence
+  // pipeline noticing.
+  private executor: TradeExecutor = new LiveExecutor((req) =>
+    this.enterTrade(req.symbol, req.row, req.plan, req.config, req.now, req.stratConfig),
+  );
+
+  /** Swap the execution target. Live is the default; nothing else exists yet. */
+  setExecutor(executor: TradeExecutor): void {
+    this.executor = executor;
+  }
 
   // ── Phase 4A: centralized exit pipeline ─────────────────────────────────────
   // ExitManager owns every way a trade can close; BotEngine only supplies the
@@ -1593,10 +1613,13 @@ class BotEngine {
           "Strategy signal — evaluating entry"
         );
 
-        // ── Stage 5: Order — execute the strategy's approved TradePlan ──────
-        const { entered, reason } = await this.enterTrade(
-          symbol, row, bestSignal, config, now, stratConfig,
-        );
+        // ── Stage 5: Order — hand the approved TradePlan to the executor ────
+        // THE FORK POINT. Everything above this line is the deterministic
+        // intelligence pipeline and is identical in every mode; everything
+        // below is only a question of what to do with the finished plan.
+        const { entered, reason } = await this.executor.execute({
+          symbol, plan: bestSignal, row, config, now, ...(stratConfig && { stratConfig }),
+        });
         if (entered) {
           this.state.openPositions++;
           // Track for the same-scan concurrency + portfolio-risk accounting above.
@@ -1706,7 +1729,7 @@ class BotEngine {
     config: Awaited<ReturnType<typeof this.loadConfig>>,
     now: Date,
     stratConfig?: StrategyConfig,
-  ): Promise<{ entered: boolean; reason: string }> {
+  ): Promise<ExecutionResult> {
     const ex = this.exchange!;
     const market = this.toMarket(symbol);
     const side = plan.side;
@@ -1722,6 +1745,11 @@ class BotEngine {
     // Order side to OPEN the position; the opposite side closes it.
     const openSide = isShort ? "sell" : "buy";
     const closeSide = isShort ? "buy" : "sell";
+
+    // Declared outside the try so the catch can mark the intent FAILED. Stays
+    // null through every pre-flight refusal below — an entry we never sent to
+    // the broker leaves no execution record, by design.
+    let intent: IntentHandle | null = null;
 
     try {
       const marketInfo = ex.markets[market];
@@ -1870,24 +1898,65 @@ class BotEngine {
         `Placing market ${openSide.toUpperCase()} (${side})`
       );
 
+      // ── Durable intent, written BEFORE the broker is called ───────────────
+      // Past this point a real position can exist. If the process dies between
+      // the fill and the trades-row insert below, this row is the only record
+      // of what was intended — which stop, which target, which strategy — and
+      // it carries the client order id the fill can be looked up by. Every
+      // pre-flight refusal above returns before this, so a refused entry
+      // leaves nothing behind.
+      intent = await openIntent({
+        userId: this.userId,
+        section: this.section,
+        planFingerprint: planFingerprint(this.userId, plan),
+        symbol,
+        side: openSide,
+        marketType: config.marketType,
+        ...(strategyId && { strategyId }),
+        plannedEntryPrice: entry.entryPrice,
+        plannedStopLoss: entry.slPrice,
+        plannedTakeProfit: entry.tpPrice,
+        plannedQuantity: qty,
+        ...(isFutures && { plannedLeverage: effectiveLeverage }),
+      });
+
       // Forex: ONE atomic call opens the position WITH its SL/TP attached
       // (placed at the strategy's absolute prices — no post-fill slippage
       // re-anchoring, the resting orders ARE the plan). Crypto keeps the
       // fill-then-protect sequence below.
       let openOrder: any = null;
       let forexBracket: { fillPrice: number; filledUnits: number; oandaTradeId: string; slOrderId: string; tpOrderId: string } | null = null;
+      await advanceIntent(intent, "ORDER_SUBMITTED", "market entry sent to broker");
       if (isForex) {
+        // OANDA identifies orders by clientExtensions rather than a client
+        // order id param; wiring that through placeProtectedEntry() belongs
+        // with the adapter work, so forex recovery leans on the intent row's
+        // planned values plus the returned OANDA trade id for now.
         forexBracket = await ex.placeProtectedEntry(
           market, openSide, qty,
           parseFloat(ex.priceToPrecision(market, entry.slPrice)),
           parseFloat(ex.priceToPrecision(market, entry.tpPrice)),
         );
       } else {
-        openOrder = await ex.createOrder(market, "market", openSide, qty);
+        // newClientOrderId makes the fill findable after a timeout. Never
+        // resubmit a market order that may already have filled — query it.
+        openOrder = await ex.createOrder(
+          market, "market", openSide, qty, undefined,
+          intent ? { newClientOrderId: intent.clientOrderId } : undefined,
+        );
       }
 
       const fillPrice = forexBracket ? forexBracket.fillPrice : (openOrder.average ?? openOrder.price ?? entry.entryPrice);
       const filledQty = forexBracket ? forexBracket.filledUnits : (openOrder.filled ?? qty);
+
+      // A position now exists on the venue. From here every exit path must
+      // leave the intent in a terminal state, or startup recovery will treat
+      // it as possibly-live and investigate.
+      await advanceIntent(intent, "FILLED", "entry filled", {
+        fillPrice, filledQty,
+        ...(forexBracket && { oandaTradeId: forexBracket.oandaTradeId }),
+        ...(openOrder?.id != null && { brokerOrderId: String(openOrder.id) }),
+      });
 
       // ── FIX (bug #1 / #2): use the STRATEGY's own SL/TP, not a generic
       // ATR recompute ─────────────────────────────────────────────────────
@@ -1977,6 +2046,7 @@ class BotEngine {
         const why = liquidationIsUnsafe
           ? "stop-loss too close to the exchange's liquidation price"
           : "computed SL/TP invalid after fill";
+        await advanceIntent(intent, "FLATTENED", `risk guard: ${why}`, { fillPrice, filledQty });
         const cooled = this.cooldownAfterEntryFlatten(symbol, why);
         return {
           entered: false,
@@ -2096,6 +2166,8 @@ class BotEngine {
             expectedHoldSeconds: Math.round(plan.expectedHoldSeconds),
             maxHoldSeconds: Math.round(plan.maxHoldSeconds),
             plannedLeverage: plan.leverage,
+            // The join key: plan → execution → this trade → its outcome.
+            ...(intent && { correlationId: intent.correlationId }),
           })
           .returning();
       } catch (dbErr) {
@@ -2109,6 +2181,7 @@ class BotEngine {
           logger.error({ err: closeErr, symbol, filledQty },
             "Failed to close untracked position after DB failure — MANUAL INTERVENTION REQUIRED");
         }
+        await advanceIntent(intent, "FLATTENED", "trades-row insert failed — position closed", { fillPrice, filledQty });
         this.sendAlert(
           `🚨 ${side.toUpperCase()} ${symbol} filled at ${fillPrice.toFixed(6)} but could NOT be recorded ` +
           `(database error). The engine attempted to close it immediately. Please verify on Binance that no ` +
@@ -2116,6 +2189,10 @@ class BotEngine {
         ).catch(() => {});
         return { entered: false, reason: "Order filled but DB write failed — position closed to avoid an untracked/unprotected position" };
       }
+
+      // The engine now tracks the position — it is no longer an orphan risk.
+      await attachTrade(intent, trade!.id);
+      await advanceIntent(intent, "RECORDED", "trades row written", { tradeId: trade!.id });
 
       let tpOrderId = "";
       let slOrderId = "";
@@ -2235,6 +2312,14 @@ class BotEngine {
           { tpOrderId, slOrderId: "", ...(ocoOrderListId && { ocoOrderListId }) },
         );
         this.openOrderIds.delete(trade!.id);
+        await advanceIntent(
+          intent,
+          outcome.closed ? "FLATTENED" : "RECORDED",
+          outcome.closed
+            ? "stop-loss placement failed — position flattened"
+            : "stop-loss placement failed AND the protective flatten failed — position may still be live",
+          { tradeId: trade!.id, tpOrderId: tpOrderId || null },
+        );
         this.sendAlert(
           `🚨 ${side.toUpperCase()} ${symbol} filled at ${fillPrice.toFixed(6)} but the exchange STOP-LOSS could not ` +
           `be placed. Position was ${outcome.closed ? "flattened immediately (no stop, no position)" : "NOT closed — close it manually on Binance NOW"}.`,
@@ -2248,6 +2333,11 @@ class BotEngine {
         };
       }
 
+      // Terminal-good: filled, recorded, and protected on the exchange.
+      await advanceIntent(intent, "PROTECTED", bothPlaced ? "SL + TP resting" : "SL resting, TP unplaced", {
+        tradeId: trade!.id, tpOrderId: tpOrderId || null, slOrderId, usedTrueOco: !!ocoOrderListId,
+      });
+
       // Journal the executed decision with its trade link (best-effort).
       void recordDecisions(this.userId, [
         planToRecord(plan, "executed", { tradeId: trade!.id }),
@@ -2255,6 +2345,8 @@ class BotEngine {
 
       return {
         entered: true,
+        ...(intent && { correlationId: intent.correlationId }),
+        tradeId: trade!.id,
         reason: bothPlaced
           ? `market ${openSide.toUpperCase()} filled, TP + SL protection placed`
           : neitherPlaced
@@ -2263,6 +2355,20 @@ class BotEngine {
       };
     } catch (err) {
       const message = String((err as Error)?.message ?? err);
+      // Mark the intent terminal. NOTE the deliberate asymmetry: if the throw
+      // happened at or after ORDER_SUBMITTED we cannot know whether the order
+      // filled (a timeout is indistinguishable from a rejection from here), so
+      // the state records that ambiguity rather than claiming failure. That is
+      // precisely what the client order id is for — look the order up, never
+      // resubmit a market order that may already be live.
+      await advanceIntent(
+        intent,
+        "FAILED",
+        message,
+        intent?.state === "ORDER_SUBMITTED"
+          ? { outcomeUnknown: true, resolveVia: "clientOrderId", clientOrderId: intent.clientOrderId }
+          : undefined,
+      );
       // Binance -2027: "Exceeded the maximum allowable position at current
       // leverage" — the exchange's per-symbol position cap for the account's
       // leverage bracket is full. Retrying next scan is guaranteed to fail

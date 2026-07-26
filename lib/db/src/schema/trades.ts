@@ -36,6 +36,10 @@ export const tradesTable = pgTable("trades", {
    *  replacement and closes on OANDA are keyed by it, so it is persisted —
    *  in-memory-only tracking would break across restarts. */
   exchangeTradeId: text("exchange_trade_id"),
+  /** Join key linking this trade back to its execution_intents row, and
+   *  forward to its outcome — the spine of the trade's whole history. Null on
+   *  trades opened before the intent log existed, and on seeded demo rows. */
+  correlationId: text("correlation_id"),
   /** Phase 2.5 Risk Audit: true when actual loss exceeded expected max loss */
   riskViolation: boolean("risk_violation").notNull().default(false),
   /** Phase 2.5 Risk Audit: human-readable explanation of the violation */
