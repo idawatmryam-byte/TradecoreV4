@@ -22,6 +22,46 @@ export interface PipelineStage {
   data?: Record<string, unknown>;
 }
 
+/**
+ * Complete the five-stage trace for a Co-Pilot recommendation.
+ * `precedingStages` is Market Data / Indicators / Signal / Risk Checks,
+ * already finalized — reaching this call means all four passed, so the fifth
+ * stage is always the recommend executor's own outcome, never a failure.
+ *
+ * Lives here rather than beside RecommendExecutor because it is pure: that
+ * module imports the database at load time, which would make any test of
+ * these functions require a live DATABASE_URL. Same reason execution/ids.ts
+ * holds makeClientOrderId.
+ */
+export function buildDecisionTrace(precedingStages: PipelineStage[] | undefined, expiresAt: Date): PipelineStage[] {
+  const orderStage: PipelineStage = {
+    name: "Order",
+    status: "pass",
+    detail: `Recorded as a Co-Pilot recommendation — awaiting your review (expires ${expiresAt.toISOString().slice(11, 16)} UTC)`,
+  };
+  return [...(precedingStages ?? []), orderStage];
+}
+
+/**
+ * The trace for a user-authored modification. The market conditions
+ * (Market Data / Indicators / Signal / Risk Checks) that made the ORIGINAL
+ * setup worth reporting are still honest context — a modification changes the
+ * numbers, not what the market was doing — so those four stages carry over
+ * unchanged. Only the final stage is replaced, to say plainly that a human,
+ * not the strategy, produced this version.
+ */
+export function relabelTraceForModification(parentTrace: PipelineStage[] | null | undefined, expiresAt: Date): PipelineStage[] {
+  const preceding = (parentTrace ?? []).filter((s) => s.name !== "Order");
+  return [
+    ...preceding,
+    {
+      name: "Order",
+      status: "pass",
+      detail: `User-modified plan — awaiting your review (expires ${expiresAt.toISOString().slice(11, 16)} UTC)`,
+    },
+  ];
+}
+
 /** A single named risk check with its pass/fail result. */
 export interface RiskCheck {
   name: string;

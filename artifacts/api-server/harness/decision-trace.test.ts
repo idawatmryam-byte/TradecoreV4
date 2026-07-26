@@ -18,8 +18,13 @@
  *
  * Run:  tsx harness/decision-trace.test.ts   (exit 0 = pass)
  */
-import { buildDecisionTrace, relabelTraceForModification } from "../src/lib/execution/recommendExecutor";
-import type { PipelineStage } from "../src/lib/decisionTrace";
+// Imported from decisionTrace (pure types + builders), NOT from
+// recommendExecutor — that module imports @workspace/db at load time, which
+// would make this "pure" test require a live DATABASE_URL and fail CI's
+// no-database test step.
+import {
+  buildDecisionTrace, relabelTraceForModification, type PipelineStage,
+} from "../src/lib/decisionTrace";
 
 let failures = 0;
 function expect(name: string, cond: boolean, detail = "") {
