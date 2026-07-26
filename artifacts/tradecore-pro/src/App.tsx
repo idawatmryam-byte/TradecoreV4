@@ -15,6 +15,7 @@ import { Account } from '@/pages/account';
 import { Decisions } from '@/pages/decisions';
 import { Journal } from '@/pages/journal';
 import CoPilot from '@/pages/copilot';
+import CoPilotWorkspace from '@/pages/copilot-workspace';
 import { SectionProvider } from '@/lib/section';
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ function Router() {
         <Route path="/" component={Dashboard} />
         <Route path="/trades" component={Trades} />
         <Route path="/copilot" component={CoPilot} />
+        <Route path="/copilot/:id" component={CoPilotWorkspace} />
         <Route path="/decisions" component={Decisions} />
         <Route path="/journal" component={Journal} />
         <Route path="/stats" component={Stats} />
