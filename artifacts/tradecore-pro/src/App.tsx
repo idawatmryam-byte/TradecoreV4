@@ -13,6 +13,7 @@ import { Strategies } from '@/pages/strategies';
 import { StrategyBuilder } from '@/pages/strategy-builder';
 import { Account } from '@/pages/account';
 import { Decisions } from '@/pages/decisions';
+import { Journal } from '@/pages/journal';
 import { SectionProvider } from '@/lib/section';
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ function Router() {
         <Route path="/" component={Dashboard} />
         <Route path="/trades" component={Trades} />
         <Route path="/decisions" component={Decisions} />
+        <Route path="/journal" component={Journal} />
         <Route path="/stats" component={Stats} />
         <Route path="/memory" component={Memory} />
         <Route path="/backtest" component={Backtest} />

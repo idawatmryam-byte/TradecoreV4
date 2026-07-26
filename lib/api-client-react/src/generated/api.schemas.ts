@@ -189,6 +189,53 @@ export interface StrategyDecisionEntry {
   lastSeenAt: string;
 }
 
+export type JournalEntryOutcome = typeof JournalEntryOutcome[keyof typeof JournalEntryOutcome];
+
+
+export const JournalEntryOutcome = {
+  win: 'win',
+  loss: 'loss',
+  breakeven: 'breakeven',
+} as const;
+
+export interface JournalEntry {
+  id: number;
+  tradeId: number;
+  outcome: JournalEntryOutcome;
+  /**
+     * Realized reward:risk in R units = net P&L ÷ planned dollar risk.
+     * @nullable
+     */
+  rMultiple?: number | null;
+  /**
+     * Evidence-based execution grade A-F — a scorecard of what happened, not a prediction.
+     * @nullable
+     */
+  grade?: string | null;
+  /** Itemised factual findings (fees vs. move, stop-in-noise, momentum decay, etc.). */
+  findings: string[];
+  summary: string;
+  createdAt: string;
+  symbol: string;
+  side: string;
+  /** @nullable */
+  strategyId?: string | null;
+  /** @nullable */
+  strategyName?: string | null;
+  entryPrice: number;
+  /** @nullable */
+  exitPrice?: number | null;
+  /** @nullable */
+  pnl?: number | null;
+  entryTime: string;
+  /** @nullable */
+  exitTime?: string | null;
+  /** @nullable */
+  exitReason?: string | null;
+  /** @nullable */
+  holdingSeconds?: number | null;
+}
+
 export interface LiveTicker {
   symbol: string;
   last: number;
@@ -1346,6 +1393,29 @@ export const GetDecisionJournalKind = {
   executed: 'executed',
   approved_not_taken: 'approved_not_taken',
   rejected: 'rejected',
+} as const;
+
+export type GetJournalParams = {
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+/**
+ * Return rows with id lower than this (cursor pagination)
+ */
+before?: number;
+symbol?: string;
+outcome?: GetJournalOutcome;
+};
+
+export type GetJournalOutcome = typeof GetJournalOutcome[keyof typeof GetJournalOutcome];
+
+
+export const GetJournalOutcome = {
+  win: 'win',
+  loss: 'loss',
+  breakeven: 'breakeven',
 } as const;
 
 export type GetTradesParams = {

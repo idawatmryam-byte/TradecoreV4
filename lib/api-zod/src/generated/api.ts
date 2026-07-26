@@ -225,6 +225,46 @@ export const GetDecisionJournalResponse = zod.array(GetDecisionJournalResponseIt
 
 
 /**
+ * A factual, deterministic post-mortem for every closed LIVE trade — outcome, realized R-multiple, an evidence-based execution grade, and itemised findings (fees vs. move, stop-in-noise, momentum decay, etc.). Generated automatically the moment a trade closes; this endpoint only reads it. Backtest trades never get an entry. Newest first.
+ * @summary Get the per-trade post-mortem journal
+ */
+export const getJournalQueryLimitDefault = 50;
+export const getJournalQueryLimitMax = 200;
+
+
+
+export const GetJournalQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(getJournalQueryLimitMax).default(getJournalQueryLimitDefault),
+  "before": zod.coerce.number().optional().describe('Return rows with id lower than this (cursor pagination)'),
+  "symbol": zod.coerce.string().optional(),
+  "outcome": zod.enum(['win', 'loss', 'breakeven']).optional()
+})
+
+export const GetJournalResponseItem = zod.object({
+  "id": zod.number(),
+  "tradeId": zod.number(),
+  "outcome": zod.enum(['win', 'loss', 'breakeven']),
+  "rMultiple": zod.number().nullish().describe('Realized reward:risk in R units = net P&L ÷ planned dollar risk.'),
+  "grade": zod.string().nullish().describe('Evidence-based execution grade A-F — a scorecard of what happened, not a prediction.'),
+  "findings": zod.array(zod.string()).describe('Itemised factual findings (fees vs. move, stop-in-noise, momentum decay, etc.).'),
+  "summary": zod.string(),
+  "createdAt": zod.string(),
+  "symbol": zod.string(),
+  "side": zod.string(),
+  "strategyId": zod.string().nullish(),
+  "strategyName": zod.string().nullish(),
+  "entryPrice": zod.number(),
+  "exitPrice": zod.number().nullish(),
+  "pnl": zod.number().nullish(),
+  "entryTime": zod.string(),
+  "exitTime": zod.string().nullish(),
+  "exitReason": zod.string().nullish(),
+  "holdingSeconds": zod.number().nullish()
+})
+export const GetJournalResponse = zod.array(GetJournalResponseItem)
+
+
+/**
  * Aggregated explanation of why trades are or are not being executed
  * @summary Get blocking summary
  */

@@ -310,6 +310,42 @@ paths:
                 items:
                   $ref: "#/components/schemas/StrategyDecisionEntry"
 
+  /journal:
+    get:
+      operationId: getJournal
+      tags: [bot]
+      summary: Get the per-trade post-mortem journal
+      description: >
+        A factual, deterministic post-mortem for every closed LIVE trade —
+        outcome, realized R-multiple, an evidence-based execution grade, and
+        itemised findings (fees vs. move, stop-in-noise, momentum decay,
+        etc.). Generated automatically the moment a trade closes; this
+        endpoint only reads it. Backtest trades never get an entry. Newest
+        first.
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: before
+          in: query
+          description: Return rows with id lower than this (cursor pagination)
+          schema: { type: integer }
+        - name: symbol
+          in: query
+          schema: { type: string }
+        - name: outcome
+          in: query
+          schema: { type: string, enum: [win, loss, breakeven] }
+      responses:
+        "200":
+          description: Journal entries, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JournalEntry"
+
   /bot/blocking-summary:
     get:
       operationId: getBlockingSummary
@@ -1249,6 +1285,55 @@ components:
           type: integer
         lastSeenAt:
           type: string
+
+    JournalEntry:
+      type: object
+      required: [id, tradeId, outcome, findings, summary, createdAt, symbol, side, entryPrice, entryTime]
+      properties:
+        id:
+          type: integer
+        tradeId:
+          type: integer
+        outcome:
+          type: string
+          enum: [win, loss, breakeven]
+        rMultiple:
+          description: Realized reward:risk in R units = net P&L ÷ planned dollar risk.
+          type: ["number", "null"]
+        grade:
+          description: Evidence-based execution grade A-F — a scorecard of what happened, not a prediction.
+          type: ["string", "null"]
+        findings:
+          description: Itemised factual findings (fees vs. move, stop-in-noise, momentum decay, etc.).
+          type: array
+          items:
+            type: string
+        summary:
+          type: string
+        createdAt:
+          type: string
+        symbol:
+          type: string
+        side:
+          type: string
+        strategyId:
+          type: ["string", "null"]
+        strategyName:
+          type: ["string", "null"]
+        entryPrice:
+          type: number
+        exitPrice:
+          type: ["number", "null"]
+        pnl:
+          type: ["number", "null"]
+        entryTime:
+          type: string
+        exitTime:
+          type: ["string", "null"]
+        exitReason:
+          type: ["string", "null"]
+        holdingSeconds:
+          type: ["integer", "null"]
 
     LiveTicker:
       type: object
