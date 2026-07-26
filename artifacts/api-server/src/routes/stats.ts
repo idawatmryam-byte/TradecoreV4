@@ -7,6 +7,14 @@ import {
   GetDailyStatsResponse,
   GetHourlyStatsResponse,
 } from "@workspace/api-zod";
+import {
+  isWin,
+  maxDrawdownAbsolute,
+  round2,
+  round4,
+  round8,
+  winRateOrZero,
+} from "../lib/metrics/kernel";
 
 const router: IRouter = Router();
 
@@ -19,18 +27,12 @@ router.get("/stats/summary", async (req, res): Promise<void> => {
 
   const totalTrades = closed.length;
   const pnls = closed.map((t) => Number(t.pnl ?? 0));
-  const wins = pnls.filter((p) => p > 0);
-  const winRate = totalTrades > 0 ? wins.length / totalTrades : 0;
+  const wins = pnls.filter(isWin);
+  const winRate = winRateOrZero(wins.length, totalTrades);
   const totalPnl = pnls.reduce((a, b) => a + b, 0);
 
-  // Max drawdown: running peak → trough
-  let peak = 0, runningPnl = 0, maxDrawdown = 0;
-  for (const p of pnls) {
-    runningPnl += p;
-    if (runningPnl > peak) peak = runningPnl;
-    const dd = peak - runningPnl;
-    if (dd > maxDrawdown) maxDrawdown = dd;
-  }
+  // Max drawdown in dollars (running peak → trough of cumulative P&L).
+  const maxDrawdown = maxDrawdownAbsolute(pnls);
 
   const avgConfidence = closed.length > 0
     ? closed.reduce((sum, t) => sum + Number(t.confidence), 0) / closed.length
@@ -48,9 +50,9 @@ router.get("/stats/summary", async (req, res): Promise<void> => {
     const t = closed[i]!;
     const p = Number(t.pnl ?? 0);
     if (streakType === "none") {
-      streakType = p > 0 ? "win" : "loss";
+      streakType = isWin(p) ? "win" : "loss";
       streakCurrent = 1;
-    } else if ((streakType === "win" && p > 0) || (streakType === "loss" && p <= 0)) {
+    } else if ((streakType === "win" && isWin(p)) || (streakType === "loss" && !isWin(p))) {
       streakCurrent++;
     } else {
       break;
@@ -60,12 +62,12 @@ router.get("/stats/summary", async (req, res): Promise<void> => {
   res.json(
     GetStatsSummaryResponse.parse({
       totalTrades,
-      winRate: Math.round(winRate * 10000) / 10000,
-      totalPnl: Math.round(totalPnl * 1e8) / 1e8,
-      maxDrawdown: Math.round(maxDrawdown * 1e8) / 1e8,
-      avgConfidence: Math.round(avgConfidence * 100) / 100,
-      bestTrade: Math.round(bestTrade * 1e8) / 1e8,
-      worstTrade: Math.round(worstTrade * 1e8) / 1e8,
+      winRate: round4(winRate),
+      totalPnl: round8(totalPnl),
+      maxDrawdown: round8(maxDrawdown),
+      avgConfidence: round2(avgConfidence),
+      bestTrade: round8(bestTrade),
+      worstTrade: round8(worstTrade),
       streakCurrent,
       streakType: closed.length === 0 ? "none" : streakType,
     })
@@ -95,7 +97,7 @@ router.get("/stats/daily", async (req, res): Promise<void> => {
     .where(and(eq(tradesTable.userId, req.userId!), eq(tradesTable.section, req.section!), eq(tradesTable.status, "open")));
 
   const pnls = closedToday.map((t) => Number(t.pnl ?? 0));
-  const wins = pnls.filter((p) => p > 0);
+  const wins = pnls.filter(isWin);
   const totalPnl = pnls.reduce((a, b) => a + b, 0);
 
   const hourlyRows = await db
@@ -109,7 +111,7 @@ router.get("/stats/daily", async (req, res): Promise<void> => {
     const r = hourlyMap.get(h);
     const pnl = r ? Number(r.pnl) : 0;
     const tradeCount = r ? r.tradeCount : 0;
-    const winRate = r && r.tradeCount > 0 ? r.winCount / r.tradeCount : 0;
+    const winRate = winRateOrZero(r?.winCount ?? 0, r?.tradeCount ?? 0);
     return { hour: h, pnl, tradeCount, winRate, isToxic: false };
   });
 
@@ -135,7 +137,7 @@ router.get("/stats/daily", async (req, res): Promise<void> => {
     GetDailyStatsResponse.parse({
       date: dateStr,
       tradesCount: closedToday.length,
-      winRate: closedToday.length > 0 ? wins.length / closedToday.length : 0,
+      winRate: winRateOrZero(wins.length, closedToday.length),
       totalPnl,
       openPositions: openToday.length,
       circuitBreakerHit: totalPnl <= -Math.abs(dailyLossLimit),
@@ -162,7 +164,7 @@ router.get("/stats/hourly", async (req, res): Promise<void> => {
     const r = rows.find((row) => row.hour === h);
     const pnl = r ? Number(r.pnl) : 0;
     const tradeCount = r ? Number(r.tradeCount) : 0;
-    const winRate = r && Number(r.tradeCount) > 0 ? Number(r.winCount) / Number(r.tradeCount) : 0;
+    const winRate = winRateOrZero(Number(r?.winCount ?? 0), Number(r?.tradeCount ?? 0));
     return { hour: h, pnl, tradeCount, winRate, isToxic: pnl < 0 && tradeCount > 0 };
   });
 

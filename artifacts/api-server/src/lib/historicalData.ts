@@ -77,6 +77,7 @@ async function persistCandles(
     low: c[3].toFixed(8),
     close: c[4].toFixed(8),
     volume: c[5].toFixed(8),
+    source: "exchange" as const, // real Binance data — see schema note on `source`
   }));
 
   // Batch insert in chunks of 500 to stay within parameter limits
@@ -200,8 +201,34 @@ export async function ensureCandles(
 }
 
 /**
+ * Opt-in escape hatch for the validation harness, which legitimately runs the
+ * real backtest engine over seeded synthetic candles (see harness/README.md).
+ * Nothing in the server sets it, so a user-facing backtest can never silently
+ * compute a result on invented data.
+ */
+export function syntheticCandlesAllowed(): boolean {
+  return process.env.TRADECORE_ALLOW_SYNTHETIC_CANDLES === "1";
+}
+
+/** Thrown when a backtest would have been computed on harness-seeded data. */
+export class SyntheticDataError extends Error {
+  constructor(symbol: string, timeframe: string, count: number) {
+    super(
+      `Refusing to backtest ${symbol} ${timeframe}: ${count} of the cached candles are SYNTHETIC ` +
+        `(seeded by harness/generate-data.ts), not real market data. Absolute results on synthetic ` +
+        `candles are meaningless. Re-download real data, or set ` +
+        `TRADECORE_ALLOW_SYNTHETIC_CANDLES=1 if this is a harness run.`
+    );
+    this.name = "SyntheticDataError";
+  }
+}
+
+/**
  * Load candles from the DB for a given symbol/timeframe/date range.
  * Returns them sorted by timestamp ascending as Candle tuples.
+ *
+ * Throws SyntheticDataError if any candle in the range was produced by the
+ * harness seeder, unless synthetic data is explicitly allowed.
  */
 export async function loadCandles(
   symbol: string,
@@ -221,6 +248,11 @@ export async function loadCandles(
       )
     )
     .orderBy(historicalCandlesTable.timestamp);
+
+  if (!syntheticCandlesAllowed()) {
+    const synthetic = rows.reduce((n, r) => (r.source === "synthetic" ? n + 1 : n), 0);
+    if (synthetic > 0) throw new SyntheticDataError(symbol, timeframe, synthetic);
+  }
 
   return rows.map((r) => [
     Number(r.timestamp),

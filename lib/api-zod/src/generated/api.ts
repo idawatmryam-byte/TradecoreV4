@@ -265,6 +265,122 @@ export const GetJournalResponse = zod.array(GetJournalResponseItem)
 
 
 /**
+ * TradePlans the engine produced in Co-Pilot mode and handed to you instead of executing. Each is byte-identical to what AutoPilot would have traded for the same scan — the planFingerprint proves it.
+ * @summary Co-Pilot recommendations awaiting a decision
+ */
+export const getCopilotInboxQueryLimitDefault = 50;
+export const getCopilotInboxQueryLimitMax = 200;
+
+
+
+export const GetCopilotInboxQueryParams = zod.object({
+  "status": zod.coerce.string().optional().describe('Comma-separated statuses. Defaults to `created` (the actionable ones).'),
+  "limit": zod.coerce.number().min(1).max(getCopilotInboxQueryLimitMax).default(getCopilotInboxQueryLimitDefault)
+})
+
+export const GetCopilotInboxResponse = zod.object({
+  "recommendations": zod.array(zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['created', 'executed', 'rejected', 'expired', 'superseded', 'blocked']),
+  "authoredBy": zod.enum(['engine', 'user']).describe('\"user\" marks a plan the trader modified — outcome attribution depends on it.'),
+  "derivedFromId": zod.number().nullish(),
+  "symbol": zod.string(),
+  "strategyId": zod.string(),
+  "strategyName": zod.string().nullish(),
+  "side": zod.enum(['long', 'short']),
+  "confidence": zod.number(),
+  "entryPrice": zod.number(),
+  "slPrice": zod.number(),
+  "tpPrice": zod.number(),
+  "qty": zod.number(),
+  "leverage": zod.number(),
+  "planFingerprint": zod.string().describe('SHA-256 of the decision content. Identical to the plan AutoPilot would have executed for the same scan.'),
+  "entryReason": zod.string().nullish(),
+  "expiresAt": zod.string(),
+  "createdAt": zod.string(),
+  "actedAt": zod.string().nullish(),
+  "tradeId": zod.number().nullish(),
+  "resolutionReason": zod.string().nullish()
+}))
+})
+
+
+/**
+ * Re-validates before placing anything: expiry, price drift measured in the plan's own R units, and every account-level risk gate. Approval means "is this still a good idea?", not "place this order". A plan that fails becomes `blocked`, which is terminal and read-only.
+ * @summary Approve and execute a recommendation
+ */
+export const ExecuteRecommendationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ExecuteRecommendationResponse = zod.object({
+  "ok": zod.boolean(),
+  "status": zod.enum(['created', 'executed', 'rejected', 'expired', 'superseded', 'blocked']),
+  "reason": zod.string(),
+  "checks": zod.array(zod.object({
+  "name": zod.string(),
+  "passed": zod.boolean(),
+  "detail": zod.string()
+})).optional().describe('Every re-validation check that ran, pass or fail — not just the first failure.'),
+  "tradeId": zod.number().optional(),
+  "newRecommendationId": zod.number().optional().describe('Set by modify(): the new user-authored plan.')
+})
+
+
+/**
+ * @summary Decline a recommendation
+ */
+export const RejectRecommendationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RejectRecommendationBody = zod.object({
+  "note": zod.string().optional()
+})
+
+export const RejectRecommendationResponse = zod.object({
+  "ok": zod.boolean(),
+  "status": zod.enum(['created', 'executed', 'rejected', 'expired', 'superseded', 'blocked']),
+  "reason": zod.string(),
+  "checks": zod.array(zod.object({
+  "name": zod.string(),
+  "passed": zod.boolean(),
+  "detail": zod.string()
+})).optional().describe('Every re-validation check that ran, pass or fail — not just the first failure.'),
+  "tradeId": zod.number().optional(),
+  "newRecommendationId": zod.number().optional().describe('Set by modify(): the new user-authored plan.')
+})
+
+
+/**
+ * Does NOT edit the plan. Creates a NEW plan referencing the original, authored by you and re-validated from scratch; the original is marked `superseded` and keeps its numbers forever. That is what lets a later post-mortem say whether a loss was the engine's decision or yours.
+ * @summary Create a user-authored variant of a recommendation
+ */
+export const ModifyRecommendationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ModifyRecommendationBody = zod.object({
+  "slPrice": zod.number().optional(),
+  "tpPrice": zod.number().optional(),
+  "qty": zod.number().optional()
+})
+
+export const ModifyRecommendationResponse = zod.object({
+  "ok": zod.boolean(),
+  "status": zod.enum(['created', 'executed', 'rejected', 'expired', 'superseded', 'blocked']),
+  "reason": zod.string(),
+  "checks": zod.array(zod.object({
+  "name": zod.string(),
+  "passed": zod.boolean(),
+  "detail": zod.string()
+})).optional().describe('Every re-validation check that ran, pass or fail — not just the first failure.'),
+  "tradeId": zod.number().optional(),
+  "newRecommendationId": zod.number().optional().describe('Set by modify(): the new user-authored plan.')
+})
+
+
+/**
  * The in-app channel for the same alerts that fire the risk-alert webhook (circuit breaker, risk pause, untracked-position detection, startup reconciliation failures) — visible even if no webhook is configured. Unread-first (newest first within that), cursor paginated via ?before=<id>.
  * @summary Get in-app notifications
  */
@@ -618,6 +734,9 @@ export const GetConfigResponse = zod.object({
   "cooldownMinutes": zod.number(),
   "scanIntervalSeconds": zod.number(),
   "pairs": zod.array(zod.string()),
+  "executionTarget": zod.enum(['demo', 'live']).describe('Where approved TradePlans execute. \'demo\' = TradeCore\'s internal simulation on live market data (no broker, no API keys, no real money); \'live\' = real orders through the connected broker.'),
+  "mode": zod.enum(['research', 'copilot', 'autopilot']).describe('What happens once a TradePlan exists. \'autopilot\' executes it; \'copilot\' records it for the user to approve; \'research\' never executes. The intelligence pipeline is identical in all three.'),
+  "demoStartingBalanceUsdt": zod.number().describe('Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades.'),
   "testnet": zod.boolean(),
   "backtestMode": zod.boolean(),
   "highFrequencyTestMode": zod.boolean().describe('Testnet\/demo only: when on, the live engine overrides its turnover-limiting gates (cooldown, confidence floor, toxic hours, max positions, daily-loss breaker, max holding time) to generate a high volume of trades for end-to-end testing. Ignored on real-money keys. Not a profitable configuration.'),
@@ -689,6 +808,9 @@ export const UpdateConfigBody = zod.object({
   "cooldownMinutes": zod.number().min(updateConfigBodyCooldownMinutesMin).max(updateConfigBodyCooldownMinutesMax).optional(),
   "scanIntervalSeconds": zod.number().min(updateConfigBodyScanIntervalSecondsMin).max(updateConfigBodyScanIntervalSecondsMax).optional(),
   "pairs": zod.array(zod.string()).optional(),
+  "executionTarget": zod.enum(['demo', 'live']).optional().describe('Where approved TradePlans execute. \'demo\' = TradeCore\'s internal simulation on live market data (no broker, no API keys, no real money); \'live\' = real orders through the connected broker.'),
+  "mode": zod.enum(['research', 'copilot', 'autopilot']).optional().describe('What happens once a TradePlan exists. \'autopilot\' executes it; \'copilot\' records it for the user to approve; \'research\' never executes. The intelligence pipeline is identical in all three.'),
+  "demoStartingBalanceUsdt": zod.number().optional().describe('Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades.'),
   "testnet": zod.boolean().optional(),
   "backtestMode": zod.boolean().optional(),
   "highFrequencyTestMode": zod.boolean().optional().describe('Testnet\/demo only: when on, the live engine overrides its turnover-limiting gates to generate a high volume of trades for end-to-end testing. Ignored on real-money keys.'),
@@ -716,6 +838,9 @@ export const UpdateConfigResponse = zod.object({
   "cooldownMinutes": zod.number(),
   "scanIntervalSeconds": zod.number(),
   "pairs": zod.array(zod.string()),
+  "executionTarget": zod.enum(['demo', 'live']).describe('Where approved TradePlans execute. \'demo\' = TradeCore\'s internal simulation on live market data (no broker, no API keys, no real money); \'live\' = real orders through the connected broker.'),
+  "mode": zod.enum(['research', 'copilot', 'autopilot']).describe('What happens once a TradePlan exists. \'autopilot\' executes it; \'copilot\' records it for the user to approve; \'research\' never executes. The intelligence pipeline is identical in all three.'),
+  "demoStartingBalanceUsdt": zod.number().describe('Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades.'),
   "testnet": zod.boolean(),
   "backtestMode": zod.boolean(),
   "highFrequencyTestMode": zod.boolean().describe('Testnet\/demo only: when on, the live engine overrides its turnover-limiting gates (cooldown, confidence floor, toxic hours, max positions, daily-loss breaker, max holding time) to generate a high volume of trades for end-to-end testing. Ignored on real-money keys. Not a profitable configuration.'),

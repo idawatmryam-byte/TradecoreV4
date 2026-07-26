@@ -30,7 +30,17 @@ import {
   type MarketRegime,
 } from "./strategy";
 import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig, type PositionSide } from "./strategies";
-import { computeTrailingStop } from "./tradeManager";
+import {
+  manageBar, settleBar, updateExcursion,
+  type BarContext, type FillCosts, type PartialExitRecord, type SimulatedPosition,
+} from "./execution/fillModel";
+import {
+  expectancyPerTrade,
+  isWin,
+  maxDrawdownFraction,
+  profitFactor as profitFactorOf,
+  winRateOrZero,
+} from "./metrics/kernel";
 import { loadStrategyConfigs } from "./strategyConfigLoader";
 import { loadCustomStrategies, invalidateCustomStrategies } from "./customStrategyLoader";
 import { buildEffectiveBacktestConfigs, buildPerStrategyBacktestConfigs } from "./backtestConfig";
@@ -142,71 +152,11 @@ export interface BacktestParams {
   onlyStrategyId?: string;
 }
 
-interface PartialExitRecord {
-  reason: "tp1" | "tp2";
-  qty: number;
-  price: number;
-  fees: number;
-  pnl: number;
-  time: Date;
-}
+// The simulated position shape and the whole bar-by-bar fill model now live
+// in execution/fillModel.ts, shared verbatim with the built-in Demo account so
+// a demo fill and a backtest fill cannot drift apart.
+type OpenPosition = SimulatedPosition;
 
-interface OpenPosition {
-  symbol: string;
-  side: PositionSide;
-  entryPrice: number;
-  /** Current stop — mutates via break-even move (Phase 4B) and trailing (Phase 4B). */
-  slPrice: number;
-  /** Final target — immutable after entry, exactly like live's `trades.takeProfit`. */
-  tpPrice: number;
-  /** Original planned stop before any break-even/trailing move — R-multiples
-   *  for TP1/TP2/trailing are always measured from this, matching
-   *  TradeManager's use of `trades.plannedStopLoss` (Phase 4A parity). */
-  plannedSlPrice: number;
-  /** Original full entry size — immutable. */
-  qty: number;
-  /** Shrinks as TP1/TP2 partials fill. What's left to close via the final exit. */
-  remainingQty: number;
-  entryTime: Date;
-  confidence: number;
-  /** Entry-side fee only; exit-side fees are computed per-slice at close time. */
-  fees: number;
-  slippage: number;
-  /** Futures only: estimated isolated-margin liquidation price. Undefined for
-   *  spot / 1x, where liquidation can't occur. */
-  liquidationPrice?: number;
-  strategyId?: string;
-  strategyName?: string;
-  regime?: string;
-  // ── Decision engine ("the brains") ─────────────────────────────────────────
-  /** Per-trade leverage from the plan (legacy plans = the run's leverage). */
-  leverage: number;
-  /** Per-trade forced-exit deadline from the plan (seconds). */
-  maxHoldSeconds?: number;
-  /** The plan's expected resolution time (stale-thesis exit input). */
-  expectedHoldSeconds?: number;
-  entryReason?: string;
-  /** The full TradePlan this simulated trade executed. */
-  tradePlan?: unknown;
-  /** Phase 4C: running Maximum Favorable/Adverse Excursion, in USDT, updated every bar. */
-  mfe: number;
-  mae: number;
-  // ── Phase 7: trade-management ladder (mirrors trades.* / TradeManager) ─────
-  tp1Price: number;
-  tp1Qty: number;
-  tp1Filled: boolean;
-  tp1FillPrice?: number;
-  tp1FillTime?: Date;
-  tp2Price: number;
-  tp2Qty: number;
-  tp2Filled: boolean;
-  tp2FillPrice?: number;
-  tp2FillTime?: Date;
-  breakEvenActive: boolean;
-  trailingStopActive: boolean;
-  trailingStopMode?: string;
-  partialExits: PartialExitRecord[];
-}
 
 interface SimTrade {
   symbol: string;
@@ -350,9 +300,9 @@ function computeMetrics(
   equityCurve: number[]
 ) {
   const totalTrades = trades.length;
-  const wins = trades.filter((t) => t.pnl > 0);
-  const losses = trades.filter((t) => t.pnl <= 0);
-  const winRate = totalTrades > 0 ? wins.length / totalTrades : 0;
+  const wins = trades.filter((t) => isWin(t.pnl));
+  const losses = trades.filter((t) => !isWin(t.pnl));
+  const winRate = winRateOrZero(wins.length, totalTrades);
 
   const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
   const totalReturn =
@@ -363,16 +313,10 @@ function computeMetrics(
 
   const grossProfit = wins.reduce((s, t) => s + t.pnl, 0);
   const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
-  const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? 999 : 0;
-  const expectancy = totalTrades > 0 ? totalPnl / totalTrades : 0;
+  const profitFactor = profitFactorOf(grossProfit, grossLoss);
+  const expectancy = expectancyPerTrade(totalPnl, totalTrades);
 
-  let maxDrawdown = 0;
-  let peak = equityCurve[0] ?? startingBalance;
-  for (const bal of equityCurve) {
-    if (bal > peak) peak = bal;
-    const dd = peak > 0 ? (peak - bal) / peak : 0;
-    if (dd > maxDrawdown) maxDrawdown = dd;
-  }
+  const maxDrawdown = maxDrawdownFraction(equityCurve, startingBalance);
 
   // Annualised Sharpe / Sortino from equity-curve returns
   const dailyReturns: number[] = [];
@@ -433,16 +377,16 @@ function computeMetrics(
     byStrategy.get(id)!.trades.push(t);
   }
   const strategyComparison = [...byStrategy.entries()].map(([strategyId, { strategyName, trades: st }]) => {
-    const stWins = st.filter((t) => t.pnl > 0);
-    const stLosses = st.filter((t) => t.pnl <= 0);
+    const stWins = st.filter((t) => isWin(t.pnl));
+    const stLosses = st.filter((t) => !isWin(t.pnl));
     const stGrossProfit = stWins.reduce((s, t) => s + t.pnl, 0);
     const stGrossLoss = Math.abs(stLosses.reduce((s, t) => s + t.pnl, 0));
     return {
       strategyId, strategyName,
       trades: st.length,
-      winRate: st.length > 0 ? stWins.length / st.length : 0,
+      winRate: winRateOrZero(stWins.length, st.length),
       pnl: st.reduce((s, t) => s + t.pnl, 0),
-      profitFactor: stGrossLoss > 0 ? stGrossProfit / stGrossLoss : stGrossProfit > 0 ? 999 : 0,
+      profitFactor: profitFactorOf(stGrossProfit, stGrossLoss),
     };
   }).sort((a, b) => b.pnl - a.pnl);
 
@@ -483,6 +427,9 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
   const makerFeeRate = params.makerFeeRate ?? feeRate;
   const makerEntry = params.makerEntry ?? false;
   const makerEntryFillWindowMs = (params.makerEntryFillWindowMinutes ?? 30) * 60_000;
+  /** Cost model handed to the shared fill model — one object, same semantics
+   *  as the Demo account's. */
+  const fillCosts: FillCosts = { feeRate, makerFeeRate, slippageRate };
 
   // Futures leverage modeling — same semantics as the live engine:
   //   sizing:      positionSizeUsdt is the MARGIN budget per trade, so the
@@ -752,247 +699,39 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         const pos = openPositions[pi]!;
         if (pos.symbol !== symbol) continue;
 
-        // Futures Phase: a short's favorable direction is DOWN (mirror of
-        // long) — every directional calc in this loop branches on this.
-        const isShort = pos.side === "short";
-
-        // Phase 4C: update running MFE/MAE with this bar's range before
-        // evaluating exits, so a bar that both makes a new excursion AND
-        // triggers the exit still has that excursion counted.
-        const favorableExcursion = isShort ? (pos.entryPrice - low) * pos.qty : (high - pos.entryPrice) * pos.qty;
-        const adverseExcursion = isShort ? (pos.entryPrice - high) * pos.qty : (low - pos.entryPrice) * pos.qty;
-        if (favorableExcursion > pos.mfe) pos.mfe = favorableExcursion;
-        if (adverseExcursion < pos.mae) pos.mae = adverseExcursion;
-
+        // ── Shared fill model (execution/fillModel.ts) ──────────────────────
+        // Excursion tracking, TP1/TP2 partials, break-even, trailing, and the
+        // exit decision are no longer inline here: they are the SAME functions
+        // the Demo account runs, so a simulated fill means one thing across
+        // the product. Extracted verbatim — the harness Δ0 gate is the proof.
         const posStratCfg = pos.strategyId ? strategyConfigs.get(pos.strategyId) : undefined;
+        const barCtx: BarContext = { candle: currentCandle, history: candles.slice(0, idx + 1), now };
 
-        // ── Phase 7: trade management (TP1 → TP2 → trailing) ────────────────
-        // Mirrors TradeManager.manage()'s control flow exactly (same order,
-        // same conditions) — see tradeManager.ts. Runs BEFORE the final
-        // exit check below so a partial fill / break-even move / trailing
-        // tighten this same candle is reflected in that check, exactly as
-        // it would be live (TradeManager runs before ExitManager each tick).
-        if (posStratCfg && posStratCfg.tp1RMultiple > 0) {
-          // TP1: partial close + move stop to break-even. Long TP1 sits above
-          // entry (triggered by a high); short TP1 sits below (triggered by
-          // a low) — mirror of live's TradeManager.
-          if (!pos.tp1Filled && pos.tp1Price > 0 && (isShort ? low <= pos.tp1Price : high >= pos.tp1Price)) {
-            // Worse fill = lower for a long's sell-to-exit, higher for a
-            // short's buy-to-cover.
-            const fillP = pos.tp1Price * (isShort ? 1 + slippageRate : 1 - slippageRate);
-            const qty = Math.min(pos.tp1Qty, pos.remainingQty);
-            if (qty > 0) {
-              // Pro-rate the ACTUAL entry fee paid (pos.fees) by this slice's
-              // share — correct whether the entry was maker or taker — and
-              // charge the TP1 limit exit at the maker rate.
-              const entryFeeShare = pos.qty > 0 ? pos.fees * (qty / pos.qty) : 0;
-              const exitFee = fillP * qty * makerFeeRate;
-              const fees = entryFeeShare + exitFee;
-              const pnl = (isShort ? pos.entryPrice - fillP : fillP - pos.entryPrice) * qty - fees;
-              pos.partialExits.push({ reason: "tp1", qty, price: fillP, fees, pnl, time: now });
-              pos.remainingQty -= qty;
-              pos.tp1Filled = true;
-              pos.tp1FillPrice = fillP;
-              pos.tp1FillTime = now;
-              pos.slPrice = pos.entryPrice; // break-even move
-              pos.breakEvenActive = true;
-            }
-          }
-          // TP2 (only when tp3Enabled): partial close of another slice.
-          // Remainder keeps targeting the strategy's own final tpPrice
-          // (untouched) — TP1/TP2 are interior waypoints, never beyond it.
-          if (posStratCfg.tp3Enabled && pos.tp1Filled && !pos.tp2Filled && pos.tp2Price > 0 && (isShort ? low <= pos.tp2Price : high >= pos.tp2Price)) {
-            const fillP = pos.tp2Price * (isShort ? 1 + slippageRate : 1 - slippageRate);
-            const qty = Math.min(pos.tp2Qty, pos.remainingQty);
-            if (qty > 0) {
-              const entryFeeShare = pos.qty > 0 ? pos.fees * (qty / pos.qty) : 0;
-              const exitFee = fillP * qty * makerFeeRate;
-              const fees = entryFeeShare + exitFee;
-              const pnl = (isShort ? pos.entryPrice - fillP : fillP - pos.entryPrice) * qty - fees;
-              pos.partialExits.push({ reason: "tp2", qty, price: fillP, fees, pnl, time: now });
-              pos.remainingQty -= qty;
-              pos.tp2Filled = true;
-              pos.tp2FillPrice = fillP;
-              pos.tp2FillTime = now;
-              // TP2 does not move the stop further — only TP1 does (matches TradeManager).
-            }
-          }
-          // Trailing stop (normal or emergency) — same formula as live
-          // (computeTrailingStop, shared from tradeManager.ts), only ever
-          // tightens the stop (raises it for a long, lowers it for a short),
-          // never loosens it.
-          const currentClose = currentCandle[4];
-          const originalRiskDistance = isShort ? pos.plannedSlPrice - pos.entryPrice : pos.entryPrice - pos.plannedSlPrice;
-          if (originalRiskDistance > 0) {
-            const unrealizedR = (isShort ? pos.entryPrice - currentClose : currentClose - pos.entryPrice) / originalRiskDistance;
-            // Pre-TP1 break-even arm — mirror of TradeManager: once unrealized
-            // profit reaches breakEvenRMultiple × R, the stop moves to entry
-            // (only ever tightening). The trade can no longer turn into a loss.
-            if (
-              posStratCfg.breakEvenRMultiple > 0 &&
-              !pos.breakEvenActive &&
-              !pos.tp1Filled &&
-              unrealizedR >= posStratCfg.breakEvenRMultiple &&
-              (isShort ? pos.entryPrice < pos.slPrice : pos.entryPrice > pos.slPrice)
-            ) {
-              pos.slPrice = pos.entryPrice;
-              pos.breakEvenActive = true;
-            }
-            const trailingArmed = pos.tp1Filled || !posStratCfg.trailingAfterTp1Only;
-            const emergencyArmed =
-              !trailingArmed &&
-              posStratCfg.emergencyTrailingRMultiple > 0 &&
-              unrealizedR >= posStratCfg.emergencyTrailingRMultiple;
-            if ((trailingArmed && posStratCfg.trailingStopMode !== "none") || emergencyArmed) {
-              const mode = emergencyArmed ? "emergency" : posStratCfg.trailingStopMode;
-              // Documented limitation (see Q3 in the Phase 6 audit): the
-              // backtest has no independently-loaded true 1-minute candle
-              // series — `candles` here is whatever primary timeframe the
-              // user selected, same convention already used for tf1m
-              // elsewhere in this file. ATR-based trailing on a coarser
-              // primary timeframe will be proportionally wider than live's
-              // (which always computes ATR on real 1m data). Flagged in
-              // CHANGES.md as a Phase 8 follow-up, not silently assumed correct.
-              const candidate = computeTrailingStop(mode, currentClose, candles.slice(0, idx + 1), posStratCfg, emergencyArmed, isShort);
-              if (isShort ? candidate < pos.slPrice : candidate > pos.slPrice) {
-                pos.slPrice = candidate;
-                pos.trailingStopActive = true;
-                pos.trailingStopMode = mode;
-              }
-            }
-          }
-        }
+        updateExcursion(pos, high, low);
+        manageBar(pos, barCtx, posStratCfg, fillCosts);
+        const settled = settleBar(pos, barCtx, posStratCfg, fillCosts);
 
-        // ── Final exit check: stop / target / timeout ────────────────────────
-        // NOTE: if a single candle's range touches both the stop and the
-        // target, OHLC data alone can't tell us which was hit first (no tick
-        // data). When multiple conditions are true in the same candle, we
-        // resolve using the strategy's configured `exitPriority` (Phase 7 —
-        // previously this order was hardcoded stop→target→timeout regardless
-        // of config, and `exitPriority` was loaded but never actually read
-        // anywhere, live or backtest — see Phase 6 audit). Falls back to the
-        // historical stop→target→timeout order — the conservative,
-        // never-overstates-results assumption — when exitPriority is empty
-        // or doesn't cover what triggered.
-        // A short's stop sits ABOVE entry (hit by a high) and target sits
-        // BELOW (hit by a low) — mirror of long.
-        const stopTouched = isShort ? high >= pos.slPrice : low <= pos.slPrice;
-        const targetTouched = isShort ? low <= pos.tpPrice : high >= pos.tpPrice;
-        const holdSecs = (now.getTime() - pos.entryTime.getTime()) / 1000;
-        // Per-trade deadline first (the plan's own maxHoldSeconds — legacy
-        // plans persist the strategy config's value, so behavior is
-        // unchanged); strategy config is the fallback, exactly like live.
-        const posMaxHold = pos.maxHoldSeconds && pos.maxHoldSeconds > 0
-          ? pos.maxHoldSeconds
-          : posStratCfg?.maxHoldingSeconds;
-        const timedOut = posMaxHold != null && holdSecs >= posMaxHold;
-        // Stale-thesis exit — mirror of exitManager: held ≥ 1.5× the plan's
-        // EXPECTED resolution with price within ±0.25R of entry → cut early
-        // as a timeout instead of blocking capital until the hard deadline.
-        // Legacy plans persist expected = the hard max hold, so this can
-        // never fire before the hard timeout for them (behavior unchanged).
-        let staleOut = false;
-        if (!timedOut && pos.expectedHoldSeconds && pos.expectedHoldSeconds > 0 && holdSecs >= pos.expectedHoldSeconds * 2) {
-          const staleRisk = Math.abs(pos.entryPrice - pos.plannedSlPrice);
-          if (staleRisk > 0) {
-            const uR = (isShort ? pos.entryPrice - currentCandle[4] : currentCandle[4] - pos.entryPrice) / staleRisk;
-            staleOut = Math.abs(uR) <= 0.15;
-          }
-        }
-
-        // Worse fill for the CLOSING trade: lower for a long (sells to
-        // close), higher for a short (buys to close).
-        const closeSlippageMult = isShort ? 1 + slippageRate : 1 - slippageRate;
-        const stopLabel = pos.trailingStopActive ? "trailing_stop" : pos.breakEvenActive ? "break_even" : "stop_loss";
-        type Candidate = { key: string; reason: string; exitPrice: number };
-        const candidates: Candidate[] = [];
-        if (stopTouched) candidates.push({ key: "stop_loss", reason: stopLabel, exitPrice: pos.slPrice * closeSlippageMult });
-        if (stopTouched && pos.trailingStopActive) candidates.push({ key: "trailing_stop", reason: stopLabel, exitPrice: pos.slPrice * closeSlippageMult });
-        if (targetTouched) candidates.push({ key: "take_profit", reason: "take_profit", exitPrice: pos.tpPrice * closeSlippageMult });
-        if (timedOut || staleOut) candidates.push({ key: "timeout", reason: "timeout", exitPrice: currentCandle[4] * closeSlippageMult });
-        // Futures liquidation: a forced close at the liquidation price (loss ≈
-        // the posted margin). The entry guard keeps the stop INSIDE the
-        // liquidation price, so any candle reaching liquidation also reached
-        // the (closer) stop — the priority list resolves that co-touch to the
-        // stop, which fills first on the way there. Liquidation is therefore
-        // only chosen when it's the sole trigger. It's kept out of the
-        // priority list intentionally so it never pre-empts a nearer stop.
-        if (pos.liquidationPrice !== undefined) {
-          const liqTouched = isShort ? high >= pos.liquidationPrice : low <= pos.liquidationPrice;
-          if (liqTouched) candidates.push({ key: "liquidation", reason: "liquidation", exitPrice: pos.liquidationPrice * closeSlippageMult });
-        }
-
-        let chosen: Candidate | null = null;
-        if (candidates.length === 1) {
-          chosen = candidates[0]!;
-        } else if (candidates.length > 1) {
-          const priority = posStratCfg?.exitPriority?.length ? posStratCfg.exitPriority : ["stop_loss", "take_profit", "trailing_stop", "timeout"];
-          for (const key of priority) {
-            const match = candidates.find((c) => c.key === key);
-            if (match) { chosen = match; break; }
-          }
-          chosen ??= candidates[0]!; // safety net — should be unreachable given the fallback priority list above
-        }
-
-        if (chosen && chosen.exitPrice > 0) {
-          const { reason: exitReason, exitPrice } = chosen;
-          const exitQty = pos.remainingQty;
-          // A take-profit is a resting LIMIT the market fills into → maker fee.
-          // A stop / trailing / break-even / timeout / liquidation is an
-          // aggressive market close → taker fee. (Equal when makerFeeRate is
-          // unset, so this is a no-op for non-maker runs.)
-          const exitFeeRate = exitReason === "take_profit" ? makerFeeRate : feeRate;
-          const exitFees = exitPrice * exitQty * exitFeeRate;
-          const finalSlicePnl = (isShort ? pos.entryPrice - exitPrice : exitPrice - pos.entryPrice) * exitQty - exitFees;
-          const partialPnl = pos.partialExits.reduce((s, p) => s + p.pnl, 0);
-          const partialFees = pos.partialExits.reduce((s, p) => s + p.fees, 0);
-          // ACCOUNTING FIX: partial exits charge their pro-rata ENTRY-fee share
-          // (see the TP1/TP2 blocks), but the final slice never charged its
-          // own — every prior backtest overstated results by the unclosed
-          // share of entry fees (confirmed on a real 1,682-trade run: reported
-          // net −987.78 vs gross −252.72 − fees 1,377.60 = −1,630, a $642
-          // hole). Charge the remaining entry-fee share here so
-          // net = gross − totalFees holds exactly.
-          const entryFeeShareFinal = pos.qty > 0 ? pos.fees * (exitQty / pos.qty) : pos.fees;
-          const pnl = finalSlicePnl + partialPnl - entryFeeShareFinal; // NET total across every slice
-          const grossPnl = (isShort ? pos.entryPrice - exitPrice : exitPrice - pos.entryPrice) * exitQty
-            + pos.partialExits.reduce((s, p) => s + (isShort ? pos.entryPrice - p.price : p.price - pos.entryPrice) * p.qty, 0);
-          // partialFees already contain the partials' entry-fee shares — summing
-          // the final slice's share (not the whole pos.fees) avoids the old
-          // double count and makes totalFees the exact all-in cost of the trade.
-          const totalFees = entryFeeShareFinal + exitFees + partialFees;
-          const durationSeconds = Math.round((now.getTime() - pos.entryTime.getTime()) / 1000);
-          // Note: this ratio is direction-agnostic — for a short, both
-          // (tpPrice - entryPrice) and (entryPrice - plannedSlPrice) are
-          // negative, so the ratio comes out the same sign as long's.
-          const riskReward =
-            pos.entryPrice - pos.plannedSlPrice !== 0
-              ? (pos.tpPrice - pos.entryPrice) / (pos.entryPrice - pos.plannedSlPrice)
-              : 0;
-          const notional = pos.entryPrice * pos.qty;
-
-          balance += pnl;
-          dailyPnl += pnl;
+        if (settled) {
+          balance += settled.pnl;
+          dailyPnl += settled.pnl;
           if (balance > peakBalance) peakBalance = balance;
 
           allTrades.push({
             symbol, side: pos.side, entryTime: pos.entryTime, exitTime: now,
-            entryPrice: pos.entryPrice, exitPrice,
+            entryPrice: pos.entryPrice, exitPrice: settled.exitPrice,
             qty: pos.qty, slPrice: pos.slPrice, tpPrice: pos.tpPrice,
-            fees: totalFees,
-            slippage: Math.abs(pos.slippage) + Math.abs(exitPrice * exitQty * slippageRate),
-            pnl, grossPnl,
-            // Phase 6 audit fix: net-of-fees now, not gross — previously this
-            // could show a positive % on a net-losing trade (confirmed in
-            // bt6: 30/30 take-profit exits were net losers with a positive
-            // pnlPercent under the old gross-only formula).
-            pnlPercent: notional > 0 ? (pnl / notional) * 100 : 0,
-            confidence: pos.confidence, exitReason, durationSeconds,
+            fees: settled.totalFees,
+            slippage: settled.totalSlippage,
+            pnl: settled.pnl, grossPnl: settled.grossPnl,
+            pnlPercent: settled.pnlPercent,
+            confidence: pos.confidence,
+            exitReason: settled.exitReason,
+            durationSeconds: settled.durationSeconds,
             strategyId: pos.strategyId,
             strategyName: pos.strategyName,
             regime: pos.regime,
             leverage: pos.leverage, entryReason: pos.entryReason, tradePlan: pos.tradePlan,
-            mfe: pos.mfe, mae: pos.mae, riskReward,
+            mfe: pos.mfe, mae: pos.mae, riskReward: settled.riskReward,
             tp1Price: pos.tp1Price, tp1Qty: pos.tp1Qty, tp1Filled: pos.tp1Filled,
             tp1FillPrice: pos.tp1FillPrice, tp1FillTime: pos.tp1FillTime,
             tp2Price: pos.tp2Price, tp2Qty: pos.tp2Qty, tp2Filled: pos.tp2Filled,

@@ -22,6 +22,13 @@
  *   tsx harness/run.ts --label baseline [--start ISO --end ISO]
  *                      [--symbols BTCUSDT,ETHUSDT,SOLUSDT] [--balance 1000]
  */
+// This runner is the one place synthetic candles are legitimate: the whole
+// point is a fixed, deterministic dataset for measuring a one-variable delta.
+// loadCandles() otherwise refuses harness-seeded bars so they can never reach
+// a user-facing backtest. The flag is read when loadCandles() runs (not at
+// import time), so setting it here — before main() — is sufficient.
+process.env.TRADECORE_ALLOW_SYNTHETIC_CANDLES = "1";
+
 import { db, backtestRunsTable, backtestTradesTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { runBacktest, type BacktestParams } from "../src/lib/backtestEngine";

@@ -30,6 +30,21 @@ export const historicalCandlesTable = pgTable(
     low: numeric("low", { precision: 18, scale: 8 }).notNull(),
     close: numeric("close", { precision: 18, scale: 8 }).notNull(),
     volume: numeric("volume", { precision: 28, scale: 8 }).notNull(),
+    /**
+     * Where this candle came from: "exchange" (real Binance/OANDA data) or
+     * "synthetic" (the harness seeder, harness/generate-data.ts).
+     *
+     * Both write into this one table keyed by (symbol, timeframe, timestamp)
+     * with onConflictDoNothing, so on any machine where the harness has been
+     * seeded, synthetic bars would otherwise be indistinguishable from real
+     * ones — and a later real download could not overwrite them. Backtests
+     * and autopsies refuse synthetic rows unless explicitly opted in, so a
+     * user-facing result can never be quietly computed on invented data.
+     *
+     * Defaults to "exchange": every row that predates this column came from
+     * ensureCandles()/ensureForexCandles(), which only ever fetch real data.
+     */
+    source: text("source").notNull().default("exchange"),
     downloadedAt: timestamp("downloaded_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

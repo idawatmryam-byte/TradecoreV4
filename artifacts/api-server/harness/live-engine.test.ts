@@ -15,8 +15,14 @@
  *   S4  restart reconciliation → order tracking rebuilt from the exchange
  *   S5  "no stop, no position" risk rule → failed SL placement flattens
  *
- * Needs the harness Postgres (bash harness/setup.sh). Skips cleanly when
- * DATABASE_URL is unset so the pure-test chain stays runnable anywhere.
+ * REQUIRES a database (bash harness/setup.sh, or the postgres service in CI).
+ * It is therefore NOT part of `pnpm test` — that chain is pure and runnable
+ * anywhere. This runs as `pnpm test:integration`; `pnpm test:all` runs both.
+ *
+ * (The DATABASE_URL guard below cannot short-circuit the imports: ESM hoists
+ * them, so `@workspace/db` is evaluated — and throws — before any statement
+ * in this file runs. The guard is kept for a clearer message when the module
+ * graph happens to load, but the real gate is the separate npm script.)
  *
  * Run:  DATABASE_URL=... tsx harness/live-engine.test.ts   (exit 0 = pass)
  */
@@ -27,7 +33,7 @@ if (!process.env.DATABASE_URL) {
 process.env.CREDENTIALS_ENCRYPTION_KEY ??= "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 process.env.SESSION_SECRET ??= "live-engine-test-session-secret-123";
 
-import { db, tradesTable, botConfigTable, tradePartialExitsTable, strategyConfigsTable, strategyDecisionsTable, tradeAnalysesTable } from "@workspace/db";
+import { db, tradesTable, botConfigTable, tradePartialExitsTable, strategyConfigsTable, strategyDecisionsTable, tradeAnalysesTable, executionIntentsTable, executionEventsTable } from "@workspace/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { BotEngine } from "../src/lib/botEngine";
 import { loadStrategyConfigs } from "../src/lib/strategyConfigLoader";
@@ -60,6 +66,10 @@ class MockSpotExchange {
   orders = new Map<string, MockOrder>();
   private seq = 1;
   failNextStopPlacement = false;
+  /** Every newClientOrderId the engine sent — proves the intent log's id
+   *  actually reaches the venue, which is what makes a timed-out order
+   *  findable instead of blindly resubmittable. */
+  clientOrderIds: string[] = [];
 
   markets: Record<string, any> = {
     "BTC/USDT": {
@@ -86,6 +96,7 @@ class MockSpotExchange {
   async fetchPositions() { return []; }
 
   async createOrder(market: string, type: string, side: string, qty: number, price?: number, _params?: any) {
+    if (_params?.newClientOrderId) this.clientOrderIds.push(String(_params.newClientOrderId));
     if (type === "market") {
       const fill = this.price;
       if (side === "buy") { this.base += qty; this.usdt -= qty * fill; }
@@ -165,6 +176,12 @@ function plan(over: Partial<Record<string, unknown>> = {}) {
 async function cleanup() {
   const ids = (await db.select({ id: tradesTable.id }).from(tradesTable).where(eq(tradesTable.userId, USER))).map((t) => t.id);
   if (ids.length) await db.delete(tradePartialExitsTable).where(inArray(tradePartialExitsTable.tradeId, ids));
+  // Execution intents outlive their trades by design (a FAILED intent has no
+  // trade at all), so they are wiped by user, not by trade id.
+  const intentIds = (await db.select({ id: executionIntentsTable.id }).from(executionIntentsTable)
+    .where(eq(executionIntentsTable.userId, USER))).map((i) => i.id);
+  if (intentIds.length) await db.delete(executionEventsTable).where(inArray(executionEventsTable.intentId, intentIds));
+  await db.delete(executionIntentsTable).where(eq(executionIntentsTable.userId, USER));
   await db.delete(tradeAnalysesTable).where(eq(tradeAnalysesTable.userId, USER));
   await db.delete(tradesTable).where(eq(tradesTable.userId, USER));
   await db.delete(strategyDecisionsTable).where(eq(strategyDecisionsTable.userId, USER));
@@ -207,6 +224,26 @@ async function main() {
   expect("order tracking has both legs", !!ids1?.slOrderId && !!ids1?.tpOrderId);
   expect("mock holds 2 resting orders (TP limit + SL stop)", mock.openOrdersFor("BTC/USDT").length === 2);
   expect("mock position = 1 BTC", approx(mock.base, 1, 1e-9));
+
+  // ── P1: the execution intent log ──────────────────────────────────────────
+  // The durable record written BEFORE the broker call, so a crash between the
+  // fill and the trades-row insert leaves the intended stop behind instead of
+  // an unexplained position.
+  const [i1] = await db.select().from(executionIntentsTable).where(eq(executionIntentsTable.tradeId, t1!.id));
+  expect("intent row written for the entry", !!i1);
+  expect("intent reached PROTECTED", i1?.state === "PROTECTED", String(i1?.state));
+  expect("intent captured the PLANNED stop, not the filled one", Number(i1!.plannedStopLoss) === 95);
+  expect("intent carries a Binance-legal client order id", /^[.A-Z:/a-z0-9_-]{1,36}$/.test(i1!.clientOrderId), i1!.clientOrderId);
+  expect("broker received that client order id", mock.clientOrderIds.includes(i1!.clientOrderId), mock.clientOrderIds.join(","));
+  expect("correlation id links intent → trade", !!t1!.correlationId && t1!.correlationId === i1!.correlationId);
+  const ev1 = await db.select().from(executionEventsTable)
+    .where(eq(executionEventsTable.intentId, i1!.id)).orderBy(executionEventsTable.id);
+  expect(
+    "event trail is the full forward-only lifecycle",
+    ev1.map((e2) => e2.toState).join(" → ") === "INTENT_RECORDED → ORDER_SUBMITTED → FILLED → RECORDED → PROTECTED",
+    ev1.map((e2) => e2.toState).join(" → "),
+  );
+  expect("intent is recorded before the order is sent", ev1[0]!.toState === "INTENT_RECORDED");
 
   // ── S2: stop-loss fills on the venue → engine detects, closes, cleans ────
   console.log("\n— S2: SL fill detection, P&L accounting, leg cleanup —");

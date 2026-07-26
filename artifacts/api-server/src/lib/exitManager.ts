@@ -236,6 +236,32 @@ export class ExitManager {
     return this.closeTrade(trade, resolved.exitReason, resolved.exitPrice, now, cooldownMinutes);
   }
 
+  /**
+   * Close a SIMULATED position at a price the fill model already decided.
+   *
+   * The Demo account has no venue to confirm a fill against, so there is
+   * nothing to reconcile — execution/fillModel.ts has already determined that
+   * this bar took the position out, at what price, and why. What remains is
+   * the bookkeeping, and that must be the SAME bookkeeping a live close gets:
+   * identical P&L and fee arithmetic, the planned-vs-actual risk audit, the
+   * post-trade analysis, the hourly stats, the cooldown.
+   *
+   * Hence this thin door onto closeTrade rather than a parallel demo
+   * settlement path. A second implementation of "what was this trade worth"
+   * would drift, and then a demo P&L and a live P&L would quietly stop meaning
+   * the same thing — which is exactly the failure the shared fill model exists
+   * to prevent on the market-simulation side.
+   */
+  async closeSimulated(
+    trade: Trade,
+    exitReason: string,
+    exitPrice: number,
+    now: Date,
+    cooldownMinutes: number,
+  ): Promise<ExitOutcome> {
+    return this.closeTrade(trade, exitReason, exitPrice, now, cooldownMinutes);
+  }
+
   // ---------------------------------------------------------------------------
   // Step 1 helper: confirmed exchange order status
   // ---------------------------------------------------------------------------

@@ -80,8 +80,15 @@ export function indicatorValue(
     case "hourUtc": {
       // From the newest candle's timestamp, NOT the wall clock — so the same
       // rule evaluates identically live and in a backtest replay.
+      //
+      // With no candle there is no market time to read, and falling back to
+      // the wall clock would make this rule non-deterministic: the same
+      // stored snapshot would evaluate differently on replay. Return NaN
+      // instead — every numeric comparison against NaN is false, so the
+      // condition fails closed and the strategy takes no trade it cannot
+      // justify from the data.
       const last = mtf.tf1m[mtf.tf1m.length - 1];
-      return last ? new Date(last[0]).getUTCHours() : new Date().getUTCHours();
+      return last ? new Date(last[0]).getUTCHours() : NaN;
     }
     case "pctFromHigh20": {
       const bars = mtf.tf15m.slice(-20);

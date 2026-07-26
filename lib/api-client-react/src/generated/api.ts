@@ -42,6 +42,7 @@ import type {
   ExportBacktest200One,
   ExportBacktestParams,
   GetAuthStatus200,
+  GetCopilotInboxParams,
   GetDailyReportParams,
   GetDecisionJournalParams,
   GetJournalParams,
@@ -56,11 +57,15 @@ import type {
   MarkAllNotificationsRead200,
   MarkNotificationRead200,
   MarketMonitor,
+  ModifyRecommendationBody,
   NotificationList,
   OandaCredentialsStatus,
   OptimizeRequest,
+  RecommendationActionResult,
+  RecommendationList,
   Register201,
   RegisterBody,
+  RejectRecommendationBody,
   ResetRiskPause200,
   ScannerRow,
   SetBinanceCredentialsBody,
@@ -1089,6 +1094,305 @@ export function useGetJournal<TData = Awaited<ReturnType<typeof getJournal>>, TE
 
 
 
+
+export const getGetCopilotInboxUrl = (params?: GetCopilotInboxParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/copilot/inbox?${stringifiedParams}` : `/api/copilot/inbox`
+}
+
+/**
+ * TradePlans the engine produced in Co-Pilot mode and handed to you instead of executing. Each is byte-identical to what AutoPilot would have traded for the same scan — the planFingerprint proves it.
+ * @summary Co-Pilot recommendations awaiting a decision
+ */
+export const getCopilotInbox = async (params?: GetCopilotInboxParams, options?: RequestInit): Promise<RecommendationList> => {
+
+  return customFetch<RecommendationList>(getGetCopilotInboxUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCopilotInboxQueryKey = (params?: GetCopilotInboxParams,) => {
+    return [
+    `/api/copilot/inbox`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetCopilotInboxQueryOptions = <TData = Awaited<ReturnType<typeof getCopilotInbox>>, TError = ErrorType<unknown>>(params?: GetCopilotInboxParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCopilotInbox>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCopilotInboxQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCopilotInbox>>> = ({ signal }) => getCopilotInbox(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCopilotInbox>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCopilotInboxQueryResult = NonNullable<Awaited<ReturnType<typeof getCopilotInbox>>>
+export type GetCopilotInboxQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Co-Pilot recommendations awaiting a decision
+ */
+
+export function useGetCopilotInbox<TData = Awaited<ReturnType<typeof getCopilotInbox>>, TError = ErrorType<unknown>>(
+ params?: GetCopilotInboxParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCopilotInbox>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCopilotInboxQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getExecuteRecommendationUrl = (id: number,) => {
+
+
+
+
+  return `/api/copilot/recommendations/${id}/execute`
+}
+
+/**
+ * Re-validates before placing anything: expiry, price drift measured in the plan's own R units, and every account-level risk gate. Approval means "is this still a good idea?", not "place this order". A plan that fails becomes `blocked`, which is terminal and read-only.
+ * @summary Approve and execute a recommendation
+ */
+export const executeRecommendation = async (id: number, options?: RequestInit): Promise<RecommendationActionResult> => {
+
+  return customFetch<RecommendationActionResult>(getExecuteRecommendationUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getExecuteRecommendationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof executeRecommendation>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof executeRecommendation>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['executeRecommendation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof executeRecommendation>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  executeRecommendation(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExecuteRecommendationMutationResult = NonNullable<Awaited<ReturnType<typeof executeRecommendation>>>
+
+    export type ExecuteRecommendationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Approve and execute a recommendation
+ */
+export const useExecuteRecommendation = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof executeRecommendation>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof executeRecommendation>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getExecuteRecommendationMutationOptions(options));
+    }
+
+export const getRejectRecommendationUrl = (id: number,) => {
+
+
+
+
+  return `/api/copilot/recommendations/${id}/reject`
+}
+
+/**
+ * @summary Decline a recommendation
+ */
+export const rejectRecommendation = async (id: number,
+    rejectRecommendationBody?: RejectRecommendationBody, options?: RequestInit): Promise<RecommendationActionResult> => {
+
+  return customFetch<RecommendationActionResult>(getRejectRecommendationUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(rejectRecommendationBody)
+  }
+);}
+
+
+
+
+export const getRejectRecommendationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectRecommendation>>, TError,{id: number;data?: BodyType<RejectRecommendationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rejectRecommendation>>, TError,{id: number;data?: BodyType<RejectRecommendationBody>}, TContext> => {
+
+const mutationKey = ['rejectRecommendation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectRecommendation>>, {id: number;data?: BodyType<RejectRecommendationBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  rejectRecommendation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RejectRecommendationMutationResult = NonNullable<Awaited<ReturnType<typeof rejectRecommendation>>>
+    export type RejectRecommendationMutationBody = BodyType<RejectRecommendationBody> | undefined
+    export type RejectRecommendationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Decline a recommendation
+ */
+export const useRejectRecommendation = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectRecommendation>>, TError,{id: number;data?: BodyType<RejectRecommendationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rejectRecommendation>>,
+        TError,
+        {id: number;data?: BodyType<RejectRecommendationBody>},
+        TContext
+      > => {
+      return useMutation(getRejectRecommendationMutationOptions(options));
+    }
+
+export const getModifyRecommendationUrl = (id: number,) => {
+
+
+
+
+  return `/api/copilot/recommendations/${id}/modify`
+}
+
+/**
+ * Does NOT edit the plan. Creates a NEW plan referencing the original, authored by you and re-validated from scratch; the original is marked `superseded` and keeps its numbers forever. That is what lets a later post-mortem say whether a loss was the engine's decision or yours.
+ * @summary Create a user-authored variant of a recommendation
+ */
+export const modifyRecommendation = async (id: number,
+    modifyRecommendationBody: ModifyRecommendationBody, options?: RequestInit): Promise<RecommendationActionResult> => {
+
+  return customFetch<RecommendationActionResult>(getModifyRecommendationUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(modifyRecommendationBody)
+  }
+);}
+
+
+
+
+export const getModifyRecommendationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof modifyRecommendation>>, TError,{id: number;data: BodyType<ModifyRecommendationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof modifyRecommendation>>, TError,{id: number;data: BodyType<ModifyRecommendationBody>}, TContext> => {
+
+const mutationKey = ['modifyRecommendation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof modifyRecommendation>>, {id: number;data: BodyType<ModifyRecommendationBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  modifyRecommendation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ModifyRecommendationMutationResult = NonNullable<Awaited<ReturnType<typeof modifyRecommendation>>>
+    export type ModifyRecommendationMutationBody = BodyType<ModifyRecommendationBody>
+    export type ModifyRecommendationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a user-authored variant of a recommendation
+ */
+export const useModifyRecommendation = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof modifyRecommendation>>, TError,{id: number;data: BodyType<ModifyRecommendationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof modifyRecommendation>>,
+        TError,
+        {id: number;data: BodyType<ModifyRecommendationBody>},
+        TContext
+      > => {
+      return useMutation(getModifyRecommendationMutationOptions(options));
+    }
 
 export const getGetNotificationsUrl = (params?: GetNotificationsParams,) => {
   const normalizedParams = new URLSearchParams();
