@@ -584,6 +584,10 @@ export interface BotConfig {
   /** Maximum % of total balance across all open positions */
   maxPortfolioRiskPercent: number;
   dailyLossLimitUsdt: number;
+  /** Max notional (entry price × qty) allowed in a single symbol, as % of balance. Default 100 (permissive — no effective limit) until tightened. */
+  maxSymbolConcentrationPercent: number;
+  /** Max net long-short notional exposure across all open positions, as % of balance. Default 200 (permissive — no effective limit) until tightened. */
+  maxNetExposurePercent: number;
   confidenceThreshold: number;
   /** How SL/TP are decided. 'percent': SL/TP are a % of price (stopLossPercent/takeProfitPercent) and size comes from riskPercent/positionSizeUsdt. 'dollar': SL/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt/targetProfitUsdt). */
   riskModel: BotConfigRiskModel;
@@ -669,6 +673,18 @@ export interface BotConfigUpdate {
      * @minimum 0
      */
   dailyLossLimitUsdt?: number;
+  /**
+     * Max notional allowed in a single symbol, as % of balance.
+     * @minimum 1
+     * @maximum 100
+     */
+  maxSymbolConcentrationPercent?: number;
+  /**
+     * Max net long-short notional exposure across all open positions, as % of balance.
+     * @minimum 1
+     * @maximum 200
+     */
+  maxNetExposurePercent?: number;
   /**
      * @minimum 0
      * @maximum 100
