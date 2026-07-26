@@ -779,6 +779,67 @@ paths:
                 items:
                   $ref: "#/components/schemas/ToxicHour"
 
+  /memory/influence:
+    get:
+      operationId: getMemoryInfluence
+      tags: [memory]
+      summary: Gated memory influence — status, rules, and audit trail
+      description: >-
+        The only mechanism by which the account's own history changes what the
+        engine does. Memory can raise the confidence bar a plan must clear; it
+        can never lower one and never originate a plan, so the worst case of a
+        bad rule is a trade not taken. `active` is true only when the user
+        enabled it, qualifying cells exist, and — on live — a walk-forward
+        validation approved this exact rule-set version.
+      responses:
+        "200":
+          description: Influence status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryInfluenceStatus"
+    patch:
+      operationId: updateMemoryInfluence
+      tags: [memory]
+      summary: Enable, disable, or bound memory influence
+      description: >-
+        Disabling is the kill switch: it clears the flag, the approved version
+        and the cached state together, and the next scan is already inert.
+        Enabling here never grants LIVE permission on its own — only a passing
+        walk-forward validation does that.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMemoryInfluence"
+      responses:
+        "200":
+          description: Resulting state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryInfluenceToggle"
+
+  /memory/influence/validate:
+    post:
+      operationId: runMemoryValidation
+      tags: [memory]
+      summary: Walk-forward validation of memory influence
+      description: >-
+        Fits cells on an earlier window and tests them on a later one the fit
+        never saw, against the same window with memory off. `no_better` is a
+        first-class verdict and the expected one on most accounts. Only
+        `improved` writes the approval that unlocks live influence, and only
+        for that exact rule-set version.
+      responses:
+        "200":
+          description: Validation verdict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryValidationResult"
+
   /config:
     get:
       operationId: getConfig
@@ -1754,6 +1815,166 @@ components:
             $ref: "#/components/schemas/KnowledgeCell"
         calibration:
           $ref: "#/components/schemas/CalibrationReport"
+
+    InfluenceRule:
+      type: object
+      required: [dimension, key, label, samples, winRate, baselineWinRate, qValue, delta]
+      description: >-
+        One knowledge cell memory is acting on. Present only for cells that
+        cleared the sample gate AND whose q-value survived the
+        multiple-comparison correction.
+      properties:
+        dimension:
+          type: string
+          enum: [strategy_regime, symbol_strategy, session, volatility]
+        key: { type: string }
+        label: { type: string }
+        samples: { type: integer }
+        winRate: { type: number }
+        baselineWinRate: { type: number }
+        qValue: { type: number }
+        delta:
+          type: number
+          description: "Confidence points this cell adds to the bar. Always positive — memory only tightens."
+
+    MemoryArmMetrics:
+      type: object
+      required: [trades, wins, losses, winRate, netPnlUsdt, expectancyUsdt]
+      properties:
+        trades: { type: integer }
+        wins: { type: integer }
+        losses: { type: integer }
+        winRate: { type: ["number", "null"] }
+        netPnlUsdt: { type: number }
+        expectancyUsdt: { type: number }
+
+    MemoryValidationSummary:
+      type: object
+      required: [id, status, verdict, summary, stateVersion, executionTarget, trainTrades, validationTrades, withheld, withheldPnlUsdt, expectancyDelta, createdAt]
+      properties:
+        id: { type: integer }
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        verdict:
+          type: ["string", "null"]
+          enum: [improved, no_better, insufficient_data, null]
+        summary: { type: ["string", "null"] }
+        stateVersion:
+          type: ["string", "null"]
+          description: "The rule-set version this run approved. Permission is version-scoped — a refit revokes it."
+        executionTarget: { type: string }
+        trainTrades: { type: integer }
+        validationTrades: { type: integer }
+        withheld: { type: integer }
+        withheldPnlUsdt: { type: ["number", "null"] }
+        expectancyDelta: { type: ["number", "null"] }
+        createdAt: { type: string }
+
+    MemoryValidationResult:
+      type: object
+      required: [verdict, summary, stateVersion, trainTrades, validationTrades, withheld, withheldPnlUsdt, expectancyDelta, baseline, withMemory, rules]
+      properties:
+        verdict:
+          type: string
+          enum: [improved, no_better, insufficient_data]
+        summary: { type: string }
+        stateVersion: { type: string }
+        trainTrades: { type: integer }
+        validationTrades: { type: integer }
+        withheld:
+          type: integer
+          description: "Out-of-sample trades memory would have withheld."
+        withheldPnlUsdt:
+          type: number
+          description: "P&L of the withheld trades. Negative is the point."
+        expectancyDelta: { type: number }
+        baseline:
+          $ref: "#/components/schemas/MemoryArmMetrics"
+        withMemory:
+          $ref: "#/components/schemas/MemoryArmMetrics"
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/InfluenceRule"
+
+    AppliedInfluence:
+      type: object
+      required: [id, symbol, strategyId, admitted, confidence, requiredConfidence, delta, memoryVersion, executionTarget, reason, createdAt]
+      description: >-
+        One time memory raised a plan's bar. Both outcomes are recorded —
+        logging only the withheld trades would read as a list of saves and hide
+        every time a rule fired harmlessly.
+      properties:
+        id: { type: integer }
+        symbol: { type: string }
+        strategyId: { type: string }
+        admitted:
+          type: boolean
+          description: "True when the plan cleared the raised bar anyway."
+        confidence: { type: number }
+        requiredConfidence: { type: number }
+        delta: { type: number }
+        memoryVersion: { type: string }
+        executionTarget: { type: string }
+        reason: { type: string }
+        createdAt: { type: string }
+
+    MemoryInfluenceStatus:
+      type: object
+      required: [enabled, maxDelta, approvedVersion, active, needsValidation, executionTarget, reason, summary, version, rules, latestValidation, recent]
+      properties:
+        enabled:
+          type: boolean
+          description: "What the user asked for. Not the same as `active`."
+        maxDelta:
+          type: number
+          description: "Hard cap in confidence points, applied after summing every matching cell."
+        approvedVersion: { type: ["string", "null"] }
+        active:
+          type: boolean
+          description: "Whether the engine is actually acting on memory right now."
+        needsValidation:
+          type: boolean
+          description: "Live influence is requested but blocked for want of a matching passing validation."
+        executionTarget: { type: string }
+        reason: { type: string }
+        summary: { type: string }
+        version:
+          type: string
+          description: "\"memory-0\" when inert; \"memory-1:<hash>\" when it carries rules."
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/InfluenceRule"
+        latestValidation:
+          oneOf:
+            - $ref: "#/components/schemas/MemoryValidationSummary"
+            - type: "null"
+        recent:
+          type: array
+          items:
+            $ref: "#/components/schemas/AppliedInfluence"
+
+    UpdateMemoryInfluence:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        maxDelta:
+          type: number
+          minimum: 0
+          maximum: 25
+          description: "Hard cap in confidence points. Bounded server-side; memory is not permitted an unlimited reach."
+
+    MemoryInfluenceToggle:
+      type: object
+      required: [enabled, active, needsValidation, version, reason]
+      properties:
+        enabled: { type: boolean }
+        active: { type: boolean }
+        needsValidation: { type: boolean }
+        version: { type: string }
+        reason: { type: string }
 
     SimilarMatch:
       type: object

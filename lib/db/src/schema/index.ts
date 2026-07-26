@@ -11,3 +11,4 @@ export * from "./notifications";
 export * from "./execution";
 export * from "./capture";
 export * from "./recommendations";
+export * from "./memoryInfluence";

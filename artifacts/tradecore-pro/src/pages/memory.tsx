@@ -2,6 +2,7 @@ import { useGetBlacklist, useGetToxicHours, getGetBlacklistQueryKey, getGetToxic
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge } from "@/components/ui";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/utils";
 import { KnowledgePanel } from "@/components/knowledge/knowledge-panel";
+import { MemoryInfluencePanel } from "@/components/knowledge/memory-influence-panel";
 import { BrainCircuit, ShieldBan, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -104,6 +105,9 @@ export function Memory() {
 
       {/* What the record supports saying — and, as prominently, what it doesn't. */}
       <KnowledgePanel />
+
+      {/* The one control that lets that record change what the engine does. */}
+      <MemoryInfluencePanel />
     </div>
   );
 }

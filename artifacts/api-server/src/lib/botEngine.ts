@@ -62,6 +62,8 @@ import {
   MIN_CORRELATION_OBSERVATIONS, type HeatMapCell,
 } from "./risk/portfolioRisk";
 import { planFingerprint } from "./plan/fingerprint";
+import { evaluateInfluence } from "./memory/influence";
+import { loadMemoryPermission, logInfluence } from "./memory/memoryState";
 import {
   captureDecisions, configVersionOf, recordScanCounters,
   type CaptureDecision, type CaptureSnapshot,
@@ -1616,6 +1618,13 @@ class BotEngine {
       this.symbolDecisions.clear();
 
       const confThreshold = Number(config.confidenceThreshold);
+      // P8: resolved ONCE per scan, not per symbol. The state must be stable
+      // across a scan — a rule set that changed halfway through would make
+      // the last symbol evaluated answerable to different evidence than the
+      // first. Returns the inert state on every path where influence is off,
+      // unapproved, or unreadable, and costs a single indexed config read in
+      // the overwhelmingly common case where the feature is disabled.
+      const memoryPermission = await loadMemoryPermission(this.userId, this.section, now.getTime());
       // Loaded once per scan (cached internally) — used both for the
       // max-holding-time exit check below and for entry evaluation further down.
       const strategyConfigs = await this.getStrategyConfigs();
@@ -1949,6 +1958,63 @@ class BotEngine {
           { name: "Position Size", passed: true, detail: `Qty ${bestSignal.qty}` },
         );
 
+        // ── P8: gated memory influence ───────────────────────────────────────
+        // The account's own record may RAISE the bar this plan must clear. It
+        // can never lower one and never originate a plan, so the worst case is
+        // a trade not taken. `memoryPermission` is the inert state unless the
+        // user enabled it, qualifying cells exist, and — on live — a
+        // walk-forward validation approved this exact rule-set version.
+        //
+        // With the inert state `evaluateInfluence` returns applied:false and
+        // admitted:true for every plan, so this block is a no-op and the scan
+        // is byte-identical to the pre-P8 engine. That is asserted in
+        // harness/memory-influence.test.ts rather than argued here.
+        const influence = evaluateInfluence(memoryPermission.state, {
+          strategyId: bestSignal.strategyId,
+          symbol,
+          regime: bestSignal.regime,
+          entryTime: now.getTime(),
+          atrPercent: row.atrPercent,
+          confidence: bestSignal.confidence,
+          strategyThreshold: stratConfig?.confidenceThreshold ?? confThreshold,
+        });
+
+        if (influence.applied) {
+          preChecks.push({
+            name: "Memory Influence",
+            passed: influence.admitted,
+            detail: `${influence.confidence.toFixed(0)}% vs a ${influence.requiredConfidence}% bar (+${influence.delta} from ${influence.rules.length} cell${influence.rules.length === 1 ? "" : "s"})`,
+          });
+          void logInfluence({
+            userId: this.userId,
+            section: this.section,
+            outcome: influence,
+            symbol,
+            strategyId: bestSignal.strategyId,
+            executionTarget: config.executionTarget === "demo" ? "demo" : "live",
+            dataTimestampMs: scanSnapshots.get(symbol)?.dataTimestampMs ?? now.getTime(),
+          }).catch(() => {});
+        }
+
+        if (!influence.admitted) {
+          this.scannerData.set(symbol, {
+            ...row, status: "skipped",
+            strategyId: bestSignal.strategyId, strategyName: bestSignal.strategyName, side: bestSignal.side,
+          });
+          riskStage.status = "fail";
+          riskStage.detail = `Withheld by memory: ${influence.reason}`;
+          record("BLOCKED", "Risk Checks", "Withheld by memory influence", bestSignal.confidence);
+          noteDecision(planToRecord(bestSignal, "approved_not_taken", {
+            stage: "Memory Influence",
+            reason: influence.reason,
+          }));
+          logger.info(
+            { symbol, strategyId: bestSignal.strategyId, memoryVersion: influence.version, delta: influence.delta },
+            "MEMORY_WITHHELD",
+          );
+          continue;
+        }
+
         // Portfolio risk check (maxPortfolioRiskPercent): aggregate $ risk
         // across every open position — using each trade's CURRENT stop, since
         // break-even/trailing moves change the real worst-case loss over a
@@ -2280,6 +2346,8 @@ class BotEngine {
           venue: config.marketType,
           timeframe: "1m",
           configVersion: configVersionOf([...strategyConfigs.entries()].sort(([a], [b]) => (a < b ? -1 : 1))),
+          // "memory-0" unless gated influence was genuinely acting this scan.
+          memoryVersion: memoryPermission.state.enabled ? memoryPermission.state.version : undefined,
           decisions: scanCaptures,
           snapshots: scanSnapshots,
         }).catch(() => {});

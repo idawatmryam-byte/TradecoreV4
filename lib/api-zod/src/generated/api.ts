@@ -876,6 +876,125 @@ export const GetToxicHoursResponse = zod.array(GetToxicHoursResponseItem)
 
 
 /**
+ * The only mechanism by which the account's own history changes what the engine does. Memory can raise the confidence bar a plan must clear; it can never lower one and never originate a plan, so the worst case of a bad rule is a trade not taken. `active` is true only when the user enabled it, qualifying cells exist, and — on live — a walk-forward validation approved this exact rule-set version.
+ * @summary Gated memory influence — status, rules, and audit trail
+ */
+export const GetMemoryInfluenceResponse = zod.object({
+  "enabled": zod.boolean().describe('What the user asked for. Not the same as `active`.'),
+  "maxDelta": zod.number().describe('Hard cap in confidence points, applied after summing every matching cell.'),
+  "approvedVersion": zod.string().nullable(),
+  "active": zod.boolean().describe('Whether the engine is actually acting on memory right now.'),
+  "needsValidation": zod.boolean().describe('Live influence is requested but blocked for want of a matching passing validation.'),
+  "executionTarget": zod.string(),
+  "reason": zod.string(),
+  "summary": zod.string(),
+  "version": zod.string().describe('\"memory-0\" when inert; \"memory-1:<hash>\" when it carries rules.'),
+  "rules": zod.array(zod.object({
+  "dimension": zod.enum(['strategy_regime', 'symbol_strategy', 'session', 'volatility']),
+  "key": zod.string(),
+  "label": zod.string(),
+  "samples": zod.number(),
+  "winRate": zod.number(),
+  "baselineWinRate": zod.number(),
+  "qValue": zod.number(),
+  "delta": zod.number().describe('Confidence points this cell adds to the bar. Always positive — memory only tightens.')
+}).describe('One knowledge cell memory is acting on. Present only for cells that cleared the sample gate AND whose q-value survived the multiple-comparison correction.')),
+  "latestValidation": zod.union([zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['pending', 'running', 'completed', 'failed']),
+  "verdict": zod.union([zod.literal('improved'),zod.literal('no_better'),zod.literal('insufficient_data'),zod.literal(null)]).nullable(),
+  "summary": zod.string().nullable(),
+  "stateVersion": zod.string().nullable().describe('The rule-set version this run approved. Permission is version-scoped — a refit revokes it.'),
+  "executionTarget": zod.string(),
+  "trainTrades": zod.number(),
+  "validationTrades": zod.number(),
+  "withheld": zod.number(),
+  "withheldPnlUsdt": zod.number().nullable(),
+  "expectancyDelta": zod.number().nullable(),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "recent": zod.array(zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "strategyId": zod.string(),
+  "admitted": zod.boolean().describe('True when the plan cleared the raised bar anyway.'),
+  "confidence": zod.number(),
+  "requiredConfidence": zod.number(),
+  "delta": zod.number(),
+  "memoryVersion": zod.string(),
+  "executionTarget": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.string()
+}).describe('One time memory raised a plan\'s bar. Both outcomes are recorded — logging only the withheld trades would read as a list of saves and hide every time a rule fired harmlessly.'))
+})
+
+
+/**
+ * Disabling is the kill switch: it clears the flag, the approved version and the cached state together, and the next scan is already inert. Enabling here never grants LIVE permission on its own — only a passing walk-forward validation does that.
+ * @summary Enable, disable, or bound memory influence
+ */
+export const updateMemoryInfluenceBodyMaxDeltaMin = 0;
+export const updateMemoryInfluenceBodyMaxDeltaMax = 25;
+
+
+
+export const UpdateMemoryInfluenceBody = zod.object({
+  "enabled": zod.boolean().optional(),
+  "maxDelta": zod.number().min(updateMemoryInfluenceBodyMaxDeltaMin).max(updateMemoryInfluenceBodyMaxDeltaMax).optional().describe('Hard cap in confidence points. Bounded server-side; memory is not permitted an unlimited reach.')
+})
+
+export const UpdateMemoryInfluenceResponse = zod.object({
+  "enabled": zod.boolean(),
+  "active": zod.boolean(),
+  "needsValidation": zod.boolean(),
+  "version": zod.string(),
+  "reason": zod.string()
+})
+
+
+/**
+ * Fits cells on an earlier window and tests them on a later one the fit never saw, against the same window with memory off. `no_better` is a first-class verdict and the expected one on most accounts. Only `improved` writes the approval that unlocks live influence, and only for that exact rule-set version.
+ * @summary Walk-forward validation of memory influence
+ */
+export const RunMemoryValidationResponse = zod.object({
+  "verdict": zod.enum(['improved', 'no_better', 'insufficient_data']),
+  "summary": zod.string(),
+  "stateVersion": zod.string(),
+  "trainTrades": zod.number(),
+  "validationTrades": zod.number(),
+  "withheld": zod.number().describe('Out-of-sample trades memory would have withheld.'),
+  "withheldPnlUsdt": zod.number().describe('P&L of the withheld trades. Negative is the point.'),
+  "expectancyDelta": zod.number(),
+  "baseline": zod.object({
+  "trades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number().nullable(),
+  "netPnlUsdt": zod.number(),
+  "expectancyUsdt": zod.number()
+}),
+  "withMemory": zod.object({
+  "trades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number().nullable(),
+  "netPnlUsdt": zod.number(),
+  "expectancyUsdt": zod.number()
+}),
+  "rules": zod.array(zod.object({
+  "dimension": zod.enum(['strategy_regime', 'symbol_strategy', 'session', 'volatility']),
+  "key": zod.string(),
+  "label": zod.string(),
+  "samples": zod.number(),
+  "winRate": zod.number(),
+  "baselineWinRate": zod.number(),
+  "qValue": zod.number(),
+  "delta": zod.number().describe('Confidence points this cell adds to the bar. Always positive — memory only tightens.')
+}).describe('One knowledge cell memory is acting on. Present only for cells that cleared the sample gate AND whose q-value survived the multiple-comparison correction.'))
+})
+
+
+/**
  * @summary Get bot configuration
  */
 export const GetConfigResponse = zod.object({

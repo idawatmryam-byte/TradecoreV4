@@ -17,8 +17,14 @@
 export const ENGINE_VERSION = "1.0.0";
 
 /**
- * MemoryState version in force. Fixed until gated memory influence ships —
- * "memory-0" means the decision core reads no memory at all, so a replay under
- * it is reproducible from features and config alone.
+ * The version stamped when the decision core read NO memory at all — the
+ * default, and what every account runs until gated influence (P8) is
+ * explicitly enabled and approved.
+ *
+ * A decision captured under "memory-0" is reproducible from its features and
+ * config alone. Once influence is active the scan stamps the live state's
+ * version instead ("memory-1:<hash>", see lib/memory/influence.ts), because
+ * the acting rules are then a third input to the outcome and a replay that
+ * ignored them would not reproduce it.
  */
 export const MEMORY_VERSION_NONE = "memory-0";
