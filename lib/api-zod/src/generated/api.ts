@@ -723,6 +723,8 @@ export const GetConfigResponse = zod.object({
   "maxOpenPositions": zod.number(),
   "maxPortfolioRiskPercent": zod.number().describe('Maximum % of total balance across all open positions'),
   "dailyLossLimitUsdt": zod.number(),
+  "maxSymbolConcentrationPercent": zod.number().describe('Max notional (entry price × qty) allowed in a single symbol, as % of balance. Default 100 (permissive — no effective limit) until tightened.'),
+  "maxNetExposurePercent": zod.number().describe('Max net long-short notional exposure across all open positions, as % of balance. Default 200 (permissive — no effective limit) until tightened.'),
   "confidenceThreshold": zod.number(),
   "riskModel": zod.enum(['percent', 'dollar']).describe('How SL\/TP are decided. \'percent\': SL\/TP are a % of price (stopLossPercent\/takeProfitPercent) and size comes from riskPercent\/positionSizeUsdt. \'dollar\': SL\/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt\/targetProfitUsdt).'),
   "stopLossPercent": zod.number().describe('Stop-loss distance as a % below entry price (used when riskModel = percent)'),
@@ -759,6 +761,10 @@ export const updateConfigBodyMaxPortfolioRiskPercentMax = 100;
 
 export const updateConfigBodyDailyLossLimitUsdtMin = 0;
 
+export const updateConfigBodyMaxSymbolConcentrationPercentMax = 100;
+
+export const updateConfigBodyMaxNetExposurePercentMax = 200;
+
 export const updateConfigBodyConfidenceThresholdMin = 0;
 export const updateConfigBodyConfidenceThresholdMax = 100;
 
@@ -791,6 +797,8 @@ export const UpdateConfigBody = zod.object({
   "maxOpenPositions": zod.number().min(1).max(updateConfigBodyMaxOpenPositionsMax).optional(),
   "maxPortfolioRiskPercent": zod.number().min(updateConfigBodyMaxPortfolioRiskPercentMin).max(updateConfigBodyMaxPortfolioRiskPercentMax).optional(),
   "dailyLossLimitUsdt": zod.number().min(updateConfigBodyDailyLossLimitUsdtMin).optional().describe('Stored as a positive magnitude; the circuit breaker trips when dailyPnl <= -this value.'),
+  "maxSymbolConcentrationPercent": zod.number().min(1).max(updateConfigBodyMaxSymbolConcentrationPercentMax).optional().describe('Max notional allowed in a single symbol, as % of balance.'),
+  "maxNetExposurePercent": zod.number().min(1).max(updateConfigBodyMaxNetExposurePercentMax).optional().describe('Max net long-short notional exposure across all open positions, as % of balance.'),
   "confidenceThreshold": zod.number().min(updateConfigBodyConfidenceThresholdMin).max(updateConfigBodyConfidenceThresholdMax).optional(),
   "riskModel": zod.enum(['percent', 'dollar']).optional().describe('percent = %-based SL\/TP + riskPercent sizing; dollar = fixed max-loss\/target-profit sizing (maxLossUsdt\/targetProfitUsdt).'),
   "stopLossPercent": zod.number().min(updateConfigBodyStopLossPercentMin).max(updateConfigBodyStopLossPercentMax).optional(),
@@ -819,6 +827,8 @@ export const UpdateConfigResponse = zod.object({
   "maxOpenPositions": zod.number(),
   "maxPortfolioRiskPercent": zod.number().describe('Maximum % of total balance across all open positions'),
   "dailyLossLimitUsdt": zod.number(),
+  "maxSymbolConcentrationPercent": zod.number().describe('Max notional (entry price × qty) allowed in a single symbol, as % of balance. Default 100 (permissive — no effective limit) until tightened.'),
+  "maxNetExposurePercent": zod.number().describe('Max net long-short notional exposure across all open positions, as % of balance. Default 200 (permissive — no effective limit) until tightened.'),
   "confidenceThreshold": zod.number(),
   "riskModel": zod.enum(['percent', 'dollar']).describe('How SL\/TP are decided. \'percent\': SL\/TP are a % of price (stopLossPercent\/takeProfitPercent) and size comes from riskPercent\/positionSizeUsdt. \'dollar\': SL\/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt\/targetProfitUsdt).'),
   "stopLossPercent": zod.number().describe('Stop-loss distance as a % below entry price (used when riskModel = percent)'),

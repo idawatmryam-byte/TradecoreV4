@@ -1515,7 +1515,7 @@ class BotEngine {
       // portfolio-risk cap would both read stale counts — two symbols signalling
       // for the same strategy in one scan could each pass and breach the limit.
       // maxOpenPositions is already safe (it uses the live this.state counter).
-      const enteredThisScan: Array<{ strategyId?: string; riskUsdt: number }> = [];
+      const enteredThisScan: Array<{ strategyId?: string; riskUsdt: number; symbol: string; side: PositionSide; notionalUsdt: number }> = [];
       // Decision journal for this scan: every considered-and-rejected trade
       // plus approved-but-not-taken plans. Flushed (best-effort) at scan end.
       const scanDecisions: DecisionRecord[] = [];
@@ -1863,6 +1863,77 @@ class BotEngine {
           continue;
         }
 
+        // Symbol concentration check (maxSymbolConcentrationPercent): caps how
+        // much NOTIONAL capital can sit in one symbol at a time. This is a
+        // different failure mode than Portfolio Risk above — a single large
+        // position can respect the aggregate $-loss cap yet still put most of
+        // the account's capital behind one symbol.
+        const candidateNotionalUsdt = bestSignal.entryPrice * bestSignal.qty;
+        const existingSymbolNotionalUsdt =
+          openTrades
+            .filter((t) => t.symbol === symbol)
+            .reduce((sum, t) => sum + Number(t.entryPrice) * Number(t.remainingQuantity ?? t.quantity), 0) +
+          enteredThisScan
+            .filter((e) => e.symbol === symbol)
+            .reduce((sum, e) => sum + e.notionalUsdt, 0);
+        const maxSymbolConcentrationUsdt = balance * (Number(config.maxSymbolConcentrationPercent) / 100);
+        const concentrationOk = existingSymbolNotionalUsdt + candidateNotionalUsdt <= maxSymbolConcentrationUsdt;
+        preChecks.push({
+          name: "Symbol Concentration",
+          passed: concentrationOk,
+          detail: `$${(existingSymbolNotionalUsdt + candidateNotionalUsdt).toFixed(2)} / $${maxSymbolConcentrationUsdt.toFixed(2)} max in ${symbol} (${Number(config.maxSymbolConcentrationPercent)}% of balance)`,
+        });
+        if (!concentrationOk) {
+          this.scannerData.set(symbol, {
+            ...row, status: "skipped",
+            strategyId: bestSignal.strategyId, strategyName: bestSignal.strategyName, side: bestSignal.side,
+          });
+          riskStage.status = "fail";
+          riskStage.detail = `Blocked: ${symbol} concentration ($${(existingSymbolNotionalUsdt + candidateNotionalUsdt).toFixed(2)}) would exceed ${Number(config.maxSymbolConcentrationPercent)}% of balance ($${maxSymbolConcentrationUsdt.toFixed(2)})`;
+          record("BLOCKED", "Risk Checks", "Symbol concentration limit reached", bestSignal.confidence);
+          noteDecision(planToRecord(bestSignal, "approved_not_taken", {
+            stage: "Symbol Concentration",
+            reason: `notional $${(existingSymbolNotionalUsdt + candidateNotionalUsdt).toFixed(2)} would exceed the $${maxSymbolConcentrationUsdt.toFixed(2)} cap for ${symbol}`,
+          }));
+          continue;
+        }
+
+        // Net long/short exposure check (maxNetExposurePercent): caps the
+        // account's NET directional bias (Σ long notional − Σ short notional)
+        // so a string of same-direction entries across different symbols can't
+        // quietly build one large correlated bet. Spot is long-only, so net
+        // exposure there is just gross exposure — the gate still applies, it
+        // just never sees an offsetting short.
+        const existingNetUsdt =
+          openTrades.reduce((sum, t) => {
+            const notional = Number(t.entryPrice) * Number(t.remainingQuantity ?? t.quantity);
+            return sum + (t.side === "sell" ? -notional : notional);
+          }, 0) +
+          enteredThisScan.reduce((sum, e) => sum + (e.side === "short" ? -e.notionalUsdt : e.notionalUsdt), 0);
+        const candidateSignedNotionalUsdt = bestSignal.side === "short" ? -candidateNotionalUsdt : candidateNotionalUsdt;
+        const netExposureUsdt = Math.abs(existingNetUsdt + candidateSignedNotionalUsdt);
+        const maxNetExposureUsdt = balance * (Number(config.maxNetExposurePercent) / 100);
+        const netExposureOk = netExposureUsdt <= maxNetExposureUsdt;
+        preChecks.push({
+          name: "Net Exposure",
+          passed: netExposureOk,
+          detail: `$${netExposureUsdt.toFixed(2)} / $${maxNetExposureUsdt.toFixed(2)} max net (${Number(config.maxNetExposurePercent)}% of balance)`,
+        });
+        if (!netExposureOk) {
+          this.scannerData.set(symbol, {
+            ...row, status: "skipped",
+            strategyId: bestSignal.strategyId, strategyName: bestSignal.strategyName, side: bestSignal.side,
+          });
+          riskStage.status = "fail";
+          riskStage.detail = `Blocked: net directional exposure ($${netExposureUsdt.toFixed(2)}) would exceed ${Number(config.maxNetExposurePercent)}% of balance ($${maxNetExposureUsdt.toFixed(2)})`;
+          record("BLOCKED", "Risk Checks", "Net exposure limit reached", bestSignal.confidence);
+          noteDecision(planToRecord(bestSignal, "approved_not_taken", {
+            stage: "Net Exposure",
+            reason: `net exposure $${netExposureUsdt.toFixed(2)} would exceed the $${maxNetExposureUsdt.toFixed(2)} cap`,
+          }));
+          continue;
+        }
+
         riskStage.status = "pass";
         riskStage.detail = "All risk checks passed";
 
@@ -1902,7 +1973,10 @@ class BotEngine {
         if (entered) {
           this.state.openPositions++;
           // Track for the same-scan concurrency + portfolio-risk accounting above.
-          enteredThisScan.push({ strategyId: bestSignal.strategyId, riskUsdt: candidateRiskUsdt });
+          enteredThisScan.push({
+            strategyId: bestSignal.strategyId, riskUsdt: candidateRiskUsdt,
+            symbol, side: bestSignal.side, notionalUsdt: candidateNotionalUsdt,
+          });
         }
         this.scannerData.set(symbol, {
           ...row,
