@@ -1790,7 +1790,7 @@ components:
 
     BotConfig:
       type: object
-      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, confidenceThreshold, riskModel, stopLossPercent, takeProfitPercent, maxLossUsdt, targetProfitUsdt, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode, broker]
+      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, maxSymbolConcentrationPercent, maxNetExposurePercent, confidenceThreshold, riskModel, stopLossPercent, takeProfitPercent, maxLossUsdt, targetProfitUsdt, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode, broker]
       properties:
         broker:
           type: string
@@ -1819,6 +1819,12 @@ components:
           description: "Maximum % of total balance across all open positions"
         dailyLossLimitUsdt:
           type: number
+        maxSymbolConcentrationPercent:
+          type: number
+          description: "Max notional (entry price × qty) allowed in a single symbol, as % of balance. Default 100 (permissive — no effective limit) until tightened."
+        maxNetExposurePercent:
+          type: number
+          description: "Max net long-short notional exposure across all open positions, as % of balance. Default 200 (permissive — no effective limit) until tightened."
         confidenceThreshold:
           type: integer
         riskModel:
@@ -1892,6 +1898,16 @@ components:
           type: number
           minimum: 0
           description: "Stored as a positive magnitude; the circuit breaker trips when dailyPnl <= -this value."
+        maxSymbolConcentrationPercent:
+          type: number
+          minimum: 1
+          maximum: 100
+          description: "Max notional allowed in a single symbol, as % of balance."
+        maxNetExposurePercent:
+          type: number
+          minimum: 1
+          maximum: 200
+          description: "Max net long-short notional exposure across all open positions, as % of balance."
         confidenceThreshold:
           type: integer
           minimum: 0

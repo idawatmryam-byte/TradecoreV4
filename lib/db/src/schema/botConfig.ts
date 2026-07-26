@@ -31,6 +31,28 @@ export const botConfigTable = pgTable("bot_config", {
   /** Maximum % of total balance across all open positions */
   maxPortfolioRiskPercent: numeric("max_portfolio_risk_percent", { precision: 5, scale: 2 }).notNull().default("10.0"),
   dailyLossLimitUsdt: numeric("daily_loss_limit_usdt", { precision: 10, scale: 2 }).notNull().default("10"),
+  /**
+   * Max NOTIONAL (entry price × qty) allowed in a single symbol at once, as a
+   * % of balance — aggregated across any existing position(s) in that symbol
+   * plus the candidate. Distinct from maxPortfolioRiskPercent, which caps
+   * aggregate worst-case $ LOSS (risk), not capital concentration: a single
+   * large position can respect the risk cap yet still put most of the
+   * account's capital behind one symbol. Defaults permissive (100% — i.e. no
+   * effective limit beyond what other gates already allow) so existing users
+   * are unaffected until they opt in to a tighter value.
+   */
+  maxSymbolConcentrationPercent: numeric("max_symbol_concentration_percent", { precision: 6, scale: 2 }).notNull().default("100.0"),
+  /**
+   * Max NET directional exposure (Σ long notional − Σ short notional,
+   * absolute value) across all open positions, as a % of balance. Guards
+   * against a string of same-direction entries across different symbols
+   * quietly building one large correlated directional bet. Only bites on
+   * markets where shorting is possible (futures/forex) — spot is long-only,
+   * so its net exposure is just its gross exposure. Defaults permissive
+   * (200% — i.e. no effective limit) so existing users are unaffected until
+   * they opt in to a tighter value.
+   */
+  maxNetExposurePercent: numeric("max_net_exposure_percent", { precision: 6, scale: 2 }).notNull().default("200.0"),
 
   // ── Signal / confidence ────────────────────────────────────────────────────
   confidenceThreshold: integer("confidence_threshold").notNull().default(55),
