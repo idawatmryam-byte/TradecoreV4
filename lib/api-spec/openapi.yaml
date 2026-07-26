@@ -35,6 +35,11 @@ tags:
     description: Bot configuration
   - name: strategies
     description: Multi-strategy management and performance
+  - name: knowledge
+    description: >-
+      Read-only market knowledge: gated performance cells, multiple-comparison
+      control, and confidence calibration. Never reachable from the scan loop —
+      nothing here can influence a trading decision.
 
 # Every operation requires ONE of these by default (either is sufficient —
 # see components.securitySchemes below). /healthz and /auth/* override this
@@ -588,6 +593,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CorrelationHeatMap"
+
+  /knowledge:
+    get:
+      operationId: getKnowledge
+      tags: [knowledge]
+      summary: Market knowledge cells and confidence calibration
+      description: >-
+        What this account's own closed trades support saying, as of now. Cells
+        below `minSamples` report their counts and null for every rate — never a
+        provisional figure. Cells above it are tested against the account
+        baseline with an exact binomial test and a Benjamini–Hochberg correction
+        across the whole family, so `significant` accounts for the fact that
+        slicing a history finely enough always produces a winner. Demo and live
+        records are never pooled; `executionTarget` says which one this is.
+      responses:
+        "200":
+          description: Knowledge cells plus the calibration report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeOverview"
 
   /trades:
     get:
@@ -1586,13 +1612,197 @@ components:
           description: "currentPortfolioRiskUsdt + candidateRiskUsdt — what the cap would read if this trade executes."
         maxPortfolioRiskUsdt: { type: number }
 
-    SimilarTradesPlaceholder:
+    CellStats:
       type: object
-      required: [available, reason]
-      description: "Deliberately not a statistic. Feature-similarity search is a later phase; showing even a zero here risks reading as a computed number."
+      required: [samples, wins, losses, scratches, gated, minSamples, winRate, winRateLow, winRateHigh, expectancyUsdt, profitFactor, avgR, netPnlUsdt]
+      description: >-
+        Outcome summary for one bucket of closed trades. Counts and net P&L are
+        facts and are always present; every rate is null while `gated` is true.
       properties:
-        available: { type: boolean, enum: [false] }
+        samples: { type: integer }
+        wins: { type: integer }
+        losses: { type: integer }
+        scratches:
+          type: integer
+          description: "Break-even washes — excluded from the win-rate denominator, not counted as losses."
+        gated:
+          type: boolean
+          description: "samples < minSamples. Every rate below is null."
+        minSamples: { type: integer }
+        winRate:
+          type: ["number", "null"]
+          description: "Scratch-adjusted: wins / (wins + losses)."
+        winRateLow:
+          type: ["number", "null"]
+          description: "Lower bound of the 95% Wilson interval on winRate."
+        winRateHigh: { type: ["number", "null"] }
+        expectancyUsdt: { type: ["number", "null"] }
+        profitFactor: { type: ["number", "null"] }
+        avgR: { type: ["number", "null"] }
+        netPnlUsdt: { type: number }
+
+    CellSignificance:
+      type: object
+      required: [pValue, qValue, significant]
+      properties:
+        pValue:
+          type: number
+          description: "Exact two-sided binomial test against the account baseline win rate."
+        qValue:
+          type: number
+          description: "Benjamini–Hochberg adjusted p-value: the false-discovery rate incurred by treating this cell as a real edge."
+        significant:
+          type: boolean
+          description: "qValue is within the family's FDR budget."
+
+    KnowledgeCell:
+      allOf:
+        - $ref: "#/components/schemas/CellStats"
+        - type: object
+          required: [dimension, key, label, significance]
+          properties:
+            dimension:
+              type: string
+              enum: [strategy_regime, symbol_strategy, session, volatility]
+            key: { type: string }
+            label: { type: string }
+            significance:
+              oneOf:
+                - $ref: "#/components/schemas/CellSignificance"
+                - type: "null"
+              description: "Null when the cell is gated, or when there is no trustworthy baseline to test against."
+
+    ReliabilityBin:
+      type: object
+      required: [low, high, count, meanPredicted, observedRate]
+      properties:
+        low: { type: number }
+        high: { type: number }
+        count: { type: integer }
+        meanPredicted: { type: ["number", "null"] }
+        observedRate:
+          type: ["number", "null"]
+          description: "Observed win frequency in the bin. Perfect calibration puts this on the diagonal."
+
+    CalibrationScores:
+      type: object
+      required: [brier, logLoss, ece]
+      properties:
+        brier: { type: ["number", "null"] }
+        logLoss: { type: ["number", "null"] }
+        ece:
+          type: ["number", "null"]
+          description: "Expected Calibration Error — sample-weighted average gap between promised and observed frequency."
+
+    CalibrationReport:
+      type: object
+      required: [gated, minSamples, totalSamples, trainSamples, validationSamples, samplesNeeded, raw, calibrated, climatologyBrier, beatsClimatology, bins]
+      description: >-
+        Whether strategy confidence behaves like a probability on this account's
+        record. Fitted on an earlier chronological slice and scored on a later
+        one — never on its own training data. Gated on the VALIDATION set, since
+        that is where every published number is measured.
+      properties:
+        gated: { type: boolean }
+        minSamples: { type: integer }
+        totalSamples: { type: integer }
+        trainSamples: { type: integer }
+        validationSamples: { type: integer }
+        samplesNeeded:
+          type: integer
+          description: "Further validation-set trades needed to open the gate; 0 once open."
+        raw:
+          $ref: "#/components/schemas/CalibrationScores"
+        calibrated:
+          $ref: "#/components/schemas/CalibrationScores"
+        climatologyBrier:
+          type: ["number", "null"]
+          description: "Brier score of predicting the base rate for every trade — the bar any calibration must clear to be worth anything."
+        beatsClimatology:
+          type: boolean
+          description: "calibrated.brier < climatologyBrier. False means confidence carries no usable information on this record."
+        bins:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReliabilityBin"
+
+    KnowledgeOverview:
+      type: object
+      required: [executionTarget, asOf, totalTrades, baselineWinRate, minSamples, fdr, cellsTested, cells, calibration]
+      properties:
+        executionTarget:
+          type: string
+          enum: [demo, live]
+          description: "Which record these numbers describe. Demo and live are never pooled."
+        asOf:
+          type: string
+          description: "The point-in-time cut. Every claim is 'given only what was knowable at this moment'."
+        totalTrades: { type: integer }
+        baselineWinRate:
+          type: ["number", "null"]
+          description: "The account's own scratch-adjusted win rate — the null hypothesis each cell is tested against. Null below the gate."
+        minSamples: { type: integer }
+        fdr:
+          type: number
+          description: "False-discovery-rate budget for the significance family."
+        cellsTested:
+          type: integer
+          description: "How many cells entered the multiple-comparison family."
+        cells:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeCell"
+        calibration:
+          $ref: "#/components/schemas/CalibrationReport"
+
+    SimilarMatch:
+      type: object
+      required: [tradeId, symbol, strategyId, closedAt, similarity, pnl, rMultiple, outcome]
+      properties:
+        tradeId: { type: integer }
+        symbol: { type: string }
+        strategyId: { type: ["string", "null"] }
+        closedAt: { type: number, description: "Epoch milliseconds the outcome was settled." }
+        similarity:
+          type: number
+          description: "Cosine similarity on z-score-normalised feature vectors, in [-1, 1]."
+        pnl: { type: number }
+        rMultiple: { type: ["number", "null"] }
+        outcome:
+          type: string
+          enum: [win, loss, scratch]
+
+    SimilarTrades:
+      type: object
+      required: [available, reason, poolSize, minPoolSize, similarityFloor, matches, stats, featuresUsed]
+      description: >-
+        Closed trades whose entry conditions resembled the candidate. Cosine
+        similarity over z-scored vectors — raw cosine would be dominated by
+        whichever features have the largest magnitude. A similarity FLOOR comes
+        before any top-N cap, so a sparse account gets "nothing comparable"
+        rather than its N least-dissimilar trades. `reason` is always populated.
+      properties:
+        available: { type: boolean }
         reason: { type: string }
+        poolSize:
+          type: integer
+          description: "Closed trades carrying recorded indicator readings."
+        minPoolSize:
+          type: integer
+          description: "Pool needed before z-scores are trustworthy enough to normalise with."
+        similarityFloor: { type: number }
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/SimilarMatch"
+        stats:
+          oneOf:
+            - $ref: "#/components/schemas/CellStats"
+            - type: "null"
+          description: "Aggregate outcome of the matches, gated separately — individual trades are facts, their win rate is an estimate."
+        featuresUsed:
+          type: array
+          items: { type: string }
 
     RecommendationWorkspace:
       type: object
@@ -1607,7 +1817,7 @@ components:
         portfolioImpact:
           $ref: "#/components/schemas/PortfolioImpact"
         similarTrades:
-          $ref: "#/components/schemas/SimilarTradesPlaceholder"
+          $ref: "#/components/schemas/SimilarTrades"
 
     Notification:
       type: object

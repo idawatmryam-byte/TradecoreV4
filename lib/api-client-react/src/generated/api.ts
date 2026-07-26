@@ -52,6 +52,7 @@ import type {
   HealthStatus,
   HourlyStat,
   JournalEntry,
+  KnowledgeOverview,
   Login200,
   LoginBody,
   Logout200,
@@ -1921,6 +1922,84 @@ export function useGetPortfolioCorrelation<TData = Awaited<ReturnType<typeof get
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetPortfolioCorrelationQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetKnowledgeUrl = () => {
+
+
+
+
+  return `/api/knowledge`
+}
+
+/**
+ * What this account's own closed trades support saying, as of now. Cells below `minSamples` report their counts and null for every rate — never a provisional figure. Cells above it are tested against the account baseline with an exact binomial test and a Benjamini–Hochberg correction across the whole family, so `significant` accounts for the fact that slicing a history finely enough always produces a winner. Demo and live records are never pooled; `executionTarget` says which one this is.
+ * @summary Market knowledge cells and confidence calibration
+ */
+export const getKnowledge = async ( options?: RequestInit): Promise<KnowledgeOverview> => {
+
+  return customFetch<KnowledgeOverview>(getGetKnowledgeUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetKnowledgeQueryKey = () => {
+    return [
+    `/api/knowledge`
+    ] as const;
+    }
+
+
+export const getGetKnowledgeQueryOptions = <TData = Awaited<ReturnType<typeof getKnowledge>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getKnowledge>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetKnowledgeQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getKnowledge>>> = ({ signal }) => getKnowledge({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getKnowledge>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetKnowledgeQueryResult = NonNullable<Awaited<ReturnType<typeof getKnowledge>>>
+export type GetKnowledgeQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Market knowledge cells and confidence calibration
+ */
+
+export function useGetKnowledge<TData = Awaited<ReturnType<typeof getKnowledge>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getKnowledge>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetKnowledgeQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

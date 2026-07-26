@@ -5,7 +5,7 @@ import {
   useGetRecommendationWorkspace, getGetRecommendationWorkspaceQueryKey,
   useExecuteRecommendation, useRejectRecommendation, useModifyRecommendation,
   useGetConfig, getGetConfigQueryKey, getGetCopilotInboxQueryKey,
-  type RevalidationCheck,
+  type RevalidationCheck, type SimilarTrades as SimilarTradesType,
 } from "@workspace/api-client-react";
 import { Card, CardContent, Button, Badge, Input, Label } from "@/components/ui";
 import { PositionChart } from "@/components/position-chart";
@@ -24,11 +24,12 @@ import {
  *
  * Everything here VISUALIZES data that already exists elsewhere in the
  * product — the TradePlan, the decision trace, the portfolio-risk numbers
- * Co-Pilot already re-checks on approval. This page adds no new analytics of
- * its own; "Similar Historical Trades" below is a deliberate, honest
- * placeholder rather than an early, weaker version of that feature — real
- * feature-similarity search needs a validated sample-size gate this product
- * does not have data for yet.
+ * Co-Pilot already re-checks on approval, and "Similar Historical Trades",
+ * which is now a real feature-similarity search over the account's own closed
+ * trades. That panel stays silent whenever its pool gate or similarity floor
+ * is unmet, which on a young account is most of the time; a run of matches is
+ * shown as a list of facts, and their win rate only once there are enough of
+ * them to mean anything.
  */
 
 const STATUS_META: Record<string, { label: string; className: string; icon: typeof CheckCircle2 }> = {
@@ -52,6 +53,89 @@ function CheckList({ checks }: { checks: RevalidationCheck[] }) {
           <span className="text-muted-foreground">— {c.detail}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Closed trades that resembled this setup.
+ *
+ * Three display rules, each mirroring a gate on the server: an unavailable
+ * result shows its reason and nothing else; matches are listed as individual
+ * facts (this trade, this similarity, this outcome) regardless of how many
+ * there are; and the aggregate win rate appears only when the server sends
+ * `stats`, which it withholds below its own threshold. Outcome is never
+ * carried by colour alone — every row is labelled.
+ */
+function SimilarTrades({ similar }: { similar: SimilarTradesType }) {
+  if (!similar.available) {
+    return (
+      <div className="space-y-1">
+        <p className="text-sm text-muted-foreground">{similar.reason}</p>
+        {similar.poolSize > 0 && (
+          <p className="text-xs font-mono text-muted-foreground">
+            pool {similar.poolSize}/{similar.minPoolSize} · floor {similar.similarityFloor}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  const s = similar.stats;
+  return (
+    <div className="space-y-3">
+      <p className="text-xs font-mono text-muted-foreground">{similar.reason}</p>
+
+      {s ? (
+        <div className="grid grid-cols-3 gap-4 font-mono text-sm border-y border-border py-2">
+          <div>
+            <p className="text-xs text-muted-foreground">Win Rate</p>
+            <p className="font-bold">
+              {s.winRate != null ? `${(s.winRate * 100).toFixed(0)}%` : "—"}
+              {s.winRateLow != null && s.winRateHigh != null && (
+                <span className="ml-1 text-xs font-normal text-muted-foreground">
+                  ({(s.winRateLow * 100).toFixed(0)}–{(s.winRateHigh * 100).toFixed(0)}%)
+                </span>
+              )}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Avg R</p>
+            <p className="font-bold">{s.avgR != null ? s.avgR.toFixed(2) : "—"}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Net P&L</p>
+            <p className={cn("font-bold", s.netPnlUsdt > 0 ? "text-success" : s.netPnlUsdt < 0 && "text-destructive")}>
+              ${s.netPnlUsdt.toFixed(2)}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Too few matches to summarise as a rate — the individual trades are below.
+        </p>
+      )}
+
+      <div className="space-y-1 max-h-64 overflow-y-auto">
+        {similar.matches.map((m) => (
+          <div key={m.tradeId} className="flex items-center gap-3 text-xs font-mono">
+            <span className="w-12 shrink-0 text-muted-foreground">{(m.similarity * 100).toFixed(0)}%</span>
+            <span className="w-24 shrink-0 truncate">{m.symbol}</span>
+            <span className="flex-1 truncate text-muted-foreground">
+              {new Date(m.closedAt).toLocaleDateString()}
+            </span>
+            <span className={cn(
+              "w-16 shrink-0 text-right",
+              m.outcome === "win" ? "text-success" : m.outcome === "loss" ? "text-destructive" : "text-muted-foreground",
+            )}>
+              {m.outcome}
+            </span>
+            <span className="w-20 shrink-0 text-right">
+              {m.rMultiple != null ? `${m.rMultiple.toFixed(2)}R` : `$${m.pnl.toFixed(2)}`}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -257,9 +341,9 @@ export default function CoPilotWorkspace() {
         </div>
       </Section>
 
-      {/* Similar historical trades — gated placeholder, never a number */}
+      {/* Similar historical trades — real search, still silent below its gates */}
       <Section icon={Lightbulb} title="Similar Historical Trades">
-        <p className="text-sm text-muted-foreground">{data.similarTrades.reason}</p>
+        <SimilarTrades similar={data.similarTrades} />
       </Section>
 
       {/* Re-validation results from the last approval attempt, if any */}

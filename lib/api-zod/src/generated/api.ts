@@ -352,9 +352,38 @@ export const GetRecommendationWorkspaceResponse = zod.object({
   "maxPortfolioRiskUsdt": zod.number()
 }),
   "similarTrades": zod.object({
-  "available": zod.literal(false),
-  "reason": zod.string()
-}).describe('Deliberately not a statistic. Feature-similarity search is a later phase; showing even a zero here risks reading as a computed number.')
+  "available": zod.boolean(),
+  "reason": zod.string(),
+  "poolSize": zod.number().describe('Closed trades carrying recorded indicator readings.'),
+  "minPoolSize": zod.number().describe('Pool needed before z-scores are trustworthy enough to normalise with.'),
+  "similarityFloor": zod.number(),
+  "matches": zod.array(zod.object({
+  "tradeId": zod.number(),
+  "symbol": zod.string(),
+  "strategyId": zod.string().nullable(),
+  "closedAt": zod.number().describe('Epoch milliseconds the outcome was settled.'),
+  "similarity": zod.number().describe('Cosine similarity on z-score-normalised feature vectors, in [-1, 1].'),
+  "pnl": zod.number(),
+  "rMultiple": zod.number().nullable(),
+  "outcome": zod.enum(['win', 'loss', 'scratch'])
+})),
+  "stats": zod.union([zod.object({
+  "samples": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "scratches": zod.number().describe('Break-even washes — excluded from the win-rate denominator, not counted as losses.'),
+  "gated": zod.boolean().describe('samples < minSamples. Every rate below is null.'),
+  "minSamples": zod.number(),
+  "winRate": zod.number().nullable().describe('Scratch-adjusted: wins \/ (wins + losses).'),
+  "winRateLow": zod.number().nullable().describe('Lower bound of the 95% Wilson interval on winRate.'),
+  "winRateHigh": zod.number().nullable(),
+  "expectancyUsdt": zod.number().nullable(),
+  "profitFactor": zod.number().nullable(),
+  "avgR": zod.number().nullable(),
+  "netPnlUsdt": zod.number()
+}).describe('Outcome summary for one bucket of closed trades. Counts and net P&L are facts and are always present; every rate is null while `gated` is true.'),zod.null()]).describe('Aggregate outcome of the matches, gated separately — individual trades are facts, their win rate is an estimate.'),
+  "featuresUsed": zod.array(zod.string())
+}).describe('Closed trades whose entry conditions resembled the candidate. Cosine similarity over z-scored vectors — raw cosine would be dominated by whichever features have the largest magnitude. A similarity FLOOR comes before any top-N cap, so a sparse account gets \"nothing comparable\" rather than its N least-dissimilar trades. `reason` is always populated.')
 })
 
 
@@ -545,6 +574,72 @@ export const GetPortfolioCorrelationResponse = zod.object({
   "openSymbols": zod.array(zod.string()).describe('Symbols currently carrying a position.'),
   "threshold": zod.number().describe('Reinforcement level at which two symbols count as the same bet.'),
   "minObservations": zod.number().describe('Shared days required before a correlation is reported at all.')
+})
+
+
+/**
+ * What this account's own closed trades support saying, as of now. Cells below `minSamples` report their counts and null for every rate — never a provisional figure. Cells above it are tested against the account baseline with an exact binomial test and a Benjamini–Hochberg correction across the whole family, so `significant` accounts for the fact that slicing a history finely enough always produces a winner. Demo and live records are never pooled; `executionTarget` says which one this is.
+ * @summary Market knowledge cells and confidence calibration
+ */
+export const GetKnowledgeResponse = zod.object({
+  "executionTarget": zod.enum(['demo', 'live']).describe('Which record these numbers describe. Demo and live are never pooled.'),
+  "asOf": zod.string().describe('The point-in-time cut. Every claim is \'given only what was knowable at this moment\'.'),
+  "totalTrades": zod.number(),
+  "baselineWinRate": zod.number().nullable().describe('The account\'s own scratch-adjusted win rate — the null hypothesis each cell is tested against. Null below the gate.'),
+  "minSamples": zod.number(),
+  "fdr": zod.number().describe('False-discovery-rate budget for the significance family.'),
+  "cellsTested": zod.number().describe('How many cells entered the multiple-comparison family.'),
+  "cells": zod.array(zod.object({
+  "samples": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "scratches": zod.number().describe('Break-even washes — excluded from the win-rate denominator, not counted as losses.'),
+  "gated": zod.boolean().describe('samples < minSamples. Every rate below is null.'),
+  "minSamples": zod.number(),
+  "winRate": zod.number().nullable().describe('Scratch-adjusted: wins \/ (wins + losses).'),
+  "winRateLow": zod.number().nullable().describe('Lower bound of the 95% Wilson interval on winRate.'),
+  "winRateHigh": zod.number().nullable(),
+  "expectancyUsdt": zod.number().nullable(),
+  "profitFactor": zod.number().nullable(),
+  "avgR": zod.number().nullable(),
+  "netPnlUsdt": zod.number()
+}).describe('Outcome summary for one bucket of closed trades. Counts and net P&L are facts and are always present; every rate is null while `gated` is true.').and(zod.object({
+  "dimension": zod.enum(['strategy_regime', 'symbol_strategy', 'session', 'volatility']),
+  "key": zod.string(),
+  "label": zod.string(),
+  "significance": zod.union([zod.object({
+  "pValue": zod.number().describe('Exact two-sided binomial test against the account baseline win rate.'),
+  "qValue": zod.number().describe('Benjamini–Hochberg adjusted p-value: the false-discovery rate incurred by treating this cell as a real edge.'),
+  "significant": zod.boolean().describe('qValue is within the family\'s FDR budget.')
+}),zod.null()]).describe('Null when the cell is gated, or when there is no trustworthy baseline to test against.')
+}))),
+  "calibration": zod.object({
+  "gated": zod.boolean(),
+  "minSamples": zod.number(),
+  "totalSamples": zod.number(),
+  "trainSamples": zod.number(),
+  "validationSamples": zod.number(),
+  "samplesNeeded": zod.number().describe('Further validation-set trades needed to open the gate; 0 once open.'),
+  "raw": zod.object({
+  "brier": zod.number().nullable(),
+  "logLoss": zod.number().nullable(),
+  "ece": zod.number().nullable().describe('Expected Calibration Error — sample-weighted average gap between promised and observed frequency.')
+}),
+  "calibrated": zod.object({
+  "brier": zod.number().nullable(),
+  "logLoss": zod.number().nullable(),
+  "ece": zod.number().nullable().describe('Expected Calibration Error — sample-weighted average gap between promised and observed frequency.')
+}),
+  "climatologyBrier": zod.number().nullable().describe('Brier score of predicting the base rate for every trade — the bar any calibration must clear to be worth anything.'),
+  "beatsClimatology": zod.boolean().describe('calibrated.brier < climatologyBrier. False means confidence carries no usable information on this record.'),
+  "bins": zod.array(zod.object({
+  "low": zod.number(),
+  "high": zod.number(),
+  "count": zod.number(),
+  "meanPredicted": zod.number().nullable(),
+  "observedRate": zod.number().nullable().describe('Observed win frequency in the bin. Perfect calibration puts this on the diagonal.')
+}))
+}).describe('Whether strategy confidence behaves like a probability on this account\'s record. Fitted on an earlier chronological slice and scored on a later one — never on its own training data. Gated on the VALIDATION set, since that is where every published number is measured.')
 })
 
 
