@@ -18,6 +18,7 @@ import { tradesTable } from "@workspace/db";
 import { and, eq, gte } from "drizzle-orm";
 import type { BotState } from "./botEngine";
 import type { Section } from "./engineRegistry";
+import { isWin, round2, winRateOrZero } from "./metrics/kernel";
 
 /** Paper starting balance shown per section (mirrors typical demo accounts:
  *  a Binance testnet wallet and a £100k-scale OANDA practice account). */
@@ -47,17 +48,17 @@ export async function buildDemoStatus(userId: number, section: Section): Promise
     if (t.exitTime && t.exitTime.getTime() >= startOfDay) {
       dailyPnl += pnl;
       tradesToday++;
-      if (pnl > 0) winsToday++;
+      if (isWin(pnl)) winsToday++;
     }
   }
 
   return {
     running: true, // labeled DEMO snapshot — controls are disabled in the UI
-    balanceUsdt: Math.round((startBalance + realizedPnl) * 100) / 100,
-    dailyPnl: Math.round(dailyPnl * 100) / 100,
+    balanceUsdt: round2(startBalance + realizedPnl),
+    dailyPnl: round2(dailyPnl),
     openPositions,
     totalTradesToday: tradesToday,
-    winRateToday: tradesToday > 0 ? winsToday / tradesToday : 0,
+    winRateToday: winRateOrZero(winsToday, tradesToday),
     circuitBreakerActive: false,
     riskPaused: false,
     mode: "testnet",

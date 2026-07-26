@@ -150,6 +150,10 @@ async function persist(symbol: string, candles: Candle[]): Promise<void> {
     low: c[3].toFixed(8),
     close: c[4].toFixed(8),
     volume: c[5].toFixed(8),
+    // Marks these bars as harness-seeded so loadCandles() refuses to feed
+    // them to a user-facing backtest. The harness runner opts back in with
+    // TRADECORE_ALLOW_SYNTHETIC_CANDLES=1.
+    source: "synthetic" as const,
   }));
   for (let i = 0; i < rows.length; i += 500) {
     await db.insert(historicalCandlesTable).values(rows.slice(i, i + 500)).onConflictDoNothing();

@@ -31,6 +31,13 @@ import {
 } from "./strategy";
 import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig, type PositionSide } from "./strategies";
 import { computeTrailingStop } from "./tradeManager";
+import {
+  expectancyPerTrade,
+  isWin,
+  maxDrawdownFraction,
+  profitFactor as profitFactorOf,
+  winRateOrZero,
+} from "./metrics/kernel";
 import { loadStrategyConfigs } from "./strategyConfigLoader";
 import { loadCustomStrategies, invalidateCustomStrategies } from "./customStrategyLoader";
 import { buildEffectiveBacktestConfigs, buildPerStrategyBacktestConfigs } from "./backtestConfig";
@@ -350,9 +357,9 @@ function computeMetrics(
   equityCurve: number[]
 ) {
   const totalTrades = trades.length;
-  const wins = trades.filter((t) => t.pnl > 0);
-  const losses = trades.filter((t) => t.pnl <= 0);
-  const winRate = totalTrades > 0 ? wins.length / totalTrades : 0;
+  const wins = trades.filter((t) => isWin(t.pnl));
+  const losses = trades.filter((t) => !isWin(t.pnl));
+  const winRate = winRateOrZero(wins.length, totalTrades);
 
   const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
   const totalReturn =
@@ -363,16 +370,10 @@ function computeMetrics(
 
   const grossProfit = wins.reduce((s, t) => s + t.pnl, 0);
   const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
-  const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? 999 : 0;
-  const expectancy = totalTrades > 0 ? totalPnl / totalTrades : 0;
+  const profitFactor = profitFactorOf(grossProfit, grossLoss);
+  const expectancy = expectancyPerTrade(totalPnl, totalTrades);
 
-  let maxDrawdown = 0;
-  let peak = equityCurve[0] ?? startingBalance;
-  for (const bal of equityCurve) {
-    if (bal > peak) peak = bal;
-    const dd = peak > 0 ? (peak - bal) / peak : 0;
-    if (dd > maxDrawdown) maxDrawdown = dd;
-  }
+  const maxDrawdown = maxDrawdownFraction(equityCurve, startingBalance);
 
   // Annualised Sharpe / Sortino from equity-curve returns
   const dailyReturns: number[] = [];
@@ -433,16 +434,16 @@ function computeMetrics(
     byStrategy.get(id)!.trades.push(t);
   }
   const strategyComparison = [...byStrategy.entries()].map(([strategyId, { strategyName, trades: st }]) => {
-    const stWins = st.filter((t) => t.pnl > 0);
-    const stLosses = st.filter((t) => t.pnl <= 0);
+    const stWins = st.filter((t) => isWin(t.pnl));
+    const stLosses = st.filter((t) => !isWin(t.pnl));
     const stGrossProfit = stWins.reduce((s, t) => s + t.pnl, 0);
     const stGrossLoss = Math.abs(stLosses.reduce((s, t) => s + t.pnl, 0));
     return {
       strategyId, strategyName,
       trades: st.length,
-      winRate: st.length > 0 ? stWins.length / st.length : 0,
+      winRate: winRateOrZero(stWins.length, st.length),
       pnl: st.reduce((s, t) => s + t.pnl, 0),
-      profitFactor: stGrossLoss > 0 ? stGrossProfit / stGrossLoss : stGrossProfit > 0 ? 999 : 0,
+      profitFactor: profitFactorOf(stGrossProfit, stGrossLoss),
     };
   }).sort((a, b) => b.pnl - a.pnl);
 

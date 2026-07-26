@@ -15,8 +15,14 @@
  *   S4  restart reconciliation → order tracking rebuilt from the exchange
  *   S5  "no stop, no position" risk rule → failed SL placement flattens
  *
- * Needs the harness Postgres (bash harness/setup.sh). Skips cleanly when
- * DATABASE_URL is unset so the pure-test chain stays runnable anywhere.
+ * REQUIRES a database (bash harness/setup.sh, or the postgres service in CI).
+ * It is therefore NOT part of `pnpm test` — that chain is pure and runnable
+ * anywhere. This runs as `pnpm test:integration`; `pnpm test:all` runs both.
+ *
+ * (The DATABASE_URL guard below cannot short-circuit the imports: ESM hoists
+ * them, so `@workspace/db` is evaluated — and throws — before any statement
+ * in this file runs. The guard is kept for a clearer message when the module
+ * graph happens to load, but the real gate is the separate npm script.)
  *
  * Run:  DATABASE_URL=... tsx harness/live-engine.test.ts   (exit 0 = pass)
  */

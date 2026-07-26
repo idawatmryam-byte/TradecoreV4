@@ -81,7 +81,13 @@ export class LondonBreakoutStrategy implements Strategy {
     ctx: DecisionContext,
   ): TradeDecision | null {
     const lastPrice = row.lastPrice;
-    const nowMs = mtf.tf1m.length > 0 ? mtf.tf1m[mtf.tf1m.length - 1]![0]! : Date.now();
+    // Market time comes from the newest candle, never the wall clock — this
+    // strategy is gated entirely on the London session window, so reading
+    // Date.now() here would make the same stored snapshot decide differently
+    // on replay. With no candle there is no session to be inside: pass.
+    const lastCandle = mtf.tf1m[mtf.tf1m.length - 1];
+    if (!lastCandle) return null;
+    const nowMs = lastCandle[0]!;
     const hourUtc = new Date(nowMs).getUTCHours();
 
     // Only initiate during the London morning — outside it, silently pass
