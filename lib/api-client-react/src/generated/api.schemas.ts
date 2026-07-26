@@ -189,6 +189,102 @@ export interface StrategyDecisionEntry {
   lastSeenAt: string;
 }
 
+export type RecommendationStatus = typeof RecommendationStatus[keyof typeof RecommendationStatus];
+
+
+export const RecommendationStatus = {
+  created: 'created',
+  executed: 'executed',
+  rejected: 'rejected',
+  expired: 'expired',
+  superseded: 'superseded',
+  blocked: 'blocked',
+} as const;
+
+/**
+ * "user" marks a plan the trader modified — outcome attribution depends on it.
+ */
+export type RecommendationAuthoredBy = typeof RecommendationAuthoredBy[keyof typeof RecommendationAuthoredBy];
+
+
+export const RecommendationAuthoredBy = {
+  engine: 'engine',
+  user: 'user',
+} as const;
+
+export type RecommendationSide = typeof RecommendationSide[keyof typeof RecommendationSide];
+
+
+export const RecommendationSide = {
+  long: 'long',
+  short: 'short',
+} as const;
+
+export interface Recommendation {
+  id: number;
+  status: RecommendationStatus;
+  /** "user" marks a plan the trader modified — outcome attribution depends on it. */
+  authoredBy: RecommendationAuthoredBy;
+  /** @nullable */
+  derivedFromId?: number | null;
+  symbol: string;
+  strategyId: string;
+  /** @nullable */
+  strategyName?: string | null;
+  side: RecommendationSide;
+  confidence: number;
+  entryPrice: number;
+  slPrice: number;
+  tpPrice: number;
+  qty: number;
+  leverage: number;
+  /** SHA-256 of the decision content. Identical to the plan AutoPilot would have executed for the same scan. */
+  planFingerprint: string;
+  /** @nullable */
+  entryReason?: string | null;
+  expiresAt: string;
+  createdAt: string;
+  /** @nullable */
+  actedAt?: string | null;
+  /** @nullable */
+  tradeId?: number | null;
+  /** @nullable */
+  resolutionReason?: string | null;
+}
+
+export interface RecommendationList {
+  recommendations: Recommendation[];
+}
+
+export interface RevalidationCheck {
+  name: string;
+  passed: boolean;
+  detail: string;
+}
+
+export type RecommendationActionResultStatus = typeof RecommendationActionResultStatus[keyof typeof RecommendationActionResultStatus];
+
+
+export const RecommendationActionResultStatus = {
+  created: 'created',
+  executed: 'executed',
+  rejected: 'rejected',
+  expired: 'expired',
+  superseded: 'superseded',
+  blocked: 'blocked',
+} as const;
+
+export interface RecommendationActionResult {
+  ok: boolean;
+  status: RecommendationActionResultStatus;
+  reason: string;
+  /** Every re-validation check that ran, pass or fail — not just the first failure. */
+  checks?: RevalidationCheck[];
+  tradeId?: number;
+  /** Set by modify(): the new user-authored plan. */
+  newRecommendationId?: number;
+}
+
 export type NotificationSeverity = typeof NotificationSeverity[keyof typeof NotificationSeverity];
 
 
@@ -568,6 +664,29 @@ export const BotConfigRiskModel = {
   dollar: 'dollar',
 } as const;
 
+/**
+ * Where approved TradePlans execute. 'demo' = TradeCore's internal simulation on live market data (no broker, no API keys, no real money); 'live' = real orders through the connected broker.
+ */
+export type BotConfigExecutionTarget = typeof BotConfigExecutionTarget[keyof typeof BotConfigExecutionTarget];
+
+
+export const BotConfigExecutionTarget = {
+  demo: 'demo',
+  live: 'live',
+} as const;
+
+/**
+ * What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three.
+ */
+export type BotConfigMode = typeof BotConfigMode[keyof typeof BotConfigMode];
+
+
+export const BotConfigMode = {
+  research: 'research',
+  copilot: 'copilot',
+  autopilot: 'autopilot',
+} as const;
+
 export interface BotConfig {
   /** Which broker this section's engine connects to — binance (crypto section) or oanda (forex section). Fixed per section, not user-editable. */
   broker: BotConfigBroker;
@@ -602,6 +721,12 @@ export interface BotConfig {
   cooldownMinutes: number;
   scanIntervalSeconds: number;
   pairs: string[];
+  /** Where approved TradePlans execute. 'demo' = TradeCore's internal simulation on live market data (no broker, no API keys, no real money); 'live' = real orders through the connected broker. */
+  executionTarget: BotConfigExecutionTarget;
+  /** What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three. */
+  mode: BotConfigMode;
+  /** Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades. */
+  demoStartingBalanceUsdt: number;
   testnet: boolean;
   backtestMode: boolean;
   /** Testnet/demo only: when on, the live engine overrides its turnover-limiting gates (cooldown, confidence floor, toxic hours, max positions, daily-loss breaker, max holding time) to generate a high volume of trades for end-to-end testing. Ignored on real-money keys. Not a profitable configuration. */
@@ -636,6 +761,29 @@ export type BotConfigUpdateRiskModel = typeof BotConfigUpdateRiskModel[keyof typ
 export const BotConfigUpdateRiskModel = {
   percent: 'percent',
   dollar: 'dollar',
+} as const;
+
+/**
+ * Where approved TradePlans execute. 'demo' = TradeCore's internal simulation on live market data (no broker, no API keys, no real money); 'live' = real orders through the connected broker.
+ */
+export type BotConfigUpdateExecutionTarget = typeof BotConfigUpdateExecutionTarget[keyof typeof BotConfigUpdateExecutionTarget];
+
+
+export const BotConfigUpdateExecutionTarget = {
+  demo: 'demo',
+  live: 'live',
+} as const;
+
+/**
+ * What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three.
+ */
+export type BotConfigUpdateMode = typeof BotConfigUpdateMode[keyof typeof BotConfigUpdateMode];
+
+
+export const BotConfigUpdateMode = {
+  research: 'research',
+  copilot: 'copilot',
+  autopilot: 'autopilot',
 } as const;
 
 export interface BotConfigUpdate {
@@ -726,6 +874,12 @@ export interface BotConfigUpdate {
      */
   scanIntervalSeconds?: number;
   pairs?: string[];
+  /** Where approved TradePlans execute. 'demo' = TradeCore's internal simulation on live market data (no broker, no API keys, no real money); 'live' = real orders through the connected broker. */
+  executionTarget?: BotConfigUpdateExecutionTarget;
+  /** What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three. */
+  mode?: BotConfigUpdateMode;
+  /** Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades. */
+  demoStartingBalanceUsdt?: number;
   testnet?: boolean;
   backtestMode?: boolean;
   /** Testnet/demo only: when on, the live engine overrides its turnover-limiting gates to generate a high volume of trades for end-to-end testing. Ignored on real-money keys. */
@@ -1457,6 +1611,28 @@ export const GetJournalOutcome = {
   loss: 'loss',
   breakeven: 'breakeven',
 } as const;
+
+export type GetCopilotInboxParams = {
+/**
+ * Comma-separated statuses. Defaults to `created` (the actionable ones).
+ */
+status?: string;
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+};
+
+export type RejectRecommendationBody = {
+  note?: string;
+};
+
+export type ModifyRecommendationBody = {
+  slPrice?: number;
+  tpPrice?: number;
+  qty?: number;
+};
 
 export type GetNotificationsParams = {
 /**

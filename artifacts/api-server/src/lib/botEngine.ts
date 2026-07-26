@@ -49,6 +49,19 @@ import { loadStrategyConfigs } from "./strategyConfigLoader";
 import { loadCustomStrategies, liveEligible } from "./customStrategyLoader";
 import type { Strategy } from "./strategies";
 import { ExitManager, type OpenOrderIds } from "./exitManager";
+import type { ExecutionResult, TradeExecutor } from "./execution/executor";
+import { LiveExecutor, ResearchExecutor } from "./execution/liveExecutor";
+import { DemoExecutor } from "./execution/demoExecutor";
+import { expireStaleRecommendations, RecommendExecutor } from "./execution/recommendExecutor";
+import { simulateDemoExit } from "./execution/demoExit";
+import { buildDemoMarketData } from "./execution/demoMarketData";
+import type { FillCosts } from "./execution/fillModel";
+import { advanceIntent, attachTrade, openIntent, type IntentHandle } from "./execution/intentLog";
+import { planFingerprint } from "./plan/fingerprint";
+import {
+  captureDecisions, configVersionOf, recordScanCounters,
+  type CaptureDecision, type CaptureSnapshot,
+} from "./capture/captureLog";
 import type { Section } from "./engineRegistry";
 import { TradeManager } from "./tradeManager";
 import { placeSellOco, cancelOco } from "./binanceOco";
@@ -247,6 +260,63 @@ class BotEngine {
   private riskViolationCount = 0;
   private riskPaused = false;
 
+  // ── P1: the execution fork point ────────────────────────────────────────────
+  // Everything up to the approved TradePlan is identical for every mode; only
+  // what happens AFTER the plan differs. The scan loop hands the finished plan
+  // to whichever executor is configured and does not care what it does with
+  // it. Today that is always LiveExecutor (real orders, unchanged behaviour);
+  // DemoExecutor and RecommendExecutor slot in here without the intelligence
+  // pipeline noticing.
+  private readonly liveExecutor: TradeExecutor = new LiveExecutor((req) =>
+    this.enterTrade(req.symbol, req.row, req.plan, req.config, req.now, req.stratConfig),
+  );
+  private readonly researchExecutor: TradeExecutor = new ResearchExecutor();
+  private readonly copilotExecutor: TradeExecutor = new RecommendExecutor({
+    userId: () => this.userId,
+    section: () => this.section,
+  });
+  private readonly demoExecutor: TradeExecutor = new DemoExecutor({
+    userId: () => this.userId,
+    section: () => this.section,
+    costs: () => this.fillCosts(),
+    balance: () => this.getDemoBalance(),
+  });
+  /** Resolved from config each scan — "demo" | "live". */
+  private executionTarget: "demo" | "live" = "live";
+  /** Optional override, used by tests to inject a stand-in executor. */
+  private executorOverride: TradeExecutor | null = null;
+
+  /** Force a specific executor regardless of config. Test seam. */
+  setExecutor(executor: TradeExecutor | null): void {
+    this.executorOverride = executor;
+  }
+
+  /**
+   * Pick the executor for this scan. The intelligence pipeline above the fork
+   * point is identical in every case; only this differs.
+   */
+  private resolveExecutor(config: { mode?: string | null; executionTarget?: string | null }): TradeExecutor {
+    if (this.executorOverride) return this.executorOverride;
+    if (config.mode === "research") return this.researchExecutor;
+    // Co-Pilot forks BEFORE the demo/live choice: the plan is not executed at
+    // all, it is handed to the user. Which target it eventually runs against
+    // is decided at approval time, from the config as it stands then.
+    if (config.mode === "copilot") return this.copilotExecutor;
+    return config.executionTarget === "demo" ? this.demoExecutor : this.liveExecutor;
+  }
+
+  /**
+   * Cost model for simulated fills — the SAME rates the backtest uses for this
+   * market type, so a demo fill and a backtest fill are comparable.
+   */
+  private fillCosts(): FillCosts {
+    return {
+      feeRate: this.activeTakerFee,
+      makerFeeRate: this.activeTakerFee,
+      slippageRate: this.activeSlippageRate,
+    };
+  }
+
   // ── Phase 4A: centralized exit pipeline ─────────────────────────────────────
   // ExitManager owns every way a trade can close; BotEngine only supplies the
   // side effects (alerts, cooldowns, hourly stats, risk-pause bookkeeping) via
@@ -430,6 +500,14 @@ class BotEngine {
    *  type. Used by initExchange, and directly by closeTradeManually when the
    *  trade's market type differs from whatever the engine is running. */
   private async buildExchange(testnet: boolean, marketType: MarketType): Promise<any> {
+    // Demo needs market DATA, not a broker connection: orders are filled by
+    // execution/fillModel.ts and never reach a venue. Crypto reads Binance's
+    // public endpoints keyless; forex needs the platform's own OANDA practice
+    // token, because OANDA publishes no public market data.
+    if (this.executionTarget === "demo") {
+      return buildDemoMarketData(marketType);
+    }
+
     if (marketType === "forex") {
       // Forex section → OANDA. Practice vs live is only a base-URL choice,
       // reusing the same testnet flag the crypto path uses for paper trading.
@@ -502,7 +580,44 @@ class BotEngine {
   // Balance cache (for risk-based position sizing)
   // ---------------------------------------------------------------------------
 
+  /**
+   * Virtual balance for a demo account: its configured starting balance plus
+   * the realised P&L of every demo trade it has closed.
+   *
+   * Derived rather than stored, deliberately. A running-total column would be
+   * one more thing that can drift out of step with the trade log after a crash
+   * mid-close; computing it means the balance is always exactly what the
+   * trades say it is.
+   */
+  private async getDemoBalance(): Promise<number> {
+    const [cfg] = await db
+      .select({ start: botConfigTable.demoStartingBalanceUsdt })
+      .from(botConfigTable)
+      .where(and(eq(botConfigTable.userId, this.userId), eq(botConfigTable.section, this.section)))
+      .limit(1);
+    const starting = Number(cfg?.start ?? 10_000);
+
+    const [realised] = await db
+      .select({ total: sql<number>`coalesce(sum(${tradesTable.pnl}), 0)::float8` })
+      .from(tradesTable)
+      .where(and(
+        eq(tradesTable.userId, this.userId),
+        eq(tradesTable.section, this.section),
+        eq(tradesTable.executionTarget, "demo"),
+        eq(tradesTable.status, "closed"),
+      ));
+
+    const balance = starting + Number(realised?.total ?? 0);
+    this.state.balanceUsdt = balance;
+    this.cachedBalance = balance;
+    return Math.max(0, balance);
+  }
+
   private async getBalance(): Promise<number> {
+    // Demo has no broker to ask. Never cached against the exchange path — the
+    // virtual balance moves the moment a simulated trade closes.
+    if (this.executionTarget === "demo") return this.getDemoBalance();
+
     const now = Date.now();
     if (now - this.lastBalanceFetch < this.BALANCE_CACHE_MS && this.cachedBalance > 0) {
       return this.cachedBalance;
@@ -881,6 +996,9 @@ class BotEngine {
     this.riskPaused = config.riskPaused;
     this.riskViolationCount = config.riskViolationCount;
     this.activeMarketType = toMarketType(config.marketType);
+    // Must be resolved BEFORE initExchange: it decides whether we build a
+    // credentialed broker client or a keyless market-data client.
+    this.executionTarget = config.executionTarget === "demo" ? "demo" : "live";
     const ex = await this.initExchange(config.testnet, this.activeMarketType);
 
     logger.info(`Loading ${this.activeMarketType === "forex" ? "OANDA instruments" : "Binance markets"}…`);
@@ -1018,6 +1136,119 @@ class BotEngine {
     logger.info({ intervalMs, mode: this.state.mode }, "Bot engine started");
   }
 
+  /** Is the scan loop currently running? */
+  isRunning(): boolean {
+    return this.state.running;
+  }
+
+  /** Is this engine executing into the demo simulation rather than a broker? */
+  isDemoTarget(): boolean {
+    return this.executionTarget === "demo";
+  }
+
+  /**
+   * Gather the live account state a Co-Pilot approval must be re-checked
+   * against. Everything here can have changed since the plan was produced —
+   * that is the entire reason approval is not the same as execution.
+   *
+   * Reads current state only; the verdict is `revalidate()`'s (pure, testable).
+   */
+  async gatherRevalidationState(plan: {
+    symbol: string; strategyId: string; entryPrice: number; slPrice: number; qty: number;
+  }): Promise<{
+    engineRunning: boolean;
+    circuitBreakerActive: boolean;
+    riskPaused: boolean;
+    openPositions: number;
+    maxOpenPositions: number;
+    strategyOpenCount: number;
+    maxConcurrentPerStrategy: number;
+    openRiskUsdt: number;
+    maxPortfolioRiskUsdt: number;
+    onCooldown: boolean;
+    blacklisted: boolean;
+    symbolAlreadyOpen: boolean;
+    currentPrice?: number;
+  }> {
+    const now = new Date();
+    const config = await this.loadConfig();
+    const openTrades = await db
+      .select()
+      .from(tradesTable)
+      .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.section, this.section), eq(tradesTable.status, "open")));
+
+    const openRiskUsdt = openTrades.reduce((sum, t) => {
+      const entry = Number(t.entryPrice);
+      const stop = Number(t.plannedStopLoss ?? t.stopLoss);
+      const qty = Number(t.remainingQuantity ?? t.quantity);
+      return sum + Math.abs(entry - stop) * qty;
+    }, 0);
+
+    const balance = await this.getBalance();
+    const strategyConfigs = await this.getStrategyConfigs();
+    const stratCfg = strategyConfigs.get(plan.strategyId);
+    const blacklist = await this.loadActiveBlacklist(now);
+
+    // Prefer the poller's cached tick; fall back to a direct fetch. Undefined
+    // means drift simply is not checked, rather than the approval failing on
+    // a transient data problem.
+    let currentPrice: number | undefined = this.liveTickers.get(plan.symbol)?.last;
+    if (currentPrice === undefined && this.exchange) {
+      try {
+        const ticker = await this.exchange.fetchTicker(this.toMarket(plan.symbol));
+        const last = Number(ticker?.last ?? ticker?.close);
+        if (Number.isFinite(last) && last > 0) currentPrice = last;
+      } catch {
+        // Leave undefined — see above.
+      }
+    }
+
+    return {
+      engineRunning: this.state.running,
+      circuitBreakerActive: this.state.circuitBreakerActive,
+      riskPaused: this.riskPaused,
+      openPositions: openTrades.length,
+      maxOpenPositions: config.maxOpenPositions,
+      strategyOpenCount: openTrades.filter((t) => t.strategyId === plan.strategyId).length,
+      maxConcurrentPerStrategy: stratCfg?.maxConcurrentPositions ?? 1,
+      openRiskUsdt,
+      maxPortfolioRiskUsdt: balance * (Number(config.maxPortfolioRiskPercent) / 100),
+      onCooldown: this.isOnCooldown(plan.symbol),
+      blacklisted: blacklist.has(plan.symbol),
+      symbolAlreadyOpen: openTrades.some((t) => t.symbol === plan.symbol),
+      ...(currentPrice !== undefined && { currentPrice }),
+    };
+  }
+
+  /**
+   * Execute an already-revalidated plan through this section's real executor
+   * (live or demo). Used by the Co-Pilot approval path, which has done the
+   * re-checks — so this deliberately routes through the SAME executor a scan
+   * would have used, rather than a separate approval-only order path.
+   */
+  async executeApprovedPlan(plan: TradePlan, row: SignalRow, now: Date): Promise<ExecutionResult> {
+    const config = this.applyHighFreqOverrides(await this.loadConfig());
+    this.executionTarget = config.executionTarget === "demo" ? "demo" : "live";
+    const strategyConfigs = await this.getStrategyConfigs();
+    const stratConfig = strategyConfigs.get(plan.strategyId);
+    // Co-Pilot's own executor must never be chosen here — that would record a
+    // second recommendation instead of opening the position the user approved.
+    const executor = this.executionTarget === "demo" ? this.demoExecutor : this.liveExecutor;
+    return executor.execute({
+      symbol: plan.symbol, plan, row, config, now, ...(stratConfig && { stratConfig }),
+    });
+  }
+
+  /** Did the user leave this section switched on? Survives pauses and restarts. */
+  async isDesiredRunning(): Promise<boolean> {
+    const [row] = await db
+      .select({ desired: botConfigTable.engineDesiredRunning })
+      .from(botConfigTable)
+      .where(and(eq(botConfigTable.userId, this.userId), eq(botConfigTable.section, this.section)))
+      .limit(1);
+    return Boolean(row?.desired);
+  }
+
   async stop(): Promise<void> {
     if (!this.state.running) return;
     // Clear the persisted desired state FIRST — an explicit Stop must never
@@ -1030,6 +1261,26 @@ class BotEngine {
     } catch (err) {
       logger.warn({ err }, "Could not persist engine desired-running=false");
     }
+    this.teardown("Bot engine stopped");
+  }
+
+  /**
+   * Pause an idle DEMO engine's scan loop while preserving the user's intent
+   * to be running.
+   *
+   * Deliberately not stop(): stop() clears `engineDesiredRunning`, which is
+   * correct for an explicit Stop and wrong here. A demo engine paused for
+   * inactivity must come back on its own — on the next boot's auto-resume, or
+   * the moment the user returns — and clearing the flag would strand it off
+   * until they noticed and pressed Start.
+   */
+  async pauseForIdle(): Promise<void> {
+    if (!this.state.running) return;
+    this.teardown("Demo engine paused — idle, will resume on next activity");
+  }
+
+  /** Shared teardown for stop() and pauseForIdle(). */
+  private teardown(message: string): void {
     if (this.scanTimer) {
       clearInterval(this.scanTimer);
       this.scanTimer = null;
@@ -1060,7 +1311,7 @@ class BotEngine {
     this.state.balanceUsdt = null;
     this.state.running = false;
     this.state.startedAt = null;
-    logger.info("Bot engine stopped");
+    logger.info(message);
   }
 
   // ---------------------------------------------------------------------------
@@ -1079,6 +1330,9 @@ class BotEngine {
       // overrides (a no-op unless highFrequencyTestMode is on AND on testnet).
       // This also sets this.highFreqActive for getStrategyConfigs/isToxicHour.
       const config = this.applyHighFreqOverrides(await this.loadConfig());
+      // Re-resolved each scan so a mid-session switch takes effect on the next
+      // tick rather than requiring a restart.
+      this.executionTarget = config.executionTarget === "demo" ? "demo" : "live";
       const ex = await this.initExchange(config.testnet, toMarketType(config.marketType));
       const now = new Date();
       this.state.lastScanAt = now.toISOString();
@@ -1265,6 +1519,27 @@ class BotEngine {
       // Decision journal for this scan: every considered-and-rejected trade
       // plus approved-but-not-taken plans. Flushed (best-effort) at scan end.
       const scanDecisions: DecisionRecord[] = [];
+      // ── P2: the append-only capture log, written alongside the operational
+      // Decisions feed. Same decisions, different contract: the feed dedupes
+      // and prunes at 14 days (right for a UI), the capture log never mutates
+      // (right for a training set). Signal-only — symbols that produced no
+      // decision at all are counted at the end of the scan, not snapshotted.
+      const scanCaptures: CaptureDecision[] = [];
+      const scanSnapshots = new Map<string, CaptureSnapshot>();
+      /** Push to the operational feed AND the capture log in one place. */
+      const noteDecision = (rec: DecisionRecord) => {
+        scanDecisions.push(rec);
+        scanCaptures.push({
+          outcome: rec.kind,
+          symbol: rec.symbol,
+          strategyId: rec.strategyId,
+          side: rec.side,
+          confidence: rec.confidence,
+          stage: rec.stage,
+          reason: rec.reason,
+          payload: rec.report,
+        });
+      };
 
       for (const result of candleResults) {
         const symbol = result.symbol;
@@ -1319,6 +1594,13 @@ class BotEngine {
         const row = buildSignalRow(symbol, mtf, this.lastRegime.get(symbol));
         this.lastRegime.set(symbol, row.regime);
         regimeCounts[row.regime] = (regimeCounts[row.regime] ?? 0) + 1;
+        // Inputs for the capture log. dataTimestampMs is MARKET time (the
+        // newest candle's close), never now() — an as-of-T query is only
+        // honest against the moment the data was true.
+        scanSnapshots.set(symbol, {
+          row,
+          dataTimestampMs: tf1m.length > 0 ? tf1m[tf1m.length - 1]![0]! : now.getTime(),
+        });
         marketStage.status = "pass";
         marketStage.detail = `Fetched 5 timeframes · last price ${row.lastPrice}`;
 
@@ -1456,7 +1738,7 @@ class BotEngine {
         );
         // Considered-and-rejected trades are first-class output now — queue
         // them for the persistent decision journal (flushed once per scan).
-        for (const r of rejections) scanDecisions.push(rejectionToRecord(r));
+        for (const r of rejections) noteDecision(rejectionToRecord(r));
         // Spot has no short-selling mechanism (buy-to-open is the only way to
         // enter) — strategies always evaluate both directions, so filter out
         // short signals here rather than duplicating a market-type check into
@@ -1507,7 +1789,7 @@ class BotEngine {
           const maxC = cfg?.maxConcurrentPositions ?? 2;
           if (openCount >= maxC) {
             cappedStrategies.push(cand.strategyName);
-            scanDecisions.push(planToRecord(cand, "approved_not_taken", {
+            noteDecision(planToRecord(cand, "approved_not_taken", {
               stage: "Strategy Concurrency",
               reason: `${openCount}/${maxC} positions already open for ${cand.strategyName}`,
             }));
@@ -1574,7 +1856,7 @@ class BotEngine {
           riskStage.status = "fail";
           riskStage.detail = `Blocked: aggregate portfolio risk ($${(existingRiskUsdt + candidateRiskUsdt).toFixed(2)}) would exceed ${Number(config.maxPortfolioRiskPercent)}% of balance ($${maxPortfolioRiskUsdt.toFixed(2)})`;
           record("BLOCKED", "Risk Checks", "Portfolio risk limit reached", bestSignal.confidence);
-          scanDecisions.push(planToRecord(bestSignal, "approved_not_taken", {
+          noteDecision(planToRecord(bestSignal, "approved_not_taken", {
             stage: "Portfolio Risk",
             reason: `aggregate risk $${(existingRiskUsdt + candidateRiskUsdt).toFixed(2)} would exceed the $${maxPortfolioRiskUsdt.toFixed(2)} cap`,
           }));
@@ -1609,7 +1891,7 @@ class BotEngine {
           riskStage.status = "fail";
           riskStage.detail = `Blocked: ${symbol} concentration ($${(existingSymbolNotionalUsdt + candidateNotionalUsdt).toFixed(2)}) would exceed ${Number(config.maxSymbolConcentrationPercent)}% of balance ($${maxSymbolConcentrationUsdt.toFixed(2)})`;
           record("BLOCKED", "Risk Checks", "Symbol concentration limit reached", bestSignal.confidence);
-          scanDecisions.push(planToRecord(bestSignal, "approved_not_taken", {
+          noteDecision(planToRecord(bestSignal, "approved_not_taken", {
             stage: "Symbol Concentration",
             reason: `notional $${(existingSymbolNotionalUsdt + candidateNotionalUsdt).toFixed(2)} would exceed the $${maxSymbolConcentrationUsdt.toFixed(2)} cap for ${symbol}`,
           }));
@@ -1645,7 +1927,7 @@ class BotEngine {
           riskStage.status = "fail";
           riskStage.detail = `Blocked: net directional exposure ($${netExposureUsdt.toFixed(2)}) would exceed ${Number(config.maxNetExposurePercent)}% of balance ($${maxNetExposureUsdt.toFixed(2)})`;
           record("BLOCKED", "Risk Checks", "Net exposure limit reached", bestSignal.confidence);
-          scanDecisions.push(planToRecord(bestSignal, "approved_not_taken", {
+          noteDecision(planToRecord(bestSignal, "approved_not_taken", {
             stage: "Net Exposure",
             reason: `net exposure $${netExposureUsdt.toFixed(2)} would exceed the $${maxNetExposureUsdt.toFixed(2)} cap`,
           }));
@@ -1664,10 +1946,30 @@ class BotEngine {
           "Strategy signal — evaluating entry"
         );
 
-        // ── Stage 5: Order — execute the strategy's approved TradePlan ──────
-        const { entered, reason } = await this.enterTrade(
-          symbol, row, bestSignal, config, now, stratConfig,
-        );
+        // ── Stage 5: Order — hand the approved TradePlan to the executor ────
+        // THE FORK POINT. Everything above this line is the deterministic
+        // intelligence pipeline and is identical in every mode; everything
+        // below is only a question of what to do with the finished plan.
+        const execResult = await this.resolveExecutor(config).execute({
+          symbol, plan: bestSignal, row, config, now, ...(stratConfig && { stratConfig }),
+        });
+        const { entered, reason } = execResult;
+        if (entered) {
+          // Capture the executed decision with its execution linkage — this is
+          // the row that will later join to the trade's outcome.
+          scanCaptures.push({
+            outcome: "executed",
+            symbol,
+            strategyId: bestSignal.strategyId,
+            side: bestSignal.side,
+            confidence: bestSignal.confidence,
+            stage: null,
+            reason: bestSignal.report.summary,
+            payload: bestSignal,
+            ...(execResult.correlationId && { correlationId: execResult.correlationId }),
+            planFingerprint: planFingerprint(this.userId, bestSignal),
+          });
+        }
         if (entered) {
           this.state.openPositions++;
           // Track for the same-scan concurrency + portfolio-risk accounting above.
@@ -1692,7 +1994,7 @@ class BotEngine {
           orderStage.status = "fail";
           orderStage.detail = `Order not placed — ${reason}`;
           record("BLOCKED", "Order", reason, bestSignal.confidence);
-          scanDecisions.push(planToRecord(bestSignal, "approved_not_taken", {
+          noteDecision(planToRecord(bestSignal, "approved_not_taken", {
             stage: "Order",
             reason,
           }));
@@ -1743,6 +2045,41 @@ class BotEngine {
       if (scanDecisions.length > 0) {
         void recordDecisions(this.userId, scanDecisions, this.section).catch(() => {});
       }
+
+      // ── P2: capture ────────────────────────────────────────────────────────
+      // Full snapshot + provenance for every symbol a strategy actually
+      // decided on; a counter for every symbol that produced nothing. Both
+      // fire-and-forget — the historical asset must never stall a scan.
+      if (scanCaptures.length > 0) {
+        void captureDecisions({
+          userId: this.userId,
+          section: this.section,
+          provider: this.section === "forex" ? "oanda" : "binance",
+          venue: config.marketType,
+          timeframe: "1m",
+          configVersion: configVersionOf([...strategyConfigs.entries()].sort(([a], [b]) => (a < b ? -1 : 1))),
+          decisions: scanCaptures,
+          snapshots: scanSnapshots,
+        }).catch(() => {});
+      }
+      const decidedSymbols = new Set(scanCaptures.map((c) => c.symbol));
+      const uncaptured = new Map<string, string>();
+      for (const d of decisions) {
+        if (decidedSymbols.has(d.symbol)) continue;
+        // Every strategy looked and found no setup worth reporting, or the
+        // symbol was stopped before strategy evaluation. Either way: a count,
+        // not a snapshot.
+        uncaptured.set(d.symbol, d.finalDecision === "ENTERED" ? "Order" : (d.blockStage ?? "no_signal"));
+      }
+      if (uncaptured.size > 0) {
+        void recordScanCounters(this.userId, this.section, now, uncaptured).catch(() => {});
+      }
+      // Never leave an actionable-looking plan in the inbox that is no longer
+      // actionable. Expiry is enforced again at approval time regardless —
+      // this sweep is for the UI's honesty, not for safety.
+      if (config.mode === "copilot") {
+        void expireStaleRecommendations(this.userId, this.section, now).catch(() => {});
+      }
       if (Date.now() - this.lastDecisionPruneAt > 3600_000) {
         this.lastDecisionPruneAt = Date.now();
         void pruneDecisions(this.userId, this.section).catch(() => {});
@@ -1780,7 +2117,7 @@ class BotEngine {
     config: Awaited<ReturnType<typeof this.loadConfig>>,
     now: Date,
     stratConfig?: StrategyConfig,
-  ): Promise<{ entered: boolean; reason: string }> {
+  ): Promise<ExecutionResult> {
     const ex = this.exchange!;
     const market = this.toMarket(symbol);
     const side = plan.side;
@@ -1796,6 +2133,11 @@ class BotEngine {
     // Order side to OPEN the position; the opposite side closes it.
     const openSide = isShort ? "sell" : "buy";
     const closeSide = isShort ? "buy" : "sell";
+
+    // Declared outside the try so the catch can mark the intent FAILED. Stays
+    // null through every pre-flight refusal below — an entry we never sent to
+    // the broker leaves no execution record, by design.
+    let intent: IntentHandle | null = null;
 
     try {
       const marketInfo = ex.markets[market];
@@ -1944,24 +2286,65 @@ class BotEngine {
         `Placing market ${openSide.toUpperCase()} (${side})`
       );
 
+      // ── Durable intent, written BEFORE the broker is called ───────────────
+      // Past this point a real position can exist. If the process dies between
+      // the fill and the trades-row insert below, this row is the only record
+      // of what was intended — which stop, which target, which strategy — and
+      // it carries the client order id the fill can be looked up by. Every
+      // pre-flight refusal above returns before this, so a refused entry
+      // leaves nothing behind.
+      intent = await openIntent({
+        userId: this.userId,
+        section: this.section,
+        planFingerprint: planFingerprint(this.userId, plan),
+        symbol,
+        side: openSide,
+        marketType: config.marketType,
+        ...(strategyId && { strategyId }),
+        plannedEntryPrice: entry.entryPrice,
+        plannedStopLoss: entry.slPrice,
+        plannedTakeProfit: entry.tpPrice,
+        plannedQuantity: qty,
+        ...(isFutures && { plannedLeverage: effectiveLeverage }),
+      });
+
       // Forex: ONE atomic call opens the position WITH its SL/TP attached
       // (placed at the strategy's absolute prices — no post-fill slippage
       // re-anchoring, the resting orders ARE the plan). Crypto keeps the
       // fill-then-protect sequence below.
       let openOrder: any = null;
       let forexBracket: { fillPrice: number; filledUnits: number; oandaTradeId: string; slOrderId: string; tpOrderId: string } | null = null;
+      await advanceIntent(intent, "ORDER_SUBMITTED", "market entry sent to broker");
       if (isForex) {
+        // OANDA identifies orders by clientExtensions rather than a client
+        // order id param; wiring that through placeProtectedEntry() belongs
+        // with the adapter work, so forex recovery leans on the intent row's
+        // planned values plus the returned OANDA trade id for now.
         forexBracket = await ex.placeProtectedEntry(
           market, openSide, qty,
           parseFloat(ex.priceToPrecision(market, entry.slPrice)),
           parseFloat(ex.priceToPrecision(market, entry.tpPrice)),
         );
       } else {
-        openOrder = await ex.createOrder(market, "market", openSide, qty);
+        // newClientOrderId makes the fill findable after a timeout. Never
+        // resubmit a market order that may already have filled — query it.
+        openOrder = await ex.createOrder(
+          market, "market", openSide, qty, undefined,
+          intent ? { newClientOrderId: intent.clientOrderId } : undefined,
+        );
       }
 
       const fillPrice = forexBracket ? forexBracket.fillPrice : (openOrder.average ?? openOrder.price ?? entry.entryPrice);
       const filledQty = forexBracket ? forexBracket.filledUnits : (openOrder.filled ?? qty);
+
+      // A position now exists on the venue. From here every exit path must
+      // leave the intent in a terminal state, or startup recovery will treat
+      // it as possibly-live and investigate.
+      await advanceIntent(intent, "FILLED", "entry filled", {
+        fillPrice, filledQty,
+        ...(forexBracket && { oandaTradeId: forexBracket.oandaTradeId }),
+        ...(openOrder?.id != null && { brokerOrderId: String(openOrder.id) }),
+      });
 
       // ── FIX (bug #1 / #2): use the STRATEGY's own SL/TP, not a generic
       // ATR recompute ─────────────────────────────────────────────────────
@@ -2051,6 +2434,7 @@ class BotEngine {
         const why = liquidationIsUnsafe
           ? "stop-loss too close to the exchange's liquidation price"
           : "computed SL/TP invalid after fill";
+        await advanceIntent(intent, "FLATTENED", `risk guard: ${why}`, { fillPrice, filledQty });
         const cooled = this.cooldownAfterEntryFlatten(symbol, why);
         return {
           entered: false,
@@ -2170,6 +2554,8 @@ class BotEngine {
             expectedHoldSeconds: Math.round(plan.expectedHoldSeconds),
             maxHoldSeconds: Math.round(plan.maxHoldSeconds),
             plannedLeverage: plan.leverage,
+            // The join key: plan → execution → this trade → its outcome.
+            ...(intent && { correlationId: intent.correlationId }),
           })
           .returning();
       } catch (dbErr) {
@@ -2183,6 +2569,7 @@ class BotEngine {
           logger.error({ err: closeErr, symbol, filledQty },
             "Failed to close untracked position after DB failure — MANUAL INTERVENTION REQUIRED");
         }
+        await advanceIntent(intent, "FLATTENED", "trades-row insert failed — position closed", { fillPrice, filledQty });
         this.sendAlert(
           `🚨 ${side.toUpperCase()} ${symbol} filled at ${fillPrice.toFixed(6)} but could NOT be recorded ` +
           `(database error). The engine attempted to close it immediately. Please verify on Binance that no ` +
@@ -2190,6 +2577,10 @@ class BotEngine {
         ).catch(() => {});
         return { entered: false, reason: "Order filled but DB write failed — position closed to avoid an untracked/unprotected position" };
       }
+
+      // The engine now tracks the position — it is no longer an orphan risk.
+      await attachTrade(intent, trade!.id);
+      await advanceIntent(intent, "RECORDED", "trades row written", { tradeId: trade!.id });
 
       let tpOrderId = "";
       let slOrderId = "";
@@ -2309,6 +2700,14 @@ class BotEngine {
           { tpOrderId, slOrderId: "", ...(ocoOrderListId && { ocoOrderListId }) },
         );
         this.openOrderIds.delete(trade!.id);
+        await advanceIntent(
+          intent,
+          outcome.closed ? "FLATTENED" : "RECORDED",
+          outcome.closed
+            ? "stop-loss placement failed — position flattened"
+            : "stop-loss placement failed AND the protective flatten failed — position may still be live",
+          { tradeId: trade!.id, tpOrderId: tpOrderId || null },
+        );
         this.sendAlert(
           `🚨 ${side.toUpperCase()} ${symbol} filled at ${fillPrice.toFixed(6)} but the exchange STOP-LOSS could not ` +
           `be placed. Position was ${outcome.closed ? "flattened immediately (no stop, no position)" : "NOT closed — close it manually on Binance NOW"}.`,
@@ -2322,6 +2721,11 @@ class BotEngine {
         };
       }
 
+      // Terminal-good: filled, recorded, and protected on the exchange.
+      await advanceIntent(intent, "PROTECTED", bothPlaced ? "SL + TP resting" : "SL resting, TP unplaced", {
+        tradeId: trade!.id, tpOrderId: tpOrderId || null, slOrderId, usedTrueOco: !!ocoOrderListId,
+      });
+
       // Journal the executed decision with its trade link (best-effort).
       void recordDecisions(this.userId, [
         planToRecord(plan, "executed", { tradeId: trade!.id }),
@@ -2329,6 +2733,8 @@ class BotEngine {
 
       return {
         entered: true,
+        ...(intent && { correlationId: intent.correlationId }),
+        tradeId: trade!.id,
         reason: bothPlaced
           ? `market ${openSide.toUpperCase()} filled, TP + SL protection placed`
           : neitherPlaced
@@ -2337,6 +2743,20 @@ class BotEngine {
       };
     } catch (err) {
       const message = String((err as Error)?.message ?? err);
+      // Mark the intent terminal. NOTE the deliberate asymmetry: if the throw
+      // happened at or after ORDER_SUBMITTED we cannot know whether the order
+      // filled (a timeout is indistinguishable from a rejection from here), so
+      // the state records that ambiguity rather than claiming failure. That is
+      // precisely what the client order id is for — look the order up, never
+      // resubmit a market order that may already be live.
+      await advanceIntent(
+        intent,
+        "FAILED",
+        message,
+        intent?.state === "ORDER_SUBMITTED"
+          ? { outcomeUnknown: true, resolveVia: "clientOrderId", clientOrderId: intent.clientOrderId }
+          : undefined,
+      );
       // Binance -2027: "Exceeded the maximum allowable position at current
       // leverage" — the exchange's per-symbol position cap for the account's
       // leverage bracket is full. Retrying next scan is guaranteed to fail
@@ -2372,6 +2792,50 @@ class BotEngine {
   // planned-vs-actual SL/TP/qty/fees/slippage/P&L validation and the one
   // "closed" DB write. BotEngine only reacts to the outcome.
 
+  /**
+   * Update this trade's maximum favourable / adverse excursion from the latest
+   * candle's range. Mirrors backtestEngine's Phase 4C computation exactly, so
+   * the live and simulated numbers mean the same thing.
+   *
+   * Writes only when an extreme actually moves — after the first few ticks
+   * that is the rare case, so this costs a comparison per tick, not a write.
+   */
+  private async trackExcursion(
+    trade: typeof tradesTable.$inferSelect,
+    candles1m: Candle[],
+  ): Promise<void> {
+    if (candles1m.length === 0) return;
+    const last = candles1m[candles1m.length - 1]!;
+    const high = last[2];
+    const low = last[3];
+    const entryPrice = Number(trade.entryPrice);
+    const qty = Number(trade.remainingQuantity ?? trade.quantity);
+    if (!(qty > 0) || !(entryPrice > 0)) return;
+
+    const isShort = trade.side === "sell";
+    const favorable = isShort ? (entryPrice - low) * qty : (high - entryPrice) * qty;
+    const adverse = isShort ? (entryPrice - high) * qty : (low - entryPrice) * qty;
+
+    const currentMfe = trade.mfeUsdt != null ? Number(trade.mfeUsdt) : 0;
+    const currentMae = trade.maeUsdt != null ? Number(trade.maeUsdt) : 0;
+    const nextMfe = favorable > currentMfe ? favorable : currentMfe;
+    const nextMae = adverse < currentMae ? adverse : currentMae;
+    if (nextMfe === currentMfe && nextMae === currentMae) return;
+
+    try {
+      await db
+        .update(tradesTable)
+        .set({ mfeUsdt: nextMfe.toFixed(8), maeUsdt: nextMae.toFixed(8) })
+        .where(eq(tradesTable.id, trade.id));
+      // Keep the in-memory row in step so the same tick's downstream logic
+      // and the eventual post-mortem see the fresh values.
+      trade.mfeUsdt = nextMfe.toFixed(8);
+      trade.maeUsdt = nextMae.toFixed(8);
+    } catch (err) {
+      logger.warn({ err, tradeId: trade.id }, "EXCURSION_TRACK_FAILED");
+    }
+  }
+
   private async checkExitCondition(
     trade: typeof tradesTable.$inferSelect,
     candles1m: Candle[],
@@ -2383,6 +2847,28 @@ class BotEngine {
     const ex = this.exchange!;
     const market = this.toMarket(trade.symbol);
     let orderIds = this.openOrderIds.get(trade.id);
+
+    // ── P2: track the excursion envelope while the position is open ─────────
+    // How far the trade ran in our favour before the outcome, and how far
+    // against. The backtest engine has computed both since Phase 4C; live
+    // trades had no equivalent, so "was that stop sitting in noise, or did the
+    // market genuinely refute the thesis?" was answerable in simulation only.
+    // Runs here rather than in TradeManager because TradeManager returns early
+    // for strategies with laddering disabled — this must hold for every trade.
+    // ── Demo positions resolve against the fill model, not an exchange ──────
+    // There is no venue to confirm a fill against, so the market simulation
+    // decides whether this bar took the position out — and the SAME
+    // ExitManager path a live close runs then settles it. Returns before any
+    // exchange call below, all of which would be meaningless here.
+    if (trade.executionTarget === "demo") {
+      await simulateDemoExit({
+        trade, candles1m, now, cooldownMinutes,
+        stratConfig, costs: this.fillCosts(), exitManager: this.exitManager,
+      });
+      return;
+    }
+
+    await this.trackExcursion(trade, candles1m);
 
     // Futures Phase: liquidation proximity is only checked once, right after
     // entry (enterTrade's "RISK GUARD" check) — but for an already-OPEN
@@ -3052,6 +3538,20 @@ class BotEngine {
         // the engine would try to trade Binance from the Forex tab.
         broker: this.section === "forex" ? "oanda" : "binance",
         ...(this.section === "forex" && { marketType: "forex", pairs: "EUR_USD,GBP_USD,AUD_USD,NZD_USD,XAU_USD" }),
+        // A NEW section starts in the demo simulation, so an account can trade
+        // within minutes of signing up and reaching real money is a deliberate
+        // step rather than the only option. The COLUMN default stays "live" on
+        // purpose — that governs backfill of pre-existing rows, and nobody who
+        // was already trading for real gets silently moved to paper.
+        executionTarget: "demo",
+        // And in Co-Pilot: a new account sees the engine's reasoning and
+        // decides for itself before the engine is trusted to act alone. The
+        // COLUMN default stays "autopilot" so existing rows keep the behaviour
+        // they already had.
+        mode: "copilot",
+        // Forex practice accounts are conventionally much larger than crypto
+        // ones; mirrors the balances the read-only showroom demo displays.
+        demoStartingBalanceUsdt: this.section === "forex" ? "100000" : "10000",
       })
       .returning();
     return inserted!;

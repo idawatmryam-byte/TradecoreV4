@@ -20,6 +20,45 @@ export const botConfigTable = pgTable("bot_config", {
    */
   broker: text("broker").notNull().default("binance"), // binance | oanda
 
+  // ── Execution target and mode ──────────────────────────────────────────────
+  /**
+   * WHERE approved TradePlans get executed:
+   *   "demo" — TradeCore's own simulation. No broker, no API keys, no real
+   *            money. Uses live market data and the SAME fill model the
+   *            backtest runs (execution/fillModel.ts), so a demo fill and a
+   *            backtest fill mean the same thing.
+   *   "live" — real orders through the connected broker.
+   *
+   * Defaults to "demo": a brand-new account can trade within minutes of
+   * signing up, and reaching real money is a deliberate choice rather than the
+   * only option. Existing rows backfill to "live" — see the migration note in
+   * P3: nobody who was already trading for real gets silently moved to paper.
+   */
+  executionTarget: text("execution_target").notNull().default("live"), // demo | live
+  /**
+   * WHAT happens once a TradePlan exists:
+   *   "autopilot" — execute it automatically (today's behaviour).
+   *   "copilot"   — record it as a recommendation for the user to approve.
+   *   "research"  — never execute; analysis surfaces only.
+   *
+   * The intelligence pipeline is identical in all three; only the executor
+   * differs.
+   *
+   * The COLUMN default stays "autopilot" so existing rows backfill to the
+   * behaviour they already had — an account that was auto-trading keeps
+   * auto-trading. NEW sections are created in "copilot" (see
+   * BotEngine.loadConfig): a fresh account should show its reasoning and let
+   * the human decide before it is trusted to act alone.
+   */
+  mode: text("mode").notNull().default("autopilot"), // research | copilot | autopilot
+  /**
+   * Virtual starting balance for the demo account. The live balance is read
+   * from the broker; a demo account has no broker, so its balance is this plus
+   * the realised P&L of its closed demo trades — always consistent with the
+   * trade log by construction, with no counter to drift out of sync.
+   */
+  demoStartingBalanceUsdt: numeric("demo_starting_balance_usdt", { precision: 14, scale: 2 }).notNull().default("10000"),
+
   // ── Position / risk ────────────────────────────────────────────────────────
   /** Fixed USDT position size — also acts as a hard cap when riskPercent > 0 */
   positionSizeUsdt: numeric("position_size_usdt", { precision: 10, scale: 2 }).notNull().default("10"),

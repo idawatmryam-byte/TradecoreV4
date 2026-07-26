@@ -20,7 +20,24 @@
  * Pure aggregation — no DB, no engine — so the harness can verify every
  * classification rule offline. The route (routes/reports.ts) feeds it real
  * rows and adds the live noise-floor audit on top.
+ *
+ * Every metric here is computed by the shared kernel (lib/metrics/kernel.ts)
+ * so the numbers on this page and the numbers everywhere else in the product
+ * come from one definition. The row-shaped helpers below are thin adapters
+ * over that kernel, kept exported because selectionFilter.ts and the harness
+ * depend on them.
  */
+import {
+  classifyOutcome,
+  expectancyPerDecided,
+  plannedRiskDollars as plannedRiskOf,
+  realizedR as realizedROf,
+  round2,
+  round4,
+  winRateOrNull,
+  winRateOrZero,
+  type TradeOutcome,
+} from "./metrics/kernel";
 
 /** The subset of a closed trades row this analysis needs. */
 export interface ForensicTradeRow {
@@ -44,7 +61,7 @@ export interface ForensicTradeRow {
   tp1Filled: boolean;
 }
 
-export type TradeClass = "win" | "loss" | "scratch";
+export type TradeClass = TradeOutcome;
 
 export interface ForensicCell {
   key: string;
@@ -93,27 +110,17 @@ export interface EdgeForensicsReport {
  *  when its net P&L is inside ±10% of the planned dollar risk — a wash,
  *  not a decision the market made about the thesis. */
 export function classifyTrade(t: ForensicTradeRow): TradeClass {
-  if (t.exitReason === "break_even") return "scratch";
-  const risk = plannedRiskDollars(t);
-  if (risk != null && risk > 0 && Math.abs(t.pnl) < 0.1 * risk) return "scratch";
-  if (t.pnl > 0) return "win";
-  return "loss";
+  return classifyOutcome(t.pnl, plannedRiskDollars(t), t.exitReason);
 }
 
 /** Planned dollar risk = |entry − planned stop| × planned qty (falls back to
  *  actual stop/qty). Null when the stop distance is degenerate. */
 export function plannedRiskDollars(t: ForensicTradeRow): number | null {
-  const stop = t.plannedStopLoss ?? t.stopLoss;
-  const qty = t.plannedQuantity ?? t.quantity;
-  const dist = Math.abs(t.entryPrice - stop);
-  if (!(dist > 0) || !(qty > 0)) return null;
-  return dist * qty;
+  return plannedRiskOf(t.entryPrice, t.plannedStopLoss ?? t.stopLoss, t.plannedQuantity ?? t.quantity);
 }
 
 export function realizedR(t: ForensicTradeRow): number | null {
-  const risk = plannedRiskDollars(t);
-  if (risk == null || !(risk > 0)) return null;
-  return t.pnl / risk;
+  return realizedROf(t.pnl, plannedRiskDollars(t));
 }
 
 interface CellAcc {
@@ -130,6 +137,7 @@ function finishCells(map: Map<string, CellAcc>): ForensicCell[] {
   return [...map.entries()]
     .map(([key, a]) => {
       const decided = a.trades - a.scratches;
+      const adjWr = winRateOrNull(a.wins, decided);
       return {
         key,
         label: a.label,
@@ -138,16 +146,13 @@ function finishCells(map: Map<string, CellAcc>): ForensicCell[] {
         losses: a.losses,
         scratches: a.scratches,
         totalPnl: round2(a.totalPnl),
-        adjustedWinRate: decided > 0 ? round4(a.wins / decided) : null,
+        adjustedWinRate: adjWr == null ? null : round4(adjWr),
         avgPnl: round4(a.trades > 0 ? a.totalPnl / a.trades : 0),
         avgR: a.rCount > 0 ? round2(a.rSum / a.rCount) : null,
       };
     })
     .sort((x, y) => x.totalPnl - y.totalPnl); // most-bleeding first
 }
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
-const round4 = (n: number) => Math.round(n * 10000) / 10000;
 
 export function analyzeEdge(rows: ForensicTradeRow[]): EdgeForensicsReport {
   const byExit = new Map<string, CellAcc>();
@@ -210,8 +215,8 @@ export function analyzeEdge(rows: ForensicTradeRow[]): EdgeForensicsReport {
   if (total === 0) {
     verdicts.push({ severity: "info", title: "No closed trades yet", detail: "The forensics need at least a handful of closed live trades to say anything." });
   } else {
-    const rawWr = wins / total;
-    const adjWr = decided > 0 ? wins / decided : null;
+    const rawWr = winRateOrZero(wins, total);
+    const adjWr = winRateOrNull(wins, decided);
     if (adjWr != null && scratches / total >= 0.15 && adjWr - rawWr >= 0.05) {
       verdicts.push({
         severity: "critical",
@@ -277,17 +282,21 @@ export function analyzeEdge(rows: ForensicTradeRow[]): EdgeForensicsReport {
     }
   }
 
+  const reportRawWr = winRateOrNull(wins, total);
+  const reportAdjWr = winRateOrNull(wins, decided);
+  const reportExpectancy = expectancyPerDecided(winPnl, lossPnl, decided);
+
   return {
     totalTrades: total,
     wins, losses, scratches,
-    rawWinRate: total > 0 ? round4(wins / total) : null,
-    adjustedWinRate: decided > 0 ? round4(wins / decided) : null,
+    rawWinRate: reportRawWr == null ? null : round4(reportRawWr),
+    adjustedWinRate: reportAdjWr == null ? null : round4(reportAdjWr),
     totalPnl: round2(totalPnl),
     totalFees: round2(totalFees),
     grossPnl: round2(grossPnl),
     avgWin: wins > 0 ? round2(winPnl / wins) : null,
     avgLoss: losses > 0 ? round2(lossPnl / losses) : null,
-    expectancyPerTrade: decided > 0 ? round4((winPnl + lossPnl) / decided) : null,
+    expectancyPerTrade: reportExpectancy == null ? null : round4(reportExpectancy),
     byExitReason: finishCells(byExit),
     byStrategy: finishCells(byStrategy),
     bySymbol: finishCells(bySymbol),

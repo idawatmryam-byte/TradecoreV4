@@ -3,7 +3,7 @@ import { db, botConfigTable, tradesTable, usersTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { logger } from "./lib/logger";
 import { validateEnv } from "./lib/env";
-import { getOrCreateEngine, isSection } from "./lib/engineRegistry";
+import { DEMO_IDLE_GRACE_MS, getOrCreateEngine, isSection, startDemoSweeper } from "./lib/engineRegistry";
 import { installOpsMonitor } from "./lib/opsMonitor";
 import { ensureDemoAccount } from "./lib/demoSeed";
 
@@ -92,6 +92,14 @@ const onListening = (err?: Error) => {
   logger.info({ port, host: host ?? "0.0.0.0" }, "Server listening");
   void resumeRunningEngines();
   void ensureDemoOnStartup();
+  // Demo engines are session-scoped: they stop after a grace period of user
+  // silence so a free signup does not cost an always-on scan loop forever.
+  // Live engines are never touched by this sweeper.
+  startDemoSweeper();
+  logger.info(
+    { graceMinutes: DEMO_IDLE_GRACE_MS / 60_000 },
+    "Demo engine sweeper started — idle demo engines will pause, live engines are unaffected",
+  );
 };
 
 /**

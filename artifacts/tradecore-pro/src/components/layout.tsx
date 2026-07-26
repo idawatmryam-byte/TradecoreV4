@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert, Layers, LogOut, Menu, X, UserCircle2, Scale, Bitcoin, CandlestickChart, Eye, Hammer, BookOpen } from "lucide-react";
+import { Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert, Layers, LogOut, Menu, X, UserCircle2, Scale, Bitcoin, CandlestickChart, Eye, Hammer, BookOpen, Inbox } from "lucide-react";
 import { useGetBotStatus, useHealthCheck, getGetBotStatusQueryKey, getHealthCheckQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -50,6 +50,7 @@ function SectionSwitcher() {
 const NAV_ITEMS = [
   { href: "/account", label: "Account", icon: UserCircle2 },
   { href: "/", label: "Cockpit", icon: Activity },
+  { href: "/copilot", label: "Co-Pilot", icon: Inbox },
   { href: "/trades", label: "Trade Log", icon: History },
   { href: "/decisions", label: "Decisions", icon: Scale },
   { href: "/journal", label: "Journal", icon: BookOpen },
