@@ -22,6 +22,7 @@ import { randomUUID } from "crypto";
 import { and, eq, lt } from "drizzle-orm";
 import { logger } from "../logger";
 import { planFingerprint } from "../plan/fingerprint";
+import { buildDecisionTrace } from "../decisionTrace";
 import type { ExecutionRequest, ExecutionResult, TradeExecutor } from "./executor";
 import type { Section } from "../engineRegistry";
 
@@ -59,6 +60,7 @@ export class RecommendExecutor implements TradeExecutor {
     const correlationId = randomUUID();
     const fingerprint = planFingerprint(userId, plan);
     const expiresAt = expiryFor(plan, now);
+    const decisionTrace = buildDecisionTrace(req.precedingStages, expiresAt);
 
     try {
       const [rec] = await db
@@ -82,6 +84,7 @@ export class RecommendExecutor implements TradeExecutor {
           leverage: plan.leverage,
           plan,
           signalRow: row as unknown as object,
+          decisionTrace: decisionTrace as unknown as object,
           expiresAt,
         })
         .returning();

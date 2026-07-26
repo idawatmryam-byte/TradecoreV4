@@ -80,6 +80,17 @@ export const recommendationsTable = pgTable("recommendations", {
    * the market looks like at approval time.
    */
   signalRow: jsonb("signal_row"),
+  /**
+   * The five-stage pipeline trace (Market Data → Indicators → Signal → Risk
+   * Checks → Order) as it stood the moment this recommendation was created —
+   * a PipelineStage[] snapshot, same shape as decisionTrace.ts's live
+   * SymbolDecision. BotEngine's own trace is in-memory only and is
+   * overwritten every scan tick, so without capturing it here, the exact
+   * reasoning behind a plan would be gone by the time a user opens the
+   * workspace minutes later, leaving nothing for the Decision Timeline to
+   * show but the plan's own after-the-fact narrative (report.summary etc.).
+   */
+  decisionTrace: jsonb("decision_trace"),
 
   /**
    * When this plan goes stale. An intraday setup is a statement about a

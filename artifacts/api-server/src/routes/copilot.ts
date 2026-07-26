@@ -12,9 +12,11 @@ import {
   ExecuteRecommendationResponse,
   RejectRecommendationResponse,
   ModifyRecommendationResponse,
+  GetRecommendationWorkspaceResponse,
 } from "@workspace/api-zod";
 import {
   executeRecommendation,
+  getRecommendationWorkspace,
   listInbox,
   modifyRecommendation,
   rejectRecommendation,
@@ -74,6 +76,19 @@ router.get("/copilot/inbox", async (req, res): Promise<void> => {
     ...(Number.isFinite(limit) && { limit }),
   });
   res.json(GetCopilotInboxResponse.parse({ recommendations: rows.map(mapRecommendation) }));
+});
+
+router.get("/copilot/recommendations/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params["id"]);
+  if (!Number.isInteger(id)) { res.status(400).json({ error: "Invalid recommendation id" }); return; }
+  const workspace = await getRecommendationWorkspace(req.userId!, req.section!, id);
+  if (!workspace) { res.status(404).json({ error: "Recommendation not found" }); return; }
+  res.json(GetRecommendationWorkspaceResponse.parse({
+    recommendation: mapRecommendation(workspace.recommendation),
+    decisionTrace: workspace.decisionTrace ?? [],
+    portfolioImpact: workspace.portfolioImpact,
+    similarTrades: workspace.similarTrades,
+  }));
 });
 
 router.post("/copilot/recommendations/:id/execute", async (req, res): Promise<void> => {
