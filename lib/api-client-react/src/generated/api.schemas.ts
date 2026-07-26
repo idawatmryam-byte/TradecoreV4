@@ -297,18 +297,352 @@ export interface PortfolioImpact {
 }
 
 /**
- * Deliberately not a statistic. Feature-similarity search is a later phase; showing even a zero here risks reading as a computed number.
+ * Outcome summary for one bucket of closed trades. Counts and net P&L are facts and are always present; every rate is null while `gated` is true.
  */
-export interface SimilarTradesPlaceholder {
-  available: false;
+export interface CellStats {
+  samples: number;
+  wins: number;
+  losses: number;
+  /** Break-even washes — excluded from the win-rate denominator, not counted as losses. */
+  scratches: number;
+  /** samples < minSamples. Every rate below is null. */
+  gated: boolean;
+  minSamples: number;
+  /**
+     * Scratch-adjusted: wins / (wins + losses).
+     * @nullable
+     */
+  winRate: number | null;
+  /**
+     * Lower bound of the 95% Wilson interval on winRate.
+     * @nullable
+     */
+  winRateLow: number | null;
+  /** @nullable */
+  winRateHigh: number | null;
+  /** @nullable */
+  expectancyUsdt: number | null;
+  /** @nullable */
+  profitFactor: number | null;
+  /** @nullable */
+  avgR: number | null;
+  netPnlUsdt: number;
+}
+
+export interface CellSignificance {
+  /** Exact two-sided binomial test against the account baseline win rate. */
+  pValue: number;
+  /** Benjamini–Hochberg adjusted p-value: the false-discovery rate incurred by treating this cell as a real edge. */
+  qValue: number;
+  /** qValue is within the family's FDR budget. */
+  significant: boolean;
+}
+
+export type KnowledgeCellDimension = typeof KnowledgeCellDimension[keyof typeof KnowledgeCellDimension];
+
+
+export const KnowledgeCellDimension = {
+  strategy_regime: 'strategy_regime',
+  symbol_strategy: 'symbol_strategy',
+  session: 'session',
+  volatility: 'volatility',
+} as const;
+
+export type KnowledgeCell = CellStats & ({
+  dimension: KnowledgeCellDimension;
+  key: string;
+  label: string;
+  /** Null when the cell is gated, or when there is no trustworthy baseline to test against. */
+  significance: CellSignificance | null;
+});
+
+export interface ReliabilityBin {
+  low: number;
+  high: number;
+  count: number;
+  /** @nullable */
+  meanPredicted: number | null;
+  /**
+     * Observed win frequency in the bin. Perfect calibration puts this on the diagonal.
+     * @nullable
+     */
+  observedRate: number | null;
+}
+
+export interface CalibrationScores {
+  /** @nullable */
+  brier: number | null;
+  /** @nullable */
+  logLoss: number | null;
+  /**
+     * Expected Calibration Error — sample-weighted average gap between promised and observed frequency.
+     * @nullable
+     */
+  ece: number | null;
+}
+
+/**
+ * Whether strategy confidence behaves like a probability on this account's record. Fitted on an earlier chronological slice and scored on a later one — never on its own training data. Gated on the VALIDATION set, since that is where every published number is measured.
+ */
+export interface CalibrationReport {
+  gated: boolean;
+  minSamples: number;
+  totalSamples: number;
+  trainSamples: number;
+  validationSamples: number;
+  /** Further validation-set trades needed to open the gate; 0 once open. */
+  samplesNeeded: number;
+  raw: CalibrationScores;
+  calibrated: CalibrationScores;
+  /**
+     * Brier score of predicting the base rate for every trade — the bar any calibration must clear to be worth anything.
+     * @nullable
+     */
+  climatologyBrier: number | null;
+  /** calibrated.brier < climatologyBrier. False means confidence carries no usable information on this record. */
+  beatsClimatology: boolean;
+  bins: ReliabilityBin[];
+}
+
+/**
+ * Which record these numbers describe. Demo and live are never pooled.
+ */
+export type KnowledgeOverviewExecutionTarget = typeof KnowledgeOverviewExecutionTarget[keyof typeof KnowledgeOverviewExecutionTarget];
+
+
+export const KnowledgeOverviewExecutionTarget = {
+  demo: 'demo',
+  live: 'live',
+} as const;
+
+export interface KnowledgeOverview {
+  /** Which record these numbers describe. Demo and live are never pooled. */
+  executionTarget: KnowledgeOverviewExecutionTarget;
+  /** The point-in-time cut. Every claim is 'given only what was knowable at this moment'. */
+  asOf: string;
+  totalTrades: number;
+  /**
+     * The account's own scratch-adjusted win rate — the null hypothesis each cell is tested against. Null below the gate.
+     * @nullable
+     */
+  baselineWinRate: number | null;
+  minSamples: number;
+  /** False-discovery-rate budget for the significance family. */
+  fdr: number;
+  /** How many cells entered the multiple-comparison family. */
+  cellsTested: number;
+  cells: KnowledgeCell[];
+  calibration: CalibrationReport;
+}
+
+export type InfluenceRuleDimension = typeof InfluenceRuleDimension[keyof typeof InfluenceRuleDimension];
+
+
+export const InfluenceRuleDimension = {
+  strategy_regime: 'strategy_regime',
+  symbol_strategy: 'symbol_strategy',
+  session: 'session',
+  volatility: 'volatility',
+} as const;
+
+/**
+ * One knowledge cell memory is acting on. Present only for cells that cleared the sample gate AND whose q-value survived the multiple-comparison correction.
+ */
+export interface InfluenceRule {
+  dimension: InfluenceRuleDimension;
+  key: string;
+  label: string;
+  samples: number;
+  winRate: number;
+  baselineWinRate: number;
+  qValue: number;
+  /** Confidence points this cell adds to the bar. Always positive — memory only tightens. */
+  delta: number;
+}
+
+export interface MemoryArmMetrics {
+  trades: number;
+  wins: number;
+  losses: number;
+  /** @nullable */
+  winRate: number | null;
+  netPnlUsdt: number;
+  expectancyUsdt: number;
+}
+
+export type MemoryValidationSummaryStatus = typeof MemoryValidationSummaryStatus[keyof typeof MemoryValidationSummaryStatus];
+
+
+export const MemoryValidationSummaryStatus = {
+  pending: 'pending',
+  running: 'running',
+  completed: 'completed',
+  failed: 'failed',
+} as const;
+
+/**
+ * @nullable
+ */
+export type MemoryValidationSummaryVerdict = typeof MemoryValidationSummaryVerdict[keyof typeof MemoryValidationSummaryVerdict] | null;
+
+
+export const MemoryValidationSummaryVerdict = {
+  improved: 'improved',
+  no_better: 'no_better',
+  insufficient_data: 'insufficient_data',
+} as const;
+
+export interface MemoryValidationSummary {
+  id: number;
+  status: MemoryValidationSummaryStatus;
+  /** @nullable */
+  verdict: MemoryValidationSummaryVerdict;
+  /** @nullable */
+  summary: string | null;
+  /**
+     * The rule-set version this run approved. Permission is version-scoped — a refit revokes it.
+     * @nullable
+     */
+  stateVersion: string | null;
+  executionTarget: string;
+  trainTrades: number;
+  validationTrades: number;
+  withheld: number;
+  /** @nullable */
+  withheldPnlUsdt: number | null;
+  /** @nullable */
+  expectancyDelta: number | null;
+  createdAt: string;
+}
+
+export type MemoryValidationResultVerdict = typeof MemoryValidationResultVerdict[keyof typeof MemoryValidationResultVerdict];
+
+
+export const MemoryValidationResultVerdict = {
+  improved: 'improved',
+  no_better: 'no_better',
+  insufficient_data: 'insufficient_data',
+} as const;
+
+export interface MemoryValidationResult {
+  verdict: MemoryValidationResultVerdict;
+  summary: string;
+  stateVersion: string;
+  trainTrades: number;
+  validationTrades: number;
+  /** Out-of-sample trades memory would have withheld. */
+  withheld: number;
+  /** P&L of the withheld trades. Negative is the point. */
+  withheldPnlUsdt: number;
+  expectancyDelta: number;
+  baseline: MemoryArmMetrics;
+  withMemory: MemoryArmMetrics;
+  rules: InfluenceRule[];
+}
+
+/**
+ * One time memory raised a plan's bar. Both outcomes are recorded — logging only the withheld trades would read as a list of saves and hide every time a rule fired harmlessly.
+ */
+export interface AppliedInfluence {
+  id: number;
+  symbol: string;
+  strategyId: string;
+  /** True when the plan cleared the raised bar anyway. */
+  admitted: boolean;
+  confidence: number;
+  requiredConfidence: number;
+  delta: number;
+  memoryVersion: string;
+  executionTarget: string;
   reason: string;
+  createdAt: string;
+}
+
+export interface MemoryInfluenceStatus {
+  /** What the user asked for. Not the same as `active`. */
+  enabled: boolean;
+  /** Hard cap in confidence points, applied after summing every matching cell. */
+  maxDelta: number;
+  /** @nullable */
+  approvedVersion: string | null;
+  /** Whether the engine is actually acting on memory right now. */
+  active: boolean;
+  /** Live influence is requested but blocked for want of a matching passing validation. */
+  needsValidation: boolean;
+  executionTarget: string;
+  reason: string;
+  summary: string;
+  /** "memory-0" when inert; "memory-1:<hash>" when it carries rules. */
+  version: string;
+  rules: InfluenceRule[];
+  latestValidation: MemoryValidationSummary | null;
+  recent: AppliedInfluence[];
+}
+
+export interface UpdateMemoryInfluence {
+  enabled?: boolean;
+  /**
+     * Hard cap in confidence points. Bounded server-side; memory is not permitted an unlimited reach.
+     * @minimum 0
+     * @maximum 25
+     */
+  maxDelta?: number;
+}
+
+export interface MemoryInfluenceToggle {
+  enabled: boolean;
+  active: boolean;
+  needsValidation: boolean;
+  version: string;
+  reason: string;
+}
+
+export type SimilarMatchOutcome = typeof SimilarMatchOutcome[keyof typeof SimilarMatchOutcome];
+
+
+export const SimilarMatchOutcome = {
+  win: 'win',
+  loss: 'loss',
+  scratch: 'scratch',
+} as const;
+
+export interface SimilarMatch {
+  tradeId: number;
+  symbol: string;
+  /** @nullable */
+  strategyId: string | null;
+  /** Epoch milliseconds the outcome was settled. */
+  closedAt: number;
+  /** Cosine similarity on z-score-normalised feature vectors, in [-1, 1]. */
+  similarity: number;
+  pnl: number;
+  /** @nullable */
+  rMultiple: number | null;
+  outcome: SimilarMatchOutcome;
+}
+
+/**
+ * Closed trades whose entry conditions resembled the candidate. Cosine similarity over z-scored vectors — raw cosine would be dominated by whichever features have the largest magnitude. A similarity FLOOR comes before any top-N cap, so a sparse account gets "nothing comparable" rather than its N least-dissimilar trades. `reason` is always populated.
+ */
+export interface SimilarTrades {
+  available: boolean;
+  reason: string;
+  /** Closed trades carrying recorded indicator readings. */
+  poolSize: number;
+  /** Pool needed before z-scores are trustworthy enough to normalise with. */
+  minPoolSize: number;
+  similarityFloor: number;
+  matches: SimilarMatch[];
+  /** Aggregate outcome of the matches, gated separately — individual trades are facts, their win rate is an estimate. */
+  stats: CellStats | null;
+  featuresUsed: string[];
 }
 
 export interface RecommendationWorkspace {
   recommendation: Recommendation;
   decisionTrace: PipelineStage[];
   portfolioImpact: PortfolioImpact;
-  similarTrades: SimilarTradesPlaceholder;
+  similarTrades: SimilarTrades;
 }
 
 export type NotificationSeverity = typeof NotificationSeverity[keyof typeof NotificationSeverity];
@@ -421,6 +755,25 @@ export interface ConnectionStatus {
 export interface MarketMonitor {
   connection: ConnectionStatus;
   tickers: LiveTicker[];
+}
+
+export interface CorrelationCell {
+  a: string;
+  b: string;
+  /** Pearson r over the days both symbols share. Null means too little shared history to measure — render "insufficient history", not a number. */
+  correlation: number | null;
+}
+
+export interface CorrelationHeatMap {
+  symbols: string[];
+  /** Upper triangle only — correlation is symmetric and the diagonal is trivially 1. */
+  cells: CorrelationCell[];
+  /** Symbols currently carrying a position. */
+  openSymbols: string[];
+  /** Reinforcement level at which two symbols count as the same bet. */
+  threshold: number;
+  /** Shared days required before a correlation is reported at all. */
+  minObservations: number;
 }
 
 export interface BlockingReason {
@@ -680,6 +1033,17 @@ export const BotConfigMarginMode = {
 } as const;
 
 /**
+ * What to do when a pair has too little shared history to measure. Never silently treated as uncorrelated.
+ */
+export type BotConfigCorrelationUnknownPolicy = typeof BotConfigCorrelationUnknownPolicy[keyof typeof BotConfigCorrelationUnknownPolicy];
+
+
+export const BotConfigCorrelationUnknownPolicy = {
+  allow: 'allow',
+  block: 'block',
+} as const;
+
+/**
  * How SL/TP are decided. 'percent': SL/TP are a % of price (stopLossPercent/takeProfitPercent) and size comes from riskPercent/positionSizeUsdt. 'dollar': SL/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt/targetProfitUsdt).
  */
 export type BotConfigRiskModel = typeof BotConfigRiskModel[keyof typeof BotConfigRiskModel];
@@ -733,6 +1097,12 @@ export interface BotConfig {
   maxSymbolConcentrationPercent: number;
   /** Max net long-short notional exposure across all open positions, as % of balance. Default 200 (permissive — no effective limit) until tightened. */
   maxNetExposurePercent: number;
+  /** Max notional across one correlated cluster (the candidate plus every open position measured to be the same directional bet), as % of balance. Default 200 (permissive) until tightened. */
+  maxCorrelatedExposurePercent: number;
+  /** Reinforcement level (r adjusted for trade direction) at which two symbols count as the same bet. */
+  correlationThreshold: number;
+  /** What to do when a pair has too little shared history to measure. Never silently treated as uncorrelated. */
+  correlationUnknownPolicy: BotConfigCorrelationUnknownPolicy;
   confidenceThreshold: number;
   /** How SL/TP are decided. 'percent': SL/TP are a % of price (stopLossPercent/takeProfitPercent) and size comes from riskPercent/positionSizeUsdt. 'dollar': SL/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt/targetProfitUsdt). */
   riskModel: BotConfigRiskModel;
@@ -776,6 +1146,17 @@ export type BotConfigUpdateMarginMode = typeof BotConfigUpdateMarginMode[keyof t
 export const BotConfigUpdateMarginMode = {
   isolated: 'isolated',
   cross: 'cross',
+} as const;
+
+/**
+ * Policy for pairs with too little shared history to measure.
+ */
+export type BotConfigUpdateCorrelationUnknownPolicy = typeof BotConfigUpdateCorrelationUnknownPolicy[keyof typeof BotConfigUpdateCorrelationUnknownPolicy];
+
+
+export const BotConfigUpdateCorrelationUnknownPolicy = {
+  allow: 'allow',
+  block: 'block',
 } as const;
 
 /**
@@ -859,6 +1240,20 @@ export interface BotConfigUpdate {
      * @maximum 200
      */
   maxNetExposurePercent?: number;
+  /**
+     * Max notional across one correlated cluster, as % of balance.
+     * @minimum 1
+     * @maximum 200
+     */
+  maxCorrelatedExposurePercent?: number;
+  /**
+     * Reinforcement level at which two symbols count as the same bet.
+     * @minimum 0
+     * @maximum 1
+     */
+  correlationThreshold?: number;
+  /** Policy for pairs with too little shared history to measure. */
+  correlationUnknownPolicy?: BotConfigUpdateCorrelationUnknownPolicy;
   /**
      * @minimum 0
      * @maximum 100

@@ -31,6 +31,7 @@ import type {
   BotConfig,
   BotConfigUpdate,
   BotStatus,
+  CorrelationHeatMap,
   CustomStrategy,
   CustomStrategyCreate,
   CustomStrategyUpdate,
@@ -51,12 +52,16 @@ import type {
   HealthStatus,
   HourlyStat,
   JournalEntry,
+  KnowledgeOverview,
   Login200,
   LoginBody,
   Logout200,
   MarkAllNotificationsRead200,
   MarkNotificationRead200,
   MarketMonitor,
+  MemoryInfluenceStatus,
+  MemoryInfluenceToggle,
+  MemoryValidationResult,
   ModifyRecommendationBody,
   NotificationList,
   OandaCredentialsStatus,
@@ -81,6 +86,7 @@ import type {
   SymbolDecision,
   ToxicHour,
   Trade,
+  UpdateMemoryInfluence,
   UpdateStrategyConfig200
 } from './api.schemas';
 
@@ -1854,6 +1860,162 @@ export function useGetMarketLive<TData = Awaited<ReturnType<typeof getMarketLive
 
 
 
+export const getGetPortfolioCorrelationUrl = () => {
+
+
+
+
+  return `/api/portfolio/correlation`
+}
+
+/**
+ * Pairwise Pearson correlation of daily log returns over a 30-day lookback, plus which symbols currently hold a position. A cell is null when the two symbols share fewer than `minObservations` days of history — never 0, which would read as "measured, and unrelated".
+ * @summary Correlation heat map across the configured pairs
+ */
+export const getPortfolioCorrelation = async ( options?: RequestInit): Promise<CorrelationHeatMap> => {
+
+  return customFetch<CorrelationHeatMap>(getGetPortfolioCorrelationUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortfolioCorrelationQueryKey = () => {
+    return [
+    `/api/portfolio/correlation`
+    ] as const;
+    }
+
+
+export const getGetPortfolioCorrelationQueryOptions = <TData = Awaited<ReturnType<typeof getPortfolioCorrelation>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortfolioCorrelation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortfolioCorrelationQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortfolioCorrelation>>> = ({ signal }) => getPortfolioCorrelation({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortfolioCorrelation>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortfolioCorrelationQueryResult = NonNullable<Awaited<ReturnType<typeof getPortfolioCorrelation>>>
+export type GetPortfolioCorrelationQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Correlation heat map across the configured pairs
+ */
+
+export function useGetPortfolioCorrelation<TData = Awaited<ReturnType<typeof getPortfolioCorrelation>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortfolioCorrelation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortfolioCorrelationQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetKnowledgeUrl = () => {
+
+
+
+
+  return `/api/knowledge`
+}
+
+/**
+ * What this account's own closed trades support saying, as of now. Cells below `minSamples` report their counts and null for every rate — never a provisional figure. Cells above it are tested against the account baseline with an exact binomial test and a Benjamini–Hochberg correction across the whole family, so `significant` accounts for the fact that slicing a history finely enough always produces a winner. Demo and live records are never pooled; `executionTarget` says which one this is.
+ * @summary Market knowledge cells and confidence calibration
+ */
+export const getKnowledge = async ( options?: RequestInit): Promise<KnowledgeOverview> => {
+
+  return customFetch<KnowledgeOverview>(getGetKnowledgeUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetKnowledgeQueryKey = () => {
+    return [
+    `/api/knowledge`
+    ] as const;
+    }
+
+
+export const getGetKnowledgeQueryOptions = <TData = Awaited<ReturnType<typeof getKnowledge>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getKnowledge>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetKnowledgeQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getKnowledge>>> = ({ signal }) => getKnowledge({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getKnowledge>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetKnowledgeQueryResult = NonNullable<Awaited<ReturnType<typeof getKnowledge>>>
+export type GetKnowledgeQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Market knowledge cells and confidence calibration
+ */
+
+export function useGetKnowledge<TData = Awaited<ReturnType<typeof getKnowledge>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getKnowledge>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetKnowledgeQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetTradesUrl = (params?: GetTradesParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -2490,6 +2652,226 @@ export function useGetToxicHours<TData = Awaited<ReturnType<typeof getToxicHours
 
 
 
+
+export const getGetMemoryInfluenceUrl = () => {
+
+
+
+
+  return `/api/memory/influence`
+}
+
+/**
+ * The only mechanism by which the account's own history changes what the engine does. Memory can raise the confidence bar a plan must clear; it can never lower one and never originate a plan, so the worst case of a bad rule is a trade not taken. `active` is true only when the user enabled it, qualifying cells exist, and — on live — a walk-forward validation approved this exact rule-set version.
+ * @summary Gated memory influence — status, rules, and audit trail
+ */
+export const getMemoryInfluence = async ( options?: RequestInit): Promise<MemoryInfluenceStatus> => {
+
+  return customFetch<MemoryInfluenceStatus>(getGetMemoryInfluenceUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMemoryInfluenceQueryKey = () => {
+    return [
+    `/api/memory/influence`
+    ] as const;
+    }
+
+
+export const getGetMemoryInfluenceQueryOptions = <TData = Awaited<ReturnType<typeof getMemoryInfluence>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMemoryInfluence>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMemoryInfluenceQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMemoryInfluence>>> = ({ signal }) => getMemoryInfluence({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMemoryInfluence>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMemoryInfluenceQueryResult = NonNullable<Awaited<ReturnType<typeof getMemoryInfluence>>>
+export type GetMemoryInfluenceQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Gated memory influence — status, rules, and audit trail
+ */
+
+export function useGetMemoryInfluence<TData = Awaited<ReturnType<typeof getMemoryInfluence>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMemoryInfluence>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMemoryInfluenceQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateMemoryInfluenceUrl = () => {
+
+
+
+
+  return `/api/memory/influence`
+}
+
+/**
+ * Disabling is the kill switch: it clears the flag, the approved version and the cached state together, and the next scan is already inert. Enabling here never grants LIVE permission on its own — only a passing walk-forward validation does that.
+ * @summary Enable, disable, or bound memory influence
+ */
+export const updateMemoryInfluence = async (updateMemoryInfluence: UpdateMemoryInfluence, options?: RequestInit): Promise<MemoryInfluenceToggle> => {
+
+  return customFetch<MemoryInfluenceToggle>(getUpdateMemoryInfluenceUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateMemoryInfluence)
+  }
+);}
+
+
+
+
+export const getUpdateMemoryInfluenceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMemoryInfluence>>, TError,{data: BodyType<UpdateMemoryInfluence>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateMemoryInfluence>>, TError,{data: BodyType<UpdateMemoryInfluence>}, TContext> => {
+
+const mutationKey = ['updateMemoryInfluence'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMemoryInfluence>>, {data: BodyType<UpdateMemoryInfluence>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateMemoryInfluence(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateMemoryInfluenceMutationResult = NonNullable<Awaited<ReturnType<typeof updateMemoryInfluence>>>
+    export type UpdateMemoryInfluenceMutationBody = BodyType<UpdateMemoryInfluence>
+    export type UpdateMemoryInfluenceMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Enable, disable, or bound memory influence
+ */
+export const useUpdateMemoryInfluence = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMemoryInfluence>>, TError,{data: BodyType<UpdateMemoryInfluence>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateMemoryInfluence>>,
+        TError,
+        {data: BodyType<UpdateMemoryInfluence>},
+        TContext
+      > => {
+      return useMutation(getUpdateMemoryInfluenceMutationOptions(options));
+    }
+
+export const getRunMemoryValidationUrl = () => {
+
+
+
+
+  return `/api/memory/influence/validate`
+}
+
+/**
+ * Fits cells on an earlier window and tests them on a later one the fit never saw, against the same window with memory off. `no_better` is a first-class verdict and the expected one on most accounts. Only `improved` writes the approval that unlocks live influence, and only for that exact rule-set version.
+ * @summary Walk-forward validation of memory influence
+ */
+export const runMemoryValidation = async ( options?: RequestInit): Promise<MemoryValidationResult> => {
+
+  return customFetch<MemoryValidationResult>(getRunMemoryValidationUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRunMemoryValidationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runMemoryValidation>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runMemoryValidation>>, TError,void, TContext> => {
+
+const mutationKey = ['runMemoryValidation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runMemoryValidation>>, void> = () => {
+
+
+          return  runMemoryValidation(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunMemoryValidationMutationResult = NonNullable<Awaited<ReturnType<typeof runMemoryValidation>>>
+
+    export type RunMemoryValidationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Walk-forward validation of memory influence
+ */
+export const useRunMemoryValidation = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runMemoryValidation>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runMemoryValidation>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRunMemoryValidationMutationOptions(options));
+    }
 
 export const getGetConfigUrl = () => {
 

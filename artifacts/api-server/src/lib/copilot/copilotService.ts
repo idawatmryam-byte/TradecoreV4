@@ -30,6 +30,8 @@ import { revalidate, type RevalidationCheck } from "../execution/revalidate";
 import { expiryFor } from "../execution/recommendExecutor";
 import { relabelTraceForModification, type PipelineStage } from "../decisionTrace";
 import { getOrCreateEngine, type Section } from "../engineRegistry";
+import { similarTradesFor } from "../knowledge/knowledgeService";
+import { FEATURE_KEYS, type FeatureVector, type SimilarTradesResult } from "../knowledge/similarity";
 import type { TradePlan } from "../strategies";
 import type { SignalRow } from "../strategy";
 
@@ -93,12 +95,13 @@ export interface RecommendationWorkspace {
   decisionTrace: unknown;
   portfolioImpact: PortfolioImpact;
   /**
-   * Deliberately not a number. Feature-similarity search is P7's job — cosine
-   * similarity over z-score-normalised vectors, with a real sample-size gate.
-   * Rendering even a 0 here risks reading as a computed statistic; this is a
-   * placeholder, not an early, weaker version of that feature.
+   * Closed trades whose entry conditions resembled this one — cosine
+   * similarity over z-score-normalised feature vectors, behind a pool gate and
+   * a similarity floor (lib/knowledge/similarity.ts). Still reports
+   * `available: false` with a reason whenever those gates are not met, which
+   * on a young account is most of the time and is the correct answer.
    */
-  similarTrades: { available: false; reason: string };
+  similarTrades: SimilarTradesResult;
 }
 
 /**
@@ -122,6 +125,7 @@ export async function getRecommendationWorkspace(
   });
 
   const candidateRiskUsdt = Math.abs(Number(rec.entryPrice) - Number(rec.slPrice)) * Number(rec.qty);
+  const similarTrades = await similarTradesFor(userId, section, candidateFeatures(rec));
 
   return {
     recommendation: rec,
@@ -134,11 +138,25 @@ export async function getRecommendationWorkspace(
       afterPortfolioRiskUsdt: state.openRiskUsdt + candidateRiskUsdt,
       maxPortfolioRiskUsdt: state.maxPortfolioRiskUsdt,
     },
-    similarTrades: {
-      available: false,
-      reason: "Similar-trade analysis activates once enough comparable historical setups have closed and been validated.",
-    },
+    similarTrades,
   };
+}
+
+/**
+ * The candidate's comparison vector, read from the SignalRow captured when the
+ * recommendation was made — not from live indicators. The question the panel
+ * answers is "what happened after setups like THIS one", and this one is the
+ * state the engine actually decided on.
+ */
+function candidateFeatures(rec: Recommendation): FeatureVector {
+  const row = (rec.signalRow ?? {}) as Record<string, unknown>;
+  const out: Record<string, number> = {};
+  for (const key of FEATURE_KEYS) {
+    const v = row[key];
+    if (typeof v === "number" && Number.isFinite(v)) out[key] = v;
+  }
+  if (out.confidence === undefined && rec.confidence != null) out.confidence = Number(rec.confidence);
+  return out;
 }
 
 /**

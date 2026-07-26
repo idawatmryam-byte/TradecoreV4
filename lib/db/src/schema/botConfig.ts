@@ -92,9 +92,61 @@ export const botConfigTable = pgTable("bot_config", {
    * they opt in to a tighter value.
    */
   maxNetExposurePercent: numeric("max_net_exposure_percent", { precision: 6, scale: 2 }).notNull().default("200.0"),
+  /**
+   * Max NOTIONAL allowed across one CORRELATED cluster — the candidate plus
+   * every open position measured to be the same directional bet — as a % of
+   * balance. The gate the other three miss: five "independent" longs across
+   * correlated majors is one large position wearing a disguise, and no count,
+   * per-symbol or net-direction cap notices it. Defaults permissive (200%)
+   * so existing users and the harness are unaffected until they opt in.
+   */
+  maxCorrelatedExposurePercent: numeric("max_correlated_exposure_percent", { precision: 6, scale: 2 }).notNull().default("200.0"),
+  /**
+   * Reinforcement level (r adjusted for trade direction) at which two symbols
+   * count as the same bet. 0.7 is the conventional "strongly correlated"
+   * line; below ~0.5 almost everything in crypto would cluster together and
+   * the gate would stop being informative.
+   */
+  correlationThreshold: numeric("correlation_threshold", { precision: 4, scale: 3 }).notNull().default("0.700"),
+  /**
+   * What to do when a pair has too little shared history to measure:
+   * "allow" (default — a new account has no history yet and must stay
+   * tradable) or "block" (never trade blind). Never silently treated as
+   * uncorrelated, which would be an unearned claim of independence.
+   */
+  correlationUnknownPolicy: text("correlation_unknown_policy").notNull().default("allow"),
 
   // ── Signal / confidence ────────────────────────────────────────────────────
   confidenceThreshold: integer("confidence_threshold").notNull().default(55),
+
+  // ── Gated memory influence ────────────────────────────────────────────────
+  /**
+   * Whether the account's own trade history may raise the bar on new plans.
+   *
+   * Defaults FALSE and backfills FALSE — this is the only setting in the
+   * product that lets past results change future decisions, and no existing
+   * account may acquire that behaviour by deploying a new version. Off, the
+   * engine is byte-identical to one built without the feature.
+   *
+   * Memory can only ever WITHHOLD a trade. It cannot loosen a gate and cannot
+   * originate a plan, so the worst case of a bad rule is a missed trade.
+   */
+  memoryInfluenceEnabled: boolean("memory_influence_enabled").notNull().default(false),
+  /**
+   * Hard cap, in confidence points, on how far memory may raise any plan's
+   * bar. Applied after summing every matching cell, so no stack of dimensions
+   * can reach past it. 10 points on a 0–100 score is a meaningful filter and
+   * a long way from an off switch.
+   */
+  memoryInfluenceMaxDelta: numeric("memory_influence_max_delta", { precision: 5, scale: 2 }).notNull().default("10.0"),
+  /**
+   * The state version a passing walk-forward validation approved. Live
+   * influence requires this to match the state currently in force; a refit
+   * that changes the rules therefore revokes the permission automatically
+   * instead of inheriting approval it never earned. Demo needs no approval —
+   * that is the paper-first rollout.
+   */
+  memoryInfluenceApprovedVersion: text("memory_influence_approved_version"),
 
   // ── Risk model: how SL/TP are decided ──────────────────────────────────────
   /**
