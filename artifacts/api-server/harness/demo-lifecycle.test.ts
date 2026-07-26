@@ -59,7 +59,11 @@ async function main() {
   const [fresh] = await db.select().from(botConfigTable)
     .where(and(eq(botConfigTable.userId, USER), eq(botConfigTable.section, "crypto")));
   expect("new config defaults to the demo target", fresh?.executionTarget === "demo", String(fresh?.executionTarget));
-  expect("new config starts on autopilot", fresh?.mode === "autopilot", String(fresh?.mode));
+  // P4 changed this deliberately: a new account should see the engine's
+  // reasoning and decide for itself before the engine is trusted to act alone.
+  // The COLUMN default is still "autopilot" so existing rows keep the
+  // behaviour they already had.
+  expect("new config starts in Co-Pilot", fresh?.mode === "copilot", String(fresh?.mode));
   expect("crypto demo starts at 10k virtual", Number(fresh?.demoStartingBalanceUsdt) === 10_000);
 
   const forexEngine = new BotEngine(USER, "forex");

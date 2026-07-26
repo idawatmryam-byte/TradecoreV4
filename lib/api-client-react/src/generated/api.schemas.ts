@@ -189,6 +189,102 @@ export interface StrategyDecisionEntry {
   lastSeenAt: string;
 }
 
+export type RecommendationStatus = typeof RecommendationStatus[keyof typeof RecommendationStatus];
+
+
+export const RecommendationStatus = {
+  created: 'created',
+  executed: 'executed',
+  rejected: 'rejected',
+  expired: 'expired',
+  superseded: 'superseded',
+  blocked: 'blocked',
+} as const;
+
+/**
+ * "user" marks a plan the trader modified — outcome attribution depends on it.
+ */
+export type RecommendationAuthoredBy = typeof RecommendationAuthoredBy[keyof typeof RecommendationAuthoredBy];
+
+
+export const RecommendationAuthoredBy = {
+  engine: 'engine',
+  user: 'user',
+} as const;
+
+export type RecommendationSide = typeof RecommendationSide[keyof typeof RecommendationSide];
+
+
+export const RecommendationSide = {
+  long: 'long',
+  short: 'short',
+} as const;
+
+export interface Recommendation {
+  id: number;
+  status: RecommendationStatus;
+  /** "user" marks a plan the trader modified — outcome attribution depends on it. */
+  authoredBy: RecommendationAuthoredBy;
+  /** @nullable */
+  derivedFromId?: number | null;
+  symbol: string;
+  strategyId: string;
+  /** @nullable */
+  strategyName?: string | null;
+  side: RecommendationSide;
+  confidence: number;
+  entryPrice: number;
+  slPrice: number;
+  tpPrice: number;
+  qty: number;
+  leverage: number;
+  /** SHA-256 of the decision content. Identical to the plan AutoPilot would have executed for the same scan. */
+  planFingerprint: string;
+  /** @nullable */
+  entryReason?: string | null;
+  expiresAt: string;
+  createdAt: string;
+  /** @nullable */
+  actedAt?: string | null;
+  /** @nullable */
+  tradeId?: number | null;
+  /** @nullable */
+  resolutionReason?: string | null;
+}
+
+export interface RecommendationList {
+  recommendations: Recommendation[];
+}
+
+export interface RevalidationCheck {
+  name: string;
+  passed: boolean;
+  detail: string;
+}
+
+export type RecommendationActionResultStatus = typeof RecommendationActionResultStatus[keyof typeof RecommendationActionResultStatus];
+
+
+export const RecommendationActionResultStatus = {
+  created: 'created',
+  executed: 'executed',
+  rejected: 'rejected',
+  expired: 'expired',
+  superseded: 'superseded',
+  blocked: 'blocked',
+} as const;
+
+export interface RecommendationActionResult {
+  ok: boolean;
+  status: RecommendationActionResultStatus;
+  reason: string;
+  /** Every re-validation check that ran, pass or fail — not just the first failure. */
+  checks?: RevalidationCheck[];
+  tradeId?: number;
+  /** Set by modify(): the new user-authored plan. */
+  newRecommendationId?: number;
+}
+
 export type NotificationSeverity = typeof NotificationSeverity[keyof typeof NotificationSeverity];
 
 
@@ -1499,6 +1595,28 @@ export const GetJournalOutcome = {
   loss: 'loss',
   breakeven: 'breakeven',
 } as const;
+
+export type GetCopilotInboxParams = {
+/**
+ * Comma-separated statuses. Defaults to `created` (the actionable ones).
+ */
+status?: string;
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+};
+
+export type RejectRecommendationBody = {
+  note?: string;
+};
+
+export type ModifyRecommendationBody = {
+  slPrice?: number;
+  tpPrice?: number;
+  qty?: number;
+};
 
 export type GetNotificationsParams = {
 /**
