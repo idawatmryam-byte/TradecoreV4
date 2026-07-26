@@ -53,6 +53,10 @@ import type { ExecutionResult, TradeExecutor } from "./execution/executor";
 import { LiveExecutor } from "./execution/liveExecutor";
 import { advanceIntent, attachTrade, openIntent, type IntentHandle } from "./execution/intentLog";
 import { planFingerprint } from "./plan/fingerprint";
+import {
+  captureDecisions, configVersionOf, recordScanCounters,
+  type CaptureDecision, type CaptureSnapshot,
+} from "./capture/captureLog";
 import type { Section } from "./engineRegistry";
 import { TradeManager } from "./tradeManager";
 import { placeSellOco, cancelOco } from "./binanceOco";
@@ -1285,6 +1289,27 @@ class BotEngine {
       // Decision journal for this scan: every considered-and-rejected trade
       // plus approved-but-not-taken plans. Flushed (best-effort) at scan end.
       const scanDecisions: DecisionRecord[] = [];
+      // ── P2: the append-only capture log, written alongside the operational
+      // Decisions feed. Same decisions, different contract: the feed dedupes
+      // and prunes at 14 days (right for a UI), the capture log never mutates
+      // (right for a training set). Signal-only — symbols that produced no
+      // decision at all are counted at the end of the scan, not snapshotted.
+      const scanCaptures: CaptureDecision[] = [];
+      const scanSnapshots = new Map<string, CaptureSnapshot>();
+      /** Push to the operational feed AND the capture log in one place. */
+      const noteDecision = (rec: DecisionRecord) => {
+        scanDecisions.push(rec);
+        scanCaptures.push({
+          outcome: rec.kind,
+          symbol: rec.symbol,
+          strategyId: rec.strategyId,
+          side: rec.side,
+          confidence: rec.confidence,
+          stage: rec.stage,
+          reason: rec.reason,
+          payload: rec.report,
+        });
+      };
 
       for (const result of candleResults) {
         const symbol = result.symbol;
@@ -1339,6 +1364,13 @@ class BotEngine {
         const row = buildSignalRow(symbol, mtf, this.lastRegime.get(symbol));
         this.lastRegime.set(symbol, row.regime);
         regimeCounts[row.regime] = (regimeCounts[row.regime] ?? 0) + 1;
+        // Inputs for the capture log. dataTimestampMs is MARKET time (the
+        // newest candle's close), never now() — an as-of-T query is only
+        // honest against the moment the data was true.
+        scanSnapshots.set(symbol, {
+          row,
+          dataTimestampMs: tf1m.length > 0 ? tf1m[tf1m.length - 1]![0]! : now.getTime(),
+        });
         marketStage.status = "pass";
         marketStage.detail = `Fetched 5 timeframes · last price ${row.lastPrice}`;
 
@@ -1476,7 +1508,7 @@ class BotEngine {
         );
         // Considered-and-rejected trades are first-class output now — queue
         // them for the persistent decision journal (flushed once per scan).
-        for (const r of rejections) scanDecisions.push(rejectionToRecord(r));
+        for (const r of rejections) noteDecision(rejectionToRecord(r));
         // Spot has no short-selling mechanism (buy-to-open is the only way to
         // enter) — strategies always evaluate both directions, so filter out
         // short signals here rather than duplicating a market-type check into
@@ -1527,7 +1559,7 @@ class BotEngine {
           const maxC = cfg?.maxConcurrentPositions ?? 2;
           if (openCount >= maxC) {
             cappedStrategies.push(cand.strategyName);
-            scanDecisions.push(planToRecord(cand, "approved_not_taken", {
+            noteDecision(planToRecord(cand, "approved_not_taken", {
               stage: "Strategy Concurrency",
               reason: `${openCount}/${maxC} positions already open for ${cand.strategyName}`,
             }));
@@ -1594,7 +1626,7 @@ class BotEngine {
           riskStage.status = "fail";
           riskStage.detail = `Blocked: aggregate portfolio risk ($${(existingRiskUsdt + candidateRiskUsdt).toFixed(2)}) would exceed ${Number(config.maxPortfolioRiskPercent)}% of balance ($${maxPortfolioRiskUsdt.toFixed(2)})`;
           record("BLOCKED", "Risk Checks", "Portfolio risk limit reached", bestSignal.confidence);
-          scanDecisions.push(planToRecord(bestSignal, "approved_not_taken", {
+          noteDecision(planToRecord(bestSignal, "approved_not_taken", {
             stage: "Portfolio Risk",
             reason: `aggregate risk $${(existingRiskUsdt + candidateRiskUsdt).toFixed(2)} would exceed the $${maxPortfolioRiskUsdt.toFixed(2)} cap`,
           }));
@@ -1617,9 +1649,26 @@ class BotEngine {
         // THE FORK POINT. Everything above this line is the deterministic
         // intelligence pipeline and is identical in every mode; everything
         // below is only a question of what to do with the finished plan.
-        const { entered, reason } = await this.executor.execute({
+        const execResult = await this.executor.execute({
           symbol, plan: bestSignal, row, config, now, ...(stratConfig && { stratConfig }),
         });
+        const { entered, reason } = execResult;
+        if (entered) {
+          // Capture the executed decision with its execution linkage — this is
+          // the row that will later join to the trade's outcome.
+          scanCaptures.push({
+            outcome: "executed",
+            symbol,
+            strategyId: bestSignal.strategyId,
+            side: bestSignal.side,
+            confidence: bestSignal.confidence,
+            stage: null,
+            reason: bestSignal.report.summary,
+            payload: bestSignal,
+            ...(execResult.correlationId && { correlationId: execResult.correlationId }),
+            planFingerprint: planFingerprint(this.userId, bestSignal),
+          });
+        }
         if (entered) {
           this.state.openPositions++;
           // Track for the same-scan concurrency + portfolio-risk accounting above.
@@ -1641,7 +1690,7 @@ class BotEngine {
           orderStage.status = "fail";
           orderStage.detail = `Order not placed — ${reason}`;
           record("BLOCKED", "Order", reason, bestSignal.confidence);
-          scanDecisions.push(planToRecord(bestSignal, "approved_not_taken", {
+          noteDecision(planToRecord(bestSignal, "approved_not_taken", {
             stage: "Order",
             reason,
           }));
@@ -1691,6 +1740,35 @@ class BotEngine {
       // and prune old rows roughly hourly.
       if (scanDecisions.length > 0) {
         void recordDecisions(this.userId, scanDecisions, this.section).catch(() => {});
+      }
+
+      // ── P2: capture ────────────────────────────────────────────────────────
+      // Full snapshot + provenance for every symbol a strategy actually
+      // decided on; a counter for every symbol that produced nothing. Both
+      // fire-and-forget — the historical asset must never stall a scan.
+      if (scanCaptures.length > 0) {
+        void captureDecisions({
+          userId: this.userId,
+          section: this.section,
+          provider: this.section === "forex" ? "oanda" : "binance",
+          venue: config.marketType,
+          timeframe: "1m",
+          configVersion: configVersionOf([...strategyConfigs.entries()].sort(([a], [b]) => (a < b ? -1 : 1))),
+          decisions: scanCaptures,
+          snapshots: scanSnapshots,
+        }).catch(() => {});
+      }
+      const decidedSymbols = new Set(scanCaptures.map((c) => c.symbol));
+      const uncaptured = new Map<string, string>();
+      for (const d of decisions) {
+        if (decidedSymbols.has(d.symbol)) continue;
+        // Every strategy looked and found no setup worth reporting, or the
+        // symbol was stopped before strategy evaluation. Either way: a count,
+        // not a snapshot.
+        uncaptured.set(d.symbol, d.finalDecision === "ENTERED" ? "Order" : (d.blockStage ?? "no_signal"));
+      }
+      if (uncaptured.size > 0) {
+        void recordScanCounters(this.userId, this.section, now, uncaptured).catch(() => {});
       }
       if (Date.now() - this.lastDecisionPruneAt > 3600_000) {
         this.lastDecisionPruneAt = Date.now();
@@ -2404,6 +2482,50 @@ class BotEngine {
   // planned-vs-actual SL/TP/qty/fees/slippage/P&L validation and the one
   // "closed" DB write. BotEngine only reacts to the outcome.
 
+  /**
+   * Update this trade's maximum favourable / adverse excursion from the latest
+   * candle's range. Mirrors backtestEngine's Phase 4C computation exactly, so
+   * the live and simulated numbers mean the same thing.
+   *
+   * Writes only when an extreme actually moves — after the first few ticks
+   * that is the rare case, so this costs a comparison per tick, not a write.
+   */
+  private async trackExcursion(
+    trade: typeof tradesTable.$inferSelect,
+    candles1m: Candle[],
+  ): Promise<void> {
+    if (candles1m.length === 0) return;
+    const last = candles1m[candles1m.length - 1]!;
+    const high = last[2];
+    const low = last[3];
+    const entryPrice = Number(trade.entryPrice);
+    const qty = Number(trade.remainingQuantity ?? trade.quantity);
+    if (!(qty > 0) || !(entryPrice > 0)) return;
+
+    const isShort = trade.side === "sell";
+    const favorable = isShort ? (entryPrice - low) * qty : (high - entryPrice) * qty;
+    const adverse = isShort ? (entryPrice - high) * qty : (low - entryPrice) * qty;
+
+    const currentMfe = trade.mfeUsdt != null ? Number(trade.mfeUsdt) : 0;
+    const currentMae = trade.maeUsdt != null ? Number(trade.maeUsdt) : 0;
+    const nextMfe = favorable > currentMfe ? favorable : currentMfe;
+    const nextMae = adverse < currentMae ? adverse : currentMae;
+    if (nextMfe === currentMfe && nextMae === currentMae) return;
+
+    try {
+      await db
+        .update(tradesTable)
+        .set({ mfeUsdt: nextMfe.toFixed(8), maeUsdt: nextMae.toFixed(8) })
+        .where(eq(tradesTable.id, trade.id));
+      // Keep the in-memory row in step so the same tick's downstream logic
+      // and the eventual post-mortem see the fresh values.
+      trade.mfeUsdt = nextMfe.toFixed(8);
+      trade.maeUsdt = nextMae.toFixed(8);
+    } catch (err) {
+      logger.warn({ err, tradeId: trade.id }, "EXCURSION_TRACK_FAILED");
+    }
+  }
+
   private async checkExitCondition(
     trade: typeof tradesTable.$inferSelect,
     candles1m: Candle[],
@@ -2415,6 +2537,15 @@ class BotEngine {
     const ex = this.exchange!;
     const market = this.toMarket(trade.symbol);
     let orderIds = this.openOrderIds.get(trade.id);
+
+    // ── P2: track the excursion envelope while the position is open ─────────
+    // How far the trade ran in our favour before the outcome, and how far
+    // against. The backtest engine has computed both since Phase 4C; live
+    // trades had no equivalent, so "was that stop sitting in noise, or did the
+    // market genuinely refute the thesis?" was answerable in simulation only.
+    // Runs here rather than in TradeManager because TradeManager returns early
+    // for strategies with laddering disabled — this must hold for every trade.
+    await this.trackExcursion(trade, candles1m);
 
     // Futures Phase: liquidation proximity is only checked once, right after
     // entry (enterTrade's "RISK GUARD" check) — but for an already-OPEN

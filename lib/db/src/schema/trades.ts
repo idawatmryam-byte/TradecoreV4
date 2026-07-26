@@ -40,6 +40,15 @@ export const tradesTable = pgTable("trades", {
    *  forward to its outcome — the spine of the trade's whole history. Null on
    *  trades opened before the intent log existed, and on seeded demo rows. */
   correlationId: text("correlation_id"),
+  /** Maximum FAVOURABLE excursion in quote currency — the best unrealised P&L
+   *  this position ever showed. Tracked per scan tick while open. The backtest
+   *  engine has computed this since Phase 4C; live trades had no equivalent,
+   *  so "did we leave money on the table?" was answerable in simulation only. */
+  mfeUsdt: numeric("mfe_usdt", { precision: 18, scale: 8 }),
+  /** Maximum ADVERSE excursion in quote currency (≤ 0) — the worst unrealised
+   *  drawdown before the outcome. This is what tells a stop-in-noise apart
+   *  from a thesis the market genuinely refuted. */
+  maeUsdt: numeric("mae_usdt", { precision: 18, scale: 8 }),
   /** Phase 2.5 Risk Audit: true when actual loss exceeded expected max loss */
   riskViolation: boolean("risk_violation").notNull().default(false),
   /** Phase 2.5 Risk Audit: human-readable explanation of the violation */
