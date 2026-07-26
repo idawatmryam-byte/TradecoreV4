@@ -68,6 +68,16 @@ export interface CaptureBatch {
   timeframe: string;
   /** Content hash of the effective strategy configs behind these decisions. */
   configVersion: string;
+  /**
+   * The memory state in force for this scan: "memory-0" when the decision core
+   * read no memory at all, "memory-1:<hash>" when gated influence was active.
+   *
+   * Load-bearing for replay. A captured decision made under an active rule set
+   * is not reproducible from features and config alone — the rules are a third
+   * input — and a row that claimed "memory-0" while memory was withholding
+   * trades would make the whole capture log quietly untrustworthy.
+   */
+  memoryVersion?: string;
   decisions: CaptureDecision[];
   /** symbol → the snapshot its decisions were made on. */
   snapshots: Map<string, CaptureSnapshot>;
@@ -114,7 +124,7 @@ export async function captureDecisions(batch: CaptureBatch): Promise<void> {
         payload: d.payload ?? null,
         engineVersion: ENGINE_VERSION,
         configVersion: batch.configVersion,
-        memoryVersion: MEMORY_VERSION_NONE,
+        memoryVersion: batch.memoryVersion ?? MEMORY_VERSION_NONE,
         dataTimestamp: new Date(snap.dataTimestampMs),
       });
     } catch (err) {

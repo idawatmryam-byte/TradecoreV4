@@ -119,6 +119,35 @@ export const botConfigTable = pgTable("bot_config", {
   // ── Signal / confidence ────────────────────────────────────────────────────
   confidenceThreshold: integer("confidence_threshold").notNull().default(55),
 
+  // ── Gated memory influence ────────────────────────────────────────────────
+  /**
+   * Whether the account's own trade history may raise the bar on new plans.
+   *
+   * Defaults FALSE and backfills FALSE — this is the only setting in the
+   * product that lets past results change future decisions, and no existing
+   * account may acquire that behaviour by deploying a new version. Off, the
+   * engine is byte-identical to one built without the feature.
+   *
+   * Memory can only ever WITHHOLD a trade. It cannot loosen a gate and cannot
+   * originate a plan, so the worst case of a bad rule is a missed trade.
+   */
+  memoryInfluenceEnabled: boolean("memory_influence_enabled").notNull().default(false),
+  /**
+   * Hard cap, in confidence points, on how far memory may raise any plan's
+   * bar. Applied after summing every matching cell, so no stack of dimensions
+   * can reach past it. 10 points on a 0–100 score is a meaningful filter and
+   * a long way from an off switch.
+   */
+  memoryInfluenceMaxDelta: numeric("memory_influence_max_delta", { precision: 5, scale: 2 }).notNull().default("10.0"),
+  /**
+   * The state version a passing walk-forward validation approved. Live
+   * influence requires this to match the state currently in force; a refit
+   * that changes the rules therefore revokes the permission automatically
+   * instead of inheriting approval it never earned. Demo needs no approval —
+   * that is the paper-first rollout.
+   */
+  memoryInfluenceApprovedVersion: text("memory_influence_approved_version"),
+
   // ── Risk model: how SL/TP are decided ──────────────────────────────────────
   /**
    * "percent" (legacy): SL/TP are a % distance of PRICE from entry (the

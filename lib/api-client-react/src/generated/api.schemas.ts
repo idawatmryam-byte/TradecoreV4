@@ -435,6 +435,168 @@ export interface KnowledgeOverview {
   calibration: CalibrationReport;
 }
 
+export type InfluenceRuleDimension = typeof InfluenceRuleDimension[keyof typeof InfluenceRuleDimension];
+
+
+export const InfluenceRuleDimension = {
+  strategy_regime: 'strategy_regime',
+  symbol_strategy: 'symbol_strategy',
+  session: 'session',
+  volatility: 'volatility',
+} as const;
+
+/**
+ * One knowledge cell memory is acting on. Present only for cells that cleared the sample gate AND whose q-value survived the multiple-comparison correction.
+ */
+export interface InfluenceRule {
+  dimension: InfluenceRuleDimension;
+  key: string;
+  label: string;
+  samples: number;
+  winRate: number;
+  baselineWinRate: number;
+  qValue: number;
+  /** Confidence points this cell adds to the bar. Always positive — memory only tightens. */
+  delta: number;
+}
+
+export interface MemoryArmMetrics {
+  trades: number;
+  wins: number;
+  losses: number;
+  /** @nullable */
+  winRate: number | null;
+  netPnlUsdt: number;
+  expectancyUsdt: number;
+}
+
+export type MemoryValidationSummaryStatus = typeof MemoryValidationSummaryStatus[keyof typeof MemoryValidationSummaryStatus];
+
+
+export const MemoryValidationSummaryStatus = {
+  pending: 'pending',
+  running: 'running',
+  completed: 'completed',
+  failed: 'failed',
+} as const;
+
+/**
+ * @nullable
+ */
+export type MemoryValidationSummaryVerdict = typeof MemoryValidationSummaryVerdict[keyof typeof MemoryValidationSummaryVerdict] | null;
+
+
+export const MemoryValidationSummaryVerdict = {
+  improved: 'improved',
+  no_better: 'no_better',
+  insufficient_data: 'insufficient_data',
+} as const;
+
+export interface MemoryValidationSummary {
+  id: number;
+  status: MemoryValidationSummaryStatus;
+  /** @nullable */
+  verdict: MemoryValidationSummaryVerdict;
+  /** @nullable */
+  summary: string | null;
+  /**
+     * The rule-set version this run approved. Permission is version-scoped — a refit revokes it.
+     * @nullable
+     */
+  stateVersion: string | null;
+  executionTarget: string;
+  trainTrades: number;
+  validationTrades: number;
+  withheld: number;
+  /** @nullable */
+  withheldPnlUsdt: number | null;
+  /** @nullable */
+  expectancyDelta: number | null;
+  createdAt: string;
+}
+
+export type MemoryValidationResultVerdict = typeof MemoryValidationResultVerdict[keyof typeof MemoryValidationResultVerdict];
+
+
+export const MemoryValidationResultVerdict = {
+  improved: 'improved',
+  no_better: 'no_better',
+  insufficient_data: 'insufficient_data',
+} as const;
+
+export interface MemoryValidationResult {
+  verdict: MemoryValidationResultVerdict;
+  summary: string;
+  stateVersion: string;
+  trainTrades: number;
+  validationTrades: number;
+  /** Out-of-sample trades memory would have withheld. */
+  withheld: number;
+  /** P&L of the withheld trades. Negative is the point. */
+  withheldPnlUsdt: number;
+  expectancyDelta: number;
+  baseline: MemoryArmMetrics;
+  withMemory: MemoryArmMetrics;
+  rules: InfluenceRule[];
+}
+
+/**
+ * One time memory raised a plan's bar. Both outcomes are recorded — logging only the withheld trades would read as a list of saves and hide every time a rule fired harmlessly.
+ */
+export interface AppliedInfluence {
+  id: number;
+  symbol: string;
+  strategyId: string;
+  /** True when the plan cleared the raised bar anyway. */
+  admitted: boolean;
+  confidence: number;
+  requiredConfidence: number;
+  delta: number;
+  memoryVersion: string;
+  executionTarget: string;
+  reason: string;
+  createdAt: string;
+}
+
+export interface MemoryInfluenceStatus {
+  /** What the user asked for. Not the same as `active`. */
+  enabled: boolean;
+  /** Hard cap in confidence points, applied after summing every matching cell. */
+  maxDelta: number;
+  /** @nullable */
+  approvedVersion: string | null;
+  /** Whether the engine is actually acting on memory right now. */
+  active: boolean;
+  /** Live influence is requested but blocked for want of a matching passing validation. */
+  needsValidation: boolean;
+  executionTarget: string;
+  reason: string;
+  summary: string;
+  /** "memory-0" when inert; "memory-1:<hash>" when it carries rules. */
+  version: string;
+  rules: InfluenceRule[];
+  latestValidation: MemoryValidationSummary | null;
+  recent: AppliedInfluence[];
+}
+
+export interface UpdateMemoryInfluence {
+  enabled?: boolean;
+  /**
+     * Hard cap in confidence points. Bounded server-side; memory is not permitted an unlimited reach.
+     * @minimum 0
+     * @maximum 25
+     */
+  maxDelta?: number;
+}
+
+export interface MemoryInfluenceToggle {
+  enabled: boolean;
+  active: boolean;
+  needsValidation: boolean;
+  version: string;
+  reason: string;
+}
+
 export type SimilarMatchOutcome = typeof SimilarMatchOutcome[keyof typeof SimilarMatchOutcome];
 
 
