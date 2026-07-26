@@ -306,6 +306,59 @@ export const GetCopilotInboxResponse = zod.object({
 
 
 /**
+ * The plan, the five-stage reasoning that produced it (Market Data → Indicators → Signal → Risk Checks → Order) captured at the moment it was created, and what taking it would do to the portfolio right now. Read-only; changes nothing.
+ * @summary One recommendation's full picture — the workspace
+ */
+export const GetRecommendationWorkspaceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetRecommendationWorkspaceResponse = zod.object({
+  "recommendation": zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['created', 'executed', 'rejected', 'expired', 'superseded', 'blocked']),
+  "authoredBy": zod.enum(['engine', 'user']).describe('\"user\" marks a plan the trader modified — outcome attribution depends on it.'),
+  "derivedFromId": zod.number().nullish(),
+  "symbol": zod.string(),
+  "strategyId": zod.string(),
+  "strategyName": zod.string().nullish(),
+  "side": zod.enum(['long', 'short']),
+  "confidence": zod.number(),
+  "entryPrice": zod.number(),
+  "slPrice": zod.number(),
+  "tpPrice": zod.number(),
+  "qty": zod.number(),
+  "leverage": zod.number(),
+  "planFingerprint": zod.string().describe('SHA-256 of the decision content. Identical to the plan AutoPilot would have executed for the same scan.'),
+  "entryReason": zod.string().nullish(),
+  "expiresAt": zod.string(),
+  "createdAt": zod.string(),
+  "actedAt": zod.string().nullish(),
+  "tradeId": zod.number().nullish(),
+  "resolutionReason": zod.string().nullish()
+}),
+  "decisionTrace": zod.array(zod.object({
+  "name": zod.string(),
+  "status": zod.enum(['pass', 'fail', 'skip']),
+  "detail": zod.string(),
+  "data": zod.record(zod.string(), zod.unknown()).optional()
+})),
+  "portfolioImpact": zod.object({
+  "currentOpenPositions": zod.number(),
+  "maxOpenPositions": zod.number(),
+  "candidateRiskUsdt": zod.number().describe('This plan\'s own worst-case dollar risk: |entry − stop| × qty.'),
+  "currentPortfolioRiskUsdt": zod.number(),
+  "afterPortfolioRiskUsdt": zod.number().describe('currentPortfolioRiskUsdt + candidateRiskUsdt — what the cap would read if this trade executes.'),
+  "maxPortfolioRiskUsdt": zod.number()
+}),
+  "similarTrades": zod.object({
+  "available": zod.literal(false),
+  "reason": zod.string()
+}).describe('Deliberately not a statistic. Feature-similarity search is a later phase; showing even a zero here risks reading as a computed number.')
+})
+
+
+/**
  * Re-validates before placing anything: expiry, price drift measured in the plan's own R units, and every account-level risk gate. Approval means "is this still a good idea?", not "place this order". A plan that fails becomes `blocked`, which is terminal and read-only.
  * @summary Approve and execute a recommendation
  */

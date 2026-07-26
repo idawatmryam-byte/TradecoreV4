@@ -27,7 +27,8 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { logger } from "../logger";
 import { planFingerprint } from "../plan/fingerprint";
 import { revalidate, type RevalidationCheck } from "../execution/revalidate";
-import { expiryFor } from "../execution/recommendExecutor";
+import { expiryFor, relabelTraceForModification } from "../execution/recommendExecutor";
+import type { PipelineStage } from "../decisionTrace";
 import { getOrCreateEngine, type Section } from "../engineRegistry";
 import type { TradePlan } from "../strategies";
 import type { SignalRow } from "../strategy";
@@ -72,6 +73,72 @@ export async function listInbox(
     ))
     .orderBy(desc(recommendationsTable.createdAt))
     .limit(Math.min(opts.limit ?? 50, 200));
+}
+
+export interface PortfolioImpact {
+  currentOpenPositions: number;
+  maxOpenPositions: number;
+  /** This plan's own worst-case dollar risk: |entry − stop| × qty. */
+  candidateRiskUsdt: number;
+  /** Aggregate risk of positions already open. */
+  currentPortfolioRiskUsdt: number;
+  /** currentPortfolioRiskUsdt + candidateRiskUsdt — what the cap would read if this trade executes. */
+  afterPortfolioRiskUsdt: number;
+  maxPortfolioRiskUsdt: number;
+}
+
+export interface RecommendationWorkspace {
+  recommendation: Recommendation;
+  /** Market Data → Indicators → Signal → Risk Checks → Order, as it stood at creation. */
+  decisionTrace: unknown;
+  portfolioImpact: PortfolioImpact;
+  /**
+   * Deliberately not a number. Feature-similarity search is P7's job — cosine
+   * similarity over z-score-normalised vectors, with a real sample-size gate.
+   * Rendering even a 0 here risks reading as a computed statistic; this is a
+   * placeholder, not an early, weaker version of that feature.
+   */
+  similarTrades: { available: false; reason: string };
+}
+
+/**
+ * One recommendation's full picture for the workspace — the plan, its
+ * reasoning at the moment it was made, and what taking it would do to the
+ * portfolio right now. Read-only; changes nothing.
+ */
+export async function getRecommendationWorkspace(
+  userId: number, section: Section, id: number,
+): Promise<RecommendationWorkspace | null> {
+  const rec = await load(userId, section, id);
+  if (!rec) return null;
+
+  const engine = getOrCreateEngine(userId, section);
+  const state = await engine.gatherRevalidationState({
+    symbol: rec.symbol,
+    strategyId: rec.strategyId,
+    entryPrice: Number(rec.entryPrice),
+    slPrice: Number(rec.slPrice),
+    qty: Number(rec.qty),
+  });
+
+  const candidateRiskUsdt = Math.abs(Number(rec.entryPrice) - Number(rec.slPrice)) * Number(rec.qty);
+
+  return {
+    recommendation: rec,
+    decisionTrace: rec.decisionTrace ?? null,
+    portfolioImpact: {
+      currentOpenPositions: state.openPositions,
+      maxOpenPositions: state.maxOpenPositions,
+      candidateRiskUsdt,
+      currentPortfolioRiskUsdt: state.openRiskUsdt,
+      afterPortfolioRiskUsdt: state.openRiskUsdt + candidateRiskUsdt,
+      maxPortfolioRiskUsdt: state.maxPortfolioRiskUsdt,
+    },
+    similarTrades: {
+      available: false,
+      reason: "Similar-trade analysis activates once enough comparable historical setups have closed and been validated.",
+    },
+  };
 }
 
 /**
@@ -203,6 +270,8 @@ export async function modifyRecommendation(
 
   const modifiedPlan: TradePlan = { ...original, slPrice, tpPrice, qty };
   const correlationId = randomUUID();
+  const newExpiresAt = expiryFor(modifiedPlan, now);
+  const derivedTrace = relabelTraceForModification(rec.decisionTrace as PipelineStage[] | null, newExpiresAt);
 
   const [created] = await db
     .insert(recommendationsTable)
@@ -226,7 +295,8 @@ export async function modifyRecommendation(
       leverage: rec.leverage,
       plan: modifiedPlan,
       signalRow: rec.signalRow,
-      expiresAt: expiryFor(modifiedPlan, now),
+      decisionTrace: derivedTrace as unknown as object,
+      expiresAt: newExpiresAt,
     })
     .returning();
 

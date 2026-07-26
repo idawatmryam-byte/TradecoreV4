@@ -33,7 +33,7 @@ import { BotEngine } from "../src/lib/botEngine";
 import { planFingerprint } from "../src/lib/plan/fingerprint";
 import { expiryFor } from "../src/lib/execution/recommendExecutor";
 import {
-  executeRecommendation, listInbox, modifyRecommendation, rejectRecommendation,
+  executeRecommendation, getRecommendationWorkspace, listInbox, modifyRecommendation, rejectRecommendation,
 } from "../src/lib/copilot/copilotService";
 import { loadStrategyConfigs } from "../src/lib/strategyConfigLoader";
 import type { StrategyConfig } from "../src/lib/strategies";
@@ -97,8 +97,15 @@ async function main() {
   expect("copilot mode selects the recommend executor", e.resolveExecutor(copilotConfig).kind === "recommend");
 
   const p = plan();
+  const precedingStages = [
+    { name: "Market Data", status: "pass" as const, detail: "candles fresh" },
+    { name: "Indicators", status: "pass" as const, detail: "RSI 62" },
+    { name: "Signal", status: "pass" as const, detail: "trend pullback triggered" },
+    { name: "Risk Checks", status: "pass" as const, detail: "within daily loss limit" },
+  ];
   const res = await e.resolveExecutor(copilotConfig).execute({
     symbol: "BTCUSDT", plan: p, row: { confidence: 70, regime: "trend" }, config: copilotConfig, now: T0, stratConfig: pure,
+    precedingStages,
   });
   expect("Co-Pilot opens no position", res.entered === false);
   expect("its reason says it is awaiting review", /Co-Pilot/.test(res.reason), res.reason);
@@ -131,6 +138,27 @@ async function main() {
     rec!.expiresAt.getTime() - T0.getTime() === 600_000,
     String(rec!.expiresAt.getTime() - T0.getTime()));
 
+  // The decision trace is the real pipeline stages, snapshotted at creation —
+  // never a narrative reconstruction of them.
+  console.log("\n— the decision trace persists and round-trips through the workspace —");
+  const persistedTrace = rec!.decisionTrace as unknown as Array<{ name: string; status: string; detail: string }>;
+  expect("persists all 4 preceding stages plus Order", persistedTrace.length === 5, String(persistedTrace.length));
+  expect("preceding stage names carry over in order",
+    persistedTrace.slice(0, 4).map((s) => s.name).join(",") === precedingStages.map((s) => s.name).join(","),
+    persistedTrace.map((s) => s.name).join(","));
+  expect("the Order stage names Co-Pilot, not the strategy", /Co-Pilot/.test(persistedTrace[4]!.detail), persistedTrace[4]!.detail);
+
+  const workspace = await getRecommendationWorkspace(USER, "crypto", rec!.id);
+  expect("the workspace resolves the recommendation", workspace?.recommendation.id === rec!.id);
+  expect("the workspace's decisionTrace matches what was persisted",
+    JSON.stringify(workspace!.decisionTrace) === JSON.stringify(persistedTrace));
+  expect("portfolio impact reports this plan's own risk",
+    Math.abs(workspace!.portfolioImpact.candidateRiskUsdt - Math.abs(p.entryPrice - p.slPrice) * p.qty) < 1e-9,
+    String(workspace!.portfolioImpact.candidateRiskUsdt));
+  expect("similar trades is an honest gated placeholder, never a number",
+    workspace!.similarTrades.available === false && typeof workspace!.similarTrades.reason === "string");
+  expect("workspace on an unknown id returns null", (await getRecommendationWorkspace(USER, "crypto", 9_999_999)) === null);
+
   // ── 2. Modify creates a NEW plan; the original is untouched ──────────────
   console.log("\n— modifying authors a new plan rather than editing one —");
   const originalSl = Number(rec!.slPrice);
@@ -147,6 +175,14 @@ async function main() {
   expect("the new plan is attributed to the user", derived!.authoredBy === "user");
   expect("the new plan links back to the original", derived!.derivedFromId === rec!.id);
   expect("the new plan has its own fingerprint", derived!.planFingerprint !== origAfter!.planFingerprint);
+
+  const derivedTrace = derived!.decisionTrace as unknown as Array<{ name: string; status: string; detail: string }>;
+  expect("the modified plan keeps exactly one Order stage",
+    derivedTrace.filter((s) => s.name === "Order").length === 1, String(derivedTrace.length));
+  expect("the modified plan's Order stage attributes it to the user",
+    /User-modified/.test(derivedTrace[derivedTrace.length - 1]!.detail), derivedTrace[derivedTrace.length - 1]!.detail);
+  expect("the modified plan still carries the original's market context",
+    derivedTrace.slice(0, 4).map((s) => s.name).join(",") === precedingStages.map((s) => s.name).join(","));
 
   // Geometry the engine would never produce cannot be created by hand either.
   const bad = await modifyRecommendation(USER, "crypto", derived!.id, { slPrice: 120 });

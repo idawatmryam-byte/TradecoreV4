@@ -22,6 +22,7 @@ import { randomUUID } from "crypto";
 import { and, eq, lt } from "drizzle-orm";
 import { logger } from "../logger";
 import { planFingerprint } from "../plan/fingerprint";
+import type { PipelineStage } from "../decisionTrace";
 import type { ExecutionRequest, ExecutionResult, TradeExecutor } from "./executor";
 import type { Section } from "../engineRegistry";
 
@@ -42,6 +43,42 @@ export function expiryFor(plan: { expectedHoldSeconds: number }, now: Date): Dat
   return new Date(now.getTime() + clamped);
 }
 
+/**
+ * Complete the five-stage trace for a recommendation. `precedingStages` is
+ * Market Data / Indicators / Signal / Risk Checks, already finalized — reaching
+ * this call means all four passed, so the fifth stage is always this
+ * executor's own outcome, never a failure. Exported so the P5 workspace's
+ * decision-timeline test can pin the exact wording without a live scan.
+ */
+export function buildDecisionTrace(precedingStages: PipelineStage[] | undefined, expiresAt: Date): PipelineStage[] {
+  const orderStage: PipelineStage = {
+    name: "Order",
+    status: "pass",
+    detail: `Recorded as a Co-Pilot recommendation — awaiting your review (expires ${expiresAt.toISOString().slice(11, 16)} UTC)`,
+  };
+  return [...(precedingStages ?? []), orderStage];
+}
+
+/**
+ * The trace for a user-authored modification. The market conditions
+ * (Market Data / Indicators / Signal / Risk Checks) that made the ORIGINAL
+ * setup worth reporting are still honest context — a modification changes the
+ * numbers, not what the market was doing — so those four stages carry over
+ * unchanged. Only the final stage is replaced, to say plainly that a human,
+ * not the strategy, produced this version.
+ */
+export function relabelTraceForModification(parentTrace: PipelineStage[] | null | undefined, expiresAt: Date): PipelineStage[] {
+  const preceding = (parentTrace ?? []).filter((s) => s.name !== "Order");
+  return [
+    ...preceding,
+    {
+      name: "Order",
+      status: "pass",
+      detail: `User-modified plan — awaiting your review (expires ${expiresAt.toISOString().slice(11, 16)} UTC)`,
+    },
+  ];
+}
+
 export interface RecommendExecutorHost {
   userId: () => number;
   section: () => Section;
@@ -59,6 +96,7 @@ export class RecommendExecutor implements TradeExecutor {
     const correlationId = randomUUID();
     const fingerprint = planFingerprint(userId, plan);
     const expiresAt = expiryFor(plan, now);
+    const decisionTrace = buildDecisionTrace(req.precedingStages, expiresAt);
 
     try {
       const [rec] = await db
@@ -82,6 +120,7 @@ export class RecommendExecutor implements TradeExecutor {
           leverage: plan.leverage,
           plan,
           signalRow: row as unknown as object,
+          decisionTrace: decisionTrace as unknown as object,
           expiresAt,
         })
         .returning();

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetCopilotInbox, getGetCopilotInboxQueryKey,
@@ -10,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   ArrowUpRight, ArrowDownRight, CheckCircle2, XCircle, Ban, Clock,
-  Loader2, Inbox, Pencil, ShieldAlert, ChevronDown, ChevronUp,
+  Loader2, Inbox, Pencil, ShieldAlert, ChevronDown, ChevronUp, Maximize2,
 } from "lucide-react";
 
 /**
@@ -156,6 +157,11 @@ function RecommendationCard({ rec }: { rec: Recommendation }) {
           <span className="ml-auto font-mono text-xs text-muted-foreground">
             {rec.strategyName ?? rec.strategyId} · {rec.confidence.toFixed(0)}%
           </span>
+          <Link href={`/copilot/${rec.id}`}>
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">
+              <Maximize2 className="h-3 w-3 mr-1" />Workspace
+            </Button>
+          </Link>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-sm">

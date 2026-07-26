@@ -63,6 +63,7 @@ import type {
   OptimizeRequest,
   RecommendationActionResult,
   RecommendationList,
+  RecommendationWorkspace,
   Register201,
   RegisterBody,
   RejectRecommendationBody,
@@ -1168,6 +1169,84 @@ export function useGetCopilotInbox<TData = Awaited<ReturnType<typeof getCopilotI
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetCopilotInboxQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetRecommendationWorkspaceUrl = (id: number,) => {
+
+
+
+
+  return `/api/copilot/recommendations/${id}`
+}
+
+/**
+ * The plan, the five-stage reasoning that produced it (Market Data → Indicators → Signal → Risk Checks → Order) captured at the moment it was created, and what taking it would do to the portfolio right now. Read-only; changes nothing.
+ * @summary One recommendation's full picture — the workspace
+ */
+export const getRecommendationWorkspace = async (id: number, options?: RequestInit): Promise<RecommendationWorkspace> => {
+
+  return customFetch<RecommendationWorkspace>(getGetRecommendationWorkspaceUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRecommendationWorkspaceQueryKey = (id: number,) => {
+    return [
+    `/api/copilot/recommendations/${id}`
+    ] as const;
+    }
+
+
+export const getGetRecommendationWorkspaceQueryOptions = <TData = Awaited<ReturnType<typeof getRecommendationWorkspace>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRecommendationWorkspace>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRecommendationWorkspaceQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRecommendationWorkspace>>> = ({ signal }) => getRecommendationWorkspace(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRecommendationWorkspace>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRecommendationWorkspaceQueryResult = NonNullable<Awaited<ReturnType<typeof getRecommendationWorkspace>>>
+export type GetRecommendationWorkspaceQueryError = ErrorType<void>
+
+
+/**
+ * @summary One recommendation's full picture — the workspace
+ */
+
+export function useGetRecommendationWorkspace<TData = Awaited<ReturnType<typeof getRecommendationWorkspace>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRecommendationWorkspace>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRecommendationWorkspaceQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
