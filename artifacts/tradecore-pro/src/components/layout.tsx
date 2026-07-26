@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert, Layers, LogOut, Menu, X, UserCircle2, Scale, Bitcoin, CandlestickChart, Eye, Hammer } from "lucide-react";
+import { Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert, Layers, LogOut, Menu, X, UserCircle2, Scale, Bitcoin, CandlestickChart, Eye, Hammer, BookOpen } from "lucide-react";
 import { useGetBotStatus, useHealthCheck, getGetBotStatusQueryKey, getHealthCheckQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -51,6 +51,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Cockpit", icon: Activity },
   { href: "/trades", label: "Trade Log", icon: History },
   { href: "/decisions", label: "Decisions", icon: Scale },
+  { href: "/journal", label: "Journal", icon: BookOpen },
   { href: "/stats", label: "Analytics", icon: BarChart2 },
   { href: "/strategies", label: "Strategies", icon: Layers },
   { href: "/builder", label: "Builder", icon: Hammer },

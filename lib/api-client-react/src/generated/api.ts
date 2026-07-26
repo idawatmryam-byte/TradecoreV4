@@ -44,9 +44,11 @@ import type {
   GetAuthStatus200,
   GetDailyReportParams,
   GetDecisionJournalParams,
+  GetJournalParams,
   GetTradesParams,
   HealthStatus,
   HourlyStat,
+  JournalEntry,
   Login200,
   LoginBody,
   Logout200,
@@ -987,6 +989,91 @@ export function useGetDecisionJournal<TData = Awaited<ReturnType<typeof getDecis
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetDecisionJournalQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetJournalUrl = (params?: GetJournalParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/journal?${stringifiedParams}` : `/api/journal`
+}
+
+/**
+ * A factual, deterministic post-mortem for every closed LIVE trade — outcome, realized R-multiple, an evidence-based execution grade, and itemised findings (fees vs. move, stop-in-noise, momentum decay, etc.). Generated automatically the moment a trade closes; this endpoint only reads it. Backtest trades never get an entry. Newest first.
+ * @summary Get the per-trade post-mortem journal
+ */
+export const getJournal = async (params?: GetJournalParams, options?: RequestInit): Promise<JournalEntry[]> => {
+
+  return customFetch<JournalEntry[]>(getGetJournalUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetJournalQueryKey = (params?: GetJournalParams,) => {
+    return [
+    `/api/journal`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetJournalQueryOptions = <TData = Awaited<ReturnType<typeof getJournal>>, TError = ErrorType<unknown>>(params?: GetJournalParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJournal>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetJournalQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getJournal>>> = ({ signal }) => getJournal(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getJournal>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetJournalQueryResult = NonNullable<Awaited<ReturnType<typeof getJournal>>>
+export type GetJournalQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the per-trade post-mortem journal
+ */
+
+export function useGetJournal<TData = Awaited<ReturnType<typeof getJournal>>, TError = ErrorType<unknown>>(
+ params?: GetJournalParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJournal>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetJournalQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
