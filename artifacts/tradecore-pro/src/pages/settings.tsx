@@ -335,6 +335,112 @@ export function Settings() {
     <div className="max-w-4xl mx-auto space-y-6">
       {header}
 
+      {/* HOW THIS SECTION TRADES.
+          The two decisions that define what the engine is allowed to do —
+          who authorises a trade, and whether it costs real money. They were
+          previously buried at the bottom of "Strategy & Environment", under
+          the coin picker, which is a strange place for the most consequential
+          controls on the page and made the mode choice effectively
+          undiscoverable. They belong above the broker card too: in Demo
+          neither broker nor keys are involved at all. */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+            <Bot className="h-4 w-4 text-primary" /> How this section trades
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+        {/* WHO DECIDES.
+            Every new section starts in Co-Pilot, and until now there was
+            no way out of it from the UI — the column and PUT /config
+            supported all three modes, but nothing rendered a control, so
+            an account could never reach AutoPilot. Three named choices
+            rather than a toggle: they are not two ends of one axis, and
+            "off/on" would leave Research unreachable.
+
+            The pipeline is identical in all three. Only the executor at
+            the end differs, which is why this is a setting and not a
+            different product. */}
+        <div className="p-3 border rounded-md bg-muted/30 space-y-3">
+          <div className="space-y-0.5">
+            <Label className="text-sm font-bold flex items-center gap-2">
+              <Bot className="h-4 w-4 text-primary" /> Who decides
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              The engine's analysis is the same in every mode. This only changes who authorises a trade.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {([
+              { value: 'copilot',   label: 'Co-Pilot',  blurb: 'It recommends, you approve each trade.' },
+              { value: 'autopilot', label: 'AutoPilot', blurb: 'It executes automatically within your risk limits.' },
+              { value: 'research',  label: 'Research',  blurb: 'Analysis only — it never trades.' },
+            ] as const).map((m) => {
+              const active = formData.mode === m.value;
+              return (
+                <button
+                  key={m.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => handleChange('mode', m.value)}
+                  className={cn(
+                    "rounded-md border p-3 text-left transition-colors",
+                    active
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:bg-muted/50",
+                  )}
+                >
+                  <span className={cn("block text-sm font-semibold", active && "text-primary")}>
+                    {m.label}
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                    {m.blurb}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {formData.mode === 'autopilot' && formData.executionTarget === 'live' && (
+            <p className="rounded border border-warning/40 bg-warning/5 px-2.5 py-2 text-xs text-warning">
+              AutoPilot on a live account opens real positions with real money, without asking
+              first. Your risk limits above are the only thing standing between it and your balance.
+            </p>
+          )}
+        </div>
+
+        {/* The primary choice a user makes: paper or real money. Demo is
+            self-contained (no broker, no keys), so it sits above the
+            broker-specific settings rather than inside them. */}
+        <div className={`p-3 border rounded-md ${formData.executionTarget === 'demo' ? 'bg-muted/30' : 'border-warning/50 bg-warning/5'}`}>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5 pr-3">
+              <Label className="text-sm font-bold flex items-center gap-2">
+                <TestTube2 className="h-4 w-4 text-warning" /> Execution
+              </Label>
+              <p className="text-xs text-muted-foreground font-mono">
+                {formData.executionTarget === 'demo'
+                  ? "DEMO — trades are simulated inside TradeCore on live market data. No broker, no API keys, no real money."
+                  : "LIVE — real orders are placed through your connected broker with real money."}
+              </p>
+            </div>
+            <Switch
+              aria-label="Trade live with real money"
+              checked={formData.executionTarget === 'live'}
+              onCheckedChange={(v) => handleChange('executionTarget', v ? 'live' : 'demo')}
+            />
+          </div>
+          {formData.executionTarget === 'demo' && (
+            <p className="text-xs text-muted-foreground font-mono mt-2 pt-2 border-t border-border/60">
+              Demo fills use the same model the backtester uses, so paper results and
+              backtest results mean the same thing.
+            </p>
+          )}
+        </div>
+        </CardContent>
+      </Card>
+
       {isForexSection ? <OandaCredentialsCard /> : <BinanceCredentialsCard />}
 
       {isForexSection ? (
@@ -553,95 +659,6 @@ export function Settings() {
             </div>
             
             <div className="pt-4 mt-4 border-t border-border space-y-4">
-              {/* WHO DECIDES.
-                  Every new section starts in Co-Pilot, and until now there was
-                  no way out of it from the UI — the column and PUT /config
-                  supported all three modes, but nothing rendered a control, so
-                  an account could never reach AutoPilot. Three named choices
-                  rather than a toggle: they are not two ends of one axis, and
-                  "off/on" would leave Research unreachable.
-
-                  The pipeline is identical in all three. Only the executor at
-                  the end differs, which is why this is a setting and not a
-                  different product. */}
-              <div className="p-3 border rounded-md bg-muted/30 space-y-3">
-                <div className="space-y-0.5">
-                  <Label className="text-sm font-bold flex items-center gap-2">
-                    <Bot className="h-4 w-4 text-primary" /> Who decides
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    The engine's analysis is the same in every mode. This only changes who authorises a trade.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  {([
-                    { value: 'copilot',   label: 'Co-Pilot',  blurb: 'It recommends, you approve each trade.' },
-                    { value: 'autopilot', label: 'AutoPilot', blurb: 'It executes automatically within your risk limits.' },
-                    { value: 'research',  label: 'Research',  blurb: 'Analysis only — it never trades.' },
-                  ] as const).map((m) => {
-                    const active = formData.mode === m.value;
-                    return (
-                      <button
-                        key={m.value}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => handleChange('mode', m.value)}
-                        className={cn(
-                          "rounded-md border p-3 text-left transition-colors",
-                          active
-                            ? "border-primary bg-primary/10"
-                            : "border-border hover:bg-muted/50",
-                        )}
-                      >
-                        <span className={cn("block text-sm font-semibold", active && "text-primary")}>
-                          {m.label}
-                        </span>
-                        <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
-                          {m.blurb}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {formData.mode === 'autopilot' && formData.executionTarget === 'live' && (
-                  <p className="rounded border border-warning/40 bg-warning/5 px-2.5 py-2 text-xs text-warning">
-                    AutoPilot on a live account opens real positions with real money, without asking
-                    first. Your risk limits above are the only thing standing between it and your balance.
-                  </p>
-                )}
-              </div>
-
-              {/* The primary choice a user makes: paper or real money. Demo is
-                  self-contained (no broker, no keys), so it sits above the
-                  broker-specific settings rather than inside them. */}
-              <div className={`p-3 border rounded-md ${formData.executionTarget === 'demo' ? 'bg-muted/30' : 'border-warning/50 bg-warning/5'}`}>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5 pr-3">
-                    <Label className="text-sm font-bold flex items-center gap-2">
-                      <TestTube2 className="h-4 w-4 text-warning" /> Execution
-                    </Label>
-                    <p className="text-xs text-muted-foreground font-mono">
-                      {formData.executionTarget === 'demo'
-                        ? "DEMO — trades are simulated inside TradeCore on live market data. No broker, no API keys, no real money."
-                        : "LIVE — real orders are placed through your connected broker with real money."}
-                    </p>
-                  </div>
-                  <Switch
-                    aria-label="Trade live with real money"
-                    checked={formData.executionTarget === 'live'}
-                    onCheckedChange={(v) => handleChange('executionTarget', v ? 'live' : 'demo')}
-                  />
-                </div>
-                {formData.executionTarget === 'demo' && (
-                  <p className="text-xs text-muted-foreground font-mono mt-2 pt-2 border-t border-border/60">
-                    Demo fills use the same model the backtester uses, so paper results and
-                    backtest results mean the same thing.
-                  </p>
-                )}
-              </div>
-
               {/* Broker-side paper trading. Superseded by Demo for everyday use,
                   but kept: it is the only path that exercises REAL broker order
                   flow (rejections, minimum notional, partial fills), which an
