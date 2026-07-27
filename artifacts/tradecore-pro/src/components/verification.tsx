@@ -1,5 +1,6 @@
 import {
   useGetMarketLive, getGetMarketLiveQueryKey,
+  useGetConfig, getGetConfigQueryKey,
   useGetBotDecisions, getGetBotDecisionsQueryKey,
   useGetBlockingSummary, getGetBlockingSummaryQueryKey,
   useResetRiskPause, getGetBotStatusQueryKey,
@@ -132,8 +133,23 @@ export function MarketMonitor() {
     query: { refetchInterval: 3000, queryKey: getGetMarketLiveQueryKey() },
   });
 
+  const { data: config } = useGetConfig({ query: { queryKey: getGetConfigQueryKey() } });
   const conn = data?.connection;
   const tickers = data?.tickers ?? [];
+  const isDemoTarget = config?.executionTarget === "demo";
+
+  // A demo section reads PUBLIC mainnet prices through a keyless client, so
+  // `connection.mode` — which is derived from the testnet flag and defaults to
+  // "testnet" — describes an environment this account is not using. Labelling
+  // it "Binance Spot Testnet (TESTNET)" sends someone hunting for testnet keys
+  // they were told they did not need.
+  const venue = isDemoTarget ? "Demo · live public prices" : conn?.exchange;
+  const venueMode = isDemoTarget ? "demo" : conn?.mode;
+
+  // "Not polled yet" and "the poll is failing" are different states and only
+  // one of them is a problem. They rendered identically as OFFLINE before.
+  const everPolled = conn?.lastTickerFetchAt != null;
+  const failing = conn?.lastError != null;
 
   return (
     <Card className="flex flex-col">
@@ -146,26 +162,42 @@ export function MarketMonitor() {
           <div className="flex items-center gap-2 text-xs font-mono">
             {conn?.connected ? (
               <><Wifi className="h-3.5 w-3.5 text-success" /><span className="text-success">LIVE</span></>
-            ) : (
+            ) : failing ? (
               <><WifiOff className="h-3.5 w-3.5 text-destructive" /><span className="text-destructive">OFFLINE</span></>
+            ) : (
+              <><Wifi className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-muted-foreground">CONNECTING</span></>
             )}
           </div>
         </div>
         {conn && (
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] font-mono text-muted-foreground">
-            <span>{conn.exchange} <span className="uppercase">({conn.mode})</span></span>
+            <span>{venue} <span className="uppercase">({venueMode})</span></span>
             <span>{conn.marketsLoaded} markets</span>
-            <span className={conn.credentialsVerified ? "text-success" : "text-warning"}>
-              {conn.credentialsVerified ? "creds ✓" : "creds ✗"}
-            </span>
+            {/* Meaningless in demo: there are no credentials to verify, and a
+                "creds ✗" on an account that needs none reads as a fault. */}
+            {!isDemoTarget && (
+              <span className={conn.credentialsVerified ? "text-success" : "text-warning"}>
+                {conn.credentialsVerified ? "creds ✓" : "creds ✗"}
+              </span>
+            )}
             {conn.lastTickerLatencyMs != null && <span>{conn.lastTickerLatencyMs}ms</span>}
             {conn.lastTickerFetchAt && (
               <span>updated {new Date(conn.lastTickerFetchAt).toLocaleTimeString()}</span>
             )}
           </div>
         )}
+        {/* The error is the whole diagnosis, so it is no longer truncated to a
+            single line — a clipped message is the difference between "I can
+            fix this" and "I have to read the server logs". */}
         {conn?.lastError && (
-          <p className="text-[11px] font-mono text-destructive mt-1 truncate">⚠ {conn.lastError}</p>
+          <p className="mt-2 rounded border border-destructive/40 bg-destructive/5 px-2 py-1.5 text-[11px] font-mono text-destructive">
+            ⚠ {conn.lastError}
+          </p>
+        )}
+        {!conn?.connected && !failing && !everPolled && (
+          <p className="mt-2 text-[11px] font-mono text-muted-foreground">
+            Waiting for the first ticker poll — this clears within a few seconds of the engine starting.
+          </p>
         )}
       </CardHeader>
 

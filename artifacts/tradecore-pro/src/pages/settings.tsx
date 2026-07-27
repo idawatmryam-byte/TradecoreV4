@@ -12,7 +12,7 @@ export const SETTINGS_TABS = [
   { href: "/settings", label: "Trading" },
   { href: "/account", label: "Profile" },
 ];
-import { Settings as SettingsIcon, Save, TestTube2, KeyRound, Trash2, TrendingUp, CandlestickChart } from "lucide-react";
+import { Settings as SettingsIcon, Save, TestTube2, KeyRound, Trash2, TrendingUp, CandlestickChart, Bot } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
@@ -237,6 +237,7 @@ export function Settings() {
     scanIntervalSeconds: 15,
     pairs: "BTCUSDT,ETHUSDT",
     executionTarget: "demo" as "demo" | "live",
+    mode: "copilot" as "research" | "copilot" | "autopilot",
     testnet: true,
     backtestMode: false,
     highFrequencyTestMode: false,
@@ -257,6 +258,7 @@ export function Settings() {
         scanIntervalSeconds: config.scanIntervalSeconds,
         pairs: config.pairs.join(", "),
         executionTarget: config.executionTarget,
+        mode: config.mode,
         testnet: config.testnet,
         backtestMode: config.backtestMode,
         highFrequencyTestMode: config.highFrequencyTestMode,
@@ -551,6 +553,66 @@ export function Settings() {
             </div>
             
             <div className="pt-4 mt-4 border-t border-border space-y-4">
+              {/* WHO DECIDES.
+                  Every new section starts in Co-Pilot, and until now there was
+                  no way out of it from the UI — the column and PUT /config
+                  supported all three modes, but nothing rendered a control, so
+                  an account could never reach AutoPilot. Three named choices
+                  rather than a toggle: they are not two ends of one axis, and
+                  "off/on" would leave Research unreachable.
+
+                  The pipeline is identical in all three. Only the executor at
+                  the end differs, which is why this is a setting and not a
+                  different product. */}
+              <div className="p-3 border rounded-md bg-muted/30 space-y-3">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-bold flex items-center gap-2">
+                    <Bot className="h-4 w-4 text-primary" /> Who decides
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    The engine's analysis is the same in every mode. This only changes who authorises a trade.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {([
+                    { value: 'copilot',   label: 'Co-Pilot',  blurb: 'It recommends, you approve each trade.' },
+                    { value: 'autopilot', label: 'AutoPilot', blurb: 'It executes automatically within your risk limits.' },
+                    { value: 'research',  label: 'Research',  blurb: 'Analysis only — it never trades.' },
+                  ] as const).map((m) => {
+                    const active = formData.mode === m.value;
+                    return (
+                      <button
+                        key={m.value}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => handleChange('mode', m.value)}
+                        className={cn(
+                          "rounded-md border p-3 text-left transition-colors",
+                          active
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:bg-muted/50",
+                        )}
+                      >
+                        <span className={cn("block text-sm font-semibold", active && "text-primary")}>
+                          {m.label}
+                        </span>
+                        <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                          {m.blurb}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {formData.mode === 'autopilot' && formData.executionTarget === 'live' && (
+                  <p className="rounded border border-warning/40 bg-warning/5 px-2.5 py-2 text-xs text-warning">
+                    AutoPilot on a live account opens real positions with real money, without asking
+                    first. Your risk limits above are the only thing standing between it and your balance.
+                  </p>
+                )}
+              </div>
+
               {/* The primary choice a user makes: paper or real money. Demo is
                   self-contained (no broker, no keys), so it sits above the
                   broker-specific settings rather than inside them. */}
