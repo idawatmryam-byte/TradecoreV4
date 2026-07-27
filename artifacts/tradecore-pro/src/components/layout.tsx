@@ -12,6 +12,50 @@ import { useIsDemo } from "@/lib/account";
 import { NotificationBell } from "@/components/notification-bell";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Badge } from "@/components/ui/badge";
+
+const MODE_LABELS: Record<string, string> = {
+  copilot: "Co-Pilot", autopilot: "AutoPilot", research: "Research",
+};
+const SECTION_LABELS: Record<Section, string> = { crypto: "Crypto", forex: "Forex" };
+
+/**
+ * The one place a user can look to answer "am I trading with real money right
+ * now?" without opening Settings. Reads the same `config` query `Layout`
+ * already fetches for the sidebar Mode row — no extra request. Green/Demo,
+ * amber/Live per the founder's spec; the subtitle names the market and mode
+ * so the badge stays meaningful once a user has more than one section set up.
+ */
+function ExecutionBadge({
+  executionTarget,
+  mode,
+  section,
+  compact = false,
+}: {
+  executionTarget?: "demo" | "live";
+  mode?: string;
+  section: Section;
+  /** Mobile top bar has little room — pill only, no subtitle line. */
+  compact?: boolean;
+}) {
+  if (!executionTarget) return null;
+  const isLive = executionTarget === "live";
+  const pill = (
+    <Badge variant={isLive ? "warning" : "success"} className="gap-1.5 whitespace-nowrap">
+      <span className={cn("h-1.5 w-1.5 rounded-full", isLive ? "bg-warning" : "bg-success")} />
+      {compact ? (isLive ? "Live" : "Demo") : (isLive ? "Live Trading" : "Demo Trading")}
+    </Badge>
+  );
+  if (compact) return pill;
+  return (
+    <div className="flex flex-col items-start gap-1 leading-none">
+      {pill}
+      <span className="text-[11px] text-muted-foreground">
+        {SECTION_LABELS[section]} {isLive ? "Live" : "Demo"} · {MODE_LABELS[mode ?? ""] ?? "—"}
+      </span>
+    </div>
+  );
+}
 
 const SECTION_TABS: { id: Section; label: string; icon: typeof Bitcoin }[] = [
   { id: "crypto", label: "Crypto", icon: Bitcoin },
@@ -237,6 +281,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const isDemo = useIsDemo();
+  const { section } = useSection();
   const { data: botStatus } = useGetBotStatus({
     query: { refetchInterval: 5000, queryKey: getGetBotStatusQueryKey() }
   });
@@ -250,9 +295,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => { setMobileOpen(false); }, [location]);
 
   const online = Boolean(botStatus?.running) && !healthError;
-  const MODE_LABELS: Record<string, string> = {
-    copilot: "Co-Pilot", autopilot: "AutoPilot", research: "Research",
-  };
   const mode = healthError ? "API error" : (MODE_LABELS[config?.mode ?? ""] ?? "—");
 
   async function handleLogout() {
@@ -267,9 +309,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background text-foreground md:flex-row">
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-card/70 px-4 py-3 backdrop-blur md:hidden">
-        <BrandMark />
-        <div className="flex items-center gap-2">
+      <header className="relative sticky top-0 z-30 flex items-center justify-between overflow-hidden border-b bg-card/70 px-4 py-3 backdrop-blur md:hidden">
+        <div className="ambient-glow" />
+        <div className="relative z-10 flex min-w-0 items-center gap-2.5">
+          <BrandMark />
+          <ExecutionBadge executionTarget={config?.executionTarget} mode={config?.mode} section={section} compact />
+        </div>
+        <div className="relative z-10 flex items-center gap-2">
           <NotificationBell />
           <button
             onClick={() => setMobileOpen(true)}
@@ -293,10 +339,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Desktop rail */}
       <aside className="hidden w-64 shrink-0 flex-col border-r bg-card/30 md:flex">
-        <div className="flex items-center gap-3 border-b p-5">
-          <BrandMark size="lg" />
-          <div className="ml-auto">
-            <NotificationBell />
+        <div className="relative overflow-hidden border-b p-5">
+          <div className="ambient-glow" />
+          <div className="relative z-10 flex items-center gap-3">
+            <BrandMark size="lg" />
+            <div className="ml-auto">
+              <NotificationBell />
+            </div>
+          </div>
+          <div className="relative z-10 mt-3">
+            <ExecutionBadge executionTarget={config?.executionTarget} mode={config?.mode} section={section} />
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">{navBody}</div>

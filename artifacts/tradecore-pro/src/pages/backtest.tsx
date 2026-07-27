@@ -866,7 +866,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
     { name: "Wins", value: run.winningTrades ?? 0 },
     { name: "Losses", value: run.losingTrades ?? 0 },
   ];
-  const PIE_COLORS = ["hsl(140,100%,45%)", "hsl(350,100%,60%)"];
+  const PIE_COLORS = ["hsl(var(--success))", "hsl(var(--destructive))"];
 
   // Monthly returns from equity curve
   const monthlyMap = new Map<string, number>();
@@ -1071,7 +1071,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
                     <Line
                       type="monotone"
                       dataKey="balance"
-                      stroke={isProfit ? "hsl(140,100%,45%)" : "hsl(350,100%,60%)"}
+                      stroke={isProfit ? "hsl(var(--success))" : "hsl(var(--destructive))"}
                       dot={false}
                       strokeWidth={2}
                     />
@@ -1099,7 +1099,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
                       contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
                       formatter={(v: any) => [`${Math.abs(Number(v)).toFixed(2)}%`, "Drawdown"]}
                     />
-                    <Bar dataKey="pct" fill="hsl(350,100%,60%)" opacity={0.7} />
+                    <Bar dataKey="pct" fill="hsl(var(--destructive))" opacity={0.7} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -1144,7 +1144,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
                       <ReferenceLine y={0} stroke="hsl(var(--border))" />
                       <Bar dataKey="return">
                         {monthlyData.map((d, i) => (
-                          <Cell key={i} fill={d.return >= 0 ? "hsl(140,100%,45%)" : "hsl(350,100%,60%)"} />
+                          <Cell key={i} fill={d.return >= 0 ? "hsl(var(--success))" : "hsl(var(--destructive))"} />
                         ))}
                       </Bar>
                     </BarChart>
@@ -1174,7 +1174,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
                     <ReferenceLine x={0} stroke="hsl(var(--border))" />
                     <Bar dataKey="pnl">
                       {symbolData.map((d, i) => (
-                        <Cell key={i} fill={d.pnl >= 0 ? "hsl(140,100%,45%)" : "hsl(350,100%,60%)"} />
+                        <Cell key={i} fill={d.pnl >= 0 ? "hsl(var(--success))" : "hsl(var(--destructive))"} />
                       ))}
                     </Bar>
                   </BarChart>
