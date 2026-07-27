@@ -8,7 +8,7 @@ import {
   Card, CardHeader, CardTitle, CardContent, Button, Badge, Switch, Label,
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
 } from "@/components/ui";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { BrainCog, ShieldCheck, ShieldAlert, Loader2, FlaskConical, Power } from "lucide-react";
 

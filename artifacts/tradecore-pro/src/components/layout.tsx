@@ -1,23 +1,36 @@
 import { Link, useLocation } from "wouter";
-import { Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert, Layers, LogOut, Menu, X, UserCircle2, Scale, Bitcoin, CandlestickChart, Eye, Hammer, BookOpen, Inbox } from "lucide-react";
+import {
+  Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert,
+  Layers, LogOut, Menu, UserCircle2, Bitcoin, CandlestickChart, Eye, Hammer, Inbox,
+  ChevronDown,
+} from "lucide-react";
 import { useGetBotStatus, useHealthCheck, getGetBotStatusQueryKey, getHealthCheckQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useSection, type Section } from "@/lib/section";
 import { useIsDemo } from "@/lib/account";
 import { NotificationBell } from "@/components/notification-bell";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const SECTION_TABS: { id: Section; label: string; icon: typeof Bitcoin }[] = [
   { id: "crypto", label: "Crypto", icon: Bitcoin },
   { id: "forex", label: "Forex", icon: CandlestickChart },
 ];
 
+/**
+ * Crypto / Forex.
+ *
+ * Sits above the nav rather than inside it because it scopes everything below
+ * it: the two sections are fully independent engines with their own positions,
+ * strategies and trade logs, so this is not a filter — it is which product you
+ * are looking at.
+ */
 function SectionSwitcher() {
   const { section, setSection } = useSection();
   return (
-    <div className="mb-5">
-      <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest px-2 mb-2">Market</div>
-      <div className="grid grid-cols-2 gap-1.5 p-1 rounded-lg bg-muted/50 border">
+    <div className="mb-6">
+      <div className="grid grid-cols-2 gap-1 rounded-lg border bg-muted/40 p-1">
         {SECTION_TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = section === tab.id;
@@ -25,42 +38,192 @@ function SectionSwitcher() {
             <button
               key={tab.id}
               onClick={() => setSection(tab.id)}
+              aria-pressed={isActive}
               className={cn(
-                "flex items-center justify-center gap-1.5 px-2 py-2 rounded-md text-xs font-semibold uppercase tracking-wide transition-all",
+                "flex min-h-9 items-center justify-center gap-2 rounded-md px-2 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-primary/15 text-primary shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <Icon className="h-3.5 w-3.5" />
+              <Icon className="h-4 w-4" />
               {tab.label}
             </button>
           );
         })}
       </div>
-      {section === "forex" && (
-        <p className="mt-2 px-2 text-[11px] leading-tight text-muted-foreground">
-          Forex section — connect an OANDA account in Account &amp; Safety to start trading.
-        </p>
-      )}
     </div>
   );
 }
 
-const NAV_ITEMS = [
-  { href: "/account", label: "Account", icon: UserCircle2 },
-  { href: "/", label: "Cockpit", icon: Activity },
-  { href: "/copilot", label: "Co-Pilot", icon: Inbox },
-  { href: "/trades", label: "Trade Log", icon: History },
-  { href: "/decisions", label: "Decisions", icon: Scale },
-  { href: "/journal", label: "Journal", icon: BookOpen },
-  { href: "/stats", label: "Analytics", icon: BarChart2 },
-  { href: "/strategies", label: "Strategies", icon: Layers },
-  { href: "/builder", label: "Builder", icon: Hammer },
-  { href: "/memory", label: "Memory Core", icon: BrainCircuit },
-  { href: "/backtest", label: "Backtesting", icon: FlaskConical },
-  { href: "/settings", label: "Account & Safety", icon: Settings },
+interface NavItem {
+  href: string;
+  label: string;
+  icon: typeof Activity;
+  /** Routes that should also light this item up, e.g. its detail pages or tabs. */
+  match?: string[];
+}
+
+/**
+ * Five everyday destinations.
+ *
+ * The nav used to list all twelve pages flat, which made a first-time user
+ * choose between "Decisions", "Journal" and "Analytics" before knowing what
+ * any of them meant. Related pages are now reached as tabs within a
+ * destination — `match` keeps the parent highlighted while you are on one —
+ * and the engineering tools move to the Advanced group below.
+ *
+ * Routes are unchanged; this is grouping, not a rename of anything addressable.
+ */
+const PRIMARY_NAV: NavItem[] = [
+  { href: "/", label: "Dashboard", icon: Activity },
+  { href: "/copilot", label: "AI Co-Pilot", icon: Inbox },
+  { href: "/trades", label: "Portfolio", icon: History, match: ["/journal"] },
+  { href: "/stats", label: "Performance", icon: BarChart2, match: ["/decisions"] },
+  { href: "/settings", label: "Settings", icon: Settings, match: ["/account"] },
 ];
+
+/**
+ * Everything that assumes you already know what the engine does.
+ *
+ * Collapsed by default for everyone — statically, not keyed to account age or
+ * trade count. A nav that rearranges itself as you use it is disorienting, and
+ * nothing here is hidden or locked: one tap opens it.
+ */
+const ADVANCED_NAV: NavItem[] = [
+  { href: "/strategies", label: "Strategies", icon: Layers },
+  { href: "/builder", label: "Strategy Builder", icon: Hammer },
+  { href: "/backtest", label: "Backtesting", icon: FlaskConical },
+  { href: "/memory", label: "Learning", icon: BrainCircuit },
+];
+
+/** Does `location` belong to this nav item? */
+function isItemActive(item: NavItem, location: string): boolean {
+  if (item.href === "/") return location === "/";
+  // Prefix match, so a detail route (/copilot/42) keeps its parent lit —
+  // exact matching left the workspace page with no highlighted nav item.
+  if (location === item.href || location.startsWith(`${item.href}/`)) return true;
+  return (item.match ?? []).some((m) => location === m || location.startsWith(`${m}/`));
+}
+
+function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
+        active
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      <Icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
+      {item.label}
+    </Link>
+  );
+}
+
+/** The sidebar body — one definition, rendered into both the desktop rail and the mobile sheet. */
+function NavBody({
+  location,
+  online,
+  mode,
+  onLogout,
+}: {
+  location: string;
+  online: boolean;
+  mode: string;
+  onLogout: () => void;
+}) {
+  const advancedActive = ADVANCED_NAV.some((i) => isItemActive(i, location));
+  const [advancedOpen, setAdvancedOpen] = useState(advancedActive);
+
+  // Opening an Advanced page directly (a bookmark, a deep link) should reveal
+  // where you are rather than leaving the group shut over a highlighted item.
+  useEffect(() => {
+    if (advancedActive) setAdvancedOpen(true);
+  }, [advancedActive]);
+
+  return (
+    <div className="flex h-full flex-col p-4">
+      <SectionSwitcher />
+
+      <nav className="space-y-1">
+        {PRIMARY_NAV.map((item) => (
+          <NavLink key={item.href} item={item} active={isItemActive(item, location)} />
+        ))}
+      </nav>
+
+      <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="mt-6">
+        <CollapsibleTrigger
+          className={cn(
+            "flex min-h-11 w-full items-center justify-between rounded-md px-3 text-sm font-medium transition-colors",
+            "text-muted-foreground hover:bg-muted hover:text-foreground",
+          )}
+        >
+          <span>Advanced</span>
+          <ChevronDown className={cn("h-4 w-4 transition-transform", advancedOpen && "rotate-180")} />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-1 space-y-1">
+          {ADVANCED_NAV.map((item) => (
+            <NavLink key={item.href} item={item} active={isItemActive(item, location)} />
+          ))}
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* mt-auto now works: this container is a flex column with a height.
+          It previously sat inside a plain div, so the status block never
+          reached the bottom of the rail it was written to pin to. */}
+      <div className="mt-auto pt-6">
+        <div className="rounded-lg border bg-card p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Engine</span>
+            <span className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                {online && (
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
+                )}
+                <span className={cn("relative inline-flex h-2 w-2 rounded-full", online ? "bg-success" : "bg-muted-foreground")} />
+              </span>
+              <span className={cn("text-sm font-medium tabular-nums", online ? "text-success" : "text-muted-foreground")}>
+                {online ? "Running" : "Stopped"}
+              </span>
+            </span>
+          </div>
+          <div className="mt-2 flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Mode</span>
+            <span className="text-sm font-medium capitalize">{mode}</span>
+          </div>
+        </div>
+
+        <button
+          onClick={onLogout}
+          className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <LogOut className="h-4 w-4" />
+          Log out
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BrandMark({ size = "sm" }: { size?: "sm" | "lg" }) {
+  const box = size === "lg" ? "h-8 w-8" : "h-7 w-7";
+  const icon = size === "lg" ? "h-5 w-5" : "h-4 w-4";
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className={cn("flex items-center justify-center rounded-md border border-primary/40 bg-primary/15", box)}>
+        <Activity className={cn("text-primary", icon)} />
+      </div>
+      <span className={cn("font-semibold tracking-tight leading-none", size === "lg" && "text-lg")}>
+        TradeCore Pro
+      </span>
+    </div>
+  );
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -72,127 +235,67 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { data: health, isError: healthError } = useHealthCheck({
     query: { refetchInterval: 15000, queryKey: getHealthCheckQueryKey() }
   });
+  void health;
 
-  // Auto-close the mobile drawer after navigating so it never lingers over the page.
+  // Close the drawer after navigating so it never lingers over the page.
   useEffect(() => { setMobileOpen(false); }, [location]);
 
-  const online = botStatus?.running && !healthError;
+  const online = Boolean(botStatus?.running) && !healthError;
+  const mode = healthError ? "API error" : (botStatus?.mode ?? "unknown");
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
     window.location.reload();
   }
 
+  const navBody = (
+    <NavBody location={location} online={online} mode={mode} onLogout={handleLogout} />
+  );
+
   return (
-    <div className="flex min-h-[100dvh] bg-background text-foreground flex-col md:flex-row">
-      {/* Mobile top bar — compact brand + status + menu toggle (hidden on desktop) */}
-      <header className="md:hidden sticky top-0 z-30 flex items-center justify-between border-b bg-card/70 backdrop-blur px-4 py-3">
+    <div className="flex min-h-[100dvh] flex-col bg-background text-foreground md:flex-row">
+      {/* Mobile top bar */}
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-card/70 px-4 py-3 backdrop-blur md:hidden">
+        <BrandMark />
         <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded bg-primary/20 flex items-center justify-center border border-primary/50">
-            <Activity className="h-4 w-4 text-primary" />
-          </div>
-          <span className="font-bold tracking-tight leading-none">TradeCore Pro</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className={cn("h-2 w-2 rounded-full", online ? "bg-success" : "bg-destructive")} />
           <NotificationBell />
           <button
-            onClick={() => setMobileOpen((o) => !o)}
-            aria-label={mobileOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileOpen}
-            className="p-1 -mr-1 text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+            className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            <Menu className="h-5 w-5" />
           </button>
         </div>
       </header>
 
-      {/* Sidebar (desktop) / collapsible drawer (mobile) */}
-      <aside className={cn(
-        "w-full md:w-64 border-r bg-card/30 flex-col md:flex",
-        mobileOpen ? "flex" : "hidden",
-      )}>
-        <div className="hidden md:flex p-6 border-b items-center gap-3">
-          <div className="h-8 w-8 rounded bg-primary/20 flex items-center justify-center border border-primary/50">
-            <Activity className="h-5 w-5 text-primary" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="font-bold tracking-tight text-lg leading-none">TradeCore Pro</h1>
-            <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">Algorithmic Engine</span>
-          </div>
-          <NotificationBell />
-        </div>
+      {/* Mobile drawer. Previously the same <aside> toggled by a class swap, so
+          it was an in-flow block that pushed the page down — no overlay, no
+          backdrop, no focus trap, no escape-to-close. Sheet gives all four. */}
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="left" className="w-[17rem] p-0 md:hidden">
+          <SheetTitle className="sr-only">Navigation</SheetTitle>
+          <div className="flex h-full flex-col overflow-y-auto pt-10">{navBody}</div>
+        </SheetContent>
+      </Sheet>
 
-        <div className="p-4 flex-1">
-          <SectionSwitcher />
-          <div className="mb-6 space-y-1">
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest px-2 mb-2">Navigation</div>
-            {NAV_ITEMS.map((item) => {
-              const isActive = location === item.href;
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-md transition-all text-sm font-medium",
-                    isActive 
-                      ? "bg-primary/10 text-primary" 
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  )}
-                >
-                  <Icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-
-          <div className="mt-auto">
-            <div className="rounded-lg border bg-card p-4 space-y-3">
-              <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">System Status</div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Engine</span>
-                <div className="flex items-center gap-2">
-                  <span className={cn("relative flex h-2 w-2")}>
-                    {botStatus?.running && !healthError && (
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
-                    )}
-                    <span className={cn("relative inline-flex rounded-full h-2 w-2", (botStatus?.running && !healthError) ? "bg-success" : "bg-destructive")}></span>
-                  </span>
-                  <span className={cn("text-xs font-mono uppercase", (botStatus?.running && !healthError) ? "text-success" : "text-destructive")}>
-                    {healthError ? "API Error" : botStatus?.running ? "Online" : "Offline"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Mode</span>
-                <span className="text-xs font-mono uppercase text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
-                  {botStatus?.mode || "UNKNOWN"}
-                </span>
-              </div>
-            </div>
-
-            <button
-              onClick={handleLogout}
-              className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              Log out
-            </button>
+      {/* Desktop rail */}
+      <aside className="hidden w-64 shrink-0 flex-col border-r bg-card/30 md:flex">
+        <div className="flex items-center gap-3 border-b p-5">
+          <BrandMark size="lg" />
+          <div className="ml-auto">
+            <NotificationBell />
           </div>
         </div>
+        <div className="flex-1 overflow-y-auto">{navBody}</div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden relative">
+      <main className="relative flex flex-1 flex-col overflow-hidden">
         {isDemo && (
-          <div className="bg-primary/10 border-b border-primary/40 text-primary px-6 py-2.5 flex items-center justify-center gap-2.5 text-xs sm:text-sm font-medium tracking-wide">
+          <div className="flex items-center justify-center gap-2.5 border-b border-primary/40 bg-primary/10 px-4 py-2.5 text-xs font-medium text-primary sm:text-sm">
             <Eye className="h-4 w-4 shrink-0" />
             <span>
-              <span className="font-bold uppercase">Demo · read-only</span>
+              <span className="font-semibold">Demo · read-only</span>
               <span className="text-muted-foreground"> — a fully-loaded snapshot. Controls are disabled; </span>
               <button
                 type="button"
@@ -209,14 +312,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         )}
         {botStatus?.circuitBreakerActive && (
-          <div className="bg-destructive/10 border-b border-destructive text-destructive px-6 py-3 flex items-center justify-center gap-3 text-sm font-medium tracking-wide">
-            <ShieldAlert className="h-5 w-5" />
-            CIRCUIT BREAKER ENGAGED: DAILY LOSS LIMIT REACHED. NEW ENTRIES HALTED — EXISTING POSITIONS STILL MONITORED.
+          <div className="flex items-center justify-center gap-3 border-b border-destructive bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">
+            <ShieldAlert className="h-5 w-5 shrink-0" />
+            <span>
+              Circuit breaker engaged — the daily loss limit was reached. New entries are
+              halted; existing positions are still monitored.
+            </span>
           </div>
         )}
-        <div className="flex-1 overflow-auto p-4 sm:p-6 md:p-8">
-          {children}
-        </div>
+        <div className="flex-1 overflow-auto p-4 sm:p-6 md:p-8">{children}</div>
       </main>
     </div>
   );

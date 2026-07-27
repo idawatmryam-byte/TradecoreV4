@@ -31,6 +31,7 @@ import { useSection } from '@/lib/section';
 import { useIsDemo } from '@/lib/account';
 import { useToast } from '@/components/ui/use-toast';
 import { Hammer, Plus, Trash2, Edit2, X, Check, FlaskConical, ShieldCheck, ShieldAlert, ArrowUp, ArrowDown } from 'lucide-react';
+import { PageHeader } from '@/components/patterns';
 
 // ── Indicator vocabulary (mirror of api-server lib/customRules.ts — the
 //    server re-validates, this only drives the form controls) ───────────────
@@ -248,7 +249,7 @@ function ConditionRow({ row, onChange, onRemove }: {
         </>
       )}
       {numeric?.hint && <span className="text-[10px] text-muted-foreground hidden sm:inline">{numeric.hint}</span>}
-      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={onRemove}>
+      <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={onRemove}>
         <X className="h-3 w-3" />
       </Button>
     </div>
@@ -461,7 +462,7 @@ function SavedCard({ s, onEdit, onDeleted }: { s: CustomStrategy; onEdit: () => 
           </div>
           {!isDemo && (
             <div className="flex items-center gap-1 shrink-0">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
+              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={onEdit}>
                 <Edit2 className="h-3.5 w-3.5" />
               </Button>
               <Button
@@ -530,22 +531,18 @@ export function StrategyBuilder() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto" key={section}>
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Hammer className="h-6 w-6 text-primary" /> Strategy Builder
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Build your own {section === 'forex' ? 'forex' : 'crypto'} strategy from the engine's indicators — no code.
-            New strategies start disabled and must pass a backtest before trading live.
-          </p>
-        </div>
-        {!isDemo && !editorOpen && (
-          <Button size="sm" className="gap-1.5 font-mono text-xs" onClick={() => { setEditing(null); setEditorOpen(true); }}>
-            <Plus className="h-3.5 w-3.5" /> New strategy
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        icon={Hammer}
+        title="Strategy Builder"
+        description={`Build your own ${section === 'forex' ? 'forex' : 'crypto'} strategy from the engine's indicators — no code. New strategies start disabled and must pass a backtest before trading live.`}
+        actions={
+          !isDemo && !editorOpen ? (
+            <Button size="sm" className="gap-1.5" onClick={() => { setEditing(null); setEditorOpen(true); }}>
+              <Plus className="h-3.5 w-3.5" /> New strategy
+            </Button>
+          ) : undefined
+        }
+      />
 
       {isDemo && (
         <p className="text-xs text-muted-foreground border border-dashed rounded-lg p-3">
