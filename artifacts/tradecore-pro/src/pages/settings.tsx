@@ -58,7 +58,7 @@ function DemoBrokerNotice({ onUpgrade }: { onUpgrade: () => void }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+        <CardTitle className="text-sm flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-success" /> Broker Connection
         </CardTitle>
       </CardHeader>
@@ -126,7 +126,7 @@ function UpgradeToLiveCard({
     <>
       <Card className="border-warning/40 bg-warning/5">
         <CardHeader>
-          <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+          <CardTitle className="text-sm flex items-center gap-2">
             <TestTube2 className="h-4 w-4 text-warning" /> Upgrade {MARKET_LABELS[section]} to Live Trading
           </CardTitle>
         </CardHeader>
@@ -327,7 +327,7 @@ export function Settings() {
           neither broker nor keys are involved at all. */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+          <CardTitle className="text-sm flex items-center gap-2">
             <Bot className="h-4 w-4 text-primary" /> How this section trades
           </CardTitle>
         </CardHeader>
@@ -423,7 +423,7 @@ export function Settings() {
       {isForexSection ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+            <CardTitle className="text-sm flex items-center gap-2">
               <CandlestickChart className="h-4 w-4 text-primary" /> Forex Market (OANDA)
             </CardTitle>
           </CardHeader>
@@ -446,7 +446,7 @@ export function Settings() {
       ) : (
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+          <CardTitle className="text-sm flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary" /> Market Type
           </CardTitle>
         </CardHeader>
@@ -502,7 +502,7 @@ export function Settings() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-mono tracking-wider uppercase">Risk & Sizing</CardTitle>
+            <CardTitle className="text-sm">Risk & Sizing</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
             <p className="text-xs text-muted-foreground">
@@ -576,7 +576,7 @@ export function Settings() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-mono tracking-wider uppercase">Strategy & Environment</CardTitle>
+            <CardTitle className="text-sm">Strategy & Environment</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="space-y-2">
@@ -688,7 +688,7 @@ export function Settings() {
       {/* Risk Alerts */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-mono tracking-wider uppercase">Risk Alerts</CardTitle>
+          <CardTitle className="text-sm">Risk Alerts</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs text-muted-foreground">
@@ -715,7 +715,7 @@ export function Settings() {
       </Card>
 
       <div className="flex justify-end pt-4">
-        <Button size="lg" className="w-full md:w-auto font-mono uppercase tracking-widest font-bold" onClick={handleSave} disabled={updateConfig.isPending}>
+        <Button size="lg" className="w-full md:w-auto font-bold" onClick={handleSave} disabled={updateConfig.isPending}>
           {updateConfig.isPending ? "Saving..." : <><Save className="mr-2 h-4 w-4" /> Deploy Configuration</>}
         </Button>
       </div>

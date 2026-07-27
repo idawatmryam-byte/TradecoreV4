@@ -27,7 +27,7 @@ function NotFound() {
   return (
     <div className="min-h-[50vh] flex flex-col items-center justify-center text-center">
       <h1 className="text-4xl font-mono font-bold text-primary mb-2">404</h1>
-      <p className="text-muted-foreground uppercase tracking-widest font-mono text-sm">Sector not found.</p>
+      <p className="text-muted-foreground text-sm">Sector not found.</p>
     </div>
   );
 }

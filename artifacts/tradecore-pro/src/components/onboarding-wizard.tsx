@@ -353,7 +353,7 @@ function DemoFinish({
     return (
       <StepShell
         title="That didn't go through"
-        subtitle="Your account is fine — the demo just couldn't be started. You can go to the dashboard and press START yourself, or go back and pick a different market."
+        subtitle="Your account is fine — the demo just couldn't be started. You can go to the dashboard and press Start yourself, or go back and pick a different market."
         onBack={onBack}
       >
         <p className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">

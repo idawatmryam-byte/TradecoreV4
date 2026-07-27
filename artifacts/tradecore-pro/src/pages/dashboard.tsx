@@ -115,33 +115,33 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
                       {isProfit ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
                       {formatCurrency(p.unrealizedPnl, "always")}
                     </div>
-                    <span className="block text-[9px] font-normal text-muted-foreground uppercase">
+                    <span className="block text-[9px] font-normal text-muted-foreground">
                       {p.unrealizedPnlPercent >= 0 ? "+" : ""}{p.unrealizedPnlPercent.toFixed(2)}% unrealized
                     </span>
                   </div>
                 </div>
                 {p.strategyName && (
-                  <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-2">
+                  <div className="text-xs text-muted-foreground mb-2">
                     {p.strategyName} · held {formatHeld(p.holdingSeconds)}
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-2 text-xs font-mono text-muted-foreground">
                   <div>
-                    <span className="block opacity-50 uppercase mb-0.5">Entry → Now</span>
+                    <span className="block opacity-50 mb-0.5">Entry → Now</span>
                     <span className="text-foreground">
                       {formatNumber(p.entryPrice, 4)} → {formatNumber(p.currentPrice, 4)}
                     </span>
                   </div>
                   <div className="text-right">
-                    <span className="block opacity-50 uppercase mb-0.5">Size</span>
+                    <span className="block opacity-50 mb-0.5">Size</span>
                     <span className="text-foreground">{formatNumber(p.remainingQuantity, 4)}</span>
                   </div>
                   <div>
-                    <span className="block opacity-50 uppercase mb-0.5">Stop Loss</span>
+                    <span className="block opacity-50 mb-0.5">Stop Loss</span>
                     <span className="text-destructive">{formatNumber(p.stopLossPrice, 4)}</span>
                   </div>
                   <div className="text-right">
-                    <span className="block opacity-50 uppercase mb-0.5">Take Profit</span>
+                    <span className="block opacity-50 mb-0.5">Take Profit</span>
                     <span className="text-success">
                       {p.tp1Price != null && !p.tp1Filled
                         ? `${formatNumber(p.tp1Price, 4)} / ${formatNumber(p.takeProfitPrice, 4)}`
@@ -191,12 +191,12 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
                       tp1Price={p.tp1Price}
                       tp1Filled={p.tp1Filled}
                     />
-                    <p className="mt-1.5 text-center text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                    <p className="mt-1.5 text-center text-xs text-muted-foreground">
                       Tap the card to hide the chart
                     </p>
                   </div>
                 ) : (
-                  <p className="mt-2 text-center text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">
+                  <p className="mt-2 text-center text-xs text-muted-foreground/60">
                     Tap for live chart · entry / SL / TP levels
                   </p>
                 )}
@@ -208,19 +208,19 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
       {error && (
         <div className="p-8 text-center text-destructive flex flex-col items-center justify-center">
           <WifiOff className="h-8 w-8 mb-3 opacity-50" />
-          <p className="font-mono text-sm uppercase tracking-wider">Unable to load positions</p>
+          <p className="text-sm">Unable to load positions</p>
           <p className="text-xs text-muted-foreground mt-1 normal-case">Open positions may still exist — check the exchange directly.</p>
         </div>
       )}
       {!error && loading && (
         <div className="p-8 text-center text-muted-foreground">
-          <p className="font-mono text-sm uppercase tracking-wider">Loading positions…</p>
+          <p className="text-sm">Loading positions…</p>
         </div>
       )}
       {!error && !loading && (!positions || positions.length === 0) && (
         <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center">
           <AlertTriangle className="h-8 w-8 mb-3 opacity-20" />
-          <p className="font-mono text-sm uppercase tracking-wider">No active positions</p>
+          <p className="text-sm">No active positions</p>
           <p className="text-xs mt-1 normal-case">Trades opened by the engine appear here with live P&L and controls.</p>
         </div>
       )}
@@ -337,8 +337,8 @@ function SetupChecklist() {
               title: "Start the engine",
               detail: forex
                 ? `No broker needed — this section trades a simulated $${(config?.demoStartingBalanceUsdt ?? 100000).toLocaleString()} account against live prices. The engine only trades while the forex market is open.`
-                : `No API keys needed — this section trades a simulated $${(config?.demoStartingBalanceUsdt ?? 10000).toLocaleString()} account against live prices. Press START on the cockpit above.`,
-              cta: started ? "Running" : "Go to START",
+                : `No API keys needed — this section trades a simulated $${(config?.demoStartingBalanceUsdt ?? 10000).toLocaleString()} account against live prices. Press Start on the cockpit above.`,
+              cta: started ? "Running" : "Go to Start",
               onClick: () => window.scrollTo({ top: 0, behavior: "smooth" }),
             },
         // Both remaining steps presuppose an engine that can run. Listing
@@ -388,9 +388,9 @@ function SetupChecklist() {
           done: started,
           title: "Start the engine",
           detail: forex
-            ? "Press START on the cockpit. The engine only trades while the forex market is open."
-            : "Press START on the cockpit above — the engine begins scanning immediately.",
-          cta: started ? "Running" : "Go to START",
+            ? "Press Start on the cockpit. The engine only trades while the forex market is open."
+            : "Press Start on the cockpit above — the engine begins scanning immediately.",
+          cta: started ? "Running" : "Go to Start",
           onClick: () => window.scrollTo({ top: 0, behavior: "smooth" }),
         },
       ];
@@ -527,7 +527,7 @@ function ForexMarketBanner() {
         {fx.open && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />}
         <span className={cn("relative inline-flex rounded-full h-2.5 w-2.5", fx.open ? "bg-success" : "bg-warning")} />
       </span>
-      <span className={cn("font-bold tracking-wider uppercase", fx.open ? "text-success" : "text-warning")}>
+      <span className={cn("font-bold", fx.open ? "text-success" : "text-warning")}>
         {fx.open ? "Forex market open" : "Forex market closed"}
       </span>
       <span className="text-muted-foreground">
@@ -645,7 +645,7 @@ export function Dashboard() {
             "text-xs font-mono font-bold",
             statusUnknown ? "text-muted-foreground" : bot?.running ? "text-success" : "text-destructive",
           )}>
-            {statusUnknown ? "UNKNOWN" : bot?.running ? "ACTIVE" : "STANDBY"}
+            {statusUnknown ? "Unknown" : bot?.running ? "Running" : "Stopped"}
           </span>
         }
       >
@@ -656,14 +656,14 @@ export function Dashboard() {
           <div className="ambient-glow" />
           <CardContent className="p-6 sm:p-8 flex flex-col justify-between h-full gap-6 relative z-10">
             <div>
-              <h2 className="text-sm font-mono text-muted-foreground uppercase tracking-widest mb-1">Trading Engine</h2>
+              <h2 className="text-sm text-muted-foreground mb-1">Trading Engine</h2>
               <div className="flex items-center gap-3 mb-6">
                 <span className={cn("relative flex h-3 w-3")}>
                   {bot?.running && !statusUnknown && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>}
                   <span className={cn("relative inline-flex rounded-full h-3 w-3", statusUnknown ? "bg-muted-foreground" : bot?.running ? "bg-success" : "bg-destructive")}></span>
                 </span>
                 <span className="text-xl sm:text-2xl font-bold tracking-tight">
-                  {statusUnknown ? "STATUS UNKNOWN" : bot?.running ? "SYSTEM ACTIVE" : "SYSTEM STANDBY"}
+                  {statusUnknown ? "Status unknown" : bot?.running ? "Engine running" : "Engine stopped"}
                 </span>
               </div>
               {botError && (
@@ -682,7 +682,7 @@ export function Dashboard() {
                 disabled={bot?.running || startBot.isPending || isDemo}
                 title={isDemo ? "Disabled in the read-only demo" : undefined}
               >
-                <Power className="mr-2 h-4 w-4" /> START
+                <Power className="mr-2 h-4 w-4" /> Start
               </Button>
               <Button
                 size="lg"
@@ -692,7 +692,7 @@ export function Dashboard() {
                 disabled={!bot?.running || stopBot.isPending || isDemo}
                 title={isDemo ? "Disabled in the read-only demo" : undefined}
               >
-                <Square className="mr-2 h-4 w-4" /> STOP
+                <Square className="mr-2 h-4 w-4" /> Stop
               </Button>
             </div>
           </CardContent>
@@ -706,7 +706,7 @@ export function Dashboard() {
             valueClass={bot?.balanceUsdt == null ? "text-muted-foreground" : undefined}
             value={bot?.balanceUsdt == null ? "—" : formatCurrency(bot.balanceUsdt)}
             sub={bot?.balanceUsdt != null && (
-              <p className="text-[10px] font-mono text-muted-foreground mt-1 uppercase truncate">
+              <p className="text-xs text-muted-foreground mt-1 truncate">
                 {/* OANDA has no "testnet" — it's a practice account, and the
                     engine reports balances in USD (home currency converted). */}
                 {section === "forex"

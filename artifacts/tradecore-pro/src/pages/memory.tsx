@@ -24,7 +24,7 @@ export function Memory() {
         <Card className="border-destructive/30 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-32 bg-destructive/5 blur-3xl rounded-full pointer-events-none"></div>
           <CardHeader>
-            <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2 text-destructive">
+            <CardTitle className="text-sm flex items-center gap-2 text-destructive">
               <ShieldBan className="h-4 w-4" /> Asset Blacklist
             </CardTitle>
           </CardHeader>
@@ -51,7 +51,7 @@ export function Memory() {
                 ))}
                 {(!blacklist || blacklist.length === 0) && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground font-mono text-sm uppercase tracking-wider">
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground text-sm">
                       Memory Core clear. No assets quarantined.
                     </TableCell>
                   </TableRow>
@@ -64,7 +64,7 @@ export function Memory() {
         <Card className="border-warning/30 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-32 bg-warning/5 blur-3xl rounded-full pointer-events-none"></div>
           <CardHeader>
-            <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2 text-warning">
+            <CardTitle className="text-sm flex items-center gap-2 text-warning">
               <Clock className="h-4 w-4" /> Toxic Timeframes (UTC)
             </CardTitle>
           </CardHeader>
@@ -91,7 +91,7 @@ export function Memory() {
                 ))}
                 {(!toxicHours || toxicHours.length === 0) && (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center py-8 text-muted-foreground font-mono text-sm uppercase tracking-wider">
+                    <TableCell colSpan={3} className="text-center py-8 text-muted-foreground text-sm">
                       Timeframe efficiency nominal. No blocks.
                     </TableCell>
                   </TableRow>

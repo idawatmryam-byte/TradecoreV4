@@ -155,7 +155,7 @@ export function PositionChart(props: PositionChartProps) {
         expanded && "fixed inset-2 sm:inset-6 z-[90] mt-0 bg-background shadow-2xl border-primary/40 flex flex-col",
       )}
     >
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border/40 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border/40 text-xs text-muted-foreground">
         <span>{props.symbol} · 1m · live</span>
         <div className="flex items-center gap-3">
           <span>

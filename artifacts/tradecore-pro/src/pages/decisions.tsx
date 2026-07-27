@@ -41,7 +41,7 @@ function ReportSection({ title, icon: Icon, lines }: { title: string; icon: type
   if (!lines || lines.length === 0) return null;
   return (
     <div>
-      <div className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5">
         <Icon className="h-3.5 w-3.5" /> {title}
       </div>
       <ul className="space-y-1">
@@ -106,7 +106,7 @@ function DecisionCard({ entry }: { entry: StrategyDecisionEntry }) {
           )}
           {entry.stage && (
             <p className="text-xs">
-              <span className="font-mono uppercase tracking-wider text-muted-foreground">Stage:</span>{" "}
+              <span className="text-muted-foreground">Stage:</span>{" "}
               <span className="font-mono">{entry.stage}</span>
             </p>
           )}
@@ -115,10 +115,10 @@ function DecisionCard({ entry }: { entry: StrategyDecisionEntry }) {
           )}
           {plan && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 font-mono text-xs">
-              <div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">Entry</div>{Number(plan.entryPrice).toPrecision(6)}</div>
-              <div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">Stop</div><span className="text-destructive">{Number(plan.slPrice).toPrecision(6)}</span></div>
-              <div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">Target</div><span className="text-success">{Number(plan.tpPrice).toPrecision(6)}</span></div>
-              <div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">Leverage</div>{plan.leverage}×</div>
+              <div><div className="text-xs text-muted-foreground">Entry</div>{Number(plan.entryPrice).toPrecision(6)}</div>
+              <div><div className="text-xs text-muted-foreground">Stop</div><span className="text-destructive">{Number(plan.slPrice).toPrecision(6)}</span></div>
+              <div><div className="text-xs text-muted-foreground">Target</div><span className="text-success">{Number(plan.tpPrice).toPrecision(6)}</span></div>
+              <div><div className="text-xs text-muted-foreground">Leverage</div>{plan.leverage}×</div>
             </div>
           )}
           <div className="grid gap-4 sm:grid-cols-2">
@@ -129,7 +129,7 @@ function DecisionCard({ entry }: { entry: StrategyDecisionEntry }) {
           </div>
           {Array.isArray(report?.checks) && report.checks.length > 0 && (
             <div>
-              <div className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5">Checks</div>
+              <div className="text-xs text-muted-foreground mb-1.5">Checks</div>
               <div className="space-y-1">
                 {report.checks.map((c: any, i: number) => (
                   <div key={i} className="flex items-start gap-2 text-xs">

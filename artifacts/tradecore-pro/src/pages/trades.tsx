@@ -115,7 +115,7 @@ export function Trades() {
                     <TableCell className="font-bold">{trade.symbol}</TableCell>
                     <TableCell>
                       <span className={cn(
-                        "font-mono text-xs font-bold uppercase tracking-widest",
+                        "text-xs font-bold",
                         trade.side === 'buy' ? "text-success" : "text-destructive"
                       )}>
                         {trade.side}
@@ -148,7 +148,7 @@ export function Trades() {
                         {trade.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
+                    <TableCell className="text-xs text-muted-foreground">
                       {trade.exitReason?.replace('_', ' ') || '-'}
                     </TableCell>
                   </TableRow>

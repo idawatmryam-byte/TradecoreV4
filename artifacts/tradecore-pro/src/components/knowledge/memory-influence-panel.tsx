@@ -76,7 +76,7 @@ export function MemoryInfluencePanel() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+          <CardTitle className="text-sm flex items-center gap-2">
             <BrainCog className="h-4 w-4" /> Gated Memory Influence
           </CardTitle>
         </CardHeader>
@@ -93,12 +93,12 @@ export function MemoryInfluencePanel() {
       <div className="absolute top-0 right-0 p-32 bg-primary/5 blur-3xl rounded-full pointer-events-none" />
 
       <CardHeader>
-        <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+        <CardTitle className="text-sm flex items-center gap-2">
           <BrainCog className="h-4 w-4 text-primary" /> Gated Memory Influence
           <Badge
             variant="outline"
             className={cn(
-              "ml-auto text-[10px] font-mono uppercase",
+              "ml-auto text-xs",
               data.active ? "border-primary/40 text-primary" : "border-border text-muted-foreground",
             )}
           >
@@ -140,10 +140,10 @@ export function MemoryInfluencePanel() {
         {/* Walk-forward validation — the only thing that unlocks live. */}
         <div className="rounded border border-border p-3 space-y-2">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <FlaskConical className="h-3.5 w-3.5" /> Walk-forward validation
               {verdictMeta && (
-                <Badge variant="outline" className={cn("text-[10px] font-mono uppercase", verdictMeta.className)}>
+                <Badge variant="outline" className={cn("text-xs", verdictMeta.className)}>
                   {verdictMeta.label}
                 </Badge>
               )}
@@ -199,7 +199,7 @@ export function MemoryInfluencePanel() {
         {/* The rules themselves. */}
         {data.rules.length > 0 && (
           <div>
-            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+            <p className="text-xs text-muted-foreground mb-1">
               Acting rules · cap +{data.maxDelta} points · {data.version}
             </p>
             <Table>
@@ -237,7 +237,7 @@ export function MemoryInfluencePanel() {
         {/* The audit trail. Both outcomes, so this is not a list of saves. */}
         {data.recent.length > 0 && (
           <div>
-            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+            <p className="text-xs text-muted-foreground mb-1">
               Applied · last {data.recent.length}
             </p>
             <div className="space-y-0.5 max-h-56 overflow-y-auto">
