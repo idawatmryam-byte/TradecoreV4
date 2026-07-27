@@ -310,7 +310,7 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
  */
 function SetupChecklist() {
   const isDemo = useIsDemo();
-  const { section } = useSection();
+  const { section, setSection } = useSection();
   const forex = section === "forex";
   const dismissKey = `tc-onboard-dismissed:${section}`;
   const riskKey = `tc-onboard-risk:${section}`;
@@ -324,6 +324,11 @@ function SetupChecklist() {
   const { data: config } = useGetConfig({ query: { queryKey: getGetConfigQueryKey() } });
   const demoTarget = config?.executionTarget === "demo";
   const copilot = config?.mode === "copilot";
+  // Forex demo needs the platform's own OANDA practice token — OANDA
+  // publishes no public market data, so a keyless forex demo is impossible
+  // rather than merely unconfigured. When it is missing, promising "no broker
+  // needed" and then refusing to start is the worst of both worlds.
+  const demoBlocked = demoTarget && config?.demoDataAvailable === false;
 
   // Credential queries are pointless in demo — skip the requests entirely
   // rather than fetching and ignoring them.
@@ -368,16 +373,35 @@ function SetupChecklist() {
   // that keys are part of this, which is the thing being fixed.
   const steps: Step[] = demoTarget
     ? [
-        {
-          done: started,
-          title: "Start the engine",
-          detail: forex
-            ? `No broker needed — this section trades a simulated $${(config?.demoStartingBalanceUsdt ?? 100000).toLocaleString()} account against live prices. The engine only trades while the forex market is open.`
-            : `No API keys needed — this section trades a simulated $${(config?.demoStartingBalanceUsdt ?? 10000).toLocaleString()} account against live prices. Press START on the cockpit above.`,
-          cta: started ? "Running" : "Go to START",
-          onClick: () => window.scrollTo({ top: 0, behavior: "smooth" }),
-        },
-        ...(copilot
+        demoBlocked
+          ? {
+              // Say it plainly instead of offering a START that will be
+              // refused. This is a property of the deployment, not something
+              // the user can fix from Settings, so the only honest action is
+              // the section that genuinely needs no credentials.
+              done: false,
+              title: "Forex demo isn't available here",
+              detail:
+                "OANDA publishes no public market data, so demo forex needs a practice token owned by this " +
+                "deployment (OANDA_PLATFORM_TOKEN / OANDA_PLATFORM_ACCOUNT_ID) — it isn't set. " +
+                "The Crypto section needs no credentials at all and works right now. " +
+                "You can also connect your own OANDA account and switch this section to Live.",
+              cta: "Go to Crypto",
+              onClick: () => setSection("crypto"),
+            }
+          : {
+              done: started,
+              title: "Start the engine",
+              detail: forex
+                ? `No broker needed — this section trades a simulated $${(config?.demoStartingBalanceUsdt ?? 100000).toLocaleString()} account against live prices. The engine only trades while the forex market is open.`
+                : `No API keys needed — this section trades a simulated $${(config?.demoStartingBalanceUsdt ?? 10000).toLocaleString()} account against live prices. Press START on the cockpit above.`,
+              cta: started ? "Running" : "Go to START",
+              onClick: () => window.scrollTo({ top: 0, behavior: "smooth" }),
+            },
+        // Both remaining steps presuppose an engine that can run. Listing
+        // "approve your first trade" under a section that cannot produce one
+        // would just be a step that never ticks.
+        ...(copilot && !demoBlocked
           ? [{
               done: actedOnPlan,
               title: "Approve your first trade",
@@ -388,14 +412,16 @@ function SetupChecklist() {
               href: "/copilot",
             } satisfies Step]
           : []),
-        {
-          done: riskDone,
-          title: "Set your risk plan",
-          detail: "Choose the dollars you're willing to lose and to target per trade — the engine derives size, stop, and target from that. It applies to demo and live alike.",
-          cta: riskDone ? "Reviewed" : "Review risk",
-          href: "/settings",
-          onClick: markRiskReviewed,
-        },
+        ...(demoBlocked
+          ? []
+          : [{
+              done: riskDone,
+              title: "Set your risk plan",
+              detail: "Choose the dollars you're willing to lose and to target per trade — the engine derives size, stop, and target from that. It applies to demo and live alike.",
+              cta: riskDone ? "Reviewed" : "Review risk",
+              href: "/settings",
+              onClick: markRiskReviewed,
+            } satisfies Step]),
       ]
     : [
         {
@@ -438,9 +464,11 @@ function SetupChecklist() {
         <div className="min-w-0">
           <div className="font-semibold text-sm">Finish setting up — {completed} of {steps.length} done</div>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            {demoTarget
-              ? `You're in Demo — simulated money, live prices, no exchange account required.`
-              : `A few steps to your first ${forex ? "forex" : "crypto"} trade.`}
+            {demoBlocked
+              ? `You're in Demo, but this deployment can't supply forex market data.`
+              : demoTarget
+                ? `You're in Demo — simulated money, live prices, no exchange account required.`
+                : `A few steps to your first ${forex ? "forex" : "crypto"} trade.`}
           </p>
         </div>
         <button type="button" onClick={dismiss} aria-label="Dismiss setup guide" className="shrink-0 text-muted-foreground hover:text-foreground transition-colors">
@@ -612,6 +640,18 @@ export function Dashboard() {
       // section's engine — surface that so it never feels like a mystery.
       const note = (data as { note?: string } | undefined)?.note;
       if (note) toast({ title: "Engine started", description: note });
+    },
+    // A start can legitimately be refused — missing credentials, or a
+    // deployment with no forex demo data source. Without this branch the
+    // rejection was swallowed entirely: the button did nothing, the engine
+    // stayed on STANDBY, and there was no way to find out why.
+    onError: (err) => {
+      const body = (err as { response?: { data?: { error?: string } } })?.response?.data;
+      toast({
+        variant: "destructive",
+        title: "Engine did not start",
+        description: body?.error ?? (err as Error)?.message ?? "The server refused the start request.",
+      });
     },
   });
   const handleStop = () => stopBot.mutate(undefined, { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() }) });

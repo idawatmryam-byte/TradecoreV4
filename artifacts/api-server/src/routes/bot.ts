@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { getOrCreateEngine, SECTIONS } from "../lib/engineRegistry";
 import { isDemoUser } from "../middleware/demoGuard";
 import { buildDemoStatus } from "../lib/demoStatus";
+import { DemoDataUnavailableError } from "../lib/execution/demoMarketData";
 
 const router: IRouter = Router();
 
@@ -43,7 +44,29 @@ router.post("/bot/start", async (req, res): Promise<void> => {
   }
 
   const engine = getOrCreateEngine(req.userId!, req.section!);
-  await engine.start();
+  try {
+    await engine.start();
+  } catch (err) {
+    // A start that cannot proceed is a PRECONDITION problem, not a server
+    // fault: missing credentials, or a deployment with no forex demo data
+    // source. Letting these reach the global handler turned every one of them
+    // into an opaque 500, and the dashboard — which had no error branch at all
+    // — showed nothing. The button appeared to do nothing and the engine
+    // silently stayed stopped, which is the single worst way to fail here.
+    if (err instanceof DemoDataUnavailableError) {
+      req.log.warn({ userId: req.userId, section: req.section }, "Start refused: demo data unavailable");
+      res.status(503).json({ error: err.message, code: "DEMO_DATA_UNAVAILABLE" });
+      return;
+    }
+    const message = err instanceof Error ? err.message : "Failed to start the engine";
+    if (/no (binance|oanda) (api )?credentials/i.test(message)) {
+      req.log.warn({ userId: req.userId, section: req.section }, "Start refused: credentials missing");
+      res.status(400).json({ error: message, code: "CREDENTIALS_MISSING" });
+      return;
+    }
+    throw err;
+  }
+
   req.log.info({ userId: req.userId, section: req.section }, "Bot started via API");
   res.json({
     ...engine.getState(),

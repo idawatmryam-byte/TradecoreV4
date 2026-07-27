@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { botConfigTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getOrCreateEngine } from "../lib/engineRegistry";
+import { forexDemoAvailable } from "../lib/execution/demoMarketData";
 import {
   GetConfigResponse,
   UpdateConfigBody,
@@ -41,8 +42,23 @@ function isSafeAlertWebhookUrl(raw: string): boolean {
   return !PRIVATE_HOSTNAME_PATTERNS.some((re) => re.test(hostname));
 }
 
+/**
+ * Can this section actually RUN in demo on this deployment?
+ *
+ * Crypto always can — Binance's public endpoints need no credentials. Forex
+ * cannot unless the platform supplies its own OANDA practice token, because
+ * OANDA publishes no public market data at all. Reported per section so the
+ * UI can stop promising a keyless demo it is about to fail to deliver: without
+ * this the dashboard told a new forex user "no broker needed", they pressed
+ * START, and the engine refused with nothing on screen to explain why.
+ */
+function demoDataAvailableFor(section: string): boolean {
+  return section === "forex" ? forexDemoAvailable() : true;
+}
+
 function mapConfig(c: typeof botConfigTable.$inferSelect) {
   return {
+    demoDataAvailable: demoDataAvailableFor(c.section),
     broker:                    c.broker as "binance" | "oanda",
     marketType:                c.marketType as "spot" | "futures" | "forex",
     leverage:                  c.leverage,
