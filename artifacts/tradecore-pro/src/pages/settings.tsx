@@ -1,23 +1,25 @@
 import {
   useGetConfig, useUpdateConfig, getGetConfigQueryKey,
-  useGetBinanceCredentials, useSetBinanceCredentials, useDeleteBinanceCredentials, getGetBinanceCredentialsQueryKey,
-  useGetOandaCredentials, useSetOandaCredentials, useDeleteOandaCredentials, getGetOandaCredentialsQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label, Switch } from "@/components/ui";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { PageHeader, PageTabs } from "@/components/patterns";
+import { BrokerCredentialsCard, useBrokerConfigured } from "@/components/broker-credentials";
+import { ModePicker, type TradingMode } from "@/components/mode-picker";
+import { AutoPilotConfirmDialog } from "@/components/autopilot-confirm-dialog";
+import { OnboardingWizard } from "@/components/onboarding-wizard";
 
 /** Settings' two views. Separate routes, one destination. */
 export const SETTINGS_TABS = [
   { href: "/settings", label: "Trading" },
   { href: "/account", label: "Profile" },
 ];
-import { Settings as SettingsIcon, Save, TestTube2, KeyRound, Trash2, TrendingUp, CandlestickChart, Bot } from "lucide-react";
+import { Settings as SettingsIcon, Save, TestTube2, ShieldCheck, TrendingUp, CandlestickChart, Bot, Plus, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
-import { useSection } from "@/lib/section";
+import { useSection, type Section } from "@/lib/section";
 
 // Quick-pick universe for the coin picker — 24 liquid USDT markets. Any pair
 // not on this list can still be typed into the box below; unavailable symbols
@@ -42,178 +44,142 @@ const FOREX_UNIVERSE = [
 // page. This page holds only account-level settings and the safety limits
 // that protect the WHOLE account across every strategy.
 
-function BinanceCredentialsCard() {
-  const { data: status, isLoading } = useGetBinanceCredentials({ query: { queryKey: getGetBinanceCredentialsQueryKey() } });
-  const setCredentials = useSetBinanceCredentials();
-  const deleteCredentials = useDeleteBinanceCredentials();
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
+const MARKET_LABELS: Record<Section, string> = { crypto: "Crypto", forex: "Forex" };
 
-  const [apiKey, setApiKey] = useState("");
-  const [apiSecret, setApiSecret] = useState("");
-
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetBinanceCredentialsQueryKey() });
-
-  const handleSave = () => {
-    if (!apiKey.trim() || !apiSecret.trim()) return;
-    setCredentials.mutate({ data: { apiKey: apiKey.trim(), apiSecret: apiSecret.trim() } }, {
-      onSuccess: () => {
-        setApiKey("");
-        setApiSecret("");
-        invalidate();
-        toast({ title: "Binance Credentials Saved", description: "Restart the bot for the new credentials to take effect." });
-      },
-      onError: () => {
-        toast({ title: "Error", description: "Failed to save Binance credentials.", variant: "destructive" });
-      },
-    });
-  };
-
-  const handleRemove = () => {
-    deleteCredentials.mutate(undefined, {
-      onSuccess: () => {
-        invalidate();
-        toast({ title: "Binance Credentials Removed" });
-      },
-      onError: () => {
-        toast({ title: "Error", description: "Failed to remove Binance credentials.", variant: "destructive" });
-      },
-    });
-  };
-
+/**
+ * What a Demo section sees where the broker card would be.
+ *
+ * A user in Demo has no exchange connection and needs none, so showing them
+ * API-key fields is not merely redundant — it reads as an unfinished setup
+ * step and undercuts the whole point of Demo being a complete product rather
+ * than a locked-down trial. Say what is true and offer the upgrade.
+ */
+function DemoBrokerNotice({ onUpgrade }: { onUpgrade: () => void }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
-          <KeyRound className="h-4 w-4 text-primary" /> Your Binance API Credentials
+          <ShieldCheck className="h-4 w-4 text-success" /> Broker Connection
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-xs text-muted-foreground">
-          Your bot connects to Binance using YOUR OWN API key and secret — never a shared account. Stored encrypted;
-          never displayed back once saved. Use testnet keys (<code className="text-xs font-mono">testnet.binance.vision</code>)
-          while the Testnet toggle below is on.
+        <p className="text-sm">
+          You&apos;re currently using Demo Trading. No exchange connection is required.
+          Upgrade to Live Trading when you&apos;re ready.
         </p>
-
-        {!isLoading && (
-          <div className="text-xs font-mono text-muted-foreground">
-            {status?.configured
-              ? <>Currently configured — key ends in <span className="text-foreground">{status.apiKeyPreview}</span></>
-              : "No Binance credentials configured yet."}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>API Key</Label>
-            <Input type="password" autoComplete="off" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Enter new API key" />
-          </div>
-          <div className="space-y-2">
-            <Label>API Secret</Label>
-            <Input type="password" autoComplete="off" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} placeholder="Enter new API secret" />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button onClick={handleSave} disabled={setCredentials.isPending || !apiKey.trim() || !apiSecret.trim()}>
-            {setCredentials.isPending ? "Saving..." : "Save Credentials"}
-          </Button>
-          {status?.configured && (
-            <Button variant="destructive" onClick={handleRemove} disabled={deleteCredentials.isPending}>
-              <Trash2 className="mr-2 h-4 w-4" /> Remove
-            </Button>
-          )}
-        </div>
+        <Button variant="outline" onClick={onUpgrade}>
+          Upgrade to Live Trading
+        </Button>
       </CardContent>
     </Card>
   );
 }
 
-function OandaCredentialsCard() {
-  const { data: status, isLoading } = useGetOandaCredentials({ query: { queryKey: getGetOandaCredentialsQueryKey() } });
-  const setCredentials = useSetOandaCredentials();
-  const deleteCredentials = useDeleteOandaCredentials();
+/**
+ * Demo → Live for ONE section.
+ *
+ * Everything the user already chose — market list, mode, risk limits, alert
+ * webhook — is preserved: this sends a partial config update carrying only
+ * the execution target (and the mode, when the AutoPilot confirmation changed
+ * it). The upgrade is per market by design, because `executionTarget` is a
+ * per-section column: someone can reasonably run Crypto live while still
+ * paper-trading Forex.
+ */
+function UpgradeToLiveCard({
+  section, mode, onCancel, onUpgraded,
+}: {
+  section: Section;
+  mode: TradingMode;
+  onCancel: () => void;
+  onUpgraded: () => void;
+}) {
+  const { configured } = useBrokerConfigured(section);
+  const updateConfig = useUpdateConfig();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const [apiToken, setApiToken] = useState("");
-  const [accountId, setAccountId] = useState("");
-
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetOandaCredentialsQueryKey() });
-
-  const handleSave = () => {
-    if (!apiToken.trim() || !accountId.trim()) return;
-    setCredentials.mutate({ data: { apiToken: apiToken.trim(), accountId: accountId.trim() } }, {
+  const enable = (finalMode: TradingMode) => {
+    updateConfig.mutate({ data: { executionTarget: "live", mode: finalMode } }, {
       onSuccess: () => {
-        setApiToken("");
-        setAccountId("");
-        invalidate();
-        toast({ title: "OANDA Credentials Saved", description: "Restart the forex engine for the new credentials to take effect." });
+        queryClient.invalidateQueries({ queryKey: getGetConfigQueryKey() });
+        toast({
+          title: "Live trading enabled",
+          description: `${MARKET_LABELS[section]} now places real orders. Nothing happens until you start the engine.`,
+        });
+        onUpgraded();
       },
       onError: () => {
-        toast({ title: "Error", description: "Failed to save OANDA credentials.", variant: "destructive" });
+        toast({ title: "Error", description: "Couldn't switch this section to live.", variant: "destructive" });
       },
     });
   };
 
-  const handleRemove = () => {
-    deleteCredentials.mutate(undefined, {
-      onSuccess: () => {
-        invalidate();
-        toast({ title: "OANDA Credentials Removed" });
-      },
-      onError: () => {
-        toast({ title: "Error", description: "Failed to remove OANDA credentials.", variant: "destructive" });
-      },
-    });
+  const handleEnable = () => {
+    // The single case that earns an extra confirmation: real funds, traded
+    // with no per-trade approval. Research and Co-Pilot carry over silently.
+    if (mode === "autopilot") setConfirmOpen(true);
+    else enable(mode);
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
-          <KeyRound className="h-4 w-4 text-primary" /> Your OANDA Credentials
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-xs text-muted-foreground">
-          The forex engine connects to OANDA with YOUR OWN personal access token and account ID — create both free at{" "}
-          <code className="text-xs font-mono">oanda.com</code> (open a <strong>practice</strong> account, then Manage
-          API Access → generate a token). Any home currency works: a GBP or EUR account is converted to USD at live
-          rates, and every number in the app (balance, Max Loss, P&L) stays in USD. Stored encrypted; never displayed
-          back once saved. Practice tokens only work while the Practice toggle below is on — live needs a live token.
-          Use a <strong>standard</strong> (v20) account — spread-betting sub-accounts have no API access.
-        </p>
+    <>
+      <Card className="border-warning/40 bg-warning/5">
+        <CardHeader>
+          <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+            <TestTube2 className="h-4 w-4 text-warning" /> Upgrade {MARKET_LABELS[section]} to Live Trading
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Your market selection, mode and risk limits stay exactly as they are — the only
+            thing this adds is a broker connection. Connect the account below, then enable
+            live trading. Your other market is unaffected, and you can switch this section
+            back to Demo at any time.
+          </p>
+        </CardContent>
+      </Card>
 
-        {!isLoading && (
-          <div className="text-xs font-mono text-muted-foreground">
-            {status?.configured
-              ? <>Currently configured — account ends in <span className="text-foreground">{status.accountIdPreview}</span></>
-              : "No OANDA credentials configured yet."}
-          </div>
+      <BrokerCredentialsCard section={section} />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button onClick={handleEnable} disabled={!configured || updateConfig.isPending}>
+          {updateConfig.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Enable Live Trading
+        </Button>
+        <Button variant="outline" onClick={onCancel}>Cancel</Button>
+        {!configured && (
+          <span className="text-xs text-muted-foreground">
+            Save your credentials above to continue.
+          </span>
         )}
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>API Token</Label>
-            <Input type="password" autoComplete="off" value={apiToken} onChange={(e) => setApiToken(e.target.value)} placeholder="Enter personal access token" />
-          </div>
-          <div className="space-y-2">
-            <Label>Account ID</Label>
-            <Input type="text" autoComplete="off" value={accountId} onChange={(e) => setAccountId(e.target.value)} placeholder="e.g. 101-001-1234567-001" />
-          </div>
-        </div>
+      <AutoPilotConfirmDialog
+        open={confirmOpen}
+        marketLabel={MARKET_LABELS[section]}
+        onSwitchToCopilot={() => { setConfirmOpen(false); enable("copilot"); }}
+        onContinueWithAutoPilot={() => { setConfirmOpen(false); enable("autopilot"); }}
+      />
+    </>
+  );
+}
 
-        <div className="flex items-center gap-2">
-          <Button onClick={handleSave} disabled={setCredentials.isPending || !apiToken.trim() || !accountId.trim()}>
-            {setCredentials.isPending ? "Saving..." : "Save Credentials"}
-          </Button>
-          {status?.configured && (
-            <Button variant="destructive" onClick={handleRemove} disabled={deleteCredentials.isPending}>
-              <Trash2 className="mr-2 h-4 w-4" /> Remove
-            </Button>
-          )}
+/** Entry point to configuring the section this user has not set up yet. */
+function AddMarketCard({ other, onAdd }: { other: Section; onAdd: () => void }) {
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-sm font-semibold">Also trade {MARKET_LABELS[other]}</div>
+          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+            Set {MARKET_LABELS[other]} up with its own execution target, mode and limits.
+            The engine runs one market at a time — starting one stops the other.
+          </p>
         </div>
+        <Button variant="outline" size="sm" onClick={onAdd} className="shrink-0">
+          <Plus className="mr-2 h-4 w-4" /> Add Market
+        </Button>
       </CardContent>
     </Card>
   );
@@ -271,9 +237,25 @@ export function Settings() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const { section } = useSection();
+  const { section, setSection } = useSection();
   const isForexSection = section === "forex";
   const isFutures = formData.marketType === "futures";
+  const otherSection: Section = isForexSection ? "crypto" : "forex";
+
+  // Demo → Live is a deliberate, credential-gated flow rather than a toggle;
+  // Live → Demo stays instant. Demo and Live are execution targets for the
+  // same account, not separate accounts, so stepping back must never be the
+  // harder direction.
+  const { configured: brokerConfigured } = useBrokerConfigured(section);
+  const [upgrading, setUpgrading] = useState(false);
+  const [liveConfirmOpen, setLiveConfirmOpen] = useState(false);
+  const [addingMarket, setAddingMarket] = useState(false);
+
+  const requestLive = () => {
+    if (!brokerConfigured) { setUpgrading(true); return; }
+    if (formData.mode === "autopilot") { setLiveConfirmOpen(true); return; }
+    handleChange("executionTarget", "live");
+  };
 
   const handleSave = () => {
     const payload = {
@@ -371,36 +353,10 @@ export function Settings() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {([
-              { value: 'copilot',   label: 'Co-Pilot',  blurb: 'It recommends, you approve each trade.' },
-              { value: 'autopilot', label: 'AutoPilot', blurb: 'It executes automatically within your risk limits.' },
-              { value: 'research',  label: 'Research',  blurb: 'Analysis only — it never trades.' },
-            ] as const).map((m) => {
-              const active = formData.mode === m.value;
-              return (
-                <button
-                  key={m.value}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => handleChange('mode', m.value)}
-                  className={cn(
-                    "rounded-md border p-3 text-left transition-colors",
-                    active
-                      ? "border-primary bg-primary/10"
-                      : "border-border hover:bg-muted/50",
-                  )}
-                >
-                  <span className={cn("block text-sm font-semibold", active && "text-primary")}>
-                    {m.label}
-                  </span>
-                  <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
-                    {m.blurb}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <ModePicker
+            value={formData.mode}
+            onChange={(m) => handleChange('mode', m)}
+          />
 
           {formData.mode === 'autopilot' && formData.executionTarget === 'live' && (
             <p className="rounded border border-warning/40 bg-warning/5 px-2.5 py-2 text-xs text-warning">
@@ -428,7 +384,10 @@ export function Settings() {
             <Switch
               aria-label="Trade live with real money"
               checked={formData.executionTarget === 'live'}
-              onCheckedChange={(v) => handleChange('executionTarget', v ? 'live' : 'demo')}
+              onCheckedChange={(v) => {
+                if (v) requestLive();
+                else handleChange('executionTarget', 'demo');
+              }}
             />
           </div>
           {formData.executionTarget === 'demo' && (
@@ -441,7 +400,25 @@ export function Settings() {
         </CardContent>
       </Card>
 
-      {isForexSection ? <OandaCredentialsCard /> : <BinanceCredentialsCard />}
+      {/* In Demo there is no broker and none is needed, so the key fields are
+          replaced rather than merely disabled — see DemoBrokerNotice. */}
+      {upgrading ? (
+        <UpgradeToLiveCard
+          section={section}
+          mode={formData.mode}
+          onCancel={() => setUpgrading(false)}
+          onUpgraded={() => setUpgrading(false)}
+        />
+      ) : formData.executionTarget === 'demo' ? (
+        <DemoBrokerNotice onUpgrade={() => setUpgrading(true)} />
+      ) : (
+        <BrokerCredentialsCard section={section} />
+      )}
+
+      <AddMarketCard
+        other={otherSection}
+        onAdd={() => { setSection(otherSection); setAddingMarket(true); }}
+      />
 
       {isForexSection ? (
         <Card>
@@ -742,6 +719,33 @@ export function Settings() {
           {updateConfig.isPending ? "Saving..." : <><Save className="mr-2 h-4 w-4" /> Deploy Configuration</>}
         </Button>
       </div>
+
+      {/* Flipping the Execution switch to Live while already in AutoPilot is
+          the same decision as upgrading, so it gets the same confirmation. */}
+      <AutoPilotConfirmDialog
+        open={liveConfirmOpen}
+        marketLabel={MARKET_LABELS[section]}
+        onSwitchToCopilot={() => {
+          setLiveConfirmOpen(false);
+          setFormData((prev) => ({ ...prev, mode: 'copilot', executionTarget: 'live' }));
+        }}
+        onContinueWithAutoPilot={() => {
+          setLiveConfirmOpen(false);
+          handleChange('executionTarget', 'live');
+        }}
+      />
+
+      {/* Adding the other market reuses the onboarding wizard with its market
+          question skipped — one flow to maintain, and a returning user meets
+          the same three questions they answered on day one. */}
+      {addingMarket && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
+          <OnboardingWizard
+            presetMarket={otherSection}
+            onDone={() => setAddingMarket(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -17,6 +17,9 @@ import { Journal } from '@/pages/journal';
 import CoPilot from '@/pages/copilot';
 import CoPilotWorkspace from '@/pages/copilot-workspace';
 import { SectionProvider } from '@/lib/section';
+import { OnboardingWizard } from '@/components/onboarding-wizard';
+import { hasOnboarded, markOnboarded } from '@/lib/onboarding';
+import { useState } from 'react';
 
 const queryClient = new QueryClient();
 
@@ -53,12 +56,19 @@ function Router() {
 }
 
 function App() {
+  // Shown once, to an account created in this session, in a browser that has
+  // not already completed it. Both conditions matter: the first keeps existing
+  // users out of it, the second keeps it from reappearing after a skip.
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
   return (
     <QueryClientProvider client={queryClient}>
       <SectionProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-          <AuthGate>
-            <Router />
+          <AuthGate onRegistered={() => { if (!hasOnboarded()) setShowOnboarding(true); }}>
+            {showOnboarding
+              ? <OnboardingWizard onDone={() => { markOnboarded(); setShowOnboarding(false); }} />
+              : <Router />}
             <Toaster />
           </AuthGate>
         </WouterRouter>

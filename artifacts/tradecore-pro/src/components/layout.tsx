@@ -13,10 +13,8 @@ import { NotificationBell } from "@/components/notification-bell";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
+import { MODE_LABELS } from "@/components/mode-picker";
 
-const MODE_LABELS: Record<string, string> = {
-  copilot: "Co-Pilot", autopilot: "AutoPilot", research: "Research",
-};
 const SECTION_LABELS: Record<Section, string> = { crypto: "Crypto", forex: "Forex" };
 
 /**
