@@ -1134,6 +1134,28 @@ class BotEngine {
     this.symbolMaps = buildSymbolMarketMaps(ex.markets);
     logger.info({ count: this.availableMarkets.size, mapped: this.symbolMaps.toUnified.size }, "Markets loaded");
 
+    // DEMO: there is nothing to authenticate, and asking would fail.
+    //
+    // A demo section's client is deliberately keyless (buildDemoMarketData) —
+    // it reads public candles and never places an order. fetchBalance() is a
+    // SIGNED endpoint, so calling it on that client throws
+    // `AuthenticationError: binance requires "apiKey" credential`, and the
+    // handler below then rewrites it into "your API keys are for the wrong
+    // environment". The result was that a demo crypto engine could never
+    // start, and the error blamed credentials the user was explicitly told
+    // they did not need. The demo balance is not on the exchange anyway: it is
+    // the configured starting balance plus the realised P&L of closed demo
+    // trades (getDemoBalance), which is authoritative by construction.
+    if (this.executionTarget === "demo") {
+      const demoBal = await this.getDemoBalance();
+      this.cachedBalance = demoBal;
+      this.lastBalanceFetch = Date.now();
+      this.state.balanceUsdt = demoBal;
+      // Nothing was verified because nothing needed to be — but the engine
+      // must not then behave as though a credential check had failed.
+      this.credentialsVerified = true;
+      logger.info({ balanceUsdt: demoBal }, "Demo account — no exchange credentials required");
+    } else {
     try {
       // This call verifies credentials AND primes the balance — previously the
       // result was discarded, so the user couldn't see their balance until
@@ -1190,6 +1212,7 @@ class BotEngine {
           `The credentials on the Settings page must be issued by ${environment} — ` +
           `each environment issues its own keys/tokens and will reject another's.`,
       );
+    }
     }
 
     this.state.running = true;
