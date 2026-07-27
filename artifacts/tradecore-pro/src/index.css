@@ -12,6 +12,9 @@
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
 
+  --color-surface: hsl(var(--surface));
+  --color-surface-foreground: hsl(var(--surface-foreground));
+
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
 
@@ -38,45 +41,56 @@
 
   --font-sans: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+
+  /* Wires --radius (below) into every rounded-* utility. Previously absent,
+     so --radius was declared but nothing consumed it — rounded-md/lg/sm all
+     silently used Tailwind's built-in defaults regardless of this value. */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
 }
 
 :root {
-  /* Enforce Dark Mode Instrument Panel Aesthetic */
-  --background: 224 71% 4%;
-  --foreground: 213 31% 91%;
+  /* Premium fintech palette (founder-approved), converted to HSL to match
+     this file's existing token format. Warm charcoal instead of pure black,
+     three real elevation steps (background → surface → card) instead of two. */
+  --background: 210 11% 7%;   /* #101214 */
+  --foreground: 220 14% 96%;  /* #F3F4F6 */
 
-  --border: 216 34% 17%;
-  --input: 216 34% 17%;
-  /* Focus ring. Was byte-identical to --border, which made every
-     focus-visible ring invisible against the control it outlined — keyboard
-     users had no focus indicator anywhere in the app. The primary hue makes a
-     focused control unmistakable on a dark surface. */
-  --ring: 190 90% 50%;
+  --surface: 216 17% 11%;     /* #181C22 */
+  --surface-foreground: 220 14% 96%;
 
-  --card: 222 47% 7%;
-  --card-foreground: 213 31% 91%;
+  --border: 219 17% 23%;      /* #313845 */
+  --input: 219 17% 23%;
+  /* Focus ring. Tied to --primary so a focused control is unmistakable on a
+     dark surface (was byte-identical to --border before, i.e. invisible). */
+  --ring: 186 81% 52%;
 
-  --primary: 190 90% 50%;
-  --primary-foreground: 224 71% 4%;
+  --card: 217 17% 15%;        /* #20252D */
+  --card-foreground: 220 14% 96%;
+
+  --primary: 186 81% 52%;     /* #1FD4E8 */
+  --primary-foreground: 210 11% 7%;
 
   --secondary: 217 33% 17%;
   --secondary-foreground: 210 40% 98%;
 
   --muted: 223 47% 11%;
-  --muted-foreground: 215 20.2% 65.1%;
+  --muted-foreground: 216 13% 70%;  /* #A8B0BC */
 
   --accent: 216 34% 17%;
   --accent-foreground: 210 40% 98%;
 
-  --destructive: 350 100% 60%;
+  --destructive: 0 68% 62%;   /* #E05D5D — reserved for errors/losses only */
   --destructive-foreground: 210 40% 98%;
 
-  --success: 140 100% 45%;
-  --success-foreground: 224 71% 4%;
+  --success: 145 55% 49%;     /* #38C172 — gains/positive actions only */
+  --success-foreground: 210 11% 7%;
 
-  --warning: 40 100% 50%;
-  
-  --radius: 0.25rem;
+  --warning: 36 77% 57%;      /* #E6A23C — warnings, and the Live-mode signal */
+
+  --radius: 0.5rem;
 }
 
 /* There is deliberately no `.dark` block.
@@ -95,4 +109,16 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+}
+
+/* TradeCore's one signature visual element: a barely-there cyan wash behind
+   the header/hero, so the interface reads as having depth rather than being
+   a flat fill. Deliberately subtle — apply to a `relative` parent only in the
+   header and dashboard hero, never inside cards or repeated per-page, or it
+   stops being a signature and becomes wallpaper. */
+.ambient-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(ellipse 80% 100% at 50% 0%, hsl(var(--primary) / 0.06), transparent 70%);
 }

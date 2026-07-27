@@ -651,7 +651,9 @@ export function Dashboard() {
       >
       <div className="p-3 sm:p-4 grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6">
         <Card className="md:col-span-2 relative overflow-hidden bg-card/50 border-primary/20 backdrop-blur">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+          {/* TradeCore's signature ambient glow — the hero card is the one
+              place besides the header it's allowed to appear. */}
+          <div className="ambient-glow" />
           <CardContent className="p-6 sm:p-8 flex flex-col justify-between h-full gap-6 relative z-10">
             <div>
               <h2 className="text-sm font-mono text-muted-foreground uppercase tracking-widest mb-1">Trading Engine</h2>
