@@ -322,11 +322,13 @@ function SetupChecklist() {
               // the section that genuinely needs no credentials.
               done: false,
               title: "Forex demo isn't available here",
+              // Deliberately does NOT name the environment variables. They are
+              // set by whoever runs the deployment, not by the person reading
+              // this, so printing them turns an actionable message into a wall
+              // of text about someone else's job. The one thing this reader
+              // CAN do is switch to Crypto.
               detail:
-                "OANDA publishes no public market data, so demo forex needs a practice token owned by this " +
-                "deployment (OANDA_PLATFORM_TOKEN / OANDA_PLATFORM_ACCOUNT_ID) — it isn't set. " +
-                "The Crypto section needs no credentials at all and works right now. " +
-                "You can also connect your own OANDA account and switch this section to Live.",
+                "Simulated forex needs a data source this deployment doesn't have. Crypto needs no credentials and works right now — or connect your own OANDA account and switch this section to Live.",
               cta: "Go to Crypto",
               onClick: () => setSection("crypto"),
             }
@@ -400,15 +402,27 @@ function SetupChecklist() {
   if (isDemo || dismissed || allDone || !config) return null;
 
   return (
-    <div className="rounded-lg border border-primary/40 bg-primary/5 overflow-hidden">
-      <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-primary/20">
+    <div
+      className={cn(
+        "overflow-hidden rounded-lg border",
+        // A blocker is not progress. Counting "0 of 1 done" against something
+        // the user cannot complete reads as a task they are failing.
+        demoBlocked ? "border-warning/40 bg-warning/5" : "border-primary/40 bg-primary/5",
+      )}
+    >
+      <div className={cn(
+        "flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5",
+        demoBlocked ? "border-warning/20" : "border-primary/20",
+      )}>
         <div className="min-w-0">
-          <div className="font-semibold text-sm">Finish setting up — {completed} of {steps.length} done</div>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
+          <div className="text-sm font-semibold">
+            {demoBlocked ? "This section can't run here" : `Finish setting up — ${completed} of ${steps.length} done`}
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {demoBlocked
-              ? `You're in Demo, but this deployment can't supply forex market data.`
+              ? "Forex needs a market-data source this deployment doesn't have."
               : demoTarget
-                ? `You're in Demo — simulated money, live prices, no exchange account required.`
+                ? "You're in Demo — simulated money, live prices, no exchange account required."
                 : `A few steps to your first ${forex ? "forex" : "crypto"} trade.`}
           </p>
         </div>
@@ -416,20 +430,34 @@ function SetupChecklist() {
           <X className="h-4 w-4" />
         </button>
       </div>
+      {/* The action drops BELOW the text on a phone. Side by side, a shrink-0
+          button left the description about half the width, so it wrapped into
+          a tall ragged column beside a floating button. */}
       <ol className="divide-y divide-primary/10">
         {steps.map((s, i) => (
-          <li key={i} className="flex items-center gap-3 px-4 sm:px-5 py-3">
+          <li key={i} className="flex items-start gap-3 px-4 py-3 sm:px-5">
             {s.done
-              ? <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
-              : <Circle className="h-5 w-5 text-muted-foreground shrink-0" />}
-            <div className="flex-1 min-w-0">
+              ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" />
+              : <Circle className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />}
+            <div className="min-w-0 flex-1">
               <div className={cn("text-sm font-medium", s.done && "text-muted-foreground line-through")}>{s.title}</div>
-              {!s.done && <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{s.detail}</p>}
+              {!s.done && (
+                <>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{s.detail}</p>
+                  <div className="mt-2 sm:hidden">
+                    {s.href
+                      ? <Link href={s.href}><Button size="sm" variant="outline" className="gap-1.5" onClick={s.onClick}>{s.cta} <ArrowRight className="h-3.5 w-3.5" /></Button></Link>
+                      : <Button size="sm" variant="outline" className="gap-1.5" onClick={s.onClick}>{s.cta} <ArrowRight className="h-3.5 w-3.5" /></Button>}
+                  </div>
+                </>
+              )}
             </div>
             {!s.done && (
-              s.href
-                ? <Link href={s.href}><Button size="sm" variant="outline" className="shrink-0 gap-1.5" onClick={s.onClick}>{s.cta} <ArrowRight className="h-3.5 w-3.5" /></Button></Link>
-                : <Button size="sm" variant="outline" className="shrink-0 gap-1.5" onClick={s.onClick}>{s.cta} <ArrowRight className="h-3.5 w-3.5" /></Button>
+              <div className="hidden shrink-0 sm:block">
+                {s.href
+                  ? <Link href={s.href}><Button size="sm" variant="outline" className="gap-1.5" onClick={s.onClick}>{s.cta} <ArrowRight className="h-3.5 w-3.5" /></Button></Link>
+                  : <Button size="sm" variant="outline" className="gap-1.5" onClick={s.onClick}>{s.cta} <ArrowRight className="h-3.5 w-3.5" /></Button>}
+              </div>
             )}
           </li>
         ))}
@@ -691,12 +719,20 @@ export function Dashboard() {
             value={statusUnknown ? "—" : formatCurrency(bot?.dailyPnl, "always")}
           />
           {/* winRateToday is a 0–1 fraction; formatPercent expects 0–100.
-              Passed through as null when absent rather than coerced to 0 —
-              "no trades closed today" is not "0% win rate today". */}
+              The engine reports a literal 0 when nothing has closed today
+              (botEngine: `closedToday.length > 0 ? wins/n : 0`), so a null
+              check is not enough — an account that has never traded would
+              still read "0.00%", which is a measured-looking claim about a
+              day with no measurements. Gate on the trade count instead: no
+              trades closed today means there is no win rate today. */}
           <Stat
             label="Win Rate"
             valueClass={statusUnknown ? "text-muted-foreground" : "text-primary"}
-            value={statusUnknown ? "—" : formatPercent(bot?.winRateToday != null ? bot.winRateToday * 100 : null)}
+            value={
+              statusUnknown || !(bot?.totalTradesToday && bot.totalTradesToday > 0)
+                ? "—"
+                : formatPercent(bot.winRateToday * 100)
+            }
           />
           <Stat
             label="Open Positions"
