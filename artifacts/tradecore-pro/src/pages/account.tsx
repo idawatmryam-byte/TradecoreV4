@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from "@/components/ui";
 import { useToast } from "@/components/ui/use-toast";
+import { EmptyState } from "@/components/patterns/empty-state";
 import {
   UserCircle2, Save, KeyRound, Loader2, ShieldCheck, Trash2, AlertTriangle, Link2, Copy, Check,
 } from "lucide-react";
@@ -147,7 +148,20 @@ export function Account() {
     );
   }
   if (!info) {
-    return <p className="text-sm text-muted-foreground">Couldn't load your account. Refresh and try again.</p>;
+    return (
+      <div className="max-w-3xl mx-auto">
+        <Card>
+          <CardContent className="p-0">
+            <EmptyState
+              icon={UserCircle2}
+              title="Couldn't load your profile"
+              description="The account service didn't respond. Your data is safe — this is a read failure, not a change."
+              action={{ label: "Try again", onClick: () => window.location.reload() }}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   const initial = (info.displayName || info.username).charAt(0).toUpperCase();
@@ -158,7 +172,7 @@ export function Account() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <UserCircle2 className="h-6 w-6 text-primary" /> Account
+          <UserCircle2 className="h-6 w-6 text-primary" /> Profile
         </h1>
         <p className="text-muted-foreground text-sm mt-1">Manage your profile, security, and connected sign-in methods.</p>
       </div>

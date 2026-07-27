@@ -17,7 +17,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import { TrendingUp, Target, Waves, Zap, ArrowUpDown, BarChart3, Edit2, X, Check, RefreshCw, Flame, ChevronDown, ChevronUp, Stethoscope, Hammer, FlaskConical, ShieldAlert, Plus } from 'lucide-react';
+import { TrendingUp, Target, Waves, Zap, ArrowUpDown, BarChart3, Edit2, X, Check, RefreshCw, Flame, ChevronDown, ChevronUp, Stethoscope, Hammer, FlaskConical, ShieldAlert, Plus, Layers } from 'lucide-react';
+import { EmptyState } from '@/components/patterns/empty-state';
 
 /** Account context the dollar-plan preview needs (from Configuration). */
 interface AccountCtx {
@@ -527,8 +528,11 @@ export function Strategies() {
         </CardContent>
       </Card>
 
-      {/* Summary stats */}
-      {strategies && (
+      {/* Summary stats. Gated on there actually BEING strategies, not merely
+          on the request having resolved — an empty array previously rendered
+          "Active 0/0" and "Combined PnL +0.00" above a blank grid, which reads
+          as a measured result rather than as nothing to measure. */}
+      {strategies && strategies.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard label="Active" value={`${activeCount}/${totalCount}`} />
           <StatCard label="Total Trades" value={String(totalTrades)} />
@@ -554,6 +558,17 @@ export function Strategies() {
             </Card>
           ))}
         </div>
+      ) : (strategies ?? []).length === 0 ? (
+        <Card>
+          <CardContent className="p-0">
+            <EmptyState
+              icon={Layers}
+              title="No strategies available"
+              description="The built-in strategies load with the engine. If none appear, the section may still be starting up — or you can build your own."
+              action={{ label: "Open the builder", href: "/builder" }}
+            />
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {(strategies ?? []).map((strategy) => (

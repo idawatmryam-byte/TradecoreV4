@@ -290,17 +290,42 @@ export function Settings() {
     });
   };
 
+  const header = (
+    <div>
+      <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+        <SettingsIcon className="h-6 w-6 text-primary" /> Settings
+      </h1>
+      <p className="text-muted-foreground text-sm mt-1">
+        Account-level settings and the safety limits that protect your whole account.
+        How each strategy trades — dollar risk, targets, hold time — lives on the Strategies page.
+      </p>
+    </div>
+  );
+
+  // Until the real config arrives, `formData` holds placeholder defaults that
+  // are NOT this user's settings — including a daily loss limit of -10 and a
+  // two-coin pair list. Rendering them looks like a configuration readout and
+  // invites someone to hit Save on values they never chose. Show skeletons.
+  if (!config) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        {header}
+        {[0, 1, 2].map((i) => (
+          <Card key={i}>
+            <CardContent className="p-6 space-y-3">
+              <div className="h-4 w-40 rounded bg-muted animate-pulse" />
+              <div className="h-9 w-full rounded bg-muted/60 animate-pulse" />
+              <div className="h-9 w-2/3 rounded bg-muted/60 animate-pulse" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <SettingsIcon className="h-6 w-6 text-primary" /> Account & Safety
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Account-level settings and the safety limits that protect your whole account.
-          How each strategy trades — dollar risk, targets, hold time — lives on the Strategies page.
-        </p>
-      </div>
+      {header}
 
       {isForexSection ? <OandaCredentialsCard /> : <BinanceCredentialsCard />}
 

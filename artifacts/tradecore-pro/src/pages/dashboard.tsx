@@ -749,11 +749,13 @@ export function Dashboard() {
             valueClass={statusUnknown ? "text-muted-foreground" : (bot?.dailyPnl ?? 0) >= 0 ? "text-success" : "text-destructive"}
             value={statusUnknown ? "—" : formatCurrency(bot?.dailyPnl, "always")}
           />
-          {/* winRateToday is a 0–1 fraction; formatPercent expects 0–100. */}
+          {/* winRateToday is a 0–1 fraction; formatPercent expects 0–100.
+              Passed through as null when absent rather than coerced to 0 —
+              "no trades closed today" is not "0% win rate today". */}
           <Stat
             label="Win Rate"
             valueClass={statusUnknown ? "text-muted-foreground" : "text-primary"}
-            value={statusUnknown ? "—" : formatPercent((bot?.winRateToday ?? 0) * 100)}
+            value={statusUnknown ? "—" : formatPercent(bot?.winRateToday != null ? bot.winRateToday * 100 : null)}
           />
           <Stat
             label="Open Positions"
