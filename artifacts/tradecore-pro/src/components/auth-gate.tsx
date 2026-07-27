@@ -6,6 +6,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { markOAuthSignupIntent, consumeOAuthSignupIntent } from "@/lib/onboarding";
 
 /**
  * Multi-user Phase.
@@ -74,9 +75,9 @@ export function AuthGate({
    * onboarding wizard gates on. Logging in never fires it, so an existing user
    * is never walked back through first-run setup.
    *
-   * Social sign-in cannot distinguish a first-time from a returning user (both
-   * come back through the same OAuth redirect with no local state), so those
-   * accounts skip the wizard and configure from Settings instead.
+   * Social sign-up fires it too, via the intent marker parked before the
+   * redirect (see `lib/onboarding.ts`) — the OAuth callback itself carries no
+   * way to tell a new account from a returning one.
    */
   onRegistered?: () => void;
 }) {
@@ -102,11 +103,17 @@ export function AuthGate({
 
   useEffect(() => {
     let cancelled = false;
+    // Consumed unconditionally, acted on only when the round trip actually
+    // produced a session: a cancelled or failed OAuth attempt must not leave
+    // the marker armed to fire on an unrelated login later.
+    const cameFromSocialSignup = consumeOAuthSignupIntent();
     fetch("/api/auth/status", { credentials: "same-origin" })
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
-        setStatus(data?.authenticated ? "authenticated" : "unauthenticated");
+        const authenticated = !!data?.authenticated;
+        if (authenticated && cameFromSocialSignup) onRegistered?.();
+        setStatus(authenticated ? "authenticated" : "unauthenticated");
       })
       .catch(() => { if (!cancelled) setStatus("unauthenticated"); });
     fetch("/api/auth/providers", { credentials: "same-origin" })
@@ -172,6 +179,17 @@ export function AuthGate({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  /**
+   * Hand off to a social provider, remembering whether this was a sign-up.
+   * The provider button is the same in both tabs, so the tab the user chose it
+   * from is the only statement of intent that exists — and it disappears the
+   * moment the page navigates away.
+   */
+  function startOauth(url: string) {
+    if (mode === "register") markOAuthSignupIntent();
+    window.location.href = url;
   }
 
   async function handleDemo() {
@@ -305,7 +323,7 @@ export function AuthGate({
                       type="button"
                       variant="outline"
                       className="w-full gap-2.5 font-medium"
-                      onClick={() => { window.location.href = "/api/auth/google"; }}
+                      onClick={() => { startOauth("/api/auth/google"); }}
                     >
                       <GoogleIcon /> Continue with Google
                     </Button>
@@ -315,7 +333,7 @@ export function AuthGate({
                       type="button"
                       variant="outline"
                       className="w-full gap-2.5 font-medium"
-                      onClick={() => { window.location.href = "/api/auth/apple"; }}
+                      onClick={() => { startOauth("/api/auth/apple"); }}
                     >
                       <AppleIcon /> Continue with Apple
                     </Button>
