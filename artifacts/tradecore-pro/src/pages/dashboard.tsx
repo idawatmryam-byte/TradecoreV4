@@ -1,4 +1,4 @@
-import { useGetBotStatus, useGetScannerData, useStartBot, useStopBot, useGetBinanceCredentials, useGetOandaCredentials, getGetBotStatusQueryKey, getGetScannerDataQueryKey, getGetTradesQueryKey, getGetBinanceCredentialsQueryKey, getGetOandaCredentialsQueryKey } from "@workspace/api-client-react";
+import { useGetBotStatus, useGetScannerData, useStartBot, useStopBot, useGetBinanceCredentials, useGetOandaCredentials, useGetConfig, useGetCopilotInbox, getGetBotStatusQueryKey, getGetScannerDataQueryKey, getGetTradesQueryKey, getGetBinanceCredentialsQueryKey, getGetOandaCredentialsQueryKey, getGetConfigQueryKey, getGetCopilotInboxQueryKey } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
 import { Link } from "wouter";
@@ -287,16 +287,26 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
   );
 }
 
-/** First-run nudge: until the user connects their own Binance API keys the
- *  engine can't place a single order, so point new accounts straight at the
- *  one setup step that matters. Hidden once keys are configured. */
 /**
- * Post-signup setup guide. A real (non-demo) user's first-run path to a
- * running engine, tracked against LIVE state so each step ticks itself:
- * connect the section's broker keys → review the risk plan → press Start.
- * Section-aware (Binance for crypto, OANDA for forex), dismissible, and it
- * disappears once setup is complete. Supersedes the old Binance-only
- * connect-keys banner.
+ * Post-signup setup guide, tracked against LIVE state so each step ticks
+ * itself. Section-aware (Binance for crypto, OANDA for forex), dismissible,
+ * and it disappears once setup is complete.
+ *
+ * The path depends on where the section actually executes, which a new
+ * account resolves to DEMO — the engine creates every new section with
+ * executionTarget "demo" and mode "copilot" (botEngine.loadConfig). So:
+ *
+ *   DEMO  no keys, no exchange, no funds. Start the engine and, in Co-Pilot,
+ *         approve the first recommendation. Connecting a broker is offered as
+ *         a later, deliberate step rather than the price of entry.
+ *   LIVE  the original path: connect the section's broker keys → review the
+ *         risk plan → press Start.
+ *
+ * Getting this wrong is worse than an ugly banner: a demo-first product whose
+ * first screen demands API keys has thrown away the reason it is demo-first.
+ * An earlier version of this component hardcoded the keys step for everyone,
+ * so a brand-new account was asked for Binance credentials it did not need
+ * and the checklist could never reach "done".
  */
 function SetupChecklist() {
   const isDemo = useIsDemo();
@@ -311,60 +321,127 @@ function SetupChecklist() {
     try { return localStorage.getItem(riskKey) === "1"; } catch { return false; }
   });
 
-  const binance = useGetBinanceCredentials({ query: { queryKey: getGetBinanceCredentialsQueryKey(), enabled: !forex } });
-  const oanda = useGetOandaCredentials({ query: { queryKey: getGetOandaCredentialsQueryKey(), enabled: forex } });
+  const { data: config } = useGetConfig({ query: { queryKey: getGetConfigQueryKey() } });
+  const demoTarget = config?.executionTarget === "demo";
+  const copilot = config?.mode === "copilot";
+
+  // Credential queries are pointless in demo — skip the requests entirely
+  // rather than fetching and ignoring them.
+  const binance = useGetBinanceCredentials({
+    query: { queryKey: getGetBinanceCredentialsQueryKey(), enabled: !forex && !demoTarget },
+  });
+  const oanda = useGetOandaCredentials({
+    query: { queryKey: getGetOandaCredentialsQueryKey(), enabled: forex && !demoTarget },
+  });
   const { data: bot } = useGetBotStatus({ query: { queryKey: getGetBotStatusQueryKey() } });
+  // In Co-Pilot nothing executes on its own, so "acted on a recommendation" is
+  // the real finish line. The inbox defaults to `created` (the actionable
+  // ones), so the resolved statuses must be asked for explicitly — querying
+  // the default and looking for a non-created row would never match.
+  const ACTED = "executed,rejected,superseded";
+  const inbox = useGetCopilotInbox(
+    { status: ACTED, limit: 1 },
+    { query: { queryKey: getGetCopilotInboxQueryKey({ status: ACTED, limit: 1 }), enabled: demoTarget && copilot } },
+  );
 
   const keysDone = forex ? !!oanda.data?.configured : !!binance.data?.configured;
   const started = !!bot?.running;
   // Starting the engine is only possible once a config exists, so a running
   // engine implies the risk plan was set — tick it regardless of the local flag.
   const riskDone = riskReviewed || started;
-  const allDone = keysDone && riskDone && started;
-
-  if (isDemo || dismissed || allDone) return null;
+  const actedOnPlan = (inbox.data?.recommendations ?? []).length > 0;
 
   const dismiss = () => { try { localStorage.setItem(dismissKey, "1"); } catch { /* private mode */ } setDismissed(true); };
   const markRiskReviewed = () => { try { localStorage.setItem(riskKey, "1"); } catch { /* private mode */ } setRiskReviewed(true); };
 
-  const steps = [
-    {
-      done: keysDone,
-      title: forex ? "Connect your OANDA account" : "Connect your exchange keys",
-      detail: forex
-        ? "Add an OANDA API token + account id. Start on a practice account — no real funds at risk."
-        : "Add your Binance API key + secret. Use testnet keys to paper-trade first, with no real funds at risk.",
-      cta: keysDone ? "Connected" : "Connect",
-      href: "/settings",
-      onClick: undefined as (() => void) | undefined,
-    },
-    {
-      done: riskDone,
-      title: "Set your risk plan",
-      detail: "Choose the dollars you're willing to lose and to target per trade — the engine derives size, stop, and target from that.",
-      cta: riskDone ? "Reviewed" : "Review risk",
-      href: "/settings",
-      onClick: markRiskReviewed,
-    },
-    {
-      done: started,
-      title: "Start the engine",
-      detail: forex
-        ? "Press START on the cockpit. The engine only trades while the forex market is open."
-        : "Press START on the cockpit above — the engine begins scanning immediately.",
-      cta: started ? "Running" : "Go to START",
-      href: undefined as string | undefined,
-      onClick: () => window.scrollTo({ top: 0, behavior: "smooth" }),
-    },
-  ];
+  type Step = {
+    done: boolean;
+    title: string;
+    detail: string;
+    cta: string;
+    href?: string;
+    onClick?: () => void;
+  };
+
+  // Demo needs no broker, so the keys step is absent rather than pre-ticked —
+  // a struck-through "Connect your exchange keys" would still tell a new user
+  // that keys are part of this, which is the thing being fixed.
+  const steps: Step[] = demoTarget
+    ? [
+        {
+          done: started,
+          title: "Start the engine",
+          detail: forex
+            ? `No broker needed — this section trades a simulated $${(config?.demoStartingBalanceUsdt ?? 100000).toLocaleString()} account against live prices. The engine only trades while the forex market is open.`
+            : `No API keys needed — this section trades a simulated $${(config?.demoStartingBalanceUsdt ?? 10000).toLocaleString()} account against live prices. Press START on the cockpit above.`,
+          cta: started ? "Running" : "Go to START",
+          onClick: () => window.scrollTo({ top: 0, behavior: "smooth" }),
+        },
+        ...(copilot
+          ? [{
+              done: actedOnPlan,
+              title: "Approve your first trade",
+              detail:
+                "You're in Co-Pilot, so the engine recommends and you decide — it will not open a position on its own. " +
+                "Recommendations land in the Co-Pilot inbox with the full reasoning behind them.",
+              cta: actedOnPlan ? "Done" : "Open Co-Pilot",
+              href: "/copilot",
+            } satisfies Step]
+          : []),
+        {
+          done: riskDone,
+          title: "Set your risk plan",
+          detail: "Choose the dollars you're willing to lose and to target per trade — the engine derives size, stop, and target from that. It applies to demo and live alike.",
+          cta: riskDone ? "Reviewed" : "Review risk",
+          href: "/settings",
+          onClick: markRiskReviewed,
+        },
+      ]
+    : [
+        {
+          done: keysDone,
+          title: forex ? "Connect your OANDA account" : "Connect your exchange keys",
+          detail: forex
+            ? "Add an OANDA API token + account id. Start on a practice account — no real funds at risk."
+            : "Add your Binance API key + secret. Prefer to try it first? Switch this section to Demo in Settings — it trades simulated money against live prices, with no keys at all.",
+          cta: keysDone ? "Connected" : "Connect",
+          href: "/settings",
+        },
+        {
+          done: riskDone,
+          title: "Set your risk plan",
+          detail: "Choose the dollars you're willing to lose and to target per trade — the engine derives size, stop, and target from that.",
+          cta: riskDone ? "Reviewed" : "Review risk",
+          href: "/settings",
+          onClick: markRiskReviewed,
+        },
+        {
+          done: started,
+          title: "Start the engine",
+          detail: forex
+            ? "Press START on the cockpit. The engine only trades while the forex market is open."
+            : "Press START on the cockpit above — the engine begins scanning immediately.",
+          cta: started ? "Running" : "Go to START",
+          onClick: () => window.scrollTo({ top: 0, behavior: "smooth" }),
+        },
+      ];
+
   const completed = steps.filter((s) => s.done).length;
+  const allDone = completed === steps.length;
+
+  // Waiting for config avoids a flash of the live checklist on a demo account.
+  if (isDemo || dismissed || allDone || !config) return null;
 
   return (
     <div className="rounded-lg border border-primary/40 bg-primary/5 overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-primary/20">
         <div className="min-w-0">
           <div className="font-semibold text-sm">Finish setting up — {completed} of {steps.length} done</div>
-          <p className="text-[11px] text-muted-foreground mt-0.5">A few steps to your first {forex ? "forex" : "crypto"} trade.</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {demoTarget
+              ? `You're in Demo — simulated money, live prices, no exchange account required.`
+              : `A few steps to your first ${forex ? "forex" : "crypto"} trade.`}
+          </p>
         </div>
         <button type="button" onClick={dismiss} aria-label="Dismiss setup guide" className="shrink-0 text-muted-foreground hover:text-foreground transition-colors">
           <X className="h-4 w-4" />
@@ -388,6 +465,15 @@ function SetupChecklist() {
           </li>
         ))}
       </ol>
+      {demoTarget && (
+        <div className="px-4 sm:px-5 py-2.5 border-t border-primary/20 text-[11px] text-muted-foreground">
+          Ready for real money later?{" "}
+          <Link href="/settings" className="text-primary hover:underline">
+            Connect {forex ? "OANDA" : "an exchange"} and switch to Live
+          </Link>{" "}
+          — a deliberate step, never the default.
+        </div>
+      )}
     </div>
   );
 }
