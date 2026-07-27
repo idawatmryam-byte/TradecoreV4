@@ -5,6 +5,13 @@ import {
 } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label, Switch } from "@/components/ui";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { PageHeader, PageTabs } from "@/components/patterns";
+
+/** Settings' two views. Separate routes, one destination. */
+export const SETTINGS_TABS = [
+  { href: "/settings", label: "Trading" },
+  { href: "/account", label: "Profile" },
+];
 import { Settings as SettingsIcon, Save, TestTube2, KeyRound, Trash2, TrendingUp, CandlestickChart } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -291,15 +298,14 @@ export function Settings() {
   };
 
   const header = (
-    <div>
-      <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-        <SettingsIcon className="h-6 w-6 text-primary" /> Settings
-      </h1>
-      <p className="text-muted-foreground text-sm mt-1">
-        Account-level settings and the safety limits that protect your whole account.
-        How each strategy trades — dollar risk, targets, hold time — lives on the Strategies page.
-      </p>
-    </div>
+    <>
+      <PageHeader
+        icon={SettingsIcon}
+        title="Settings"
+        description="Your broker connection and the safety limits that protect the whole account. How each strategy trades — dollar risk, targets, hold time — lives under Advanced → Strategies."
+      />
+      <PageTabs tabs={SETTINGS_TABS} />
+    </>
   );
 
   // Until the real config arrives, `formData` holds placeholder defaults that

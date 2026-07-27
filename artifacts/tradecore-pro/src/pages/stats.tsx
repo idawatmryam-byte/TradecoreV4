@@ -2,7 +2,13 @@ import { useGetStatsSummary, useGetHourlyStats, useGetDailyReport, getGetStatsSu
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPercent, formatNumber, NO_VALUE } from "@/lib/utils";
-import { EmptyState } from "@/components/patterns/empty-state";
+import { EmptyState, PageHeader, PageTabs } from "@/components/patterns";
+
+/** Performance's two views. Separate routes, one destination. */
+export const PERFORMANCE_TABS = [
+  { href: "/stats", label: "Overview" },
+  { href: "/decisions", label: "Decision History" },
+];
 import { BarChart2, Flame, TrendingDown, Target, Zap, FileText, Download, Microscope, AlertTriangle, Info, CheckCircle2, Filter } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Cell as PieCell } from 'recharts';
 import { cn } from "@/lib/utils";
@@ -441,12 +447,13 @@ export function Stats() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <BarChart2 className="h-6 w-6 text-primary" /> Performance Analytics
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">Deep dive into historical edge and execution metrics.</p>
-      </div>
+      <PageHeader
+        icon={BarChart2}
+        title="Performance"
+        description="Where the edge and the losses actually come from, measured on your own closed trades."
+      />
+
+      <PageTabs tabs={PERFORMANCE_TABS} />
 
       {/* The diagnosis layer: decomposes the win-rate number into named,
           dollar-quantified leaks (scratches, noise-stops, negative cells). */}

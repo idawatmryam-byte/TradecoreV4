@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from "@/components/ui";
 import { useToast } from "@/components/ui/use-toast";
-import { EmptyState } from "@/components/patterns/empty-state";
+import { EmptyState, PageHeader, PageTabs } from "@/components/patterns";
+import { SETTINGS_TABS } from "./settings";
 import {
   UserCircle2, Save, KeyRound, Loader2, ShieldCheck, Trash2, AlertTriangle, Link2, Copy, Check,
 } from "lucide-react";
@@ -170,12 +171,13 @@ export function Account() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <UserCircle2 className="h-6 w-6 text-primary" /> Profile
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">Manage your profile, security, and connected sign-in methods.</p>
-      </div>
+      <PageHeader
+        icon={UserCircle2}
+        title="Profile"
+        description="Your name, password, and connected sign-in methods."
+      />
+
+      <PageTabs tabs={SETTINGS_TABS} />
 
       {/* ── Profile ─────────────────────────────────────────────────────────── */}
       <Card>
@@ -194,7 +196,7 @@ export function Account() {
                 type="button"
                 onClick={() => copyAccountId(accountId)}
                 title="Copy Account ID"
-                className="mt-1 inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
+                className="-ml-2 mt-0.5 inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs font-mono text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 Account ID: <span className="text-foreground">{accountId}</span>
                 {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}

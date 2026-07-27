@@ -7,7 +7,8 @@ import {
   type Recommendation, type RevalidationCheck,
 } from "@workspace/api-client-react";
 import { Card, CardContent, Button, Badge, Input, Label } from "@/components/ui";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
+import { PageHeader, EmptyState, LoadingRows } from "@/components/patterns";
 import { cn } from "@/lib/utils";
 import {
   ArrowUpRight, ArrowDownRight, CheckCircle2, XCircle, Ban, Clock,
@@ -158,7 +159,7 @@ function RecommendationCard({ rec }: { rec: Recommendation }) {
             {rec.strategyName ?? rec.strategyId} · {rec.confidence.toFixed(0)}%
           </span>
           <Link href={`/copilot/${rec.id}`}>
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">
+            <Button size="sm" variant="ghost" className="px-2 text-xs">
               <Maximize2 className="h-3 w-3 mr-1" />Workspace
             </Button>
           </Link>
@@ -198,7 +199,7 @@ function RecommendationCard({ rec }: { rec: Recommendation }) {
               This creates a NEW plan authored by you. The engine's original is kept
               unchanged, so a later post-mortem can tell the two apart.
             </p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div><Label className="text-xs">Stop</Label><Input value={sl} onChange={(e) => setSl(e.target.value)} className="font-mono" /></div>
               <div><Label className="text-xs">Target</Label><Input value={tp} onChange={(e) => setTp(e.target.value)} className="font-mono" /></div>
               <div><Label className="text-xs">Size</Label><Input value={qty} onChange={(e) => setQty(e.target.value)} className="font-mono" /></div>
@@ -241,11 +242,9 @@ export default function CoPilot() {
   const recommendations = data?.recommendations ?? [];
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-4xl mx-auto space-y-4">
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Inbox className="h-6 w-6" /> Co-Pilot
-        </h1>
+        <PageHeader icon={Inbox} title="AI Co-Pilot" />
         <button
           onClick={() => setShowHelp((v) => !v)}
           className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mt-1"
@@ -273,12 +272,12 @@ export default function CoPilot() {
         )}
       </div>
 
-      <div className="flex gap-2">
+      <div className="-mx-1 flex gap-1 px-1">
         {FILTERS.map((f) => (
           <Button
             key={f.key}
             size="sm"
-            variant={filter === f.key ? "default" : "outline"}
+            variant={filter === f.key ? "secondary" : "ghost"}
             onClick={() => setFilter(f.key)}
           >
             {f.label}
@@ -287,23 +286,23 @@ export default function CoPilot() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center gap-2 text-muted-foreground py-12 justify-center">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-        </div>
+        <Card><CardContent className="p-0"><LoadingRows rows={3} /></CardContent></Card>
       ) : recommendations.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <Inbox className="h-8 w-8 mx-auto mb-3 opacity-40" />
+          <CardContent className="p-0">
             {filter === "created" ? (
-              <>
-                <p className="font-medium">Nothing waiting on you</p>
-                <p className="text-sm mt-1">
-                  The engine scans continuously and will put a plan here the moment one of your
-                  strategies finds a setup worth taking.
-                </p>
-              </>
+              <EmptyState
+                icon={Inbox}
+                title="Nothing waiting on you"
+                description="The engine scans continuously and will put a plan here the moment one of your strategies finds a setup worth taking. It never opens a position on its own in Co-Pilot."
+                action={{ label: "Check the engine is running", href: "/" }}
+              />
             ) : (
-              <p className="font-medium">No past recommendations yet</p>
+              <EmptyState
+                icon={Inbox}
+                title="No past recommendations yet"
+                description="Plans you execute, modify or decline are kept here so a result can always be traced back to whose decision it was."
+              />
             )}
           </CardContent>
         </Card>

@@ -4,6 +4,8 @@ import {
   type StrategyDecisionEntry,
 } from "@workspace/api-client-react";
 import { Card, CardContent, Button, Badge } from "@/components/ui";
+import { PageHeader, PageTabs, EmptyState, LoadingRows } from "@/components/patterns";
+import { PERFORMANCE_TABS } from "./stats";
 import { cn } from "@/lib/utils";
 import {
   Scale, CheckCircle2, XCircle, PauseCircle, ChevronDown, ChevronUp, Loader2,
@@ -224,52 +226,63 @@ export function Decisions() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <Scale className="h-5 w-5 text-primary" /> Decisions
-          </h1>
-          <p className="text-xs text-muted-foreground mt-1 max-w-xl">
-            The strategies' written journal — every trade they considered, with the full reasoning.
-            Rejections matter as much as entries: this is why the engine is (or isn't) trading.
-          </p>
-        </div>
-        <div className="flex gap-1.5 flex-wrap items-center">
-          {(["all", "executed", "approved_not_taken", "rejected"] as Kind[]).map((k) => (
-            <Button
-              key={k}
-              size="sm"
-              variant={kind === k ? "default" : "outline"}
-              className="text-xs h-7"
-              onClick={() => { setKind(k); setExtra([]); setExhausted(false); }}
-            >
-              {k === "all" ? "All" : KIND_META[k as Exclude<Kind, "all">].label}
-            </Button>
-          ))}
+      <PageHeader
+        icon={Scale}
+        title="Decision History"
+        description="Every trade the strategies considered, with the full reasoning. Rejections matter as much as entries: this is why the engine is — or isn't — trading."
+        actions={
           <Button
             size="sm"
             variant="outline"
-            className="text-xs h-7 gap-1.5"
+            className="gap-1.5"
             onClick={downloadCsv}
             disabled={exporting || entries.length === 0}
             title="Export the journal (current filter) as CSV — up to 2000 most recent decisions"
           >
             {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-            CSV
+            Export CSV
           </Button>
-        </div>
+        }
+      />
+
+      <PageTabs tabs={PERFORMANCE_TABS} />
+
+      <div className="-mx-1 flex flex-wrap items-center gap-1 px-1">
+        {(["all", "executed", "approved_not_taken", "rejected"] as Kind[]).map((k) => (
+          <Button
+            key={k}
+            size="sm"
+            variant={kind === k ? "secondary" : "ghost"}
+            onClick={() => { setKind(k); setExtra([]); setExhausted(false); }}
+          >
+            {k === "all" ? "All" : KIND_META[k as Exclude<Kind, "all">].label}
+          </Button>
+        ))}
       </div>
 
-      {isLoading && (
-        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-      )}
+      {isLoading && <Card><CardContent className="p-0"><LoadingRows rows={5} /></CardContent></Card>}
       {isError && (
-        <p className="text-sm text-destructive text-center py-8">Couldn't load the decision journal.</p>
+        <Card><CardContent className="p-0">
+          <EmptyState
+            icon={Scale}
+            title="Couldn't load the decision journal"
+            description="The API didn't respond. Recorded decisions are safe — this is a read failure."
+            action={{ label: "Try again", onClick: () => window.location.reload() }}
+          />
+        </CardContent></Card>
       )}
       {!isLoading && !isError && entries.length === 0 && (
-        <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">
-          No recorded decisions yet. Once the engine scans with the decision-making strategies enabled,
-          every considered trade — taken or passed — appears here with its reasoning.
+        <Card><CardContent className="p-0">
+          <EmptyState
+            icon={Scale}
+            title={kind === "all" ? "No decisions recorded yet" : "Nothing matches this filter"}
+            description={
+              kind === "all"
+                ? "Once the engine is running, every trade a strategy considers is written here — taken, passed over, or rejected — with the reasoning that produced it."
+                : "Try All to see every recorded decision."
+            }
+            action={kind === "all" ? { label: "Go to Dashboard", href: "/" } : { label: "Show all", onClick: () => { setKind("all"); setExtra([]); setExhausted(false); } }}
+          />
         </CardContent></Card>
       )}
 
