@@ -4,10 +4,24 @@ import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { History, ArrowUpRight, ArrowDownRight, Filter, WifiOff, Download } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { PageHeader, PageTabs, EmptyState, LoadingRows } from "@/components/patterns";
 
 // Fetch the API's maximum so the CSV export covers as much history as one
 // request allows (the on-screen table simply scrolls).
 const FETCH_LIMIT = 500;
+
+/** Portfolio's two views. Separate routes, one destination. */
+export const PORTFOLIO_TABS = [
+  { href: "/trades", label: "Trade Log" },
+  { href: "/journal", label: "Journal" },
+];
+
+const STATUS_FILTERS: { label: string; value: GetTradesStatus | undefined }[] = [
+  { label: "All", value: undefined },
+  { label: "Open", value: "open" },
+  { label: "Closed", value: "closed" },
+  { label: "Stopped", value: "stopped" },
+];
 
 export function Trades() {
   const [filter, setFilter] = useState<GetTradesStatus | undefined>(undefined);
@@ -43,60 +57,34 @@ export function Trades() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <History className="h-6 w-6 text-primary" /> Trade Log
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">Complete history of all executed algorithmic trades.</p>
-        </div>
+      <PageHeader
+        icon={History}
+        title="Portfolio"
+        description="Every position the engine has opened, and what became of it."
+        actions={
+          <Button variant="outline" size="sm" onClick={downloadCsv} disabled={!trades || trades.length === 0} className="gap-1.5">
+            <Download className="h-3.5 w-3.5" /> Export CSV
+          </Button>
+        }
+      />
 
-        {/* Filter pill: full-width and horizontally scrollable on phones so the
-            five controls never overflow the page; inline auto-width from small up. */}
-        <div className="flex items-center gap-2 bg-card p-1 rounded-md border w-full sm:w-auto overflow-x-auto">
-          <Filter className="h-4 w-4 text-muted-foreground ml-2 mr-1 shrink-0" />
+      <PageTabs tabs={PORTFOLIO_TABS} />
+
+      {/* Status filter. Horizontally scrollable on phones so the four controls
+          never overflow the page; inline from small up. */}
+      <div className="-mx-1 flex items-center gap-1 overflow-x-auto px-1">
+        <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
+        {STATUS_FILTERS.map((f) => (
           <Button
-            variant={filter === undefined ? "secondary" : "ghost"}
+            key={f.label}
+            variant={filter === f.value ? "secondary" : "ghost"}
             size="sm"
-            onClick={() => setFilter(undefined)}
-            className="text-xs uppercase tracking-wider font-mono h-7 shrink-0"
+            onClick={() => setFilter(f.value)}
+            className="shrink-0"
           >
-            All
+            {f.label}
           </Button>
-          <Button
-            variant={filter === 'open' ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setFilter('open')}
-            className="text-xs uppercase tracking-wider font-mono h-7 shrink-0"
-          >
-            Open
-          </Button>
-          <Button
-            variant={filter === 'closed' ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setFilter('closed')}
-            className="text-xs uppercase tracking-wider font-mono h-7 shrink-0"
-          >
-            Closed
-          </Button>
-          <Button
-            variant={filter === 'stopped' ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setFilter('stopped')}
-            className="text-xs uppercase tracking-wider font-mono h-7 shrink-0"
-          >
-            Stopped
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={downloadCsv}
-            disabled={!trades || trades.length === 0}
-            className="text-xs uppercase tracking-wider font-mono h-7 gap-1 ml-1 shrink-0"
-          >
-            <Download className="h-3 w-3" /> CSV
-          </Button>
-        </div>
+        ))}
       </div>
 
       <Card>
@@ -168,24 +156,36 @@ export function Trades() {
               })}
               {isError && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-destructive font-mono text-sm uppercase tracking-wider">
-                    <div className="flex items-center justify-center gap-2">
-                      <WifiOff className="h-4 w-4" /> Unable to load trades — check API connectivity.
-                    </div>
+                  <TableCell colSpan={8} className="p-0">
+                    <EmptyState
+                      icon={WifiOff}
+                      title="Couldn't load your trades"
+                      description="The API didn't respond. Any open positions still hold their exchange-side stop-loss and take-profit — this is a read failure, not a change."
+                      action={{ label: "Try again", onClick: () => window.location.reload() }}
+                    />
                   </TableCell>
                 </TableRow>
               )}
               {!isError && isLoading && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground font-mono text-sm uppercase tracking-wider">
-                    Loading trades…
+                  <TableCell colSpan={8} className="p-0">
+                    <LoadingRows rows={6} />
                   </TableCell>
                 </TableRow>
               )}
               {!isError && !isLoading && (!trades || trades.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground font-mono text-sm uppercase tracking-wider">
-                    No trades found matching criteria.
+                  <TableCell colSpan={8} className="p-0">
+                    <EmptyState
+                      icon={History}
+                      title={filter ? `No ${filter} trades` : "No trades yet"}
+                      description={
+                        filter
+                          ? "Nothing matches this filter. Try All to see the full history."
+                          : "The engine opens a position when a strategy finds a setup that clears your risk rules. Start it from the Dashboard and the first trade will appear here."
+                      }
+                      action={filter ? { label: "Show all", onClick: () => setFilter(undefined) } : { label: "Go to Dashboard", href: "/" }}
+                    />
                   </TableCell>
                 </TableRow>
               )}

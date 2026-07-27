@@ -18,7 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { TrendingUp, Target, Waves, Zap, ArrowUpDown, BarChart3, Edit2, X, Check, RefreshCw, Flame, ChevronDown, ChevronUp, Stethoscope, Hammer, FlaskConical, ShieldAlert, Plus, Layers } from 'lucide-react';
-import { EmptyState } from '@/components/patterns/empty-state';
+import { EmptyState, PageHeader, LoadingCards } from '@/components/patterns';
 
 /** Account context the dollar-plan preview needs (from Configuration). */
 interface AccountCtx {
@@ -221,7 +221,7 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
 
           <div className="flex items-center gap-2">
             {!editing && (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditing(true)}>
+              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setEditing(true)}>
                 <Edit2 className="h-3.5 w-3.5" />
               </Button>
             )}
@@ -238,7 +238,7 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
 
       <CardContent className="space-y-4">
         {/* Performance row */}
-        <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
           <div className="rounded-md bg-muted/40 p-2">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Trades</p>
             <p className="text-base font-mono font-semibold">{perf.totalTrades}</p>
@@ -279,7 +279,7 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
         {editing ? (
           <div className="space-y-3 border rounded-lg p-3 bg-muted/20">
             {/* ── The trade plan: three dollar numbers + hold time ─────────── */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Trade Amount ($)</Label>
                 <Input className="h-7 text-xs mt-1" inputMode="decimal" value={form.tradeAmountUsdt}
@@ -328,7 +328,7 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
               {showAdvanced ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
             </button>
             {showAdvanced && (
-              <div className="grid grid-cols-2 gap-3 border-t border-border/50 pt-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-border/50 pt-3">
                 {(
                   [
                     ['breakEvenRMultiple', 'Break-even at +R (0 = off)'],
@@ -357,10 +357,10 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
             )}
 
             <div className="flex gap-2 justify-end">
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setEditing(false)}>
+              <Button variant="ghost" size="sm" className="text-xs" onClick={() => setEditing(false)}>
                 <X className="h-3 w-3 mr-1" /> Cancel
               </Button>
-              <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={isPending}>
+              <Button size="sm" className="text-xs" onClick={handleSave} disabled={isPending}>
                 <Check className="h-3 w-3 mr-1" /> {isPending ? 'Saving…' : 'Save'}
               </Button>
             </div>
@@ -372,14 +372,14 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
               {' → make '}<span className="text-success font-semibold">${strategy.config.targetProfitUsdt}</span>
               {' · '}<span className="text-foreground">${strategy.config.tradeAmountUsdt ?? ctx.fallbackTradeAmount}</span>/trade
             </div>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
               <span>Hold: <span className="text-foreground font-mono">{Math.round(strategy.config.maxHoldingSeconds / 60)}m</span></span>
               <span>Conf: <span className="text-foreground font-mono">{strategy.config.confidenceThreshold}</span></span>
               <span>Max: <span className="text-foreground font-mono">{strategy.config.maxConcurrentPositions}</span></span>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-1.5 text-[11px] text-muted-foreground">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-[11px] text-muted-foreground">
             <span>Risk: <span className="text-foreground font-mono">{strategy.config.riskPercent}%</span></span>
             <span>Conf: <span className="text-foreground font-mono">{strategy.config.confidenceThreshold}</span></span>
             <span>Max: <span className="text-foreground font-mono">{strategy.config.maxConcurrentPositions}</span></span>
@@ -407,7 +407,7 @@ function SignalsPanel() {
           <Flame className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-semibold uppercase tracking-wider">Live Opportunities</h2>
         </div>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => refetch()}>
+        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => refetch()}>
           <RefreshCw className="h-3.5 w-3.5" />
         </Button>
       </div>
@@ -504,22 +504,19 @@ export function Strategies() {
     ?.performance.winRate;
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Strategies</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {totalCount > 0 ? `${totalCount} specialized algorithms` : "Specialized algorithms"} running in parallel, each tuned for a specific market regime.
-          </p>
-        </div>
-        <Link
-          href="/builder"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-mono uppercase tracking-wider text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
-        >
-          <Plus className="h-3.5 w-3.5" /> New strategy
-        </Link>
-      </div>
+    <div className="max-w-6xl mx-auto space-y-6">
+      <PageHeader
+        icon={Layers}
+        title="Strategies"
+        description={`${totalCount > 0 ? `${totalCount} specialised algorithms` : "Specialised algorithms"} running in parallel, each tuned for a specific market regime.`}
+        actions={
+          <Link href="/builder">
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <Plus className="h-3.5 w-3.5" /> New strategy
+            </Button>
+          </Link>
+        }
+      />
 
       {/* Live opportunities */}
       <Card>
@@ -551,13 +548,7 @@ export function Strategies() {
 
       {/* Strategy grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardContent className="pt-6 h-48" />
-            </Card>
-          ))}
-        </div>
+        <LoadingCards count={6} />
       ) : (strategies ?? []).length === 0 ? (
         <Card>
           <CardContent className="p-0">

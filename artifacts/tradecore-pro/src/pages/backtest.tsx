@@ -46,6 +46,7 @@ import {
   Clock,
   RefreshCw,
 } from "lucide-react";
+import { PageHeader } from "@/components/patterns";
 
 // ---------------------------------------------------------------------------
 // Config form state
@@ -381,7 +382,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
           </div>
 
           {/* Date range */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {field("Start Date", "startDate", "date")}
             {field("End Date", "endDate", "date")}
           </div>
@@ -395,7 +396,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
               no closed-hours candles.
             </p>
           ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Market Type</label>
               <select
@@ -433,7 +434,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
           )}
 
           {/* Balance + position */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {field("Starting Balance ($)", "startingBalance")}
             {field("Position Size (USDT)", "positionSizeUsdt")}
           </div>
@@ -470,7 +471,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
           </label>
 
           {/* Run-level params — always apply, in either mode */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {field("Max Open Positions", "maxOpenPositions")}
             {field("Daily Loss Limit ($)", "dailyLossLimitUsdt")}
           </div>
@@ -480,7 +481,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
               a "high-conviction only" experiment without flattening SL/TP.
               R:R ratio: reshape every strategy to TP = its own SL × ratio
               (e.g. 3 → 1:3) without touching live configs. */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {field(
               form.matchLive ? "Confidence floor (0 = each strategy's own)" : "Confidence Threshold",
               "confidenceThreshold",
@@ -492,7 +493,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
             )}
           </div>
           {form.matchLive && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {field("Hold multiplier (1 = each strategy's own)", "holdMultiplier", "number", "1")}
               <div className="text-[11px] text-muted-foreground self-center">
                 Multiplies every strategy's max holding time — e.g. 24 turns a 1h momentum hold into 24h (swing
@@ -566,7 +567,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
               const rr = form.maxLossUsdt > 0 ? form.targetProfitUsdt / form.maxLossUsdt : 0;
               return (
                 <>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {field("Max Loss (USDT)", "maxLossUsdt", "number", "0.5")}
                     {field("Target Profit (USDT)", "targetProfitUsdt", "number", "0.5")}
                   </div>
@@ -582,11 +583,11 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
 
           {/* Flat overrides — ignored when Match live is on or in dollar mode */}
           <fieldset disabled={form.matchLive || form.riskModel === "dollar"} className={cn("space-y-3 border-0 p-0 m-0", (form.matchLive || form.riskModel === "dollar") && "opacity-40")}>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {field("Stop Loss %", "stopLossPercent", "number", "0.1")}
               {field("Take Profit %", "takeProfitPercent", "number", "0.1")}
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {field("Risk %", "riskPercent", "number", "0.1")}
               <div />
             </div>
@@ -1325,26 +1326,17 @@ export function Backtest() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      {/* Page header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <FlaskConical className="h-6 w-6 text-primary" /> Backtesting Lab
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Replay historical candles using the live strategy engine. Fees and slippage included.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowForm((v) => !v)}
-          className="gap-1.5 font-mono text-xs"
-        >
-          {showForm ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          {showForm ? "Hide Form" : "New Run"}
-        </Button>
-      </div>
+      <PageHeader
+        icon={FlaskConical}
+        title="Backtesting"
+        description="Replay historical candles through the live strategy engine. Fees and slippage included."
+        actions={
+          <Button variant="outline" size="sm" onClick={() => setShowForm((v) => !v)} className="gap-1.5">
+            {showForm ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            {showForm ? "Hide form" : "New run"}
+          </Button>
+        }
+      />
 
       <AutopsyPanel initialStrategyId={autopsyStrategyId} />
 
