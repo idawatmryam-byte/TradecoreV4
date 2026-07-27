@@ -47,7 +47,11 @@
 
   --border: 216 34% 17%;
   --input: 216 34% 17%;
-  --ring: 216 34% 17%;
+  /* Focus ring. Was byte-identical to --border, which made every
+     focus-visible ring invisible against the control it outlined — keyboard
+     users had no focus indicator anywhere in the app. The primary hue makes a
+     focused control unmistakable on a dark surface. */
+  --ring: 190 90% 50%;
 
   --card: 222 47% 7%;
   --card-foreground: 213 31% 91%;
@@ -75,38 +79,13 @@
   --radius: 0.25rem;
 }
 
-.dark {
-  /* Enforce Dark Mode Instrument Panel Aesthetic */
-  --background: 224 71% 4%;
-  --foreground: 213 31% 91%;
-
-  --border: 216 34% 17%;
-  --input: 216 34% 17%;
-  --ring: 216 34% 17%;
-
-  --card: 222 47% 7%;
-  --card-foreground: 213 31% 91%;
-
-  --primary: 190 90% 50%;
-  --primary-foreground: 224 71% 4%;
-
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 210 40% 98%;
-
-  --muted: 223 47% 11%;
-  --muted-foreground: 215 20.2% 65.1%;
-
-  --accent: 216 34% 17%;
-  --accent-foreground: 210 40% 98%;
-
-  --destructive: 350 100% 60%;
-  --destructive-foreground: 210 40% 98%;
-
-  --success: 140 100% 45%;
-  --success-foreground: 224 71% 4%;
-
-  --warning: 40 100% 50%;
-}
+/* There is deliberately no `.dark` block.
+   One used to sit here duplicating `:root` byte for byte, but nothing ever
+   applied the class — no `class="dark"` on <html>, no ThemeProvider — so it
+   was dead weight that had to be edited in lockstep with `:root` and silently
+   drifted the moment anyone forgot. The app is dark-only by design; `:root`
+   above is the single source. If a light theme is ever wanted, add a
+   `:root[data-theme="light"]` block rather than reviving this one. */
 
 @layer base {
   * {
