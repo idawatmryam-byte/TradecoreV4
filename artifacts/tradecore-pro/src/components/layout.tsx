@@ -4,7 +4,7 @@ import {
   Layers, LogOut, Menu, UserCircle2, Bitcoin, CandlestickChart, Eye, Hammer, Inbox,
   ChevronDown,
 } from "lucide-react";
-import { useGetBotStatus, useHealthCheck, getGetBotStatusQueryKey, getHealthCheckQueryKey } from "@workspace/api-client-react";
+import { useGetBotStatus, useHealthCheck, useGetConfig, getGetBotStatusQueryKey, getHealthCheckQueryKey, getGetConfigQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useSection, type Section } from "@/lib/section";
@@ -192,9 +192,17 @@ function NavBody({
               </span>
             </span>
           </div>
+          {/* Who decides — NOT the exchange environment.
+              This row used to show botStatus.mode ("testnet" / "live"), which
+              is a different thing entirely and collided with the mode a user
+              actually chooses. Showing the decision mode here is both more
+              useful and the thing they are looking for; demo vs live is
+              already unmistakable from the balance and the banners. */}
           <div className="mt-2 flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Mode</span>
-            <span className="text-sm font-medium capitalize">{mode}</span>
+            <Link href="/settings" className="text-sm font-medium capitalize hover:text-primary">
+              {mode}
+            </Link>
           </div>
         </div>
 
@@ -235,13 +243,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { data: health, isError: healthError } = useHealthCheck({
     query: { refetchInterval: 15000, queryKey: getHealthCheckQueryKey() }
   });
+  const { data: config } = useGetConfig({ query: { queryKey: getGetConfigQueryKey() } });
   void health;
 
   // Close the drawer after navigating so it never lingers over the page.
   useEffect(() => { setMobileOpen(false); }, [location]);
 
   const online = Boolean(botStatus?.running) && !healthError;
-  const mode = healthError ? "API error" : (botStatus?.mode ?? "unknown");
+  const MODE_LABELS: Record<string, string> = {
+    copilot: "Co-Pilot", autopilot: "AutoPilot", research: "Research",
+  };
+  const mode = healthError ? "API error" : (MODE_LABELS[config?.mode ?? ""] ?? "—");
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
