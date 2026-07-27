@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableRow,
 import { formatCurrency, formatPercent, formatDate } from "@/lib/utils";
 import { KnowledgePanel } from "@/components/knowledge/knowledge-panel";
 import { MemoryInfluencePanel } from "@/components/knowledge/memory-influence-panel";
+import { PageHeader } from "@/components/patterns";
 import { BrainCircuit, ShieldBan, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -12,12 +13,11 @@ export function Memory() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <BrainCircuit className="h-6 w-6 text-primary" /> Adaptive Memory Core
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">Self-preservation engine. Automatically quarantines toxic assets and timeframes based on historical edge decay.</p>
-      </div>
+      <PageHeader
+        icon={BrainCircuit}
+        title="Learning"
+        description="What the engine has worked out about its own record — the symbols and hours it has quarantined, what your closed trades support saying, and whether any of it is allowed to change what it does next."
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         

@@ -10,7 +10,7 @@ import {
 import { Card, CardContent, Button, Badge, Input, Label } from "@/components/ui";
 import { PositionChart } from "@/components/position-chart";
 import { DecisionTimeline } from "@/components/decision-timeline";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft, ArrowUpRight, ArrowDownRight, CheckCircle2, XCircle, Ban, Clock,
@@ -87,7 +87,7 @@ function SimilarTrades({ similar }: { similar: SimilarTradesType }) {
       <p className="text-xs font-mono text-muted-foreground">{similar.reason}</p>
 
       {s ? (
-        <div className="grid grid-cols-3 gap-4 font-mono text-sm border-y border-border py-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-sm border-y border-border py-2">
           <div>
             <p className="text-xs text-muted-foreground">Win Rate</p>
             <p className="font-bold">
@@ -116,21 +116,26 @@ function SimilarTrades({ similar }: { similar: SimilarTradesType }) {
         </p>
       )}
 
-      <div className="space-y-1 max-h-64 overflow-y-auto">
+      {/* Five fixed-width columns used to sit in a row with only a VERTICAL
+          overflow wrapper, so under 400px the date column was squeezed to
+          nothing. The date now drops out below `sm` — it is the least load-
+          bearing column here — and the rest flex instead of holding fixed
+          widths. */}
+      <div className="max-h-64 space-y-1 overflow-y-auto">
         {similar.matches.map((m) => (
-          <div key={m.tradeId} className="flex items-center gap-3 text-xs font-mono">
-            <span className="w-12 shrink-0 text-muted-foreground">{(m.similarity * 100).toFixed(0)}%</span>
-            <span className="w-24 shrink-0 truncate">{m.symbol}</span>
-            <span className="flex-1 truncate text-muted-foreground">
+          <div key={m.tradeId} className="flex items-center gap-2 text-xs font-mono sm:gap-3">
+            <span className="w-10 shrink-0 tabular-nums text-muted-foreground">{(m.similarity * 100).toFixed(0)}%</span>
+            <span className="min-w-0 flex-1 truncate">{m.symbol}</span>
+            <span className="hidden shrink-0 text-muted-foreground sm:inline">
               {new Date(m.closedAt).toLocaleDateString()}
             </span>
             <span className={cn(
-              "w-16 shrink-0 text-right",
+              "w-14 shrink-0 text-right",
               m.outcome === "win" ? "text-success" : m.outcome === "loss" ? "text-destructive" : "text-muted-foreground",
             )}>
               {m.outcome}
             </span>
-            <span className="w-20 shrink-0 text-right">
+            <span className="w-16 shrink-0 text-right tabular-nums">
               {m.rMultiple != null ? `${m.rMultiple.toFixed(2)}R` : `$${m.pnl.toFixed(2)}`}
             </span>
           </div>
@@ -319,7 +324,7 @@ export default function CoPilotWorkspace() {
 
       {/* Portfolio impact */}
       <Section icon={PieChart} title="Portfolio Impact">
-        <div className="grid grid-cols-2 gap-4 font-mono text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono text-sm">
           <div>
             <p className="text-xs text-muted-foreground">Open Positions</p>
             <p className="font-bold">{data.portfolioImpact.currentOpenPositions} / {data.portfolioImpact.maxOpenPositions}</p>
@@ -361,7 +366,7 @@ export default function CoPilotWorkspace() {
               This creates a NEW plan authored by you. The engine's original is kept unchanged, so a
               later post-mortem can tell the two apart.
             </p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div><Label className="text-xs">Stop</Label><Input defaultValue={rec.slPrice} onChange={(e) => setSl(e.target.value)} className="font-mono" /></div>
               <div><Label className="text-xs">Target</Label><Input defaultValue={rec.tpPrice} onChange={(e) => setTp(e.target.value)} className="font-mono" /></div>
               <div><Label className="text-xs">Size</Label><Input defaultValue={rec.qty} onChange={(e) => setQty(e.target.value)} className="font-mono" /></div>

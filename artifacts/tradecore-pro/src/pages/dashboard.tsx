@@ -12,6 +12,8 @@ import { CorrelationHeatMap } from "@/components/correlation-heatmap";
 import { useState, type ReactNode } from "react";
 import { useSection, sectionHeaders } from "@/lib/section";
 import { useIsDemo } from "@/lib/account";
+import { CollapsibleSection, StatTile, EmptyState } from "@/components/patterns";
+import { CopilotSummary } from "@/components/copilot-summary";
 
 /** Live per-position feed from GET /trades/monitor/active — entry vs current
  *  price, the actual SL/TP levels, and unrealized P&L, refreshed every 5s. */
@@ -48,58 +50,6 @@ function formatHeld(seconds: number): string {
  * the bar. Collapsed/expanded state persists per panel in localStorage, so
  * the cockpit layout survives reloads.
  */
-function CollapsibleSection({ id, title, icon: Icon, right, defaultOpen = true, children }: {
-  id: string;
-  title: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  /** Extra header content (e.g. a live count) — shown even while collapsed. */
-  right?: ReactNode;
-  defaultOpen?: boolean;
-  children: ReactNode;
-}) {
-  const storageKey = `cockpit-panel:${id}`;
-  const [open, setOpen] = useState<boolean>(() => {
-    try {
-      const stored = localStorage.getItem(storageKey);
-      return stored == null ? defaultOpen : stored === "1";
-    } catch { return defaultOpen; }
-  });
-  const toggle = () => setOpen((o) => {
-    const next = !o;
-    try { localStorage.setItem(storageKey, next ? "1" : "0"); } catch { /* private mode */ }
-    return next;
-  });
-  return (
-    <section>
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={open}
-        className={cn(
-          "w-full flex items-center justify-between gap-3 rounded-md border border-border bg-card px-4 py-2.5 text-left transition-colors hover:bg-muted/40",
-          open && "rounded-b-none border-b-0",
-        )}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          {Icon && <Icon className="h-4 w-4 text-primary shrink-0" />}
-          <span className="text-sm font-mono tracking-wider uppercase font-semibold truncate">{title}</span>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {right}
-          {open
-            ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
-            : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-        </div>
-      </button>
-      {open && (
-        <div className="rounded-b-md border border-t-0 border-border overflow-hidden">
-          {children}
-        </div>
-      )}
-    </section>
-  );
-}
-
 function ProgressBar({ value, colorClass }: { value: number, colorClass: string }) {
   return (
     <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
@@ -108,20 +58,11 @@ function ProgressBar({ value, colorClass }: { value: number, colorClass: string 
   );
 }
 
-/** Compact KPI tile — scales its type/padding down on small screens so a row of
- *  these stays readable on a phone instead of overflowing. */
+/** The shared tile, named locally so the many call sites below stay short. */
 function Stat({ label, value, valueClass, sub }: {
   label: string; value: ReactNode; valueClass?: string; sub?: ReactNode;
 }) {
-  return (
-    <Card>
-      <CardContent className="p-4 sm:p-6">
-        <p className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider mb-1.5 sm:mb-2">{label}</p>
-        <p className={cn("text-2xl sm:text-3xl font-bold tracking-tight tabular-nums truncate", valueClass)}>{value}</p>
-        {sub}
-      </CardContent>
-    </Card>
-  );
+  return <StatTile label={label} value={value} valueClass={valueClass} footer={sub} />;
 }
 
 /** The Open Positions panel body — full trade status per open position plus
@@ -771,7 +712,12 @@ export function Dashboard() {
       </div>
       </CollapsibleSection>
 
-      {/* Open Positions — pinned to the top of the cockpit */}
+      {/* Question 3 of 3: what does the engine want to do? Sits directly under
+          the engine controls and above the positions, because a plan waiting
+          on a decision is the most time-sensitive thing on this page. */}
+      {!isDemo && <CopilotSummary />}
+
+      {/* Question 2: what do I hold? */}
       <CollapsibleSection
         id="positions"
         title="Open Positions"
@@ -799,16 +745,23 @@ export function Dashboard() {
           would contradict the labeled DEMO snapshot above. */}
       {!isDemo && <BlockingBanner />}
 
+      {/* Everything from here down is diagnostic rather than "what is happening
+          right now", so it starts collapsed. The dashboard's job above the fold
+          is three answers — is it running, what do I hold, what does it want to
+          do — and eight equally-weighted panels answered none of them first.
+          CollapsibleSection remembers each choice, so a user who opens one
+          keeps it open. */}
+
       {/* Verification: live market data + full strategy decision pipeline.
           These are live-engine views (in-memory scan state), empty without a
           running engine — hidden in the demo, whose depth lives on the fully
-          seeded Decisions, Trade Log, and Analytics pages instead. */}
+          seeded Decision History, Trade Log, and Performance pages instead. */}
       {!isDemo && (
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 items-start">
-        <CollapsibleSection id="market-monitor" title="Market Monitor" icon={Activity}>
+        <CollapsibleSection id="market-monitor" title="Market Monitor" icon={Activity} defaultOpen={false}>
           <div className="p-3"><MarketMonitor /></div>
         </CollapsibleSection>
-        <CollapsibleSection id="decision-panel" title="Decision Pipeline" icon={Activity}>
+        <CollapsibleSection id="decision-panel" title="Decision Pipeline" icon={Activity} defaultOpen={false}>
           <div className="p-3"><DecisionPanel /></div>
         </CollapsibleSection>
       </div>
@@ -825,6 +778,7 @@ export function Dashboard() {
         id="scanner"
         title="Live Market Scanner"
         icon={Activity}
+        defaultOpen={false}
         right={
           <span className="text-xs text-muted-foreground font-mono flex items-center gap-2">
             <span className="relative flex h-2 w-2">

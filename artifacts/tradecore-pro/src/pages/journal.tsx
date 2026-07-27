@@ -4,6 +4,8 @@ import {
   type JournalEntry,
 } from "@workspace/api-client-react";
 import { Card, CardContent, Button, Badge } from "@/components/ui";
+import { PageHeader, PageTabs, EmptyState, LoadingRows } from "@/components/patterns";
+import { PORTFOLIO_TABS } from "./trades";
 import { cn } from "@/lib/utils";
 import {
   BookOpen, CheckCircle2, XCircle, MinusCircle, ChevronDown, ChevronUp, Loader2,
@@ -183,51 +185,63 @@ export function Journal() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-primary" /> Journal
-          </h1>
-          <p className="text-xs text-muted-foreground mt-1 max-w-xl">
-            An objective post-mortem for every closed live trade — what actually happened, computed
-            from the recorded facts. A scorecard, not a prediction.
-          </p>
-        </div>
-        <div className="flex gap-1.5 flex-wrap items-center">
-          {(["all", "win", "loss", "breakeven"] as Outcome[]).map((o) => (
-            <Button
-              key={o}
-              size="sm"
-              variant={outcome === o ? "default" : "outline"}
-              className="text-xs h-7"
-              onClick={() => { setOutcome(o); setExtra([]); setExhausted(false); }}
-            >
-              {o === "all" ? "All" : OUTCOME_META[o as Exclude<Outcome, "all">].label}
-            </Button>
-          ))}
+      <PageHeader
+        icon={BookOpen}
+        title="Journal"
+        description="An objective post-mortem for every closed trade — what actually happened, computed from the recorded facts. A scorecard, not a prediction."
+        actions={
           <Button
             size="sm"
             variant="outline"
-            className="text-xs h-7 gap-1.5"
+            className="gap-1.5"
             onClick={downloadCsv}
             disabled={exporting || entries.length === 0}
             title="Export the journal (current filter) as CSV — up to 2000 most recent entries"
           >
             {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-            CSV
+            Export CSV
           </Button>
-        </div>
+        }
+      />
+
+      <PageTabs tabs={PORTFOLIO_TABS} />
+
+      <div className="-mx-1 flex flex-wrap items-center gap-1 px-1">
+        {(["all", "win", "loss", "breakeven"] as Outcome[]).map((o) => (
+          <Button
+            key={o}
+            size="sm"
+            variant={outcome === o ? "secondary" : "ghost"}
+            onClick={() => { setOutcome(o); setExtra([]); setExhausted(false); }}
+          >
+            {o === "all" ? "All" : OUTCOME_META[o as Exclude<Outcome, "all">].label}
+          </Button>
+        ))}
       </div>
 
-      {isLoading && (
-        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-      )}
+      {isLoading && <Card><CardContent className="p-0"><LoadingRows rows={5} /></CardContent></Card>}
       {isError && (
-        <p className="text-sm text-destructive text-center py-8">Couldn't load the journal.</p>
+        <Card><CardContent className="p-0">
+          <EmptyState
+            icon={BookOpen}
+            title="Couldn't load the journal"
+            description="The API didn't respond. Your entries are safe — this is a read failure."
+            action={{ label: "Try again", onClick: () => window.location.reload() }}
+          />
+        </CardContent></Card>
       )}
       {!isLoading && !isError && entries.length === 0 && (
-        <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">
-          No journal entries yet — one is generated automatically the moment a live trade closes.
+        <Card><CardContent className="p-0">
+          <EmptyState
+            icon={BookOpen}
+            title={outcome === "all" ? "No journal entries yet" : `No ${outcome} entries`}
+            description={
+              outcome === "all"
+                ? "An entry is written automatically the moment a trade closes — with its grade, its R-multiple, and what the outcome is attributable to. Nothing to write until then."
+                : "Nothing matches this filter yet."
+            }
+            action={outcome === "all" ? { label: "View trade log", href: "/trades" } : { label: "Show all", onClick: () => { setOutcome("all"); setExtra([]); setExhausted(false); } }}
+          />
         </CardContent></Card>
       )}
 
