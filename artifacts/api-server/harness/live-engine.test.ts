@@ -165,6 +165,14 @@ const baseRow = { confidence: 70, regime: "trend", adx: 30, macroBullish: true, 
 
 function plan(over: Partial<Record<string, unknown>> = {}) {
   return {
+    // `symbol` is part of the TradePlan and must be here even though
+    // enterTrade also takes it as its own argument: the executed-decision
+    // journal reads plan.symbol (decisionRecorder.planToRecord). Omitting it
+    // made every executed-decision insert in this test violate the NOT NULL
+    // constraint on strategy_decisions.symbol — invisibly, because the write
+    // is fire-and-forget and recordDecisions catches per-row failures, so the
+    // only trace was a wall of Postgres errors in the CI service log.
+    symbol: "BTCUSDT",
     strategyId: "trend_pullback", strategyName: "Trend Pullback", side: "long",
     entryPrice: 100, slPrice: 95, tpPrice: 110, qty: 1, leverage: 1,
     confidence: 70, expectedHoldSeconds: 1200, maxHoldSeconds: 7200,
