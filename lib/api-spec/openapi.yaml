@@ -2520,8 +2520,18 @@ components:
 
     BotConfig:
       type: object
-      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, maxSymbolConcentrationPercent, maxNetExposurePercent, maxCorrelatedExposurePercent, correlationThreshold, correlationUnknownPolicy, confidenceThreshold, riskModel, stopLossPercent, takeProfitPercent, maxLossUsdt, targetProfitUsdt, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode, broker, executionTarget, mode, demoStartingBalanceUsdt]
+      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, maxSymbolConcentrationPercent, maxNetExposurePercent, maxCorrelatedExposurePercent, correlationThreshold, correlationUnknownPolicy, confidenceThreshold, riskModel, stopLossPercent, takeProfitPercent, maxLossUsdt, targetProfitUsdt, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode, broker, executionTarget, mode, demoStartingBalanceUsdt, demoDataAvailable]
       properties:
+        demoDataAvailable:
+          type: boolean
+          readOnly: true
+          description: >-
+            Whether this section can actually run in Demo on this deployment.
+            Crypto is always true (Binance's public endpoints need no
+            credentials). Forex is false unless the platform supplies its own
+            OANDA practice token, because OANDA publishes no public market
+            data — so a keyless forex demo is impossible, not merely
+            unconfigured. Read-only; a property of the deployment, not the user.
         broker:
           type: string
           enum: [binance, oanda]

@@ -1,7 +1,8 @@
 import { useGetStatsSummary, useGetHourlyStats, useGetDailyReport, getGetStatsSummaryQueryKey, getGetHourlyStatsQueryKey, getGetDailyReportQueryKey } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui";
 import { Button } from "@/components/ui/button";
-import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatPercent, formatNumber, NO_VALUE } from "@/lib/utils";
+import { EmptyState } from "@/components/patterns/empty-state";
 import { BarChart2, Flame, TrendingDown, Target, Zap, FileText, Download, Microscope, AlertTriangle, Info, CheckCircle2, Filter } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Cell as PieCell } from 'recharts';
 import { cn } from "@/lib/utils";
@@ -417,15 +418,26 @@ export function Stats() {
   const { data: summary } = useGetStatsSummary({ query: { queryKey: getGetStatsSummaryQueryKey() } });
   const { data: hourly } = useGetHourlyStats({ query: { queryKey: getGetHourlyStatsQueryKey() } });
 
+  // Has this account actually produced anything to measure?
+  //
+  // Everything below reported a confident zero when the answer was no: Net PnL
+  // "$0.00", Win Rate "0.00%", Max Drawdown "-$0.00", an empty donut with
+  // "0.00%" in the middle. That is fabricated historical performance on the
+  // page most likely to be read as evidence of how the engine performs. A new
+  // account has no win rate — it does not have a win rate of zero.
+  const loading = summary === undefined;
+  const hasHistory = (summary?.totalTrades ?? 0) > 0;
   const isProfit = (summary?.totalPnl ?? 0) >= 0;
 
   // summary.winRate is a 0–1 fraction (wins/total from the stats route) — the
   // old code treated it as 0–100, which skewed the pie to ~all-losses.
-  const pieData = summary ? [
+  const pieData = summary && hasHistory ? [
     { name: 'Wins', value: summary.winRate * summary.totalTrades },
     { name: 'Losses', value: (1 - summary.winRate) * summary.totalTrades }
   ] : [];
-  const PIE_COLORS = ['hsl(140, 100%, 45%)', 'hsl(350, 100%, 60%)'];
+  // Referenced from the theme rather than copy-pasted literals, so a token
+  // change moves the chart with everything else.
+  const PIE_COLORS = ['hsl(var(--success))', 'hsl(var(--destructive))'];
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -442,11 +454,28 @@ export function Stats() {
 
       <DailyReportCard />
 
+      {/* No closed trades ⇒ one honest statement, not four zeroed tiles and an
+          empty donut reading 0.00%. */}
+      {!hasHistory ? (
+        <Card>
+          <CardContent className="p-0">
+            {loading ? (
+              <EmptyState icon={BarChart2} title="Loading performance…" />
+            ) : (
+              <EmptyState
+                icon={BarChart2}
+                title="No closed trades yet"
+                description="Performance figures appear once the engine has opened and closed its first position. Until then there is nothing measured to report — this page stays blank rather than showing zeros."
+              />
+            )}
+          </CardContent>
+        </Card>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="bg-card">
           <CardContent className="p-6">
             <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">Net PnL</p>
-            <p className={cn("text-3xl font-bold tracking-tight", isProfit ? "text-success" : "text-destructive")}>
+            <p className={cn("text-3xl font-bold tracking-tight tabular-nums", isProfit ? "text-success" : "text-destructive")}>
               {formatCurrency(summary?.totalPnl, "always")}
             </p>
           </CardContent>
@@ -454,8 +483,8 @@ export function Stats() {
         <Card className="bg-card">
           <CardContent className="p-6">
             <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">Win Rate</p>
-            <p className="text-3xl font-bold tracking-tight text-primary">
-              {formatPercent((summary?.winRate ?? 0) * 100)}
+            <p className="text-3xl font-bold tracking-tight tabular-nums text-primary">
+              {formatPercent(summary != null ? summary.winRate * 100 : null)}
             </p>
           </CardContent>
         </Card>
@@ -466,7 +495,7 @@ export function Stats() {
             </p>
             {/* maxDrawdown is a non-negative magnitude; render it as a loss
                 (−$X) rather than "always" which prints a misleading "+$X". */}
-            <p className="text-3xl font-bold tracking-tight text-destructive">
+            <p className="text-3xl font-bold tracking-tight tabular-nums text-destructive">
               {formatCurrency(summary?.maxDrawdown ? -summary.maxDrawdown : summary?.maxDrawdown)}
             </p>
           </CardContent>
@@ -476,8 +505,8 @@ export function Stats() {
             <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
               <Flame className="h-3 w-3 text-warning" /> Current Streak
             </p>
-            <p className="text-3xl font-bold tracking-tight flex items-baseline gap-2">
-              {summary?.streakCurrent ?? 0}
+            <p className="text-3xl font-bold tracking-tight tabular-nums flex items-baseline gap-2">
+              {summary?.streakCurrent ?? NO_VALUE}
               {summary?.streakType !== 'none' && (
                 <span className={cn("text-sm font-mono uppercase tracking-wider", summary?.streakType === 'win' ? "text-success" : "text-destructive")}>
                   {summary?.streakType}s
@@ -487,7 +516,9 @@ export function Stats() {
           </CardContent>
         </Card>
       </div>
+      )}
 
+      {hasHistory && (
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <Card className="xl:col-span-2">
           <CardHeader>
@@ -550,7 +581,9 @@ export function Stats() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                <span className="text-3xl font-bold text-foreground">{formatPercent((summary?.winRate ?? 0) * 100)}</span>
+                <span className="text-3xl font-bold tabular-nums text-foreground">
+                  {formatPercent(summary != null ? summary.winRate * 100 : null)}
+                </span>
                 <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mt-1">Win Rate</span>
               </div>
             </div>
@@ -568,12 +601,13 @@ export function Stats() {
                   <Zap className="h-4 w-4 text-primary" />
                   <span className="text-xs font-mono uppercase tracking-wider">Total Trades</span>
                 </div>
-                <span className="font-bold">{summary?.totalTrades}</span>
+                <span className="font-bold tabular-nums">{summary?.totalTrades ?? NO_VALUE}</span>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+      )}
     </div>
   );
 }
