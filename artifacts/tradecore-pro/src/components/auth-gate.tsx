@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ShieldCheck, Loader2, User, KeyRound, Bot, FlaskConical, BrainCircuit,
-  Wallet, LineChart, CheckCircle2, PlayCircle,
+  Wallet, LineChart, CheckCircle2, PlayCircle, Eye, EyeOff,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,6 +73,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   );
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [providers, setProviders] = useState<{ google: boolean; apple: boolean }>({ google: false, apple: false });
@@ -335,13 +336,22 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                   <KeyRound className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="auth-password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     autoComplete={mode === "login" ? "current-password" : "new-password"}
-                    className="pl-9"
+                    className="pl-9 pr-9"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={mode === "login" ? "Password" : "Password (min. 12 characters)"}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    tabIndex={-1}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
               {error && <p className="text-xs text-destructive">{error}</p>}
