@@ -998,6 +998,7 @@ export const RunMemoryValidationResponse = zod.object({
  * @summary Get bot configuration
  */
 export const GetConfigResponse = zod.object({
+  "demoDataAvailable": zod.boolean().describe('Whether this section can actually run in Demo on this deployment. Crypto is always true (Binance\'s public endpoints need no credentials). Forex is false unless the platform supplies its own OANDA practice token, because OANDA publishes no public market data — so a keyless forex demo is impossible, not merely unconfigured. Read-only; a property of the deployment, not the user.'),
   "broker": zod.enum(['binance', 'oanda']).describe('Which broker this section\'s engine connects to — binance (crypto section) or oanda (forex section). Fixed per section, not user-editable.'),
   "marketType": zod.enum(['spot', 'futures', 'forex']).describe('Spot (no leverage, long-only), USDⓈ-M Futures (leveraged, long+short), or forex (OANDA, margin-based)'),
   "leverage": zod.number().describe('Futures leverage multiplier. Ignored in spot mode (always 1).'),
@@ -1113,6 +1114,7 @@ export const UpdateConfigBody = zod.object({
 })
 
 export const UpdateConfigResponse = zod.object({
+  "demoDataAvailable": zod.boolean().describe('Whether this section can actually run in Demo on this deployment. Crypto is always true (Binance\'s public endpoints need no credentials). Forex is false unless the platform supplies its own OANDA practice token, because OANDA publishes no public market data — so a keyless forex demo is impossible, not merely unconfigured. Read-only; a property of the deployment, not the user.'),
   "broker": zod.enum(['binance', 'oanda']).describe('Which broker this section\'s engine connects to — binance (crypto section) or oanda (forex section). Fixed per section, not user-editable.'),
   "marketType": zod.enum(['spot', 'futures', 'forex']).describe('Spot (no leverage, long-only), USDⓈ-M Futures (leveraged, long+short), or forex (OANDA, margin-based)'),
   "leverage": zod.number().describe('Futures leverage multiplier. Ignored in spot mode (always 1).'),
