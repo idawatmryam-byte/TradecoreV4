@@ -64,7 +64,22 @@ function AppleIcon() {
   );
 }
 
-export function AuthGate({ children }: { children: React.ReactNode }) {
+export function AuthGate({
+  children,
+  onRegistered,
+}: {
+  children: React.ReactNode;
+  /**
+   * Fired only when this session just CREATED an account — the signal the
+   * onboarding wizard gates on. Logging in never fires it, so an existing user
+   * is never walked back through first-run setup.
+   *
+   * Social sign-in cannot distinguish a first-time from a returning user (both
+   * come back through the same OAuth redirect with no local state), so those
+   * accounts skip the wizard and configure from Settings instead.
+   */
+  onRegistered?: () => void;
+}) {
   const [status, setStatus] = useState<"checking" | "authenticated" | "unauthenticated">("checking");
   // Visitors arriving from the landing page's "Launch the live app" button carry
   // ?signup=1 — they have no account yet, so open straight on Create account.
@@ -136,6 +151,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ username, password }),
       });
       if (res.ok) {
+        if (mode === "register") onRegistered?.();
         setStatus("authenticated");
         return;
       }
