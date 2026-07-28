@@ -45,7 +45,7 @@ function DailyReportCard() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-sm flex items-center gap-2">
+        <CardTitle className="text-[15px] flex items-center gap-2">
           <FileText className="h-4 w-4 text-primary" /> Daily Trade Report
         </CardTitle>
         <div className="flex items-center gap-2">
@@ -53,7 +53,7 @@ function DailyReportCard() {
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="bg-background border border-border rounded px-2 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+            className="bg-background border border-border rounded px-2 py-1 text-[13px] font-mono focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <Button variant="outline" size="sm" onClick={downloadCsv} disabled={!report || report.trades.length === 0} className="gap-1">
             <Download className="h-3 w-3" /> CSV
@@ -62,41 +62,41 @@ function DailyReportCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading || !s ? (
-          <p className="text-xs font-mono text-muted-foreground">Loading…</p>
+          <p className="text-[13px] font-mono text-muted-foreground">Loading…</p>
         ) : (
           <>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div>
-                <p className="text-xs text-muted-foreground">P&L</p>
+                <p className="text-[13px] text-muted-foreground">P&L</p>
                 <p className={cn("text-xl font-bold", s.totalPnl >= 0 ? "text-success" : "text-destructive")}>{formatCurrency(s.totalPnl, "always")}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Trades</p>
-                <p className="text-xl font-bold">{s.totalTrades} <span className="text-xs text-muted-foreground">({s.wins}W/{s.losses}L)</span></p>
+                <p className="text-[13px] text-muted-foreground">Trades</p>
+                <p className="text-xl font-bold">{s.totalTrades} <span className="text-[13px] text-muted-foreground">({s.wins}W/{s.losses}L)</span></p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Win rate</p>
+                <p className="text-[13px] text-muted-foreground">Win rate</p>
                 <p className="text-xl font-bold text-primary">{(s.winRate * 100).toFixed(0)}%</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Fees</p>
+                <p className="text-[13px] text-muted-foreground">Fees</p>
                 <p className="text-xl font-bold">{formatCurrency(s.totalFeesUsdt)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Open now</p>
+                <p className="text-[13px] text-muted-foreground">Open now</p>
                 <p className="text-xl font-bold">{s.openPositions}</p>
               </div>
             </div>
 
             {s.totalTrades === 0 ? (
-              <p className="text-xs font-mono text-muted-foreground">No trades closed on {report!.date} (UTC).</p>
+              <p className="text-[13px] font-mono text-muted-foreground">No trades closed on {report!.date} (UTC).</p>
             ) : (
               <>
-                <div className="text-xs font-mono text-muted-foreground">
+                <div className="text-[13px] font-mono text-muted-foreground">
                   exits — {Object.entries(report!.exitReasons).map(([k, v]) => `${k}: ${v}`).join(" · ")}
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs font-mono">
+                  <table className="w-full text-[13px] font-mono">
                     <thead>
                       <tr className="text-muted-foreground border-b border-border">
                         <th className="text-left py-1 pr-3">Strategy</th>
@@ -191,13 +191,13 @@ function SelectionFilterBlock({ sf }: { sf: SelectionFilterData }) {
   const actionable = [...sf.vetoCandidates, ...sf.concentrateCandidates];
   return (
     <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
-      <p className="text-xs text-primary flex items-center gap-1.5">
+      <p className="text-[13px] text-primary flex items-center gap-1.5">
         <Filter className="h-3.5 w-3.5" /> Selection filter — where it's safe to stop trading
       </p>
       <p className="text-[11px] text-muted-foreground leading-snug">{sf.summary}</p>
       {actionable.length > 0 && (
         <div className="overflow-x-auto rounded border border-border">
-          <table className="w-full text-xs font-mono">
+          <table className="w-full text-[13px] font-mono">
             <thead>
               <tr className="text-muted-foreground border-b border-border bg-muted/30">
                 <th className="text-left px-2 py-1.5 font-normal">Cell</th>
@@ -233,9 +233,9 @@ function CellTable({ title, cells }: { title: string; cells: ForensicCell[] }) {
   if (cells.length === 0) return null;
   return (
     <div className="space-y-1.5">
-      <p className="text-xs text-muted-foreground">{title}</p>
+      <p className="text-[13px] text-muted-foreground">{title}</p>
       <div className="overflow-x-auto rounded border border-border">
-        <table className="w-full text-xs font-mono">
+        <table className="w-full text-[13px] font-mono">
           <thead>
             <tr className="text-muted-foreground border-b border-border bg-muted/30">
               <th className="text-left px-2 py-1.5 font-normal">Cell</th>
@@ -293,7 +293,7 @@ function EdgeForensicsCard() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 cursor-pointer" onClick={() => setOpen((v) => !v)}>
-        <CardTitle className="text-sm flex items-center gap-2">
+        <CardTitle className="text-[15px] flex items-center gap-2">
           <Microscope className="h-4 w-4 text-primary" /> Edge Forensics
           <span className="text-muted-foreground normal-case tracking-normal font-normal">— where the losses actually come from</span>
         </CardTitle>
@@ -306,42 +306,42 @@ function EdgeForensicsCard() {
           >
             <Download className="h-3 w-3" /> trades.csv
           </a>
-          <span className="text-xs font-mono text-muted-foreground">{open ? "hide" : "show"}</span>
+          <span className="text-[13px] font-mono text-muted-foreground">{open ? "hide" : "show"}</span>
         </div>
       </CardHeader>
       {open && (
         <CardContent className="space-y-4">
           {isLoading || !data ? (
-            <p className="text-xs font-mono text-muted-foreground">Analyzing closed trades…</p>
+            <p className="text-[13px] font-mono text-muted-foreground">Analyzing closed trades…</p>
           ) : data.totalTrades === 0 ? (
-            <p className="text-xs font-mono text-muted-foreground">No closed live trades in this section yet — forensics start once trades close.</p>
+            <p className="text-[13px] font-mono text-muted-foreground">No closed live trades in this section yet — forensics start once trades close.</p>
           ) : (
             <>
               {/* The honest headline: raw vs scratch-adjusted win rate. */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <div className="rounded border border-border p-3">
-                  <p className="text-xs text-muted-foreground">Raw win rate</p>
+                  <p className="text-[13px] text-muted-foreground">Raw win rate</p>
                   <p className="text-xl font-bold">{data.rawWinRate != null ? `${(data.rawWinRate * 100).toFixed(0)}%` : "—"}</p>
                   <p className="text-[10px] text-muted-foreground">counts scratches as losses</p>
                 </div>
                 <div className="rounded border border-primary/40 bg-primary/5 p-3">
-                  <p className="text-xs text-muted-foreground">Adjusted win rate</p>
+                  <p className="text-[13px] text-muted-foreground">Adjusted win rate</p>
                   <p className="text-xl font-bold text-primary">{data.adjustedWinRate != null ? `${(data.adjustedWinRate * 100).toFixed(0)}%` : "—"}</p>
                   <p className="text-[10px] text-muted-foreground">scratches excluded — the honest number</p>
                 </div>
                 <div className="rounded border border-border p-3">
-                  <p className="text-xs text-muted-foreground">W / L / Scratch</p>
+                  <p className="text-[13px] text-muted-foreground">W / L / Scratch</p>
                   <p className="text-xl font-bold">{data.wins} / {data.losses} / {data.scratches}</p>
                   <p className="text-[10px] text-muted-foreground">{data.totalTrades} closed trades</p>
                 </div>
                 <div className="rounded border border-border p-3">
-                  <p className="text-xs text-muted-foreground">Expectancy / decided trade</p>
+                  <p className="text-[13px] text-muted-foreground">Expectancy / decided trade</p>
                   <p className={cn("text-xl font-bold", (data.expectancyPerTrade ?? 0) >= 0 ? "text-success" : "text-destructive")}>
                     {data.expectancyPerTrade != null ? `$${data.expectancyPerTrade.toFixed(2)}` : "—"}
                   </p>
                 </div>
                 <div className="rounded border border-border p-3">
-                  <p className="text-xs text-muted-foreground">Fees paid</p>
+                  <p className="text-[13px] text-muted-foreground">Fees paid</p>
                   <p className="text-xl font-bold">${data.totalFees.toFixed(2)}</p>
                   <p className="text-[10px] text-muted-foreground">gross {data.grossPnl >= 0 ? "+" : ""}{data.grossPnl.toFixed(2)} → net {data.totalPnl >= 0 ? "+" : ""}{data.totalPnl.toFixed(2)}</p>
                 </div>
@@ -354,7 +354,7 @@ function EdgeForensicsCard() {
                     <div key={i} className={cn("flex gap-2.5 rounded border p-3", sevBorder[v.severity])}>
                       {sevIcon[v.severity]}
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold">{v.title}</p>
+                        <p className="text-[13px] font-semibold">{v.title}</p>
                         <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">{v.detail}</p>
                       </div>
                     </div>
@@ -373,7 +373,7 @@ function EdgeForensicsCard() {
               )}
               {data.noiseFlags.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-xs text-muted-foreground">Stop-vs-noise audit (live ATR)</p>
+                  <p className="text-[13px] text-muted-foreground">Stop-vs-noise audit (live ATR)</p>
                   <div className="flex flex-wrap gap-1.5">
                     {data.noiseFlags.map((f, i) => (
                       <span key={i} className={cn("px-2 py-1 rounded text-[11px] font-mono border", f.severity === "inside_noise" ? "border-destructive/50 text-destructive bg-destructive/10" : "border-warning/50 text-warning bg-warning/10")}>
@@ -393,7 +393,7 @@ function EdgeForensicsCard() {
 
               {data.rDistribution.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-xs text-muted-foreground">Realized R-multiple distribution</p>
+                  <p className="text-[13px] text-muted-foreground">Realized R-multiple distribution</p>
                   <div className="flex flex-wrap gap-1.5">
                     {data.rDistribution.map((b) => (
                       <span key={b.bucket} className="px-2 py-1 rounded text-[11px] font-mono border border-border text-muted-foreground">
@@ -481,7 +481,7 @@ export function Stats() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="bg-card">
           <CardContent className="p-6">
-            <p className="text-xs text-muted-foreground mb-2">Net PnL</p>
+            <p className="text-[13px] text-muted-foreground mb-2">Net PnL</p>
             <p className={cn("text-3xl font-bold tracking-tight tabular-nums", isProfit ? "text-success" : "text-destructive")}>
               {formatCurrency(summary?.totalPnl, "always")}
             </p>
@@ -489,7 +489,7 @@ export function Stats() {
         </Card>
         <Card className="bg-card">
           <CardContent className="p-6">
-            <p className="text-xs text-muted-foreground mb-2">Win Rate</p>
+            <p className="text-[13px] text-muted-foreground mb-2">Win Rate</p>
             <p className="text-3xl font-bold tracking-tight tabular-nums text-primary">
               {formatPercent(summary != null ? summary.winRate * 100 : null)}
             </p>
@@ -497,7 +497,7 @@ export function Stats() {
         </Card>
         <Card className="bg-card">
           <CardContent className="p-6">
-            <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+            <p className="text-[13px] text-muted-foreground mb-2 flex items-center gap-1">
               <TrendingDown className="h-3 w-3 text-destructive" /> Max Drawdown
             </p>
             {/* maxDrawdown is a non-negative magnitude; render it as a loss
@@ -509,7 +509,7 @@ export function Stats() {
         </Card>
         <Card className="bg-card">
           <CardContent className="p-6">
-            <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+            <p className="text-[13px] text-muted-foreground mb-2 flex items-center gap-1">
               <Flame className="h-3 w-3 text-warning" /> Current Streak
             </p>
             <p className="text-3xl font-bold tracking-tight tabular-nums flex items-baseline gap-2">
@@ -529,7 +529,7 @@ export function Stats() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <Card className="xl:col-span-2">
           <CardHeader>
-            <CardTitle className="text-sm">Hourly Execution Heatmap (UTC)</CardTitle>
+            <CardTitle className="text-[15px]">Hourly Execution Heatmap (UTC)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full">
@@ -551,7 +551,7 @@ export function Stats() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
+            <div className="mt-4 flex items-center gap-4 text-[13px] text-muted-foreground">
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-success"></div> Profitable</div>
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-warning"></div> Loss</div>
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-destructive"></div> Toxic Hour Blocked</div>
@@ -561,7 +561,7 @@ export function Stats() {
 
         <Card className="flex flex-col">
           <CardHeader>
-            <CardTitle className="text-sm">Win / Loss Ratio</CardTitle>
+            <CardTitle className="text-[15px]">Win / Loss Ratio</CardTitle>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col justify-center items-center pb-8">
             <div className="h-[200px] w-full relative">
@@ -591,7 +591,7 @@ export function Stats() {
                 <span className="text-3xl font-bold tabular-nums text-foreground">
                   {formatPercent(summary != null ? summary.winRate * 100 : null)}
                 </span>
-                <span className="text-xs text-muted-foreground mt-1">Win Rate</span>
+                <span className="text-[13px] text-muted-foreground mt-1">Win Rate</span>
               </div>
             </div>
             
@@ -599,14 +599,14 @@ export function Stats() {
               <div className="flex justify-between items-center p-3 rounded-md bg-muted/30 border">
                 <div className="flex items-center gap-2">
                   <Target className="h-4 w-4 text-primary" />
-                  <span className="text-xs">Avg Confidence</span>
+                  <span className="text-[13px]">Avg Confidence</span>
                 </div>
                 <span className="font-bold">{formatNumber(summary?.avgConfidence, 1)}</span>
               </div>
               <div className="flex justify-between items-center p-3 rounded-md bg-muted/30 border">
                 <div className="flex items-center gap-2">
                   <Zap className="h-4 w-4 text-primary" />
-                  <span className="text-xs">Total Trades</span>
+                  <span className="text-[13px]">Total Trades</span>
                 </div>
                 <span className="font-bold tabular-nums">{summary?.totalTrades ?? NO_VALUE}</span>
               </div>

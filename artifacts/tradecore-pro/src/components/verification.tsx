@@ -51,7 +51,7 @@ export function BlockingBanner() {
             <p className="text-sm font-bold text-success">
               Engine clear to trade
             </p>
-            <p className="text-xs text-muted-foreground font-mono mt-0.5">
+            <p className="text-[13px] text-muted-foreground font-mono mt-0.5">
               {data.entered > 0
                 ? `${data.entered} entr${data.entered === 1 ? "y" : "ies"} this scan · `
                 : ""}
@@ -105,7 +105,7 @@ export function BlockingBanner() {
             {!data.globalBlock && data.reasons.length > 0 && (
               <div className="mt-3 space-y-1.5">
                 {data.reasons.map((r) => (
-                  <div key={`${r.stage}-${r.reason}`} className="flex items-start gap-2 text-xs font-mono">
+                  <div key={`${r.stage}-${r.reason}`} className="flex items-start gap-2 text-[13px] font-mono">
                     <Badge variant="secondary" className="h-5 shrink-0">{r.count}</Badge>
                     <div className="min-w-0">
                       <span className="text-foreground">{r.reason}</span>
@@ -157,9 +157,9 @@ export function MarketMonitor() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Activity className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm">Live Market Monitor</CardTitle>
+            <CardTitle className="text-[15px]">Live Market Monitor</CardTitle>
           </div>
-          <div className="flex items-center gap-2 text-xs font-mono">
+          <div className="flex items-center gap-2 text-[13px] font-mono">
             {conn?.connected ? (
               <><Wifi className="h-3.5 w-3.5 text-success" /><span className="text-success">LIVE</span></>
             ) : failing ? (
@@ -204,7 +204,7 @@ export function MarketMonitor() {
       <div className="overflow-auto flex-1">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-card">
-            <tr className="text-left text-xs text-muted-foreground border-b border-border/50">
+            <tr className="text-left text-[13px] text-muted-foreground border-b border-border/50">
               <th className="p-3 font-medium">Symbol</th>
               <th className="p-3 font-medium text-right">Last</th>
               <th className="p-3 font-medium text-right">Bid / Ask</th>
@@ -220,10 +220,10 @@ export function MarketMonitor() {
                 <td className="p-3 text-right font-mono">{formatNumber(t.last, 4)}</td>
                 {/* Binance futures Demo Trading doesn't populate bid/ask in its
                     ticker feed — show a dash instead of a misleading 0.0000. */}
-                <td className="p-3 text-right font-mono text-xs text-muted-foreground">
+                <td className="p-3 text-right font-mono text-[13px] text-muted-foreground">
                   {t.bid > 0 || t.ask > 0 ? `${formatNumber(t.bid, 4)} / ${formatNumber(t.ask, 4)}` : "—"}
                 </td>
-                <td className="p-3 text-right font-mono text-xs">
+                <td className="p-3 text-right font-mono text-[13px]">
                   {t.bid > 0 || t.ask > 0 ? `${formatNumber(t.spreadPercent, 3)}%` : "—"}
                 </td>
                 <td className={cn(
@@ -235,7 +235,7 @@ export function MarketMonitor() {
                     {formatNumber(Math.abs(t.changePercent), 2)}%
                   </span>
                 </td>
-                <td className="p-3 text-right font-mono text-xs text-muted-foreground">
+                <td className="p-3 text-right font-mono text-[13px] text-muted-foreground">
                   {formatCompact(t.quoteVolume)}
                 </td>
               </tr>
@@ -287,7 +287,7 @@ function DecisionRow({ d }: { d: SymbolDecision }) {
           ))}
         </div>
 
-        <div className="flex items-center gap-1 ml-auto shrink-0 text-xs font-mono text-muted-foreground">
+        <div className="flex items-center gap-1 ml-auto shrink-0 text-[13px] font-mono text-muted-foreground">
           <Gauge className="h-3 w-3" />{formatNumber(d.confidence, 0)}%
         </div>
         <Badge variant={entered ? "success" : "secondary"} className="shrink-0 w-24 justify-center">
@@ -297,7 +297,7 @@ function DecisionRow({ d }: { d: SymbolDecision }) {
 
       {/* Block reason preview (always visible when blocked) */}
       {!entered && d.blockReason && !open && (
-        <p className="px-3 pb-2 -mt-1 pl-10 text-xs font-mono text-warning truncate">
+        <p className="px-3 pb-2 -mt-1 pl-10 text-[13px] font-mono text-warning truncate">
           {d.blockStage}: {d.blockReason}
         </p>
       )}
@@ -305,7 +305,7 @@ function DecisionRow({ d }: { d: SymbolDecision }) {
       {open && (
         <div className="px-3 pb-3 pl-10 space-y-2">
           {d.stages.map((s) => (
-            <div key={s.name} className="flex items-start gap-2 text-xs">
+            <div key={s.name} className="flex items-start gap-2 text-[13px]">
               <StageIcon status={s.status} />
               <div className="min-w-0">
                 <span className="font-mono font-bold text-foreground">{s.name}</span>
@@ -314,7 +314,7 @@ function DecisionRow({ d }: { d: SymbolDecision }) {
             </div>
           ))}
           {!entered && d.blockReason && (
-            <div className="mt-2 rounded bg-warning/10 border border-warning/30 p-2 text-xs font-mono text-warning">
+            <div className="mt-2 rounded bg-warning/10 border border-warning/30 p-2 text-[13px] font-mono text-warning">
               Blocked at <b>{d.blockStage}</b>: {d.blockReason}
             </div>
           )}
@@ -335,7 +335,7 @@ export function DecisionPanel() {
       <CardHeader className="py-4 border-b border-border/50">
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-primary" />
-          <CardTitle className="text-sm">Strategy Decision Panel</CardTitle>
+          <CardTitle className="text-[15px]">Strategy Decision Panel</CardTitle>
         </div>
         <p className="text-[11px] font-mono text-muted-foreground mt-1">
           Market Data → Indicators → Signal → Risk Checks → Order · click a row for the full trace

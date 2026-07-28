@@ -58,7 +58,7 @@ export function NotificationBell() {
           resolve to a transparent background (sidebar text bled through). */}
       <PopoverContent align="end" className="w-80 p-0 max-h-96 overflow-y-auto bg-card text-foreground border-border">
         <div className="flex items-center justify-between px-3 py-2 border-b">
-          <span className="text-xs text-muted-foreground">Notifications</span>
+          <span className="text-[13px] text-muted-foreground">Notifications</span>
           {unreadCount > 0 && (
             <button
               type="button"
@@ -70,7 +70,7 @@ export function NotificationBell() {
           )}
         </div>
         {items.length === 0 ? (
-          <p className="px-3 py-6 text-center text-xs text-muted-foreground">No notifications yet.</p>
+          <p className="px-3 py-6 text-center text-[13px] text-muted-foreground">No notifications yet.</p>
         ) : (
           <ul>
             {items.map((n) => {
@@ -79,7 +79,7 @@ export function NotificationBell() {
               return (
                 <li
                   key={n.id}
-                  className={cn("flex items-start gap-2 px-3 py-2.5 border-b last:border-0 text-xs", unread && "bg-primary/5")}
+                  className={cn("flex items-start gap-2 px-3 py-2.5 border-b last:border-0 text-[13px]", unread && "bg-primary/5")}
                 >
                   <Icon className={cn("h-3.5 w-3.5 shrink-0 mt-0.5", SEVERITY_CLASS[n.severity] ?? "text-muted-foreground")} />
                   <div className="min-w-0 flex-1">

@@ -63,7 +63,7 @@ export function ModePicker({
                 </span>
               )}
             </span>
-            <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+            <span className="mt-0.5 block text-[13px] leading-relaxed text-muted-foreground">
               {m.blurb}
             </span>
           </button>

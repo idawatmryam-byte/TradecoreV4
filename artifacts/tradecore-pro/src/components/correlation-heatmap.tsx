@@ -73,14 +73,14 @@ export function CorrelationHeatMap() {
         <CardTitle className="text-base flex items-center gap-2">
           <Grid3x3 className="h-4 w-4" />Correlation
         </CardTitle>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[13px] text-muted-foreground">
           Daily returns, 30-day lookback. Pairs at or above {threshold.toFixed(2)} count as one bet
           for the correlated-exposure cap. Symbols you currently hold are underlined.
         </p>
       </CardHeader>
       <CardContent className="p-3 sm:p-4 pt-0">
         <div className="overflow-x-auto">
-          <table className="text-xs font-mono border-separate border-spacing-0.5">
+          <table className="text-[13px] font-mono border-separate border-spacing-0.5">
             <thead>
               <tr>
                 <th className="p-1" />
