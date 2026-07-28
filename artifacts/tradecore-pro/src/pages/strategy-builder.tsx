@@ -197,7 +197,7 @@ function ConditionRow({ row, onChange, onRemove }: {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <select
-        className="h-7 rounded-md border bg-background px-1.5 text-xs font-mono min-w-0 flex-1"
+        className="h-7 rounded-md border bg-background px-1.5 text-[13px] font-mono min-w-0 flex-1"
         value={row.indicator}
         onChange={(e) => setIndicator(e.target.value)}
       >
@@ -215,9 +215,9 @@ function ConditionRow({ row, onChange, onRemove }: {
 
       {enumSpec ? (
         <>
-          <span className="text-xs font-mono text-muted-foreground">=</span>
+          <span className="text-[13px] font-mono text-muted-foreground">=</span>
           <select
-            className="h-7 rounded-md border bg-background px-1.5 text-xs font-mono"
+            className="h-7 rounded-md border bg-background px-1.5 text-[13px] font-mono"
             value={row.value}
             onChange={(e) => onChange({ ...row, value: e.target.value })}
           >
@@ -229,7 +229,7 @@ function ConditionRow({ row, onChange, onRemove }: {
       ) : (
         <>
           <select
-            className="h-7 rounded-md border bg-background px-1.5 text-xs font-mono"
+            className="h-7 rounded-md border bg-background px-1.5 text-[13px] font-mono"
             value={row.op}
             onChange={(e) => onChange({ ...row, op: e.target.value })}
           >
@@ -239,7 +239,7 @@ function ConditionRow({ row, onChange, onRemove }: {
             <option value="lte">≤</option>
           </select>
           <Input
-            className="h-7 text-xs w-20 font-mono"
+            className="h-7 text-[13px] w-20 font-mono"
             inputMode="decimal"
             placeholder="value"
             title={numeric ? `${numeric.min}–${numeric.max}${numeric.hint ? ` · ${numeric.hint}` : ''}` : undefined}
@@ -266,7 +266,7 @@ function SideEditor({ side, rows, onChange }: {
   return (
     <div className={cn('rounded-lg border p-3 space-y-2', rows.length > 0 ? (isLong ? 'border-success/40' : 'border-destructive/40') : 'border-dashed')}>
       <div className="flex items-center justify-between">
-        <span className={cn('text-xs flex items-center gap-1', isLong ? 'text-success' : 'text-destructive')}>
+        <span className={cn('text-[13px] flex items-center gap-1', isLong ? 'text-success' : 'text-destructive')}>
           {isLong ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
           {isLong ? 'Long entry — ALL must hold' : 'Short entry — ALL must hold'}
         </span>
@@ -334,7 +334,7 @@ function EditorCard({ existing, onDone }: { existing?: CustomStrategy; onDone: (
   return (
     <Card className="border-primary/40">
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+        <CardTitle className="text-[15px] font-semibold flex items-center gap-2">
           <Hammer className="h-4 w-4 text-primary" />
           {existing ? `Edit — ${existing.name}` : 'New custom strategy'}
         </CardTitle>
@@ -342,13 +342,13 @@ function EditorCard({ existing, onDone }: { existing?: CustomStrategy; onDone: (
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <Label className="text-xs">Name</Label>
-            <Input className="h-8 text-xs mt-1" maxLength={60} placeholder="e.g. RSI Dip Hunter" value={form.name}
+            <Label className="text-[13px]">Name</Label>
+            <Input className="h-8 text-[13px] mt-1" maxLength={60} placeholder="e.g. RSI Dip Hunter" value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
           </div>
           <div>
-            <Label className="text-xs">Description (optional)</Label>
-            <Input className="h-8 text-xs mt-1" maxLength={500} placeholder="What edge does it capture?" value={form.description}
+            <Label className="text-[13px]">Description (optional)</Label>
+            <Input className="h-8 text-[13px] mt-1" maxLength={500} placeholder="What edge does it capture?" value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
           </div>
         </div>
@@ -358,10 +358,10 @@ function EditorCard({ existing, onDone }: { existing?: CustomStrategy; onDone: (
 
         {/* Stop placement */}
         <div className="rounded-lg border p-3 space-y-2">
-          <span className="text-xs text-muted-foreground">Stop placement</span>
+          <span className="text-[13px] text-muted-foreground">Stop placement</span>
           <div className="flex flex-wrap items-center gap-2">
             <select
-              className="h-7 rounded-md border bg-background px-1.5 text-xs font-mono"
+              className="h-7 rounded-md border bg-background px-1.5 text-[13px] font-mono"
               value={form.stopMode}
               onChange={(e) => setForm((f) => ({ ...f, stopMode: e.target.value as BuilderForm['stopMode'] }))}
             >
@@ -370,17 +370,17 @@ function EditorCard({ existing, onDone }: { existing?: CustomStrategy; onDone: (
               <option value="swing">Swing level (structure)</option>
             </select>
             {form.stopMode === 'atr' && (
-              <><Input className="h-7 text-xs w-20 font-mono" inputMode="decimal" value={form.atrMult}
+              <><Input className="h-7 text-[13px] w-20 font-mono" inputMode="decimal" value={form.atrMult}
                 onChange={(e) => setForm((f) => ({ ...f, atrMult: e.target.value }))} />
               <span className="text-[10px] text-muted-foreground">× ATR (0.5–10)</span></>
             )}
             {form.stopMode === 'percent' && (
-              <><Input className="h-7 text-xs w-20 font-mono" inputMode="decimal" value={form.pct}
+              <><Input className="h-7 text-[13px] w-20 font-mono" inputMode="decimal" value={form.pct}
                 onChange={(e) => setForm((f) => ({ ...f, pct: e.target.value }))} />
               <span className="text-[10px] text-muted-foreground">% from entry (0.05–20)</span></>
             )}
             {form.stopMode === 'swing' && (
-              <><Input className="h-7 text-xs w-20 font-mono" inputMode="numeric" value={form.lookback}
+              <><Input className="h-7 text-[13px] w-20 font-mono" inputMode="numeric" value={form.lookback}
                 onChange={(e) => setForm((f) => ({ ...f, lookback: e.target.value }))} />
               <span className="text-[10px] text-muted-foreground">15m bars (3–50) — lowest low / highest high proves the thesis wrong</span></>
             )}
@@ -390,8 +390,8 @@ function EditorCard({ existing, onDone }: { existing?: CustomStrategy; onDone: (
         {/* Confidence */}
         <div className="rounded-lg border p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Signal confidence</span>
-            <span className="text-xs font-mono font-semibold">{form.confidence}</span>
+            <span className="text-[13px] text-muted-foreground">Signal confidence</span>
+            <span className="text-[13px] font-mono font-semibold">{form.confidence}</span>
           </div>
           <input
             type="range" min={50} max={95} step={1}
@@ -406,21 +406,21 @@ function EditorCard({ existing, onDone }: { existing?: CustomStrategy; onDone: (
 
         {/* Live preview */}
         <div className="rounded-lg bg-muted/40 border border-border/60 p-3">
-          <span className="text-xs text-muted-foreground">This strategy will</span>
+          <span className="text-[13px] text-muted-foreground">This strategy will</span>
           <ul className="mt-1.5 space-y-1">
             {preview.map((line, i) => (
-              <li key={i} className="text-xs font-mono text-foreground">{line}</li>
+              <li key={i} className="text-[13px] font-mono text-foreground">{line}</li>
             ))}
           </ul>
         </div>
 
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && <p className="text-[13px] text-destructive">{error}</p>}
 
         <div className="flex gap-2 justify-end">
-          <Button variant="ghost" size="sm" className="text-xs" onClick={onDone}>
+          <Button variant="ghost" size="sm" className="text-[13px]" onClick={onDone}>
             <X className="h-3.5 w-3.5 mr-1" /> Cancel
           </Button>
-          <Button size="sm" className="text-xs" onClick={handleSave} disabled={creating || updating}>
+          <Button size="sm" className="text-[13px]" onClick={handleSave} disabled={creating || updating}>
             <Check className="h-3.5 w-3.5 mr-1" /> {creating || updating ? 'Saving…' : existing ? 'Save changes' : 'Create strategy'}
           </Button>
         </div>
@@ -497,13 +497,13 @@ function SavedCard({ s, onEdit, onDeleted }: { s: CustomStrategy; onEdit: () => 
         <div className="flex items-center gap-2">
           <Link
             href={`/backtest?strategy=${s.strategyId}`}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed text-xs text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed text-[13px] text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
           >
             <FlaskConical className="h-3 w-3" /> {s.backtested ? 'Backtest again' : 'Backtest now'}
           </Link>
           <Link
             href="/strategies"
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed text-xs text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed text-[13px] text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
           >
             Trade plan →
           </Link>
@@ -545,7 +545,7 @@ export function StrategyBuilder() {
       />
 
       {isDemo && (
-        <p className="text-xs text-muted-foreground border border-dashed rounded-lg p-3">
+        <p className="text-[13px] text-muted-foreground border border-dashed rounded-lg p-3">
           Demo mode is read-only — the example below shows what a custom strategy looks like. Create a free account to build your own.
         </p>
       )}
@@ -565,7 +565,7 @@ export function StrategyBuilder() {
             <Hammer className="h-8 w-8 text-muted-foreground mx-auto" />
             <p className="text-sm text-muted-foreground">No custom strategies yet in the {section} section.</p>
             {!isDemo && (
-              <Button size="sm" variant="outline" className="font-mono text-xs" onClick={() => setEditorOpen(true)}>
+              <Button size="sm" variant="outline" className="font-mono text-[13px]" onClick={() => setEditorOpen(true)}>
                 <Plus className="h-3.5 w-3.5 mr-1" /> Build your first strategy
               </Button>
             )}

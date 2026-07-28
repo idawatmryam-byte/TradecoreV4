@@ -78,7 +78,7 @@ function ReportView({ run }: { run: AutopsyRun }) {
     return (
       <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm">
         <div className="flex items-center gap-2 font-semibold text-destructive"><AlertTriangle className="h-4 w-4" /> Autopsy failed</div>
-        <p className="mt-1 text-muted-foreground font-mono text-xs">{run.error ?? "Unknown error"}</p>
+        <p className="mt-1 text-muted-foreground font-mono text-[13px]">{run.error ?? "Unknown error"}</p>
       </div>
     );
   }
@@ -122,7 +122,7 @@ function ReportView({ run }: { run: AutopsyRun }) {
       {diagnosis?.verdict === "improved" && cur && best && (
         <>
           <div className="rounded-md border p-4">
-            <div className="grid grid-cols-[1fr_auto_auto] gap-x-6 pb-2 text-xs text-muted-foreground">
+            <div className="grid grid-cols-[1fr_auto_auto] gap-x-6 pb-2 text-[13px] text-muted-foreground">
               <span>Validation window (never used for fitting)</span>
               <span className="text-right w-20">Current</span>
               <span className="text-right w-20">Suggested</span>
@@ -132,7 +132,7 @@ function ReportView({ run }: { run: AutopsyRun }) {
             <MetricRow label="Trades" cur={String(cur.totalTrades)} best={String(best.totalTrades)} />
             <MetricRow label="Max drawdown" cur={fmtPct(cur.maxDrawdown)} best={fmtPct(best.maxDrawdown)} goodWhenHigher={false} />
             <MetricRow label="Net P&L ($1k start)" cur={cur.totalPnl.toFixed(2)} best={best.totalPnl.toFixed(2)} />
-            <div className="grid grid-cols-[1fr_auto_auto] gap-x-6 pt-2 text-xs font-mono text-muted-foreground">
+            <div className="grid grid-cols-[1fr_auto_auto] gap-x-6 pt-2 text-[13px] font-mono text-muted-foreground">
               <span>Parameters</span>
               <span className="text-right">
                 ${curParams.maxLossUsdt ?? "—"} / ${curParams.targetProfitUsdt ?? "—"} · conf {curParams.confidenceThreshold} · {fmtHold(curParams.maxHoldingSeconds)}
@@ -145,9 +145,9 @@ function ReportView({ run }: { run: AutopsyRun }) {
 
           {(diagnosis.findings ?? []).map((f) => (
             <div key={f.param} className="rounded-md border border-primary/25 bg-primary/5 p-4">
-              <div className="text-xs text-primary">📋 {f.label}</div>
+              <div className="text-[13px] text-primary">📋 {f.label}</div>
               <p className="mt-1.5 text-sm">{f.evidence}</p>
-              <p className="mt-1.5 text-xs font-mono text-muted-foreground">{f.action}</p>
+              <p className="mt-1.5 text-[13px] font-mono text-muted-foreground">{f.action}</p>
             </div>
           ))}
 
@@ -220,7 +220,7 @@ export function AutopsyPanel({ initialStrategyId }: { initialStrategyId?: string
           <span className="flex items-center gap-2">
             <Stethoscope className="h-4 w-4 text-primary" />
             Optimization Autopsy
-            <span className="text-xs text-muted-foreground font-normal">
+            <span className="text-[13px] text-muted-foreground font-normal">
               what's wrong with my configuration?
             </span>
           </span>
@@ -229,7 +229,7 @@ export function AutopsyPanel({ initialStrategyId }: { initialStrategyId?: string
       </CardHeader>
       {open && (
         <CardContent className="space-y-4">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[13px] text-muted-foreground">
             Sweeps one strategy's real knobs — dollar risk & target, confidence, hold time — with the live-parity
             backtest engine, then <strong>walk-forward validates</strong>: a suggestion only appears if it beat your
             current configuration on a later window it was never fitted to. Honest by design: "your settings are fine"
@@ -238,7 +238,7 @@ export function AutopsyPanel({ initialStrategyId }: { initialStrategyId?: string
 
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Strategy</label>
+              <label className="text-[13px] text-muted-foreground">Strategy</label>
               <select
                 value={strategyId}
                 onChange={(e) => { setStrategyId(e.target.value); setSelectedId(null); }}
@@ -251,7 +251,7 @@ export function AutopsyPanel({ initialStrategyId }: { initialStrategyId?: string
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Window</label>
+              <label className="text-[13px] text-muted-foreground">Window</label>
               <select
                 value={days}
                 onChange={(e) => setDays(Number(e.target.value))}
@@ -295,7 +295,7 @@ export function AutopsyPanel({ initialStrategyId }: { initialStrategyId?: string
             <ReportView run={selected} />
           ) : (
             strategyId && (
-              <p className="text-xs text-muted-foreground border border-dashed rounded-md p-3">
+              <p className="text-[13px] text-muted-foreground border border-dashed rounded-md p-3">
                 No autopsy has been run for this strategy yet — press "Run Autopsy" above.
               </p>
             )

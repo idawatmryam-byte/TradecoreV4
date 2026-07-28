@@ -61,13 +61,13 @@ export function DecisionTimeline({ stages }: { stages: DecisionTimelineStage[] }
                   <span className="text-sm font-mono font-medium">{stage.name}</span>
                   {hasData && (isOpen ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />)}
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{stage.detail}</p>
+                <p className="text-[13px] text-muted-foreground mt-0.5 leading-relaxed">{stage.detail}</p>
               </div>
             </button>
             {hasData && isOpen && (
               <dl className="px-2.5 pb-2.5 pl-9 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1">
                 {Object.entries(stage.data!).map(([key, value]) => (
-                  <div key={key} className="text-xs">
+                  <div key={key} className="text-[13px]">
                     <dt className="text-muted-foreground font-mono">{key}</dt>
                     <dd className="font-mono">
                       {typeof value === "object" ? JSON.stringify(value) : String(value)}

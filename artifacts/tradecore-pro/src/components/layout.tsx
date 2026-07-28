@@ -391,7 +391,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <main className="relative flex flex-1 flex-col overflow-hidden">
         {isDemo && (
-          <div className="flex items-center justify-center gap-2.5 border-b border-primary/40 bg-primary/10 px-4 py-2.5 text-xs font-medium text-primary sm:text-sm">
+          <div className="flex items-center justify-center gap-2.5 border-b border-primary/40 bg-primary/10 px-4 py-2.5 text-[13px] font-medium text-primary sm:text-sm">
             <Eye className="h-4 w-4 shrink-0" />
             <span>
               <span className="font-semibold">Demo · read-only</span>

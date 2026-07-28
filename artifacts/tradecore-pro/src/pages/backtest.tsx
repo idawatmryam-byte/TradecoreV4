@@ -254,7 +254,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
   function field(label: string, key: keyof RunFormState, type = "number", step?: string) {
     return (
       <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">{label}</label>
+        <label className="text-[13px] text-muted-foreground">{label}</label>
         <input
           type={type}
           step={step}
@@ -284,7 +284,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
           {/* Strategy — pick one to test in isolation with its saved settings,
               or "All enabled" to run them together like live. */}
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Strategy</label>
+            <label className="text-[13px] text-muted-foreground">Strategy</label>
             <select
               value={form.onlyStrategyId}
               onChange={(e) => setForm((f) => ({ ...f, onlyStrategyId: e.target.value }))}
@@ -307,7 +307,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
 
           {/* Symbols — pick coins from the quick list or type any custom pair */}
           <div className="space-y-2">
-            <label className="text-xs text-muted-foreground">
+            <label className="text-[13px] text-muted-foreground">
               Coins / Markets{selectedSymbols.length > 0 && ` · ${selectedSymbols.length} selected`}
             </label>
             <div className="flex flex-wrap gap-1.5">
@@ -319,7 +319,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
                     key={sym}
                     onClick={() => toggleSymbol(sym)}
                     className={cn(
-                      "px-2 py-1 rounded text-xs font-mono border transition-colors",
+                      "px-2 py-1 rounded text-[13px] font-mono border transition-colors",
                       on
                         ? "border-primary bg-primary/15 text-primary"
                         : "border-border text-muted-foreground hover:border-primary/50",
@@ -341,7 +341,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
 
           {/* Timeframe */}
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Timeframe</label>
+            <label className="text-[13px] text-muted-foreground">Timeframe</label>
             <select
               value={form.timeframe}
               onChange={(e) => { setForm((f) => ({ ...f, timeframe: e.target.value })); setRunAnyway(false); }}
@@ -357,7 +357,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
             {tfAdvice.level !== "ok" && (
               <div
                 className={cn(
-                  "mt-2 rounded border p-2.5 text-xs flex gap-2",
+                  "mt-2 rounded border p-2.5 text-[13px] flex gap-2",
                   tfAdvice.level === "bad"
                     ? "border-destructive/50 bg-destructive/10 text-destructive"
                     : "border-warning/50 bg-warning/10 text-warning",
@@ -398,7 +398,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
           ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Market Type</label>
+              <label className="text-[13px] text-muted-foreground">Market Type</label>
               <select
                 value={form.marketType}
                 onChange={(e) => setForm((f) => ({ ...f, marketType: e.target.value as "spot" | "futures" }))}
@@ -409,7 +409,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">
+              <label className="text-[13px] text-muted-foreground">
                 Leverage {form.marketType !== "futures" && "(futures only)"}
               </label>
               <input
@@ -460,7 +460,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
               }
               className="mt-0.5"
             />
-            <span className="text-xs">
+            <span className="text-[13px]">
               <span className="font-bold">Match live — each strategy's own SL / TP / confidence</span>
               <span className="block text-muted-foreground mt-0.5">
                 {form.matchLive
@@ -517,7 +517,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
                 onChange={(e) => setForm((f) => ({ ...f, pureExits: e.target.checked }))}
                 className="mt-0.5"
               />
-              <span className="text-xs">
+              <span className="text-[13px]">
                 <span className="font-bold">Pure SL/TP exits — no TP1, break-even, or trailing</span>
                 <span className="block text-muted-foreground mt-0.5">
                   Trades resolve only at the full stop or full target. Turn this ON when testing asymmetric R:R
@@ -535,7 +535,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
               onChange={(e) => setForm((f) => ({ ...f, makerEntry: e.target.checked }))}
               className="mt-0.5"
             />
-            <span className="text-xs">
+            <span className="text-[13px]">
               <span className="font-bold">Maker entries + maker-rate TP exits (realistic fees)</span>
               <span className="block text-muted-foreground mt-0.5">
                 Post entries as limit orders (0.02% maker vs 0.05% taker on futures) instead of paying taker on
@@ -548,7 +548,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
           {/* Risk model — dollar mode overrides SL/TP/size for ALL strategies
               (same planner as live), regardless of Match-live. */}
           <div className="space-y-2 rounded border border-border p-3">
-            <label className="text-xs text-muted-foreground">Risk Model</label>
+            <label className="text-[13px] text-muted-foreground">Risk Model</label>
             <select
               value={form.riskModel}
               onChange={(e) => setForm((f) => ({ ...f, riskModel: e.target.value as "percent" | "dollar" }))}
@@ -658,13 +658,13 @@ function EffectiveConfigPreview({ form }: { form: RunFormState }) {
   return (
     <div className="border border-border rounded-lg p-3 bg-muted/20 space-y-2">
       <div className="flex items-center justify-between">
-        <h4 className="text-xs text-muted-foreground">
+        <h4 className="text-[13px] text-muted-foreground">
           Effective Backtest Configuration
         </h4>
         {loading && <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />}
       </div>
       {!data ? (
-        <p className="text-xs text-muted-foreground font-mono">Computing…</p>
+        <p className="text-[13px] text-muted-foreground font-mono">Computing…</p>
       ) : (
         <div className="space-y-1.5">
           {data.strategies.map((s) => (
@@ -721,12 +721,12 @@ function RunListItem({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium font-mono">#{run.displayNo}</span>
-            <Badge variant={statusBadge(run.status) as any} className="text-xs">
+            <Badge variant={statusBadge(run.status) as any} className="text-[13px]">
               {run.status}
             </Badge>
-            <span className="text-xs text-muted-foreground font-mono">{run.timeframe}</span>
+            <span className="text-[13px] text-muted-foreground font-mono">{run.timeframe}</span>
           </div>
-          <p className="text-xs text-muted-foreground mt-1 truncate">
+          <p className="text-[13px] text-muted-foreground mt-1 truncate">
             {run.symbols.join(", ")}
           </p>
           {run.status === "running" && (
@@ -742,10 +742,10 @@ function RunListItem({
           )}
           {run.status === "completed" && run.totalPnl != null && (
             <div className="flex items-center gap-3 mt-1.5">
-              <span className={cn("text-xs font-mono font-medium", Number(run.totalPnl) >= 0 ? "text-success" : "text-destructive")}>
+              <span className={cn("text-[13px] font-mono font-medium", Number(run.totalPnl) >= 0 ? "text-success" : "text-destructive")}>
                 {formatCurrency(run.totalPnl, "always")}
               </span>
-              <span className="text-xs text-muted-foreground font-mono">
+              <span className="text-[13px] text-muted-foreground font-mono">
                 WR {formatPercent(Number(run.winRate) * 100)}
               </span>
             </div>
@@ -782,13 +782,13 @@ function Metric({
   return (
     <Card>
       <CardContent className="p-4">
-        <p className="text-xs text-muted-foreground mb-1">{label}</p>
+        <p className="text-[13px] text-muted-foreground mb-1">{label}</p>
         <p className={cn("text-2xl font-bold tracking-tight font-mono",
           positive ? "text-success" : negative ? "text-destructive" : ""
         )}>
           {value}
         </p>
-        {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+        {sub && <p className="text-[13px] text-muted-foreground mt-0.5">{sub}</p>}
       </CardContent>
     </Card>
   );
@@ -834,7 +834,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
           </Badge>
         </div>
         <div className="space-y-1">
-          <div className="flex justify-between text-xs font-mono text-muted-foreground">
+          <div className="flex justify-between text-[13px] font-mono text-muted-foreground">
             <span>Progress</span><span>{run.progress}%</span>
           </div>
           <div className="h-2 rounded-full bg-border overflow-hidden">
@@ -855,7 +855,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
           <AlertTriangle className="h-5 w-5" />
           <span className="font-bold">Backtest Failed</span>
         </div>
-        <pre className="text-xs text-destructive bg-destructive/5 border border-destructive/20 rounded p-3 overflow-auto">
+        <pre className="text-[13px] text-destructive bg-destructive/5 border border-destructive/20 rounded p-3 overflow-auto">
           {run.error ?? "Unknown error"}
         </pre>
       </Card>
@@ -913,7 +913,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="font-bold text-lg font-mono">Run #{run.displayNo}</h2>
-          <p className="text-xs text-muted-foreground font-mono">
+          <p className="text-[13px] text-muted-foreground font-mono">
             {run.symbols.join(", ")} · {run.timeframe} ·{" "}
             {new Date(run.startDate).toLocaleDateString()} →{" "}
             {new Date(run.endDate).toLocaleDateString()}
@@ -923,14 +923,14 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
           <a
             href={`/api/backtests/${run.id}/export?format=csv`}
             download
-            className="inline-flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded border border-border hover:border-primary/50 transition-colors"
+            className="inline-flex items-center gap-1.5 text-[13px] font-mono px-3 py-1.5 rounded border border-border hover:border-primary/50 transition-colors"
           >
             <Download className="h-3 w-3" /> CSV
           </a>
           <a
             href={`/api/backtests/${run.id}/export?format=json`}
             download
-            className="inline-flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded border border-border hover:border-primary/50 transition-colors"
+            className="inline-flex items-center gap-1.5 text-[13px] font-mono px-3 py-1.5 rounded border border-border hover:border-primary/50 transition-colors"
           >
             <Download className="h-3 w-3" /> JSON
           </a>
@@ -988,11 +988,11 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
         return (
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Effective Backtest Configuration</CardTitle>
+              <CardTitle className="text-[15px]">Effective Backtest Configuration</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="overflow-auto">
-                <table className="w-full text-xs font-mono">
+                <table className="w-full text-[13px] font-mono">
                   <thead>
                     <tr className="border-b border-border text-muted-foreground">
                       <th className="text-left px-2 py-1.5">Strategy</th>
@@ -1054,7 +1054,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
           {equity.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
+                <CardTitle className="text-[15px] flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-primary" /> Equity Curve
                 </CardTitle>
               </CardHeader>
@@ -1086,7 +1086,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
           {equity.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
+                <CardTitle className="text-[15px] flex items-center gap-2">
                   <TrendingDown className="h-4 w-4 text-destructive" /> Drawdown
                 </CardTitle>
               </CardHeader>
@@ -1111,7 +1111,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
             {/* Win/Loss pie */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Win / Loss Distribution</CardTitle>
+                <CardTitle className="text-[15px]">Win / Loss Distribution</CardTitle>
               </CardHeader>
               <CardContent className="flex items-center justify-center">
                 <ResponsiveContainer width="100%" height={160}>
@@ -1131,7 +1131,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
             {monthlyData.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm">Monthly Returns</CardTitle>
+                  <CardTitle className="text-[15px]">Monthly Returns</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={160}>
@@ -1159,7 +1159,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
           {symbolData.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
+                <CardTitle className="text-[15px] flex items-center gap-2">
                   <BarChart2 className="h-4 w-4" /> P&L by Symbol
                 </CardTitle>
               </CardHeader>
@@ -1188,7 +1188,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
           {exitData.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Exit Reason Breakdown</CardTitle>
+                <CardTitle className="text-[15px]">Exit Reason Breakdown</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex gap-4 flex-wrap">
@@ -1198,7 +1198,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
                         d.reason === "take_profit" ? "bg-success" :
                         d.reason === "stop_loss" ? "bg-destructive" : "bg-muted-foreground"
                       )} />
-                      <span className="text-xs font-mono text-muted-foreground">
+                      <span className="text-[13px] font-mono text-muted-foreground">
                         {d.reason.replace("_", " ")}: <span className="text-foreground font-medium">{d.count}</span>
                       </span>
                     </div>
@@ -1213,7 +1213,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
       {tab === "trades" && (
         <Card>
           <CardContent className="p-0 overflow-auto">
-            <table className="w-full text-xs font-mono">
+            <table className="w-full text-[13px] font-mono">
               <thead>
                 <tr className="border-b border-border">
                   {["Symbol", "Entry", "Exit", "Entry $", "Exit $", "SL %", "TP %", "Qty", "Fees", "P&L", "P&L%", "Reason", "Duration"].map((h) => (
@@ -1250,7 +1250,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
                       {t.pnlPercent != null ? `${t.pnlPercent >= 0 ? "+" : ""}${t.pnlPercent.toFixed(2)}%` : "—"}
                     </td>
                     <td className="px-3 py-2">
-                      <span className={cn("px-1.5 py-0.5 rounded text-xs",
+                      <span className={cn("px-1.5 py-0.5 rounded text-[13px]",
                         t.exitReason === "take_profit" ? "bg-success/10 text-success" :
                         t.exitReason === "stop_loss" ? "bg-destructive/10 text-destructive" :
                         "bg-muted text-muted-foreground"
@@ -1351,7 +1351,7 @@ export function Backtest() {
           {/* Run list */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs text-muted-foreground">
+              <h3 className="text-[13px] text-muted-foreground">
                 Saved Runs ({runs.length})
               </h3>
               <button
@@ -1363,7 +1363,7 @@ export function Backtest() {
             </div>
             <div className="space-y-2 max-h-[600px] overflow-auto pr-1">
               {runs.length === 0 && (
-                <div className="text-xs text-muted-foreground font-mono py-6 text-center border border-dashed border-border rounded-lg">
+                <div className="text-[13px] text-muted-foreground font-mono py-6 text-center border border-dashed border-border rounded-lg">
                   No backtests yet. Configure and run one above.
                 </div>
               )}

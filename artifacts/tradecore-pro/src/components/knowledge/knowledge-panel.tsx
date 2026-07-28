@@ -44,7 +44,7 @@ function CellRow({ cell }: { cell: KnowledgeCell }) {
             <Badge
               variant="outline"
               className={cn(
-                "shrink-0 text-xs",
+                "shrink-0 text-[13px]",
                 cell.winRate != null && cell.winRate >= 0.5
                   ? "border-success/40 text-success"
                   : "border-destructive/40 text-destructive",
@@ -54,7 +54,7 @@ function CellRow({ cell }: { cell: KnowledgeCell }) {
             </Badge>
           )}
         </div>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-[13px] text-muted-foreground">
           {DIMENSION_LABELS[cell.dimension] ?? cell.dimension}
         </span>
       </TableCell>
@@ -63,7 +63,7 @@ function CellRow({ cell }: { cell: KnowledgeCell }) {
 
       <TableCell className="font-mono text-right">
         {cell.gated ? (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-[13px] text-muted-foreground">
             needs {cell.minSamples - cell.samples} more
           </span>
         ) : (
@@ -82,7 +82,7 @@ function CellRow({ cell }: { cell: KnowledgeCell }) {
         {cell.gated ? <span className="text-muted-foreground">—</span> : cell.avgR?.toFixed(2) ?? "—"}
       </TableCell>
 
-      <TableCell className="font-mono text-right text-xs text-muted-foreground">
+      <TableCell className="font-mono text-right text-[13px] text-muted-foreground">
         {beatsBaseline ? `q=${cell.significance!.qValue.toFixed(3)}` : "—"}
       </TableCell>
     </TableRow>
@@ -96,7 +96,7 @@ export function KnowledgePanel() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle className="text-[15px] flex items-center gap-2">
             <Microscope className="h-4 w-4" /> Market Knowledge
           </CardTitle>
         </CardHeader>
@@ -114,13 +114,13 @@ export function KnowledgePanel() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle className="text-[15px] flex items-center gap-2">
             <Microscope className="h-4 w-4 text-primary" /> Market Knowledge
-            <Badge variant="outline" className="ml-auto text-xs">
+            <Badge variant="outline" className="ml-auto text-[13px]">
               {data.executionTarget}
             </Badge>
           </CardTitle>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[13px] text-muted-foreground">
             {data.totalTrades} closed trades · baseline win rate{" "}
             {data.baselineWinRate != null
               ? pct(data.baselineWinRate)
@@ -155,10 +155,10 @@ export function KnowledgePanel() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle className="text-[15px] flex items-center gap-2">
             <Gauge className="h-4 w-4 text-primary" /> Confidence Calibration
           </CardTitle>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[13px] text-muted-foreground">
             Does a confidence of 70 actually win 70% of the time on this account?
           </p>
         </CardHeader>
@@ -168,11 +168,11 @@ export function KnowledgePanel() {
               <p className="text-sm text-muted-foreground">
                 Not enough settled trades to answer honestly.
               </p>
-              <p className="text-xs font-mono text-muted-foreground">
+              <p className="text-[13px] font-mono text-muted-foreground">
                 {cal.validationSamples}/{cal.minSamples} in the validation window
                 {cal.samplesNeeded > 0 && ` · ${cal.samplesNeeded} more needed`}
               </p>
-              <p className="text-xs text-muted-foreground flex gap-1.5">
+              <p className="text-[13px] text-muted-foreground flex gap-1.5">
                 <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                 The curve is fitted on earlier trades and scored on later ones, so
                 the gate counts only the trades used for scoring.
@@ -182,26 +182,26 @@ export function KnowledgePanel() {
             <>
               <div className="grid grid-cols-2 gap-3 font-mono text-sm">
                 <div>
-                  <p className="text-xs text-muted-foreground">Brier (raw)</p>
+                  <p className="text-[13px] text-muted-foreground">Brier (raw)</p>
                   <p className="font-bold">{cal.raw.brier?.toFixed(3) ?? "—"}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Brier (calibrated)</p>
+                  <p className="text-[13px] text-muted-foreground">Brier (calibrated)</p>
                   <p className="font-bold">{cal.calibrated.brier?.toFixed(3) ?? "—"}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">ECE</p>
+                  <p className="text-[13px] text-muted-foreground">ECE</p>
                   <p className="font-bold">{cal.calibrated.ece?.toFixed(3) ?? "—"}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Base rate only</p>
+                  <p className="text-[13px] text-muted-foreground">Base rate only</p>
                   <p className="font-bold">{cal.climatologyBrier?.toFixed(3) ?? "—"}</p>
                 </div>
               </div>
 
               <div
                 className={cn(
-                  "text-xs rounded border px-2 py-1.5",
+                  "text-[13px] rounded border px-2 py-1.5",
                   cal.beatsClimatology
                     ? "border-success/40 text-success"
                     : "border-warning/40 text-warning",
@@ -213,12 +213,12 @@ export function KnowledgePanel() {
               </div>
 
               <div>
-                <p className="text-xs text-muted-foreground mb-1">
+                <p className="text-[13px] text-muted-foreground mb-1">
                   Reliability — promised vs observed
                 </p>
                 <div className="space-y-0.5">
                   {cal.bins.filter((b) => b.count > 0).map((b) => (
-                    <div key={b.low} className="flex items-center gap-2 text-xs font-mono">
+                    <div key={b.low} className="flex items-center gap-2 text-[13px] font-mono">
                       <span className="w-16 shrink-0 text-muted-foreground">
                         {(b.low * 100).toFixed(0)}–{(b.high * 100).toFixed(0)}%
                       </span>

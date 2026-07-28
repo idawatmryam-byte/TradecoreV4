@@ -63,9 +63,9 @@ function timeLeft(expiresAt: string): { text: string; urgent: boolean; gone: boo
 function CheckList({ checks }: { checks: RevalidationCheck[] }) {
   return (
     <div className="mt-3 space-y-1 border-t border-border pt-3">
-      <p className="text-xs font-mono text-muted-foreground mb-2">Re-validation at approval time:</p>
+      <p className="text-[13px] font-mono text-muted-foreground mb-2">Re-validation at approval time:</p>
       {checks.map((c) => (
-        <div key={c.name} className="flex items-start gap-2 text-xs font-mono">
+        <div key={c.name} className="flex items-start gap-2 text-[13px] font-mono">
           {c.passed
             ? <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" />
             : <XCircle className="h-3.5 w-3.5 text-destructive shrink-0 mt-0.5" />}
@@ -139,37 +139,37 @@ function RecommendationCard({ rec }: { rec: Recommendation }) {
     <Card className={cn("border", !actionable && rec.status !== "created" && "opacity-80")}>
       <CardContent className="p-4">
         <div className="flex flex-wrap items-center gap-2 mb-3">
-          <Badge variant="outline" className={cn("font-mono text-xs", isLong
+          <Badge variant="outline" className={cn("font-mono text-[13px]", isLong
             ? "bg-success/15 text-success border-success/40"
             : "bg-destructive/10 text-destructive border-destructive/40")}>
             {isLong ? <ArrowUpRight className="h-3 w-3 mr-1" /> : <ArrowDownRight className="h-3 w-3 mr-1" />}
             {rec.side.toUpperCase()}
           </Badge>
           <span className="font-mono font-bold">{rec.symbol}</span>
-          <Badge variant="outline" className={cn("font-mono text-xs", meta.className)}>
+          <Badge variant="outline" className={cn("font-mono text-[13px]", meta.className)}>
             <StatusIcon className="h-3 w-3 mr-1" />{meta.label}
           </Badge>
           {rec.authoredBy === "user" && (
-            <Badge variant="outline" className="font-mono text-xs bg-warning/10 text-warning border-warning/40">
+            <Badge variant="outline" className="font-mono text-[13px] bg-warning/10 text-warning border-warning/40">
               <Pencil className="h-3 w-3 mr-1" />Your plan
               {rec.derivedFromId != null && <span className="ml-1 opacity-70">from #{rec.derivedFromId}</span>}
             </Badge>
           )}
-          <span className="ml-auto font-mono text-xs text-muted-foreground">
+          <span className="ml-auto font-mono text-[13px] text-muted-foreground">
             {rec.strategyName ?? rec.strategyId} · {rec.confidence.toFixed(0)}%
           </span>
           <Link href={`/copilot/${rec.id}`}>
-            <Button size="sm" variant="ghost" className="px-2 text-xs">
+            <Button size="sm" variant="ghost" className="px-2 text-[13px]">
               <Maximize2 className="h-3 w-3 mr-1" />Workspace
             </Button>
           </Link>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-sm">
-          <div><p className="text-xs text-muted-foreground">Entry</p><p className="font-bold">{rec.entryPrice}</p></div>
-          <div><p className="text-xs text-muted-foreground">Stop</p><p className="font-bold text-destructive">{rec.slPrice}</p></div>
-          <div><p className="text-xs text-muted-foreground">Target</p><p className="font-bold text-success">{rec.tpPrice}</p></div>
-          <div><p className="text-xs text-muted-foreground">Size</p><p className="font-bold">{rec.qty}{rec.leverage > 1 && ` · ${rec.leverage}x`}</p></div>
+          <div><p className="text-[13px] text-muted-foreground">Entry</p><p className="font-bold">{rec.entryPrice}</p></div>
+          <div><p className="text-[13px] text-muted-foreground">Stop</p><p className="font-bold text-destructive">{rec.slPrice}</p></div>
+          <div><p className="text-[13px] text-muted-foreground">Target</p><p className="font-bold text-success">{rec.tpPrice}</p></div>
+          <div><p className="text-[13px] text-muted-foreground">Size</p><p className="font-bold">{rec.qty}{rec.leverage > 1 && ` · ${rec.leverage}x`}</p></div>
         </div>
 
         {rec.entryReason && (
@@ -177,14 +177,14 @@ function RecommendationCard({ rec }: { rec: Recommendation }) {
         )}
 
         {rec.status === "created" && (
-          <p className={cn("mt-3 text-xs font-mono", remaining.urgent ? "text-warning font-bold" : "text-muted-foreground")}>
+          <p className={cn("mt-3 text-[13px] font-mono", remaining.urgent ? "text-warning font-bold" : "text-muted-foreground")}>
             <Clock className="h-3 w-3 inline mr-1" />
             {remaining.gone ? "This plan has expired — the setup it described is no longer current." : remaining.text}
           </p>
         )}
 
         {rec.resolutionReason && rec.status !== "created" && (
-          <p className={cn("mt-3 text-xs font-mono flex items-start gap-1.5",
+          <p className={cn("mt-3 text-[13px] font-mono flex items-start gap-1.5",
             rec.status === "blocked" ? "text-destructive" : "text-muted-foreground")}>
             {rec.status === "blocked" && <ShieldAlert className="h-3.5 w-3.5 shrink-0 mt-0.5" />}
             {rec.resolutionReason}
@@ -195,14 +195,14 @@ function RecommendationCard({ rec }: { rec: Recommendation }) {
 
         {editing && (
           <div className="mt-4 border-t border-border pt-4 space-y-3">
-            <p className="text-xs font-mono text-muted-foreground">
+            <p className="text-[13px] font-mono text-muted-foreground">
               This creates a NEW plan authored by you. The engine's original is kept
               unchanged, so a later post-mortem can tell the two apart.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div><Label className="text-xs">Stop</Label><Input value={sl} onChange={(e) => setSl(e.target.value)} className="font-mono" /></div>
-              <div><Label className="text-xs">Target</Label><Input value={tp} onChange={(e) => setTp(e.target.value)} className="font-mono" /></div>
-              <div><Label className="text-xs">Size</Label><Input value={qty} onChange={(e) => setQty(e.target.value)} className="font-mono" /></div>
+              <div><Label className="text-[13px]">Stop</Label><Input value={sl} onChange={(e) => setSl(e.target.value)} className="font-mono" /></div>
+              <div><Label className="text-[13px]">Target</Label><Input value={tp} onChange={(e) => setTp(e.target.value)} className="font-mono" /></div>
+              <div><Label className="text-[13px]">Size</Label><Input value={qty} onChange={(e) => setQty(e.target.value)} className="font-mono" /></div>
             </div>
             <div className="flex gap-2">
               <Button size="sm" onClick={onModify} disabled={busy}>

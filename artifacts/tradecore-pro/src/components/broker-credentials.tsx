@@ -84,19 +84,19 @@ export function BinanceCredentialsCard({ onSaved }: CredentialsCardProps = {}) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm flex items-center gap-2">
+        <CardTitle className="text-[15px] flex items-center gap-2">
           <KeyRound className="h-4 w-4 text-primary" /> Your Binance API Credentials
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[13px] text-muted-foreground">
           Your bot connects to Binance using YOUR OWN API key and secret — never a shared account. Stored encrypted;
-          never displayed back once saved. Use testnet keys (<code className="text-xs font-mono">testnet.binance.vision</code>)
+          never displayed back once saved. Use testnet keys (<code className="text-[13px] font-mono">testnet.binance.vision</code>)
           while the Testnet toggle below is on.
         </p>
 
         {!isLoading && (
-          <div className="text-xs font-mono text-muted-foreground">
+          <div className="text-[13px] font-mono text-muted-foreground">
             {status?.configured
               ? <>Currently configured — key ends in <span className="text-foreground">{status.apiKeyPreview}</span></>
               : "No Binance credentials configured yet."}
@@ -172,14 +172,14 @@ export function OandaCredentialsCard({ onSaved }: CredentialsCardProps = {}) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm flex items-center gap-2">
+        <CardTitle className="text-[15px] flex items-center gap-2">
           <KeyRound className="h-4 w-4 text-primary" /> Your OANDA Credentials
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[13px] text-muted-foreground">
           The forex engine connects to OANDA with YOUR OWN personal access token and account ID — create both free at{" "}
-          <code className="text-xs font-mono">oanda.com</code> (open a <strong>practice</strong> account, then Manage
+          <code className="text-[13px] font-mono">oanda.com</code> (open a <strong>practice</strong> account, then Manage
           API Access → generate a token). Any home currency works: a GBP or EUR account is converted to USD at live
           rates, and every number in the app (balance, Max Loss, P&L) stays in USD. Stored encrypted; never displayed
           back once saved. Practice tokens only work while the Practice toggle below is on — live needs a live token.
@@ -187,7 +187,7 @@ export function OandaCredentialsCard({ onSaved }: CredentialsCardProps = {}) {
         </p>
 
         {!isLoading && (
-          <div className="text-xs font-mono text-muted-foreground">
+          <div className="text-[13px] font-mono text-muted-foreground">
             {status?.configured
               ? <>Currently configured — account ends in <span className="text-foreground">{status.accountIdPreview}</span></>
               : "No OANDA credentials configured yet."}

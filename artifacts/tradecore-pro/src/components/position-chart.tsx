@@ -155,7 +155,7 @@ export function PositionChart(props: PositionChartProps) {
         expanded && "fixed inset-2 sm:inset-6 z-[90] mt-0 bg-background shadow-2xl border-primary/40 flex flex-col",
       )}
     >
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border/40 text-xs text-muted-foreground">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border/40 text-[13px] text-muted-foreground">
         <span>{props.symbol} · 1m · live</span>
         <div className="flex items-center gap-3">
           <span>
@@ -193,7 +193,7 @@ export function PositionChart(props: PositionChartProps) {
           </div>
         )}
         {isError && (
-          <div className="absolute inset-0 flex items-center justify-center text-xs font-mono text-destructive">
+          <div className="absolute inset-0 flex items-center justify-center text-[13px] font-mono text-destructive">
             Couldn't load candles for {props.symbol}
           </div>
         )}
