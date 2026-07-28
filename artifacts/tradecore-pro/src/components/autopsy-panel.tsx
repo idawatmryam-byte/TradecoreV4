@@ -122,7 +122,7 @@ function ReportView({ run }: { run: AutopsyRun }) {
       {diagnosis?.verdict === "improved" && cur && best && (
         <>
           <div className="rounded-md border p-4">
-            <div className="grid grid-cols-[1fr_auto_auto] gap-x-6 pb-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+            <div className="grid grid-cols-[1fr_auto_auto] gap-x-6 pb-2 text-xs text-muted-foreground">
               <span>Validation window (never used for fitting)</span>
               <span className="text-right w-20">Current</span>
               <span className="text-right w-20">Suggested</span>
@@ -145,7 +145,7 @@ function ReportView({ run }: { run: AutopsyRun }) {
 
           {(diagnosis.findings ?? []).map((f) => (
             <div key={f.param} className="rounded-md border border-primary/25 bg-primary/5 p-4">
-              <div className="text-xs font-mono uppercase tracking-wider text-primary">📋 {f.label}</div>
+              <div className="text-xs text-primary">📋 {f.label}</div>
               <p className="mt-1.5 text-sm">{f.evidence}</p>
               <p className="mt-1.5 text-xs font-mono text-muted-foreground">{f.action}</p>
             </div>
@@ -220,7 +220,7 @@ export function AutopsyPanel({ initialStrategyId }: { initialStrategyId?: string
           <span className="flex items-center gap-2">
             <Stethoscope className="h-4 w-4 text-primary" />
             Optimization Autopsy
-            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-normal">
+            <span className="text-xs text-muted-foreground font-normal">
               what's wrong with my configuration?
             </span>
           </span>
@@ -238,7 +238,7 @@ export function AutopsyPanel({ initialStrategyId }: { initialStrategyId?: string
 
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
-              <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Strategy</label>
+              <label className="text-xs text-muted-foreground">Strategy</label>
               <select
                 value={strategyId}
                 onChange={(e) => { setStrategyId(e.target.value); setSelectedId(null); }}
@@ -251,7 +251,7 @@ export function AutopsyPanel({ initialStrategyId }: { initialStrategyId?: string
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Window</label>
+              <label className="text-xs text-muted-foreground">Window</label>
               <select
                 value={days}
                 onChange={(e) => setDays(Number(e.target.value))}

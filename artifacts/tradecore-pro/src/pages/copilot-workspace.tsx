@@ -149,7 +149,7 @@ function Section({ icon: Icon, title, children }: { icon: typeof PieChart; title
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
           <Icon className="h-3.5 w-3.5" /> {title}
         </div>
         {children}

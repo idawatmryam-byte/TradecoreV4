@@ -44,7 +44,7 @@ function CellRow({ cell }: { cell: KnowledgeCell }) {
             <Badge
               variant="outline"
               className={cn(
-                "shrink-0 text-[10px] font-mono uppercase tracking-wider",
+                "shrink-0 text-xs",
                 cell.winRate != null && cell.winRate >= 0.5
                   ? "border-success/40 text-success"
                   : "border-destructive/40 text-destructive",
@@ -54,7 +54,7 @@ function CellRow({ cell }: { cell: KnowledgeCell }) {
             </Badge>
           )}
         </div>
-        <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {DIMENSION_LABELS[cell.dimension] ?? cell.dimension}
         </span>
       </TableCell>
@@ -96,7 +96,7 @@ export function KnowledgePanel() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+          <CardTitle className="text-sm flex items-center gap-2">
             <Microscope className="h-4 w-4" /> Market Knowledge
           </CardTitle>
         </CardHeader>
@@ -114,9 +114,9 @@ export function KnowledgePanel() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+          <CardTitle className="text-sm flex items-center gap-2">
             <Microscope className="h-4 w-4 text-primary" /> Market Knowledge
-            <Badge variant="outline" className="ml-auto text-[10px] font-mono uppercase">
+            <Badge variant="outline" className="ml-auto text-xs">
               {data.executionTarget}
             </Badge>
           </CardTitle>
@@ -143,7 +143,7 @@ export function KnowledgePanel() {
               {data.cells.map((c) => <CellRow key={`${c.dimension}:${c.key}`} cell={c} />)}
               {data.cells.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground font-mono text-sm uppercase tracking-wider">
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground text-sm">
                     No closed trades yet. Knowledge builds itself as the record grows.
                   </TableCell>
                 </TableRow>
@@ -155,7 +155,7 @@ export function KnowledgePanel() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+          <CardTitle className="text-sm flex items-center gap-2">
             <Gauge className="h-4 w-4 text-primary" /> Confidence Calibration
           </CardTitle>
           <p className="text-xs text-muted-foreground">
@@ -213,7 +213,7 @@ export function KnowledgePanel() {
               </div>
 
               <div>
-                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+                <p className="text-xs text-muted-foreground mb-1">
                   Reliability — promised vs observed
                 </p>
                 <div className="space-y-0.5">
