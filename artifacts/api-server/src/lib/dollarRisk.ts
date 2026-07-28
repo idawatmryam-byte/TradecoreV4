@@ -203,6 +203,38 @@ export function planDollarRiskFractions(
 }
 
 /**
+ * Shrink `targetProfitUsdt` so the resulting `tpFraction` matches a reachable
+ * ceiling — everything else (`tradeAmountUsdt`/margin, `leverage`,
+ * `maxLossUsdt`) stays exactly as configured. The configured RISK never
+ * moves; only the profit target flexes to what the coin's volatility can
+ * actually deliver in the hold window.
+ *
+ * This is deliberately NOT the percent model's approach (`computeAdaptiveSLTP`
+ * scales the stop by the same ratio as the target, to preserve a raw R:R
+ * ratio that has no independent dollar backing). In the dollar model,
+ * `slFraction` and `tpFraction` are already independently derived from two
+ * separate user-stated dollar amounts — touching the stop here would be
+ * shrinking a risk the user never asked to change.
+ *
+ * Returns null when even a near-zero target wouldn't clear round-trip costs
+ * at this leverage: no target, however small, is viable here, and the caller
+ * should reject rather than adapt into a guaranteed-loss trade.
+ */
+export function adaptTargetToReachable(
+  cfg: DollarRiskConfig,
+  reachablePct: number,
+): DollarRiskConfig | null {
+  const isFutures = cfg.marketType === "futures";
+  const leverage = isFutures ? Math.max(1, cfg.leverage) : 1;
+  const feeRate = cfg.feeRate ?? defaultFeeRate(cfg.marketType);
+  const notional = Math.max(0, cfg.tradeAmountUsdt) * (isFutures ? leverage : 1);
+  const roundTripFeesUsdt = notional * feeRate * 2;
+  const targetProfitUsdt = (reachablePct / 100) * notional - roundTripFeesUsdt;
+  if (!(targetProfitUsdt > 0)) return null;
+  return { ...cfg, targetProfitUsdt };
+}
+
+/**
  * Full plan once the entry price is known. Live + backtest call this to size a
  * dollar-model trade and place the stop/target. `qty` is notional ÷ entry;
  * SL/TP prices are entry shifted by the price-independent fractions above.
