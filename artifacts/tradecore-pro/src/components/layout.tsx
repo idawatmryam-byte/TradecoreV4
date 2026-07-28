@@ -14,6 +14,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { MODE_LABELS } from "@/components/mode-picker";
+import { CactusLogo } from "@/components/cactus-logo";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -280,21 +281,6 @@ function NavBody({
   );
 }
 
-function BrandMark({ size = "sm" }: { size?: "sm" | "lg" }) {
-  const box = size === "lg" ? "h-8 w-8" : "h-7 w-7";
-  const icon = size === "lg" ? "h-5 w-5" : "h-4 w-4";
-  return (
-    <div className="flex items-center gap-2.5">
-      <div className={cn("flex items-center justify-center rounded-md border border-primary/40 bg-primary/15", box)}>
-        <Activity className={cn("text-primary", icon)} />
-      </div>
-      <span className={cn("font-semibold tracking-tight leading-none", size === "lg" && "text-lg")}>
-        TradeCore Pro
-      </span>
-    </div>
-  );
-}
-
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -358,10 +344,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background text-foreground md:flex-row">
       {/* Mobile top bar */}
-      <header className="relative sticky top-0 z-30 flex items-center justify-between overflow-hidden border-b bg-card/70 px-4 py-3 backdrop-blur md:hidden">
+      <header className="relative sticky top-0 z-30 flex items-center justify-between overflow-hidden border-b bg-surface px-4 py-3 md:hidden">
         <div className="ambient-glow" />
         <div className="relative z-10 flex min-w-0 items-center gap-2.5">
-          <BrandMark />
+          <CactusLogo />
           <ExecutionBadge executionTarget={config?.executionTarget} mode={config?.mode} section={section} compact />
         </div>
         <div className="relative z-10 flex items-center gap-2">
@@ -387,11 +373,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </Sheet>
 
       {/* Desktop rail */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r bg-card/30 md:flex">
+      <aside className="hidden w-64 shrink-0 flex-col border-r bg-surface md:flex">
         <div className="relative overflow-hidden border-b p-5">
           <div className="ambient-glow" />
           <div className="relative z-10 flex items-center gap-3">
-            <BrandMark size="lg" />
+            <CactusLogo size="lg" />
             <div className="ml-auto">
               <NotificationBell />
             </div>
