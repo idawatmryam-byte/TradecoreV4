@@ -995,6 +995,15 @@ export const RunMemoryValidationResponse = zod.object({
 
 
 /**
+ * A bot_config row is created lazily by the first read of a section's config, so row existence does NOT mean the user chose that market — merely opening the Add Market flow and backing out creates one. This returns the sections deliberately set up (config written, or engine started), which is what navigation should be driven by. Not section-scoped: it answers a question ABOUT the sections.
+ * @summary Which trading sections this user has actually set up
+ */
+export const GetSectionsResponse = zod.object({
+  "activated": zod.array(zod.enum(['crypto', 'forex'])).describe('Sections the user has deliberately set up. May be empty for a brand new account that skipped onboarding — callers should fall back to showing the currently selected section rather than nothing.')
+})
+
+
+/**
  * @summary Get bot configuration
  */
 export const GetConfigResponse = zod.object({

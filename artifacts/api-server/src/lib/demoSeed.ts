@@ -209,7 +209,9 @@ async function seedSection(userId: number, spec: SectionSpec): Promise<void> {
     riskModel: "dollar",
     positionSizeUsdt: spec.section === "forex" ? "5000" : "300",
     maxLossUsdt: String(spec.riskDollars), targetProfitUsdt: String(spec.riskDollars * 2),
-    pairs: spec.pairs, testnet: true, engineDesiredRunning: false,
+    // The showroom deliberately ships both markets fully populated — that is
+    // the point of it — so both are set up rather than offered for setup.
+    pairs: spec.pairs, testnet: true, engineDesiredRunning: false, activated: true,
   });
 
   // trades + analyses + executed decisions

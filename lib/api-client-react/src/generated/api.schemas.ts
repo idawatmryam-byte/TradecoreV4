@@ -998,6 +998,19 @@ export interface ToxicHour {
   blockedAt: string;
 }
 
+export type SectionsResponseActivatedItem = typeof SectionsResponseActivatedItem[keyof typeof SectionsResponseActivatedItem];
+
+
+export const SectionsResponseActivatedItem = {
+  crypto: 'crypto',
+  forex: 'forex',
+} as const;
+
+export interface SectionsResponse {
+  /** Sections the user has deliberately set up. May be empty for a brand new account that skipped onboarding — callers should fall back to showing the currently selected section rather than nothing. */
+  activated: SectionsResponseActivatedItem[];
+}
+
 /**
  * Which broker this section's engine connects to — binance (crypto section) or oanda (forex section). Fixed per section, not user-editable.
  */
