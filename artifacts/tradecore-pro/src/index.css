@@ -52,54 +52,55 @@
 }
 
 :root {
-  /* Premium fintech palette (founder-approved), converted to HSL to match
-     this file's existing token format. Warm charcoal instead of pure black,
-     three real elevation steps (background → surface → card) instead of two. */
-  --background: 210 11% 7%;   /* #101214 */
-  --foreground: 220 14% 96%;  /* #F3F4F6 */
+  /* Cactus AI — desert daylight.
+     Sand underfoot, cloud-white panels, cactus green for the brand AND for
+     gains (in a trading app "green means up" is the strongest convention
+     there is, so a brand green that ISN'T the gains green would be the
+     confusing choice), sun red for losses. */
+  --background: 38 46% 83%;    /* #E7D8BE  sand   */
+  --foreground: 40 15% 16%;    /* #2E2A22  night  */
 
-  --surface: 216 17% 11%;     /* #181C22 */
-  --surface-foreground: 220 14% 96%;
+  /* The middle elevation step. Declared but never wired before, which is why
+     the UI read as two flat tiers — the sidebar and header painted `card` at
+     partial opacity and muddied into an in-between tone. They paint this now. */
+  --surface: 38 51% 87%;       /* #EFE3CE  */
+  --surface-foreground: 40 15% 16%;
 
-  --border: 219 17% 23%;      /* #313845 */
-  --input: 219 17% 23%;
-  /* Focus ring. Tied to --primary so a focused control is unmistakable on a
-     dark surface (was byte-identical to --border before, i.e. invisible). */
-  --ring: 186 81% 52%;
+  --border: 37 39% 71%;        /* #D2BC98  dune   */
+  --input: 37 39% 71%;
+  --ring: 124 22% 40%;
 
-  --card: 217 17% 15%;        /* #20252D */
-  --card-foreground: 220 14% 96%;
+  --card: 40 69% 97%;          /* #FDFAF4  cloud  */
+  --card-foreground: 40 15% 16%;
 
-  --primary: 186 81% 52%;     /* #1FD4E8 */
-  --primary-foreground: 210 11% 7%;
+  --primary: 124 22% 40%;      /* #4F7C52  cactus */
+  --primary-foreground: 40 69% 97%;
 
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 210 40% 98%;
+  --secondary: 38 44% 79%;
+  --secondary-foreground: 40 15% 16%;
 
-  --muted: 223 47% 11%;
-  --muted-foreground: 216 13% 70%;  /* #A8B0BC */
+  --muted: 38 48% 88%;
+  --muted-foreground: 40 14% 38%;  /* #6E6553 */
 
-  --accent: 216 34% 17%;
-  --accent-foreground: 210 40% 98%;
+  --accent: 38 44% 79%;
+  --accent-foreground: 40 15% 16%;
 
-  --destructive: 0 68% 62%;   /* #E05D5D — reserved for errors/losses only */
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 14 64% 44%;   /* #B84A28  sun    */
+  --destructive-foreground: 40 69% 97%;
 
-  --success: 145 55% 49%;     /* #38C172 — gains/positive actions only */
-  --success-foreground: 210 11% 7%;
+  --success: 124 22% 40%;      /* #4F7C52  gains  */
+  --success-foreground: 40 69% 97%;
 
-  --warning: 36 77% 57%;      /* #E6A23C — warnings, and the Live-mode signal */
+  --warning: 35 79% 34%;       /* #9C6212  dusk — warnings and Live */
 
   --radius: 0.5rem;
 }
 
-/* There is deliberately no `.dark` block.
-   One used to sit here duplicating `:root` byte for byte, but nothing ever
-   applied the class — no `class="dark"` on <html>, no ThemeProvider — so it
-   was dead weight that had to be edited in lockstep with `:root` and silently
-   drifted the moment anyone forgot. The app is dark-only by design; `:root`
-   above is the single source. If a light theme is ever wanted, add a
-   `:root[data-theme="light"]` block rather than reviving this one. */
+/* One theme, one source. `:root` above is it.
+   The app committed to a single palette deliberately — a second block that
+   has to be edited in lockstep silently drifts the moment anyone forgets,
+   which is exactly what happened to the `.dark` block that used to live here.
+   If a desert-night theme is ever wanted, add `:root[data-theme="dark"]`. */
 
 @layer base {
   * {
@@ -111,14 +112,17 @@
   }
 }
 
-/* TradeCore's one signature visual element: a barely-there cyan wash behind
-   the header/hero, so the interface reads as having depth rather than being
-   a flat fill. Deliberately subtle — apply to a `relative` parent only in the
-   header and dashboard hero, never inside cards or repeated per-page, or it
-   stops being a signature and becomes wallpaper. */
+/* Cactus AI's one signature visual element: warmth rising off the horizon.
+   On the old near-black ground this was a cyan glow; on sand a glow reads as
+   a smudge, so it inverts into a soft deepening of the sand toward the top
+   edge with the faintest cactus tint. Deliberately subtle — apply to a
+   `relative` parent only in the header and dashboard hero, never inside cards
+   or repeated per-page, or it stops being a signature and becomes wallpaper. */
 .ambient-glow {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image: radial-gradient(ellipse 80% 100% at 50% 0%, hsl(var(--primary) / 0.06), transparent 70%);
+  background-image:
+    radial-gradient(ellipse 90% 120% at 50% 0%, hsl(37 39% 71% / 0.55), transparent 72%),
+    radial-gradient(ellipse 60% 90% at 50% 0%, hsl(var(--primary) / 0.07), transparent 70%);
 }

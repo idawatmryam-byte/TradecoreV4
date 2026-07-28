@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import {
   ShieldCheck, Loader2, User, KeyRound, Bot, FlaskConical, BrainCircuit,
-  Wallet, LineChart, CheckCircle2, PlayCircle, Eye, EyeOff,
+  Wallet, CheckCircle2, PlayCircle, Eye, EyeOff,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { markOAuthSignupIntent, consumeOAuthSignupIntent } from "@/lib/onboarding";
+import { CactusLogo } from "@/components/cactus-logo";
 
 /**
  * Multi-user Phase.
@@ -226,22 +227,14 @@ export function AuthGate({
             style={{ backgroundImage: "linear-gradient(currentColor 1px, transparent 1px), linear-gradient(90deg, currentColor 1px, transparent 1px)", backgroundSize: "44px 44px" }}
           />
           <div className="relative">
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-lg bg-primary/20 border border-primary/50 flex items-center justify-center">
-                <LineChart className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <div className="font-mono font-bold tracking-widest text-lg">TRADECORE PRO</div>
-                <div className="text-xs text-muted-foreground">Algorithmic Trading Platform</div>
-              </div>
-            </div>
+            <CactusLogo size="lg" tagline />
 
             <h1 className="mt-12 text-3xl xl:text-4xl font-bold leading-tight max-w-md">
               Trade with a plan.<br />
               <span className="text-primary">Risk exactly what you choose.</span>
             </h1>
             <p className="mt-4 max-w-md text-sm text-muted-foreground leading-relaxed">
-              TradeCore Pro is a self-hosted crypto trading engine for Binance spot and futures —
+              Cactus AI is a self-hosted crypto trading engine for Binance spot and futures —
               built for people who want automation with full transparency: every signal, every
               risk check, and every exit is logged, explained, and graded.
             </p>
@@ -262,7 +255,7 @@ export function AuthGate({
           </div>
 
           <p className="relative mt-10 text-[11px] text-muted-foreground max-w-md leading-relaxed">
-            Trading cryptocurrency involves substantial risk of loss. TradeCore Pro is software,
+            Trading cryptocurrency involves substantial risk of loss. Cactus AI is software,
             not financial advice — no strategy is guaranteed profitable. Start on the built-in
             testnet with paper money.
           </p>
@@ -273,11 +266,8 @@ export function AuthGate({
           <div className="w-full max-w-sm">
             {/* compact brand header for mobile, where the pitch panel is hidden */}
             <div className="lg:hidden mb-8 text-center">
-              <div className="mx-auto h-12 w-12 rounded-lg bg-primary/20 border border-primary/50 flex items-center justify-center">
-                <LineChart className="h-6 w-6 text-primary" />
-              </div>
-              <div className="mt-3 font-mono font-bold tracking-widest text-lg">TRADECORE PRO</div>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <div className="flex justify-center"><CactusLogo size="lg" tagline /></div>
+              <p className="mt-3 text-xs text-muted-foreground">
                 Self-hosted algorithmic trading — dollar-based risk, honest backtests, full audit trail.
               </p>
             </div>
@@ -399,7 +389,7 @@ export function AuthGate({
                 className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
                 onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }}
               >
-                {mode === "login" ? "New to TradeCore? Create an account" : "Already have an account? Log in"}
+                {mode === "login" ? "New to Cactus AI? Create an account" : "Already have an account? Log in"}
               </button>
             </form>
 
