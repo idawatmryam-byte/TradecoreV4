@@ -266,7 +266,7 @@ function SideEditor({ side, rows, onChange }: {
   return (
     <div className={cn('rounded-lg border p-3 space-y-2', rows.length > 0 ? (isLong ? 'border-success/40' : 'border-destructive/40') : 'border-dashed')}>
       <div className="flex items-center justify-between">
-        <span className={cn('text-[11px] font-mono uppercase tracking-wider flex items-center gap-1', isLong ? 'text-success' : 'text-destructive')}>
+        <span className={cn('text-xs flex items-center gap-1', isLong ? 'text-success' : 'text-destructive')}>
           {isLong ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
           {isLong ? 'Long entry — ALL must hold' : 'Short entry — ALL must hold'}
         </span>
@@ -358,7 +358,7 @@ function EditorCard({ existing, onDone }: { existing?: CustomStrategy; onDone: (
 
         {/* Stop placement */}
         <div className="rounded-lg border p-3 space-y-2">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Stop placement</span>
+          <span className="text-xs text-muted-foreground">Stop placement</span>
           <div className="flex flex-wrap items-center gap-2">
             <select
               className="h-7 rounded-md border bg-background px-1.5 text-xs font-mono"
@@ -390,7 +390,7 @@ function EditorCard({ existing, onDone }: { existing?: CustomStrategy; onDone: (
         {/* Confidence */}
         <div className="rounded-lg border p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Signal confidence</span>
+            <span className="text-xs text-muted-foreground">Signal confidence</span>
             <span className="text-xs font-mono font-semibold">{form.confidence}</span>
           </div>
           <input
@@ -406,7 +406,7 @@ function EditorCard({ existing, onDone }: { existing?: CustomStrategy; onDone: (
 
         {/* Live preview */}
         <div className="rounded-lg bg-muted/40 border border-border/60 p-3">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">This strategy will</span>
+          <span className="text-xs text-muted-foreground">This strategy will</span>
           <ul className="mt-1.5 space-y-1">
             {preview.map((line, i) => (
               <li key={i} className="text-xs font-mono text-foreground">{line}</li>
@@ -447,13 +447,13 @@ function SavedCard({ s, onEdit, onDeleted }: { s: CustomStrategy; onEdit: () => 
           <div className="min-w-0">
             <p className="text-sm font-semibold flex items-center gap-2 flex-wrap">
               {s.name}
-              <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border bg-primary/10 text-primary border-primary/40">Custom</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded border bg-primary/10 text-primary border-primary/40">Custom</span>
               {s.backtested ? (
-                <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border bg-success/10 text-success border-success/40 flex items-center gap-1">
+                <span className="text-[9px] px-1.5 py-0.5 rounded border bg-success/10 text-success border-success/40 flex items-center gap-1">
                   <ShieldCheck className="h-3 w-3" /> Backtested
                 </span>
               ) : (
-                <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border bg-yellow-500/10 text-yellow-400 border-yellow-500/40 flex items-center gap-1">
+                <span className="text-[9px] px-1.5 py-0.5 rounded border bg-yellow-500/10 text-yellow-400 border-yellow-500/40 flex items-center gap-1">
                   <ShieldAlert className="h-3 w-3" /> Test before live
                 </span>
               )}
@@ -497,13 +497,13 @@ function SavedCard({ s, onEdit, onDeleted }: { s: CustomStrategy; onEdit: () => 
         <div className="flex items-center gap-2">
           <Link
             href={`/backtest?strategy=${s.strategyId}`}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed text-xs text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
           >
             <FlaskConical className="h-3 w-3" /> {s.backtested ? 'Backtest again' : 'Backtest now'}
           </Link>
           <Link
             href="/strategies"
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed text-xs text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
           >
             Trade plan →
           </Link>

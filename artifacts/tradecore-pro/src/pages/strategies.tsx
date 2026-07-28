@@ -171,7 +171,7 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
                 {strategy.strategyName}
                 {(strategy as any).custom && (
                   <span
-                    className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border bg-primary/10 text-primary border-primary/40 flex items-center gap-1"
+                    className="text-[9px] px-1.5 py-0.5 rounded border bg-primary/10 text-primary border-primary/40 flex items-center gap-1"
                     title="Built with the Strategy Builder — edit its rules on the Builder page"
                   >
                     <Hammer className="h-2.5 w-2.5" /> Custom
@@ -179,7 +179,7 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
                 )}
                 {(strategy as any).custom && !(strategy as any).backtested && (
                   <span
-                    className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border bg-yellow-500/10 text-yellow-400 border-yellow-500/40 flex items-center gap-1"
+                    className="text-[9px] px-1.5 py-0.5 rounded border bg-yellow-500/10 text-yellow-400 border-yellow-500/40 flex items-center gap-1"
                     title="Run a backtest with this strategy selected before it can be enabled for live trading"
                   >
                     <ShieldAlert className="h-2.5 w-2.5" /> Test first
@@ -187,7 +187,7 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
                 )}
                 {!(strategy as any).custom && (strategy as any).decisionMaker && (
                   <span
-                    className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border bg-primary/10 text-primary border-primary/40"
+                    className="text-[9px] px-1.5 py-0.5 rounded border bg-primary/10 text-primary border-primary/40"
                     title="Full decision-maker: plans its own entry, structural stop, leverage and duration, with written reasoning on the Decisions page"
                   >
                     Pro brain
@@ -240,15 +240,15 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
         {/* Performance row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
           <div className="rounded-md bg-muted/40 p-2">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Trades</p>
+            <p className="text-xs text-muted-foreground">Trades</p>
             <p className="text-base font-mono font-semibold">{perf.totalTrades}</p>
           </div>
           <div className="rounded-md bg-muted/40 p-2">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Win Rate</p>
+            <p className="text-xs text-muted-foreground">Win Rate</p>
             <p className="text-base font-mono font-semibold">{winRatePct}</p>
           </div>
           <div className="rounded-md bg-muted/40 p-2">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">PnL</p>
+            <p className="text-xs text-muted-foreground">PnL</p>
             <p className={cn('text-base font-mono font-semibold', pnlColor)}>
               {perf.totalPnl >= 0 ? '+' : ''}{perf.totalPnl.toFixed(2)}
             </p>
@@ -262,14 +262,14 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
           {(strategy as any).custom && !(strategy as any).backtested && (
             <Link
               href={`/backtest?strategy=${strategy.strategyId}`}
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-yellow-500/50 text-[11px] font-mono uppercase tracking-wider text-yellow-400 hover:border-yellow-400 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-yellow-500/50 text-xs text-yellow-400 hover:border-yellow-400 transition-colors"
             >
               <FlaskConical className="h-3 w-3" /> Backtest now
             </Link>
           )}
           <Link
             href={`/backtest?autopsy=${strategy.strategyId}`}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed text-xs text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
           >
             <Stethoscope className="h-3 w-3" /> Diagnose
           </Link>
@@ -321,7 +321,7 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
             {/* ── Advanced (rarely needed) ─────────────────────────────────── */}
             <button
               type="button"
-              className="w-full flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground py-1"
+              className="w-full flex items-center justify-between text-xs text-muted-foreground hover:text-foreground py-1"
               onClick={() => setShowAdvanced((v) => !v)}
             >
               <span>Advanced</span>
@@ -405,7 +405,7 @@ function SignalsPanel() {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Flame className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold uppercase tracking-wider">Live Opportunities</h2>
+          <h2 className="text-sm font-semibold">Live Opportunities</h2>
         </div>
         <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => refetch()}>
           <RefreshCw className="h-3.5 w-3.5" />
@@ -422,7 +422,7 @@ function SignalsPanel() {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b text-muted-foreground uppercase tracking-wider">
+              <tr className="border-b text-muted-foreground">
                 <th className="text-left py-2 pr-3 font-medium">Symbol</th>
                 <th className="text-left py-2 pr-3 font-medium">Strategy</th>
                 <th className="text-left py-2 pr-3 font-medium">Regime</th>
@@ -474,7 +474,7 @@ function StatCard({ label, value, className }: { label: string; value: string; c
   return (
     <Card>
       <CardContent className="pt-4 pb-4">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
         <p className={cn('text-2xl font-mono font-bold', className)}>{value}</p>
       </CardContent>
     </Card>

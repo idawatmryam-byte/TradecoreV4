@@ -58,7 +58,7 @@ export function NotificationBell() {
           resolve to a transparent background (sidebar text bled through). */}
       <PopoverContent align="end" className="w-80 p-0 max-h-96 overflow-y-auto bg-card text-foreground border-border">
         <div className="flex items-center justify-between px-3 py-2 border-b">
-          <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Notifications</span>
+          <span className="text-xs text-muted-foreground">Notifications</span>
           {unreadCount > 0 && (
             <button
               type="button"

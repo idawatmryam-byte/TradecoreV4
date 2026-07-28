@@ -182,7 +182,7 @@ export function Account() {
       {/* ── Profile ─────────────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-mono tracking-wider uppercase">Profile</CardTitle>
+          <CardTitle className="text-sm">Profile</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="flex items-center gap-4">
@@ -222,7 +222,7 @@ export function Account() {
       {/* ── Sign-in methods ─────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+          <CardTitle className="text-sm flex items-center gap-2">
             <Link2 className="h-4 w-4 text-primary" /> Sign-in Methods
           </CardTitle>
         </CardHeader>
@@ -265,7 +265,7 @@ export function Account() {
       {/* ── Password ────────────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2">
+          <CardTitle className="text-sm flex items-center gap-2">
             <KeyRound className="h-4 w-4 text-primary" /> {info.hasPassword ? "Change Password" : "Set a Password"}
           </CardTitle>
         </CardHeader>
@@ -306,7 +306,7 @@ export function Account() {
       {/* ── Danger zone ─────────────────────────────────────────────────────── */}
       <Card className="border-destructive/40">
         <CardHeader>
-          <CardTitle className="text-sm font-mono tracking-wider uppercase flex items-center gap-2 text-destructive">
+          <CardTitle className="text-sm flex items-center gap-2 text-destructive">
             <AlertTriangle className="h-4 w-4" /> Danger Zone
           </CardTitle>
         </CardHeader>

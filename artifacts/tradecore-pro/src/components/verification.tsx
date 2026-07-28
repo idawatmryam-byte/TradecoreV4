@@ -48,7 +48,7 @@ export function BlockingBanner() {
         <CardContent className="p-4 flex items-center gap-3">
           <ShieldCheck className="h-5 w-5 text-success shrink-0" />
           <div>
-            <p className="font-mono text-sm font-bold text-success uppercase tracking-wider">
+            <p className="text-sm font-bold text-success">
               Engine clear to trade
             </p>
             <p className="text-xs text-muted-foreground font-mono mt-0.5">
@@ -76,7 +76,7 @@ export function BlockingBanner() {
         <div className="flex items-start gap-3">
           <Ban className="h-5 w-5 text-warning shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="font-mono text-sm font-bold text-warning uppercase tracking-wider">
+            <p className="text-sm font-bold text-warning">
               {data.running ? "No trade executed" : "Engine stopped"}
             </p>
             <p className="text-sm text-foreground mt-1">{headline}</p>
@@ -157,7 +157,7 @@ export function MarketMonitor() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Activity className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-mono tracking-wider uppercase">Live Market Monitor</CardTitle>
+            <CardTitle className="text-sm">Live Market Monitor</CardTitle>
           </div>
           <div className="flex items-center gap-2 text-xs font-mono">
             {conn?.connected ? (
@@ -204,7 +204,7 @@ export function MarketMonitor() {
       <div className="overflow-auto flex-1">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-card">
-            <tr className="text-left text-xs font-mono text-muted-foreground uppercase border-b border-border/50">
+            <tr className="text-left text-xs text-muted-foreground border-b border-border/50">
               <th className="p-3 font-medium">Symbol</th>
               <th className="p-3 font-medium text-right">Last</th>
               <th className="p-3 font-medium text-right">Bid / Ask</th>
@@ -335,7 +335,7 @@ export function DecisionPanel() {
       <CardHeader className="py-4 border-b border-border/50">
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-primary" />
-          <CardTitle className="text-sm font-mono tracking-wider uppercase">Strategy Decision Panel</CardTitle>
+          <CardTitle className="text-sm">Strategy Decision Panel</CardTitle>
         </div>
         <p className="text-[11px] font-mono text-muted-foreground mt-1">
           Market Data → Indicators → Signal → Risk Checks → Order · click a row for the full trace

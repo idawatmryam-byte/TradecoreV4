@@ -254,7 +254,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
   function field(label: string, key: keyof RunFormState, type = "number", step?: string) {
     return (
       <div className="space-y-1">
-        <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">{label}</label>
+        <label className="text-xs text-muted-foreground">{label}</label>
         <input
           type={type}
           step={step}
@@ -284,7 +284,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
           {/* Strategy — pick one to test in isolation with its saved settings,
               or "All enabled" to run them together like live. */}
           <div className="space-y-1">
-            <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Strategy</label>
+            <label className="text-xs text-muted-foreground">Strategy</label>
             <select
               value={form.onlyStrategyId}
               onChange={(e) => setForm((f) => ({ ...f, onlyStrategyId: e.target.value }))}
@@ -307,7 +307,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
 
           {/* Symbols — pick coins from the quick list or type any custom pair */}
           <div className="space-y-2">
-            <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
+            <label className="text-xs text-muted-foreground">
               Coins / Markets{selectedSymbols.length > 0 && ` · ${selectedSymbols.length} selected`}
             </label>
             <div className="flex flex-wrap gap-1.5">
@@ -341,7 +341,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
 
           {/* Timeframe */}
           <div className="space-y-1">
-            <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Timeframe</label>
+            <label className="text-xs text-muted-foreground">Timeframe</label>
             <select
               value={form.timeframe}
               onChange={(e) => { setForm((f) => ({ ...f, timeframe: e.target.value })); setRunAnyway(false); }}
@@ -398,7 +398,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
           ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Market Type</label>
+              <label className="text-xs text-muted-foreground">Market Type</label>
               <select
                 value={form.marketType}
                 onChange={(e) => setForm((f) => ({ ...f, marketType: e.target.value as "spot" | "futures" }))}
@@ -409,7 +409,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
+              <label className="text-xs text-muted-foreground">
                 Leverage {form.marketType !== "futures" && "(futures only)"}
               </label>
               <input
@@ -548,7 +548,7 @@ function RunForm({ onStarted, initialStrategyId }: { onStarted: (id: number) => 
           {/* Risk model — dollar mode overrides SL/TP/size for ALL strategies
               (same planner as live), regardless of Match-live. */}
           <div className="space-y-2 rounded border border-border p-3">
-            <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Risk Model</label>
+            <label className="text-xs text-muted-foreground">Risk Model</label>
             <select
               value={form.riskModel}
               onChange={(e) => setForm((f) => ({ ...f, riskModel: e.target.value as "percent" | "dollar" }))}
@@ -658,7 +658,7 @@ function EffectiveConfigPreview({ form }: { form: RunFormState }) {
   return (
     <div className="border border-border rounded-lg p-3 bg-muted/20 space-y-2">
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+        <h4 className="text-xs text-muted-foreground">
           Effective Backtest Configuration
         </h4>
         {loading && <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />}
@@ -721,7 +721,7 @@ function RunListItem({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium font-mono">#{run.displayNo}</span>
-            <Badge variant={statusBadge(run.status) as any} className="text-[10px] uppercase tracking-wider">
+            <Badge variant={statusBadge(run.status) as any} className="text-xs">
               {run.status}
             </Badge>
             <span className="text-xs text-muted-foreground font-mono">{run.timeframe}</span>
@@ -781,7 +781,7 @@ function Metric({
   return (
     <Card>
       <CardContent className="p-4">
-        <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest mb-1">{label}</p>
+        <p className="text-xs text-muted-foreground mb-1">{label}</p>
         <p className={cn("text-2xl font-bold tracking-tight font-mono",
           positive ? "text-success" : negative ? "text-destructive" : ""
         )}>
@@ -993,7 +993,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
               <div className="overflow-auto">
                 <table className="w-full text-xs font-mono">
                   <thead>
-                    <tr className="border-b border-border text-muted-foreground uppercase tracking-wider">
+                    <tr className="border-b border-border text-muted-foreground">
                       <th className="text-left px-2 py-1.5">Strategy</th>
                       <th className="text-right px-2 py-1.5">Stop Loss %</th>
                       <th className="text-right px-2 py-1.5">Take Profit %</th>
@@ -1036,7 +1036,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
             key={t}
             onClick={() => setTab(t)}
             className={cn(
-              "px-4 py-2 text-sm font-mono uppercase tracking-wider transition-colors",
+              "px-4 py-2 text-sm transition-colors",
               tab === t
                 ? "border-b-2 border-primary text-primary"
                 : "text-muted-foreground hover:text-foreground"
@@ -1216,7 +1216,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
               <thead>
                 <tr className="border-b border-border">
                   {["Symbol", "Entry", "Exit", "Entry $", "Exit $", "SL %", "TP %", "Qty", "Fees", "P&L", "P&L%", "Reason", "Duration"].map((h) => (
-                    <th key={h} className="text-left px-3 py-2.5 text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                    <th key={h} className="text-left px-3 py-2.5 text-muted-foreground whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -1249,7 +1249,7 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
                       {t.pnlPercent != null ? `${t.pnlPercent >= 0 ? "+" : ""}${t.pnlPercent.toFixed(2)}%` : "—"}
                     </td>
                     <td className="px-3 py-2">
-                      <span className={cn("px-1.5 py-0.5 rounded text-[10px] uppercase",
+                      <span className={cn("px-1.5 py-0.5 rounded text-xs",
                         t.exitReason === "take_profit" ? "bg-success/10 text-success" :
                         t.exitReason === "stop_loss" ? "bg-destructive/10 text-destructive" :
                         "bg-muted text-muted-foreground"
@@ -1350,7 +1350,7 @@ export function Backtest() {
           {/* Run list */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
+              <h3 className="text-xs text-muted-foreground">
                 Saved Runs ({runs.length})
               </h3>
               <button

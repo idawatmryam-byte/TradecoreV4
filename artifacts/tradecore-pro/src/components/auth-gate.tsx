@@ -232,7 +232,7 @@ export function AuthGate({
               </div>
               <div>
                 <div className="font-mono font-bold tracking-widest text-lg">TRADECORE PRO</div>
-                <div className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">Algorithmic Trading Platform</div>
+                <div className="text-xs text-muted-foreground">Algorithmic Trading Platform</div>
               </div>
             </div>
 
@@ -309,7 +309,7 @@ export function AuthGate({
                 </p>
                 <div className="my-5 flex items-center gap-3">
                   <div className="h-px flex-1 bg-border" />
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">or sign in</span>
+                  <span className="text-xs text-muted-foreground">or sign in</span>
                   <div className="h-px flex-1 bg-border" />
                 </div>
               </>
@@ -341,7 +341,7 @@ export function AuthGate({
                 </div>
                 <div className="my-5 flex items-center gap-3">
                   <div className="h-px flex-1 bg-border" />
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">or</span>
+                  <span className="text-xs text-muted-foreground">or</span>
                   <div className="h-px flex-1 bg-border" />
                 </div>
               </>
