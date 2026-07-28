@@ -163,7 +163,7 @@ export function MemoryInfluencePanel() {
           )}
 
           {v && v.validationTrades > 0 && (
-            <div className="grid grid-cols-3 gap-3 font-mono text-xs pt-1">
+            <div className="grid grid-cols-1 gap-3 font-mono text-xs pt-1 sm:grid-cols-3">
               <div>
                 <p className="text-muted-foreground">Out-of-sample</p>
                 <p className="font-bold">{v.validationTrades} trades</p>
