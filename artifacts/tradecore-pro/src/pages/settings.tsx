@@ -385,7 +385,7 @@ export function Settings() {
               </Label>
               <p className="text-xs text-muted-foreground font-mono">
                 {formData.executionTarget === 'demo'
-                  ? "DEMO — trades are simulated inside TradeCore on live market data. No broker, no API keys, no real money."
+                  ? "DEMO — trades are simulated inside Cactus AI on live market data. No broker, no API keys, no real money."
                   : "LIVE — real orders are placed through your connected broker with real money."}
               </p>
             </div>
