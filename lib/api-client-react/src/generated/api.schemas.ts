@@ -998,6 +998,25 @@ export interface ToxicHour {
   blockedAt: string;
 }
 
+export type DecisionFunnelStagesItem = {
+  stage: string;
+  count: number;
+  topReason?: string | null;
+};
+
+export interface DecisionFunnel {
+  /** Window actually measured. */
+  hours: number;
+  /** Total decisions considered — executed + rejected + approved-not-taken. */
+  signals: number;
+  executed: number;
+  rejected: number;
+  /** The strategy approved it; an engine-level cap or gate stopped it. */
+  approvedNotTaken: number;
+  /** Rejection stages, largest first. `topReason` is the most frequent verbatim reason inside that stage — the actionable part, since a stage name alone doesn't say which number to change. */
+  stages: DecisionFunnelStagesItem[];
+}
+
 export type SectionsResponseActivatedItem = typeof SectionsResponseActivatedItem[keyof typeof SectionsResponseActivatedItem];
 
 
@@ -1999,6 +2018,14 @@ export type GetAuthStatus200 = {
 
 export type ResetRiskPause200 = {
   message: string;
+};
+
+export type GetDecisionFunnelParams = {
+/**
+ * @minimum 1
+ * @maximum 720
+ */
+hours?: number;
 };
 
 export type GetDecisionJournalParams = {

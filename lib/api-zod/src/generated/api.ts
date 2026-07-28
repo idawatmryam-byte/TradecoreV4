@@ -189,6 +189,33 @@ export const GetBotDecisionsResponse = zod.array(GetBotDecisionsResponseItem)
 
 
 /**
+ * Aggregates the decision journal by rejection stage so the conversion from "a strategy produced a signal" to "a trade was placed" is one number rather than a forensic exercise. The engine can reject every signal it generates for days without any single screen saying so — this is that screen's data. Occurrences are summed, not row-counted, because identical repeated decisions dedupe onto one row.
+ * @summary Where this section's signals went over a recent window
+ */
+export const getDecisionFunnelQueryHoursDefault = 24;
+export const getDecisionFunnelQueryHoursMax = 720;
+
+
+
+export const GetDecisionFunnelQueryParams = zod.object({
+  "hours": zod.coerce.number().min(1).max(getDecisionFunnelQueryHoursMax).default(getDecisionFunnelQueryHoursDefault)
+})
+
+export const GetDecisionFunnelResponse = zod.object({
+  "hours": zod.number().describe('Window actually measured.'),
+  "signals": zod.number().describe('Total decisions considered — executed + rejected + approved-not-taken.'),
+  "executed": zod.number(),
+  "rejected": zod.number(),
+  "approvedNotTaken": zod.number().describe('The strategy approved it; an engine-level cap or gate stopped it.'),
+  "stages": zod.array(zod.object({
+  "stage": zod.string(),
+  "count": zod.number(),
+  "topReason": zod.string().nullish()
+})).describe('Rejection stages, largest first. `topReason` is the most frequent verbatim reason inside that stage — the actionable part, since a stage name alone doesn\'t say which number to change.\n')
+})
+
+
+/**
  * Every trade a strategy genuinely considered — executed, approved but not taken (lost allocation / portfolio risk / order failure), or rejected by the strategy's own reasoning — with the full written DecisionReport. Newest first.
  * @summary Get the persistent strategy decision journal
  */

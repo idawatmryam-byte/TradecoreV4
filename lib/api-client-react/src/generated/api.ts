@@ -37,6 +37,7 @@ import type {
   CustomStrategyUpdate,
   DailyReport,
   DailyStats,
+  DecisionFunnel,
   DeleteBacktest200,
   DeleteCustomStrategy200,
   ErrorResponse,
@@ -45,6 +46,7 @@ import type {
   GetAuthStatus200,
   GetCopilotInboxParams,
   GetDailyReportParams,
+  GetDecisionFunnelParams,
   GetDecisionJournalParams,
   GetJournalParams,
   GetNotificationsParams,
@@ -921,6 +923,91 @@ export function useGetBotDecisions<TData = Awaited<ReturnType<typeof getBotDecis
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetBotDecisionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetDecisionFunnelUrl = (params?: GetDecisionFunnelParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/decisions/funnel?${stringifiedParams}` : `/api/decisions/funnel`
+}
+
+/**
+ * Aggregates the decision journal by rejection stage so the conversion from "a strategy produced a signal" to "a trade was placed" is one number rather than a forensic exercise. The engine can reject every signal it generates for days without any single screen saying so — this is that screen's data. Occurrences are summed, not row-counted, because identical repeated decisions dedupe onto one row.
+ * @summary Where this section's signals went over a recent window
+ */
+export const getDecisionFunnel = async (params?: GetDecisionFunnelParams, options?: RequestInit): Promise<DecisionFunnel> => {
+
+  return customFetch<DecisionFunnel>(getGetDecisionFunnelUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDecisionFunnelQueryKey = (params?: GetDecisionFunnelParams,) => {
+    return [
+    `/api/decisions/funnel`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetDecisionFunnelQueryOptions = <TData = Awaited<ReturnType<typeof getDecisionFunnel>>, TError = ErrorType<unknown>>(params?: GetDecisionFunnelParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDecisionFunnel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDecisionFunnelQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDecisionFunnel>>> = ({ signal }) => getDecisionFunnel(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDecisionFunnel>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDecisionFunnelQueryResult = NonNullable<Awaited<ReturnType<typeof getDecisionFunnel>>>
+export type GetDecisionFunnelQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Where this section's signals went over a recent window
+ */
+
+export function useGetDecisionFunnel<TData = Awaited<ReturnType<typeof getDecisionFunnel>>, TError = ErrorType<unknown>>(
+ params?: GetDecisionFunnelParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDecisionFunnel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDecisionFunnelQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
