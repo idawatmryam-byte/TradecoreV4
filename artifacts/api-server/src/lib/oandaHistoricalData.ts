@@ -57,7 +57,7 @@ async function clientForUser(userId: number): Promise<OandaClient> {
   const creds = await getOandaCredentials(userId);
   if (!creds) {
     throw new Error(
-      "No OANDA credentials configured — connect an OANDA account in Account & Safety to backtest forex instruments.",
+      "No OANDA credentials configured — add your API token and account ID on the Settings page (Trading tab, Forex section) to backtest forex instruments.",
     );
   }
   const [cfg] = await db
