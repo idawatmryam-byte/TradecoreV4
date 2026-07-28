@@ -2840,7 +2840,11 @@ class BotEngine {
             entryPrice: fillPrice.toFixed(8),
             quantity: filledQty.toFixed(8),
             status: "open",
-            confidence: row.confidence.toFixed(2),
+            // Same fix as demoExecutor: the strategy's gated confidence, not
+            // the long-side market-structure score. This is the LIVE path, so
+            // the wrong value was being stored against real-money trades and
+            // then read back by ranking, the Co-Pilot inbox and the journal.
+            confidence: plan.confidence.toFixed(2),
             stopLoss: slPrice.toFixed(8),
             takeProfit: tpPrice.toFixed(8),
             entryTime: now,

@@ -14,6 +14,7 @@ import { useSection, sectionHeaders } from "@/lib/section";
 import { useIsDemo } from "@/lib/account";
 import { CollapsibleSection, StatTile, EmptyState } from "@/components/patterns";
 import { CopilotSummary } from "@/components/copilot-summary";
+import { SignalFunnel } from "@/components/signal-funnel";
 
 /** Live per-position feed from GET /trades/monitor/active — entry vs current
  *  price, the actual SL/TP levels, and unrealized P&L, refreshed every 5s. */
@@ -776,6 +777,12 @@ export function Dashboard() {
         </div>
       </div>
       </CollapsibleSection>
+
+      {/* Is the engine converting what it finds? Sits directly under the
+          controls because "it's running" and "it's producing nothing" are two
+          different states that looked identical here for two days. Renders
+          nothing until there are decisions to summarise. */}
+      {!isDemo && <SignalFunnel />}
 
       {/* Question 3 of 3: what does the engine want to do? Sits directly under
           the engine controls and above the positions, because a plan waiting
