@@ -58,7 +58,7 @@ function DemoBrokerNotice({ onUpgrade }: { onUpgrade: () => void }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm flex items-center gap-2">
+        <CardTitle className="text-[15px] flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-success" /> Broker Connection
         </CardTitle>
       </CardHeader>
@@ -126,12 +126,12 @@ function UpgradeToLiveCard({
     <>
       <Card className="border-warning/40 bg-warning/5">
         <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle className="text-[15px] flex items-center gap-2">
             <TestTube2 className="h-4 w-4 text-warning" /> Upgrade {MARKET_LABELS[section]} to Live Trading
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-xs text-muted-foreground leading-relaxed">
+          <p className="text-[13px] text-muted-foreground leading-relaxed">
             Your market selection, mode and risk limits stay exactly as they are — the only
             thing this adds is a broker connection. Connect the account below, then enable
             live trading. Your other market is unaffected, and you can switch this section
@@ -149,7 +149,7 @@ function UpgradeToLiveCard({
         </Button>
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
         {!configured && (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-[13px] text-muted-foreground">
             Save your credentials above to continue.
           </span>
         )}
@@ -172,7 +172,7 @@ function AddMarketCard({ other, onAdd }: { other: Section; onAdd: () => void }) 
       <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="text-sm font-semibold">Also trade {MARKET_LABELS[other]}</div>
-          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+          <p className="mt-1 text-[13px] text-muted-foreground leading-relaxed">
             Set {MARKET_LABELS[other]} up with its own execution target, mode and limits.
             The engine runs one market at a time — starting one stops the other.
           </p>
@@ -335,7 +335,7 @@ export function Settings() {
           neither broker nor keys are involved at all. */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle className="text-[15px] flex items-center gap-2">
             <Bot className="h-4 w-4 text-primary" /> How this section trades
           </CardTitle>
         </CardHeader>
@@ -356,7 +356,7 @@ export function Settings() {
             <Label className="text-sm font-bold flex items-center gap-2">
               <Bot className="h-4 w-4 text-primary" /> Who decides
             </Label>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[13px] text-muted-foreground">
               The engine's analysis is the same in every mode. This only changes who authorises a trade.
             </p>
           </div>
@@ -367,7 +367,7 @@ export function Settings() {
           />
 
           {formData.mode === 'autopilot' && formData.executionTarget === 'live' && (
-            <p className="rounded border border-warning/40 bg-warning/5 px-2.5 py-2 text-xs text-warning">
+            <p className="rounded border border-warning/40 bg-warning/5 px-2.5 py-2 text-[13px] text-warning">
               AutoPilot on a live account opens real positions with real money, without asking
               first. Your risk limits above are the only thing standing between it and your balance.
             </p>
@@ -383,7 +383,7 @@ export function Settings() {
               <Label className="text-sm font-bold flex items-center gap-2">
                 <TestTube2 className="h-4 w-4 text-warning" /> Execution
               </Label>
-              <p className="text-xs text-muted-foreground font-mono">
+              <p className="text-[13px] text-muted-foreground font-mono">
                 {formData.executionTarget === 'demo'
                   ? "DEMO — trades are simulated inside Cactus AI on live market data. No broker, no API keys, no real money."
                   : "LIVE — real orders are placed through your connected broker with real money."}
@@ -399,7 +399,7 @@ export function Settings() {
             />
           </div>
           {formData.executionTarget === 'demo' && (
-            <p className="text-xs text-muted-foreground font-mono mt-2 pt-2 border-t border-border/60">
+            <p className="text-[13px] text-muted-foreground font-mono mt-2 pt-2 border-t border-border/60">
               Demo fills use the same model the backtester uses, so paper results and
               backtest results mean the same thing.
             </p>
@@ -436,19 +436,19 @@ export function Settings() {
       {isForexSection ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2">
+            <CardTitle className="text-[15px] flex items-center gap-2">
               <CandlestickChart className="h-4 w-4 text-primary" /> Forex Market (OANDA)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[13px] text-muted-foreground">
               This section trades <strong>forex, gold and US indices on OANDA</strong> — long and short, margin-based
               (each instrument's own margin rate applies; there's no leverage setting to manage). Entries are placed as a
               single atomic order with stop-loss and take-profit attached, so a position can never exist unprotected.
               The engine observes real market hours: closed over the weekend (Fri–Sun 5pm New York), and metals/indices
               take a daily one-hour break.
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[13px] text-muted-foreground">
               v1 trades <strong>USD-quoted instruments only</strong> (EUR/USD, XAU/USD, …) so dollar risk and P&L are
               exact in account dollars — same risk model, same strategy brains, same Decisions feed as the crypto section.
               Non-USD accounts (e.g. GBP) are supported: the balance is converted to USD at the live rate, so OANDA's own
@@ -459,12 +459,12 @@ export function Settings() {
       ) : (
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle className="text-[15px] flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary" /> Market Type
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[13px] text-muted-foreground">
             Spot trading is long-only, no leverage. Futures (USDⓈ-M) supports both long and short positions.
             In futures, Position Size is your <strong>margin per trade</strong> and Max Leverage is a{" "}
             <strong>safety cap, not a target</strong>: strategies choose the safest effective leverage for each
@@ -515,10 +515,10 @@ export function Settings() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Risk & Sizing</CardTitle>
+            <CardTitle className="text-[15px]">Risk & Sizing</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[13px] text-muted-foreground">
               Account-wide limits that apply across ALL strategies — the final safety net.
               Per-trade amounts, dollar risk and targets are set per strategy on the
               <strong> Strategies</strong> page.
@@ -549,7 +549,7 @@ export function Settings() {
                 value={formData.maxCorrelatedExposurePercent}
                 onChange={(e) => handleChange('maxCorrelatedExposurePercent', Number(e.target.value))}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[13px] text-muted-foreground">
                 Caps the total size of one correlated cluster — this trade plus every open
                 position measured to be the same directional bet. 200% leaves it effectively off.
               </p>
@@ -564,7 +564,7 @@ export function Settings() {
                 value={formData.correlationThreshold}
                 onChange={(e) => handleChange('correlationThreshold', Number(e.target.value))}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[13px] text-muted-foreground">
                 How alike two symbols must move to count as one bet. 0.70 is the conventional
                 "strongly correlated" line.
               </p>
@@ -579,7 +579,7 @@ export function Settings() {
                 <option value="allow">Allow the trade</option>
                 <option value="block">Block the trade</option>
               </select>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[13px] text-muted-foreground">
                 A new pair has too little shared history to measure. It is never assumed to be
                 uncorrelated — you choose whether to trade anyway.
               </p>
@@ -589,7 +589,7 @@ export function Settings() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Strategy & Environment</CardTitle>
+            <CardTitle className="text-[15px]">Strategy & Environment</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="space-y-2">
@@ -619,7 +619,7 @@ export function Settings() {
                             key={sym}
                             onClick={() => toggle(sym)}
                             className={cn(
-                              "px-2 py-1 rounded text-xs font-mono border transition-colors",
+                              "px-2 py-1 rounded text-[13px] font-mono border transition-colors",
                               on
                                 ? "border-primary bg-primary/15 text-primary"
                                 : "border-border text-muted-foreground hover:border-primary/50",
@@ -660,7 +660,7 @@ export function Settings() {
                   <Label className="text-sm font-bold flex items-center gap-2">
                     <TestTube2 className="h-4 w-4 text-warning" /> {isForexSection ? "OANDA Practice Account" : "Binance Testnet"}
                   </Label>
-                  <p className="text-xs text-muted-foreground font-mono">
+                  <p className="text-[13px] text-muted-foreground font-mono">
                     {isForexSection
                       ? "Route live orders to your practice account instead of the real one — real broker order flow, practice money."
                       : "Route live orders to Binance Testnet instead of the real exchange — real order flow, paper money. The recommended last step before real funds."}
@@ -681,7 +681,7 @@ export function Settings() {
                     <Label className="text-sm font-bold flex items-center gap-2">
                       <TestTube2 className="h-4 w-4 text-warning" /> High-Frequency Test Mode
                     </Label>
-                    <p className="text-xs text-muted-foreground font-mono">
+                    <p className="text-[13px] text-muted-foreground font-mono">
                       Forces the engine to trade a lot (no cooldown/confidence floor,
                       fast exits, breaker off) to generate data and surface bugs.
                       Not a profitable setup — testnet only.
@@ -701,10 +701,10 @@ export function Settings() {
       {/* Risk Alerts */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Risk Alerts</CardTitle>
+          <CardTitle className="text-[15px]">Risk Alerts</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[13px] text-muted-foreground">
             When repeated risk violations are detected the engine pauses new entries and sends an alert.
             Paste a Discord, Telegram, or Slack incoming-webhook URL below to receive the notification.
             Leave blank to log the alert only (no external message sent).
@@ -718,9 +718,9 @@ export function Settings() {
               onChange={(e) => handleChange('alertWebhookUrl', e.target.value)}
             />
           </div>
-          <p className="text-xs text-muted-foreground">
-            Supported formats: Discord webhook (<code className="text-xs font-mono">content</code> field),
-            Slack / generic (<code className="text-xs font-mono">text</code> field).
+          <p className="text-[13px] text-muted-foreground">
+            Supported formats: Discord webhook (<code className="text-[13px] font-mono">content</code> field),
+            Slack / generic (<code className="text-[13px] font-mono">text</code> field).
             The engine pauses after <strong>3 consecutive violations</strong> where actual loss exceeds
             expected max loss + fees. A manual restart of the engine clears the pause counter.
           </p>

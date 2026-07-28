@@ -199,7 +199,7 @@ export function Account() {
       {/* ── Profile ─────────────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Profile</CardTitle>
+          <CardTitle className="text-[15px]">Profile</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="flex items-center gap-4">
@@ -208,12 +208,12 @@ export function Account() {
             </div>
             <div>
               <div className="font-semibold">{info.displayName || info.username}</div>
-              <div className="text-xs text-muted-foreground font-mono">@{info.username} · member since {memberSince}</div>
+              <div className="text-[13px] text-muted-foreground font-mono">@{info.username} · member since {memberSince}</div>
               <button
                 type="button"
                 onClick={() => copyAccountId(accountId)}
                 title="Copy Account ID"
-                className="-ml-2 mt-0.5 inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs font-mono text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="-ml-2 mt-0.5 inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-[13px] font-mono text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 Account ID: <span className="text-foreground">{accountId}</span>
                 {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
@@ -239,7 +239,7 @@ export function Account() {
       {/* ── Sign-in methods ─────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle className="text-[15px] flex items-center gap-2">
             <Link2 className="h-4 w-4 text-primary" /> Sign-in Methods
           </CardTitle>
         </CardHeader>
@@ -249,12 +249,12 @@ export function Account() {
               <KeyRound className="h-4 w-4 text-muted-foreground" />
               <div>
                 <div className="text-sm font-medium">Password</div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-[13px] text-muted-foreground">
                   {info.hasPassword ? "Set — you can log in with username + password." : "Not set — you currently sign in with a linked provider only."}
                 </div>
               </div>
             </div>
-            <span className={`text-xs font-mono ${info.hasPassword ? "text-success" : "text-warning"}`}>
+            <span className={`text-[13px] font-mono ${info.hasPassword ? "text-success" : "text-warning"}`}>
               {info.hasPassword ? "ACTIVE" : "NOT SET"}
             </span>
           </div>
@@ -264,14 +264,14 @@ export function Account() {
                 <ShieldCheck className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <div className="text-sm font-medium">{PROVIDER_LABEL[p.provider] ?? p.provider}</div>
-                  <div className="text-xs text-muted-foreground">{p.email ?? "Linked"}</div>
+                  <div className="text-[13px] text-muted-foreground">{p.email ?? "Linked"}</div>
                 </div>
               </div>
-              <span className="text-xs font-mono text-success">LINKED</span>
+              <span className="text-[13px] font-mono text-success">LINKED</span>
             </div>
           ))}
           {info.providers.length === 0 && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[13px] text-muted-foreground">
               No social accounts linked. Google/Apple sign-in buttons appear on the login page when the
               server operator has configured them.
             </p>
@@ -282,13 +282,13 @@ export function Account() {
       {/* ── Password ────────────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle className="text-[15px] flex items-center gap-2">
             <KeyRound className="h-4 w-4 text-primary" /> {info.hasPassword ? "Change Password" : "Set a Password"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {!info.hasPassword && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[13px] text-muted-foreground">
               Your account was created with a social sign-in. Setting a password adds a second way in —
               useful if you ever lose access to that provider.
             </p>
@@ -323,12 +323,12 @@ export function Account() {
       {/* ── Danger zone ─────────────────────────────────────────────────────── */}
       <Card className="border-destructive/40">
         <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2 text-destructive">
+          <CardTitle className="text-[15px] flex items-center gap-2 text-destructive">
             <AlertTriangle className="h-4 w-4" /> Danger Zone
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[13px] text-muted-foreground">
             Deleting your account stops your bot immediately and permanently erases everything —
             trades, configuration, strategies, backtests, memory, and your encrypted Binance credentials.
             Open positions on the exchange are NOT closed automatically; close them on Binance first.

@@ -121,11 +121,11 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
                   </div>
                 </div>
                 {p.strategyName && (
-                  <div className="text-xs text-muted-foreground mb-2">
+                  <div className="text-[13px] text-muted-foreground mb-2">
                     {p.strategyName} · held {formatHeld(p.holdingSeconds)}
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-2 text-xs font-mono text-muted-foreground">
+                <div className="grid grid-cols-2 gap-2 text-[13px] font-mono text-muted-foreground">
                   <div>
                     <span className="block opacity-50 mb-0.5">Entry → Now</span>
                     <span className="text-foreground">
@@ -156,14 +156,14 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
                       <Button
                         size="sm"
                         variant="destructive"
-                        className="flex-1 h-8 text-xs gap-1.5"
+                        className="flex-1 h-8 text-[13px] gap-1.5"
                         disabled={isClosing}
                         onClick={() => onClose(p.tradeId, p.symbol)}
                       >
                         {isClosing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
                         Confirm close at market
                       </Button>
-                      <Button size="sm" variant="outline" className="text-xs" disabled={isClosing} onClick={() => onArmClose(null)}>
+                      <Button size="sm" variant="outline" className="text-[13px]" disabled={isClosing} onClick={() => onArmClose(null)}>
                         Keep
                       </Button>
                     </div>
@@ -171,7 +171,7 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
                     <Button
                       size="sm"
                       variant="outline"
-                      className="w-full h-8 text-xs gap-1.5 text-muted-foreground hover:text-destructive hover:border-destructive/50"
+                      className="w-full h-8 text-[13px] gap-1.5 text-muted-foreground hover:text-destructive hover:border-destructive/50"
                       onClick={() => onArmClose(p.tradeId)}
                     >
                       <X className="h-3.5 w-3.5" /> Close Position
@@ -191,12 +191,12 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
                       tp1Price={p.tp1Price}
                       tp1Filled={p.tp1Filled}
                     />
-                    <p className="mt-1.5 text-center text-xs text-muted-foreground">
+                    <p className="mt-1.5 text-center text-[13px] text-muted-foreground">
                       Tap the card to hide the chart
                     </p>
                   </div>
                 ) : (
-                  <p className="mt-2 text-center text-xs text-muted-foreground/60">
+                  <p className="mt-2 text-center text-[13px] text-muted-foreground/60">
                     Tap for live chart · entry / SL / TP levels
                   </p>
                 )}
@@ -209,7 +209,7 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
         <div className="p-8 text-center text-destructive flex flex-col items-center justify-center">
           <WifiOff className="h-8 w-8 mb-3 opacity-50" />
           <p className="text-sm">Unable to load positions</p>
-          <p className="text-xs text-muted-foreground mt-1 normal-case">Open positions may still exist — check the exchange directly.</p>
+          <p className="text-[13px] text-muted-foreground mt-1 normal-case">Open positions may still exist — check the exchange directly.</p>
         </div>
       )}
       {!error && loading && (
@@ -221,7 +221,7 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
         <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center">
           <AlertTriangle className="h-8 w-8 mb-3 opacity-20" />
           <p className="text-sm">No active positions</p>
-          <p className="text-xs mt-1 normal-case">Trades opened by the engine appear here with live P&L and controls.</p>
+          <p className="text-[13px] mt-1 normal-case">Trades opened by the engine appear here with live P&L and controls.</p>
         </div>
       )}
     </div>
@@ -418,7 +418,7 @@ function SetupChecklist() {
           <div className="text-sm font-semibold">
             {demoBlocked ? "This section can't run here" : `Finish setting up — ${completed} of ${steps.length} done`}
           </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">
+          <p className="mt-0.5 text-[13px] text-muted-foreground">
             {demoBlocked
               ? "Forex needs a market-data source this deployment doesn't have."
               : demoTarget
@@ -443,7 +443,7 @@ function SetupChecklist() {
               <div className={cn("text-sm font-medium", s.done && "text-muted-foreground line-through")}>{s.title}</div>
               {!s.done && (
                 <>
-                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{s.detail}</p>
+                  <p className="mt-0.5 text-[13px] leading-relaxed text-muted-foreground">{s.detail}</p>
                   <div className="mt-2 sm:hidden">
                     {s.href
                       ? <Link href={s.href}><Button size="sm" variant="outline" className="gap-1.5" onClick={s.onClick}>{s.cta} <ArrowRight className="h-3.5 w-3.5" /></Button></Link>
@@ -520,7 +520,7 @@ function ForexMarketBanner() {
   const metals = data.metalsAndIndices;
   return (
     <div className={cn(
-      "flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-4 py-2.5 text-xs font-mono",
+      "flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-4 py-2.5 text-[13px] font-mono",
       fx.open ? "border-success/30 bg-success/5" : "border-warning/40 bg-warning/10",
     )}>
       <span className="relative flex h-2.5 w-2.5 shrink-0">
@@ -642,7 +642,7 @@ export function Dashboard() {
         icon={Power}
         right={
           <span className={cn(
-            "text-xs font-mono font-bold",
+            "text-[13px] font-mono font-bold",
             statusUnknown ? "text-muted-foreground" : bot?.running ? "text-success" : "text-destructive",
           )}>
             {statusUnknown ? "Unknown" : bot?.running ? "Running" : "Stopped"}
@@ -667,7 +667,7 @@ export function Dashboard() {
                 </span>
               </div>
               {botError && (
-                <div className="flex items-start gap-2 mb-4 text-xs font-mono text-destructive">
+                <div className="flex items-start gap-2 mb-4 text-[13px] font-mono text-destructive">
                   <WifiOff className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                   <span>Can't reach the API — this is NOT a confirmed idle state. Open positions may still exist.</span>
                 </div>
@@ -706,7 +706,7 @@ export function Dashboard() {
             valueClass={bot?.balanceUsdt == null ? "text-muted-foreground" : undefined}
             value={bot?.balanceUsdt == null ? "—" : formatCurrency(bot.balanceUsdt)}
             sub={bot?.balanceUsdt != null && (
-              <p className="text-xs text-muted-foreground mt-1 truncate">
+              <p className="text-[13px] text-muted-foreground mt-1 truncate">
                 {/* OANDA has no "testnet" — it's a practice account, and the
                     engine reports balances in USD (home currency converted). */}
                 {section === "forex"
@@ -761,7 +761,7 @@ export function Dashboard() {
         title="Open Positions"
         icon={TrendingUp}
         right={
-          <span className="text-xs font-mono text-muted-foreground">
+          <span className="text-[13px] font-mono text-muted-foreground">
             {positions?.length ?? 0} open
           </span>
         }
@@ -818,7 +818,7 @@ export function Dashboard() {
         icon={Activity}
         defaultOpen={false}
         right={
-          <span className="text-xs text-muted-foreground font-mono flex items-center gap-2">
+          <span className="text-[13px] text-muted-foreground font-mono flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
@@ -849,7 +849,7 @@ export function Dashboard() {
                     <TableCell className="font-mono">{formatNumber(row.lastPrice, 4)}</TableCell>
                     <TableCell className="w-[120px]">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs w-6">{row.confidence}</span>
+                        <span className="font-mono text-[13px] w-6">{row.confidence}</span>
                         <ProgressBar 
                           value={row.confidence} 
                           colorClass={row.confidence > 80 ? "bg-success" : row.confidence > 65 ? "bg-warning" : "bg-destructive"} 

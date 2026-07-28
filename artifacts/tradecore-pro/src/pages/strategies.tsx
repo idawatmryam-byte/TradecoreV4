@@ -167,7 +167,7 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
               <Icon className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-sm font-semibold flex items-center gap-2 flex-wrap">
+              <CardTitle className="text-[15px] font-semibold flex items-center gap-2 flex-wrap">
                 {strategy.strategyName}
                 {(strategy as any).custom && (
                   <span
@@ -240,15 +240,15 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
         {/* Performance row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
           <div className="rounded-md bg-muted/40 p-2">
-            <p className="text-xs text-muted-foreground">Trades</p>
+            <p className="text-[13px] text-muted-foreground">Trades</p>
             <p className="text-base font-mono font-semibold">{perf.totalTrades}</p>
           </div>
           <div className="rounded-md bg-muted/40 p-2">
-            <p className="text-xs text-muted-foreground">Win Rate</p>
+            <p className="text-[13px] text-muted-foreground">Win Rate</p>
             <p className="text-base font-mono font-semibold">{winRatePct}</p>
           </div>
           <div className="rounded-md bg-muted/40 p-2">
-            <p className="text-xs text-muted-foreground">PnL</p>
+            <p className="text-[13px] text-muted-foreground">PnL</p>
             <p className={cn('text-base font-mono font-semibold', pnlColor)}>
               {perf.totalPnl >= 0 ? '+' : ''}{perf.totalPnl.toFixed(2)}
             </p>
@@ -262,14 +262,14 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
           {(strategy as any).custom && !(strategy as any).backtested && (
             <Link
               href={`/backtest?strategy=${strategy.strategyId}`}
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-yellow-500/50 text-xs text-yellow-400 hover:border-yellow-400 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-yellow-500/50 text-[13px] text-yellow-400 hover:border-yellow-400 transition-colors"
             >
               <FlaskConical className="h-3 w-3" /> Backtest now
             </Link>
           )}
           <Link
             href={`/backtest?autopsy=${strategy.strategyId}`}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed text-xs text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed text-[13px] text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
           >
             <Stethoscope className="h-3 w-3" /> Diagnose
           </Link>
@@ -281,23 +281,23 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
             {/* ── The trade plan: three dollar numbers + hold time ─────────── */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs">Trade Amount ($)</Label>
-                <Input className="h-7 text-xs mt-1" inputMode="decimal" value={form.tradeAmountUsdt}
+                <Label className="text-[13px]">Trade Amount ($)</Label>
+                <Input className="h-7 text-[13px] mt-1" inputMode="decimal" value={form.tradeAmountUsdt}
                   onChange={(e) => setForm((f) => ({ ...f, tradeAmountUsdt: e.target.value }))} />
               </div>
               <div>
-                <Label className="text-xs">Max Hold (sec)</Label>
-                <Input className="h-7 text-xs mt-1" inputMode="numeric" value={form.maxHoldingSeconds}
+                <Label className="text-[13px]">Max Hold (sec)</Label>
+                <Input className="h-7 text-[13px] mt-1" inputMode="numeric" value={form.maxHoldingSeconds}
                   onChange={(e) => setForm((f) => ({ ...f, maxHoldingSeconds: e.target.value }))} />
               </div>
               <div>
-                <Label className="text-xs">Max Loss ($)</Label>
-                <Input className="h-7 text-xs mt-1" inputMode="decimal" placeholder="e.g. 5" value={form.maxLossUsdt}
+                <Label className="text-[13px]">Max Loss ($)</Label>
+                <Input className="h-7 text-[13px] mt-1" inputMode="decimal" placeholder="e.g. 5" value={form.maxLossUsdt}
                   onChange={(e) => setForm((f) => ({ ...f, maxLossUsdt: e.target.value }))} />
               </div>
               <div>
-                <Label className="text-xs">Target Profit ($)</Label>
-                <Input className="h-7 text-xs mt-1" inputMode="decimal" placeholder="e.g. 10" value={form.targetProfitUsdt}
+                <Label className="text-[13px]">Target Profit ($)</Label>
+                <Input className="h-7 text-[13px] mt-1" inputMode="decimal" placeholder="e.g. 10" value={form.targetProfitUsdt}
                   onChange={(e) => setForm((f) => ({ ...f, targetProfitUsdt: e.target.value }))} />
               </div>
             </div>
@@ -321,7 +321,7 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
             {/* ── Advanced (rarely needed) ─────────────────────────────────── */}
             <button
               type="button"
-              className="w-full flex items-center justify-between text-xs text-muted-foreground hover:text-foreground py-1"
+              className="w-full flex items-center justify-between text-[13px] text-muted-foreground hover:text-foreground py-1"
               onClick={() => setShowAdvanced((v) => !v)}
             >
               <span>Advanced</span>
@@ -342,9 +342,9 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
                   ] as [keyof Omit<EditState, 'enabled'>, string][]
                 ).map(([key, label]) => (
                   <div key={key}>
-                    <Label className="text-xs">{label}</Label>
+                    <Label className="text-[13px]">{label}</Label>
                     <Input
-                      className="h-7 text-xs mt-1"
+                      className="h-7 text-[13px] mt-1"
                       value={form[key]}
                       onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
                     />
@@ -357,10 +357,10 @@ function StrategyCard({ strategy, ctx, onSaved }: { strategy: StrategyInfo; ctx:
             )}
 
             <div className="flex gap-2 justify-end">
-              <Button variant="ghost" size="sm" className="text-xs" onClick={() => setEditing(false)}>
+              <Button variant="ghost" size="sm" className="text-[13px]" onClick={() => setEditing(false)}>
                 <X className="h-3 w-3 mr-1" /> Cancel
               </Button>
-              <Button size="sm" className="text-xs" onClick={handleSave} disabled={isPending}>
+              <Button size="sm" className="text-[13px]" onClick={handleSave} disabled={isPending}>
                 <Check className="h-3 w-3 mr-1" /> {isPending ? 'Saving…' : 'Save'}
               </Button>
             </div>
@@ -413,14 +413,14 @@ function SignalsPanel() {
       </div>
 
       {isLoading ? (
-        <p className="text-xs text-muted-foreground">Loading signals…</p>
+        <p className="text-[13px] text-muted-foreground">Loading signals…</p>
       ) : !signals || signals.length === 0 ? (
         <div className="rounded-lg border border-dashed p-6 text-center">
           <p className="text-sm text-muted-foreground">No active signals — bot may be offline or scanning.</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full text-[13px]">
             <thead>
               <tr className="border-b text-muted-foreground">
                 <th className="text-left py-2 pr-3 font-medium">Symbol</th>
@@ -474,7 +474,7 @@ function StatCard({ label, value, className }: { label: string; value: string; c
   return (
     <Card>
       <CardContent className="pt-4 pb-4">
-        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-[13px] text-muted-foreground">{label}</p>
         <p className={cn('text-2xl font-mono font-bold', className)}>{value}</p>
       </CardContent>
     </Card>

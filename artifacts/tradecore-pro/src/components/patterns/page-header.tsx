@@ -29,12 +29,12 @@ export function PageHeader({
   return (
     <div className={cn("flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between", className)}>
       <div className="min-w-0">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          {Icon && <Icon className="h-5 w-5 shrink-0 text-primary" aria-hidden />}
+        <h1 className="flex items-center gap-2.5 text-[28px] font-semibold leading-tight tracking-[-0.025em] sm:text-[32px]">
+          {Icon && <Icon className="h-6 w-6 shrink-0 text-primary" aria-hidden />}
           {title}
         </h1>
         {description && (
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{description}</p>
+          <p className="mt-2.5 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">{description}</p>
         )}
       </div>
       {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}

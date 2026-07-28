@@ -24,7 +24,7 @@ export function Memory() {
         <Card className="border-destructive/30 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-32 bg-destructive/5 blur-3xl rounded-full pointer-events-none"></div>
           <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2 text-destructive">
+            <CardTitle className="text-[15px] flex items-center gap-2 text-destructive">
               <ShieldBan className="h-4 w-4" /> Asset Blacklist
             </CardTitle>
           </CardHeader>
@@ -44,7 +44,7 @@ export function Memory() {
                     <TableCell className="font-bold text-destructive">{entry.symbol}</TableCell>
                     <TableCell className="font-mono">{formatPercent(entry.winRate * 100)}</TableCell>
                     <TableCell className="font-mono">{entry.tradeCount}</TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
+                    <TableCell className="font-mono text-[13px] text-muted-foreground">
                       {formatDate(entry.expiresAt)}
                     </TableCell>
                   </TableRow>
@@ -64,7 +64,7 @@ export function Memory() {
         <Card className="border-warning/30 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-32 bg-warning/5 blur-3xl rounded-full pointer-events-none"></div>
           <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2 text-warning">
+            <CardTitle className="text-[15px] flex items-center gap-2 text-warning">
               <Clock className="h-4 w-4" /> Toxic Timeframes (UTC)
             </CardTitle>
           </CardHeader>
@@ -84,7 +84,7 @@ export function Memory() {
                     <TableCell className="text-right font-mono text-destructive">
                       {formatCurrency(entry.cumulativePnl, "always")}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
+                    <TableCell className="font-mono text-[13px] text-muted-foreground">
                       {entry.tradeCount} trades
                     </TableCell>
                   </TableRow>

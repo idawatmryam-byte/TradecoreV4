@@ -45,7 +45,7 @@ function CheckList({ checks }: { checks: RevalidationCheck[] }) {
   return (
     <div className="space-y-1">
       {checks.map((c) => (
-        <div key={c.name} className="flex items-start gap-2 text-xs font-mono">
+        <div key={c.name} className="flex items-start gap-2 text-[13px] font-mono">
           {c.passed
             ? <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" />
             : <XCircle className="h-3.5 w-3.5 text-destructive shrink-0 mt-0.5" />}
@@ -73,7 +73,7 @@ function SimilarTrades({ similar }: { similar: SimilarTradesType }) {
       <div className="space-y-1">
         <p className="text-sm text-muted-foreground">{similar.reason}</p>
         {similar.poolSize > 0 && (
-          <p className="text-xs font-mono text-muted-foreground">
+          <p className="text-[13px] font-mono text-muted-foreground">
             pool {similar.poolSize}/{similar.minPoolSize} · floor {similar.similarityFloor}
           </p>
         )}
@@ -84,34 +84,34 @@ function SimilarTrades({ similar }: { similar: SimilarTradesType }) {
   const s = similar.stats;
   return (
     <div className="space-y-3">
-      <p className="text-xs font-mono text-muted-foreground">{similar.reason}</p>
+      <p className="text-[13px] font-mono text-muted-foreground">{similar.reason}</p>
 
       {s ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-sm border-y border-border py-2">
           <div>
-            <p className="text-xs text-muted-foreground">Win Rate</p>
+            <p className="text-[13px] text-muted-foreground">Win Rate</p>
             <p className="font-bold">
               {s.winRate != null ? `${(s.winRate * 100).toFixed(0)}%` : "—"}
               {s.winRateLow != null && s.winRateHigh != null && (
-                <span className="ml-1 text-xs font-normal text-muted-foreground">
+                <span className="ml-1 text-[13px] font-normal text-muted-foreground">
                   ({(s.winRateLow * 100).toFixed(0)}–{(s.winRateHigh * 100).toFixed(0)}%)
                 </span>
               )}
             </p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Avg R</p>
+            <p className="text-[13px] text-muted-foreground">Avg R</p>
             <p className="font-bold">{s.avgR != null ? s.avgR.toFixed(2) : "—"}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Net P&L</p>
+            <p className="text-[13px] text-muted-foreground">Net P&L</p>
             <p className={cn("font-bold", s.netPnlUsdt > 0 ? "text-success" : s.netPnlUsdt < 0 && "text-destructive")}>
               ${s.netPnlUsdt.toFixed(2)}
             </p>
           </div>
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[13px] text-muted-foreground">
           Too few matches to summarise as a rate — the individual trades are below.
         </p>
       )}
@@ -123,7 +123,7 @@ function SimilarTrades({ similar }: { similar: SimilarTradesType }) {
           widths. */}
       <div className="max-h-64 space-y-1 overflow-y-auto">
         {similar.matches.map((m) => (
-          <div key={m.tradeId} className="flex items-center gap-2 text-xs font-mono sm:gap-3">
+          <div key={m.tradeId} className="flex items-center gap-2 text-[13px] font-mono sm:gap-3">
             <span className="w-10 shrink-0 tabular-nums text-muted-foreground">{(m.similarity * 100).toFixed(0)}%</span>
             <span className="min-w-0 flex-1 truncate">{m.symbol}</span>
             <span className="hidden shrink-0 text-muted-foreground sm:inline">
@@ -149,7 +149,7 @@ function Section({ icon: Icon, title, children }: { icon: typeof PieChart; title
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
+        <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground mb-3">
           <Icon className="h-3.5 w-3.5" /> {title}
         </div>
         {children}
@@ -257,38 +257,38 @@ export default function CoPilotWorkspace() {
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-2 mb-3">
-            <Badge variant="outline" className={cn("font-mono text-xs", isLong
+            <Badge variant="outline" className={cn("font-mono text-[13px]", isLong
               ? "bg-success/15 text-success border-success/40"
               : "bg-destructive/10 text-destructive border-destructive/40")}>
               {isLong ? <ArrowUpRight className="h-3 w-3 mr-1" /> : <ArrowDownRight className="h-3 w-3 mr-1" />}
               {rec.side.toUpperCase()}
             </Badge>
             <span className="font-mono font-bold text-lg">{rec.symbol}</span>
-            <Badge variant="outline" className={cn("font-mono text-xs", meta.className)}>
+            <Badge variant="outline" className={cn("font-mono text-[13px]", meta.className)}>
               <StatusIcon className="h-3 w-3 mr-1" />{expired && rec.status === "created" ? "Expired" : meta.label}
             </Badge>
             {rec.authoredBy === "user" && (
-              <Badge variant="outline" className="font-mono text-xs bg-warning/10 text-warning border-warning/40">
+              <Badge variant="outline" className="font-mono text-[13px] bg-warning/10 text-warning border-warning/40">
                 <Pencil className="h-3 w-3 mr-1" />Your plan
                 {rec.derivedFromId != null && <span className="ml-1 opacity-70">from #{rec.derivedFromId}</span>}
               </Badge>
             )}
-            <span className="ml-auto font-mono text-xs text-muted-foreground">
+            <span className="ml-auto font-mono text-[13px] text-muted-foreground">
               {rec.strategyName ?? rec.strategyId} · {rec.confidence.toFixed(0)}% confidence
             </span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-sm">
-            <div><p className="text-xs text-muted-foreground">Entry</p><p className="font-bold">{rec.entryPrice}</p></div>
-            <div><p className="text-xs text-muted-foreground">Stop</p><p className="font-bold text-destructive">{rec.slPrice}</p></div>
-            <div><p className="text-xs text-muted-foreground">Target</p><p className="font-bold text-success">{rec.tpPrice}</p></div>
-            <div><p className="text-xs text-muted-foreground">Size</p><p className="font-bold">{rec.qty}{rec.leverage > 1 && ` · ${rec.leverage}x`}</p></div>
+            <div><p className="text-[13px] text-muted-foreground">Entry</p><p className="font-bold">{rec.entryPrice}</p></div>
+            <div><p className="text-[13px] text-muted-foreground">Stop</p><p className="font-bold text-destructive">{rec.slPrice}</p></div>
+            <div><p className="text-[13px] text-muted-foreground">Target</p><p className="font-bold text-success">{rec.tpPrice}</p></div>
+            <div><p className="text-[13px] text-muted-foreground">Size</p><p className="font-bold">{rec.qty}{rec.leverage > 1 && ` · ${rec.leverage}x`}</p></div>
           </div>
 
           {rec.entryReason && <p className="mt-3 text-sm text-muted-foreground">{rec.entryReason}</p>}
 
           {rec.status === "created" && (
-            <p className={cn("mt-3 text-xs font-mono", remainingMs < 120_000 && !expired ? "text-warning font-bold" : "text-muted-foreground")}>
+            <p className={cn("mt-3 text-[13px] font-mono", remainingMs < 120_000 && !expired ? "text-warning font-bold" : "text-muted-foreground")}>
               <Clock className="h-3 w-3 inline mr-1" />
               {expired
                 ? "This recommendation has expired — the setup it described is no longer current."
@@ -296,7 +296,7 @@ export default function CoPilotWorkspace() {
             </p>
           )}
           {rec.resolutionReason && rec.status !== "created" && (
-            <p className={cn("mt-3 text-xs font-mono flex items-start gap-1.5", rec.status === "blocked" ? "text-destructive" : "text-muted-foreground")}>
+            <p className={cn("mt-3 text-[13px] font-mono flex items-start gap-1.5", rec.status === "blocked" ? "text-destructive" : "text-muted-foreground")}>
               {rec.status === "blocked" && <ShieldAlert className="h-3.5 w-3.5 shrink-0 mt-0.5" />}
               {rec.resolutionReason}
             </p>
@@ -326,19 +326,19 @@ export default function CoPilotWorkspace() {
       <Section icon={PieChart} title="Portfolio Impact">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono text-sm">
           <div>
-            <p className="text-xs text-muted-foreground">Open Positions</p>
+            <p className="text-[13px] text-muted-foreground">Open Positions</p>
             <p className="font-bold">{data.portfolioImpact.currentOpenPositions} / {data.portfolioImpact.maxOpenPositions}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">This Plan's Risk</p>
+            <p className="text-[13px] text-muted-foreground">This Plan's Risk</p>
             <p className="font-bold">${data.portfolioImpact.candidateRiskUsdt.toFixed(2)}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Portfolio Risk Now</p>
+            <p className="text-[13px] text-muted-foreground">Portfolio Risk Now</p>
             <p className="font-bold">${data.portfolioImpact.currentPortfolioRiskUsdt.toFixed(2)} / ${data.portfolioImpact.maxPortfolioRiskUsdt.toFixed(2)}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">If This Executes</p>
+            <p className="text-[13px] text-muted-foreground">If This Executes</p>
             <p className={cn("font-bold", data.portfolioImpact.afterPortfolioRiskUsdt > data.portfolioImpact.maxPortfolioRiskUsdt && "text-destructive")}>
               ${data.portfolioImpact.afterPortfolioRiskUsdt.toFixed(2)} / ${data.portfolioImpact.maxPortfolioRiskUsdt.toFixed(2)}
             </p>
@@ -362,14 +362,14 @@ export default function CoPilotWorkspace() {
       {editing ? (
         <Card>
           <CardContent className="p-4 space-y-3">
-            <p className="text-xs font-mono text-muted-foreground">
+            <p className="text-[13px] font-mono text-muted-foreground">
               This creates a NEW plan authored by you. The engine's original is kept unchanged, so a
               later post-mortem can tell the two apart.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div><Label className="text-xs">Stop</Label><Input defaultValue={rec.slPrice} onChange={(e) => setSl(e.target.value)} className="font-mono" /></div>
-              <div><Label className="text-xs">Target</Label><Input defaultValue={rec.tpPrice} onChange={(e) => setTp(e.target.value)} className="font-mono" /></div>
-              <div><Label className="text-xs">Size</Label><Input defaultValue={rec.qty} onChange={(e) => setQty(e.target.value)} className="font-mono" /></div>
+              <div><Label className="text-[13px]">Stop</Label><Input defaultValue={rec.slPrice} onChange={(e) => setSl(e.target.value)} className="font-mono" /></div>
+              <div><Label className="text-[13px]">Target</Label><Input defaultValue={rec.tpPrice} onChange={(e) => setTp(e.target.value)} className="font-mono" /></div>
+              <div><Label className="text-[13px]">Size</Label><Input defaultValue={rec.qty} onChange={(e) => setQty(e.target.value)} className="font-mono" /></div>
             </div>
             <div className="flex gap-2">
               <Button size="sm" onClick={onModify} disabled={busy}>
