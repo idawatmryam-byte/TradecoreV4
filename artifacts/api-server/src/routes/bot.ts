@@ -1,4 +1,6 @@
 import { Router, type IRouter } from "express";
+import { db, botConfigTable } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
 import { getOrCreateEngine, SECTIONS } from "../lib/engineRegistry";
 import { isDemoUser } from "../middleware/demoGuard";
 import { buildDemoStatus } from "../lib/demoStatus";
@@ -66,6 +68,14 @@ router.post("/bot/start", async (req, res): Promise<void> => {
     }
     throw err;
   }
+
+  // Starting a section's engine is as deliberate as configuring it, so it
+  // counts as setting the market up. Belt and braces alongside PUT /config —
+  // a section can't reach a running engine without being genuinely chosen.
+  await db
+    .update(botConfigTable)
+    .set({ activated: true })
+    .where(and(eq(botConfigTable.userId, req.userId!), eq(botConfigTable.section, req.section!)));
 
   req.log.info({ userId: req.userId, section: req.section }, "Bot started via API");
   res.json({

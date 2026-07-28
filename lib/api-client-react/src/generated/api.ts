@@ -74,6 +74,7 @@ import type {
   RejectRecommendationBody,
   ResetRiskPause200,
   ScannerRow,
+  SectionsResponse,
   SetBinanceCredentialsBody,
   SetOandaCredentialsBody,
   StartAutopsy202,
@@ -2872,6 +2873,84 @@ export const useRunMemoryValidation = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getRunMemoryValidationMutationOptions(options));
     }
+
+export const getGetSectionsUrl = () => {
+
+
+
+
+  return `/api/sections`
+}
+
+/**
+ * A bot_config row is created lazily by the first read of a section's config, so row existence does NOT mean the user chose that market — merely opening the Add Market flow and backing out creates one. This returns the sections deliberately set up (config written, or engine started), which is what navigation should be driven by. Not section-scoped: it answers a question ABOUT the sections.
+ * @summary Which trading sections this user has actually set up
+ */
+export const getSections = async ( options?: RequestInit): Promise<SectionsResponse> => {
+
+  return customFetch<SectionsResponse>(getGetSectionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSectionsQueryKey = () => {
+    return [
+    `/api/sections`
+    ] as const;
+    }
+
+
+export const getGetSectionsQueryOptions = <TData = Awaited<ReturnType<typeof getSections>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSections>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSectionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSections>>> = ({ signal }) => getSections({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSections>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSectionsQueryResult = NonNullable<Awaited<ReturnType<typeof getSections>>>
+export type GetSectionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Which trading sections this user has actually set up
+ */
+
+export function useGetSections<TData = Awaited<ReturnType<typeof getSections>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSections>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSectionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetConfigUrl = () => {
 

@@ -216,6 +216,23 @@ export const botConfigTable = pgTable("bot_config", {
    */
   engineDesiredRunning: boolean("engine_desired_running").notNull().default(false),
 
+  /**
+   * Has the user deliberately set this section up?
+   *
+   * A row here is created LAZILY — the first read of a section's config
+   * materialises it, including merely opening the Add Market flow and backing
+   * out again. So "a row exists" is emphatically not "the user chose this
+   * market", and the navigation cannot be driven off row existence. This is
+   * the explicit signal, written when configuration actually is.
+   *
+   * The default is `true` on purpose, and it is a BACKFILL default rather than
+   * a creation default: every row predating this column belongs to a real user
+   * with a real section, and they must not lose a tab they have been using.
+   * Newly created rows pass `activated: false` explicitly — see
+   * `botEngine.ts`'s insert.
+   */
+  activated: boolean("activated").notNull().default(true),
+
   /** Persisted so a process restart can't silently clear a manual-reset-required pause. */
   riskPaused: boolean("risk_paused").notNull().default(false),
   riskViolationCount: integer("risk_violation_count").notNull().default(0),

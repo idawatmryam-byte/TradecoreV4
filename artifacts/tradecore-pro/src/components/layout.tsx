@@ -2,9 +2,9 @@ import { Link, useLocation } from "wouter";
 import {
   Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert,
   Layers, LogOut, Menu, UserCircle2, Bitcoin, CandlestickChart, Eye, Hammer, Inbox,
-  ChevronDown,
+  ChevronDown, Plus,
 } from "lucide-react";
-import { useGetBotStatus, useHealthCheck, useGetConfig, getGetBotStatusQueryKey, getHealthCheckQueryKey, getGetConfigQueryKey } from "@workspace/api-client-react";
+import { useGetBotStatus, useHealthCheck, useGetConfig, useGetSections, getGetBotStatusQueryKey, getHealthCheckQueryKey, getGetConfigQueryKey, getGetSectionsQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useSection, type Section } from "@/lib/section";
@@ -14,6 +14,8 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { MODE_LABELS } from "@/components/mode-picker";
+import { OnboardingWizard } from "@/components/onboarding-wizard";
+import { useQueryClient } from "@tanstack/react-query";
 
 const SECTION_LABELS: Record<Section, string> = { crypto: "Crypto", forex: "Forex" };
 
@@ -67,28 +69,44 @@ const SECTION_TABS: { id: Section; label: string; icon: typeof Bitcoin }[] = [
  * it: the two sections are fully independent engines with their own positions,
  * strategies and trade logs, so this is not a filter — it is which product you
  * are looking at.
+ *
+ * A market the user has not set up is shown but NOT presented as a peer of one
+ * they have. Onboarding asks them to choose a single market on purpose; two
+ * identical tabs immediately afterwards made that choice look decorative, and
+ * tapping the other one silently dropped them into an unconfigured section.
+ * It now reads as an offer and routes into Add Market, so the choice visibly
+ * means something and the second market is still one tap away.
  */
-function SectionSwitcher() {
+function SectionSwitcher({ onSetUp }: { onSetUp: (section: Section) => void }) {
   const { section, setSection } = useSection();
+  const { data } = useGetSections({ query: { queryKey: getGetSectionsQueryKey() } });
+
+  // An empty list means a brand-new account that skipped onboarding — fall
+  // back to whatever they are looking at rather than offering to set up the
+  // section they are currently using.
+  const activated = data?.activated?.length ? data.activated : [section];
+
   return (
     <div className="mb-6">
       <div className="grid grid-cols-2 gap-1 rounded-lg border bg-muted/40 p-1">
         {SECTION_TABS.map((tab) => {
           const Icon = tab.icon;
-          const isActive = section === tab.id;
+          const isSetUp = activated.includes(tab.id);
+          const isActive = section === tab.id && isSetUp;
           return (
             <button
               key={tab.id}
-              onClick={() => setSection(tab.id)}
+              onClick={() => (isSetUp ? setSection(tab.id) : onSetUp(tab.id))}
               aria-pressed={isActive}
+              title={isSetUp ? undefined : `Set up ${tab.label} trading`}
               className={cn(
                 "flex min-h-9 items-center justify-center gap-2 rounded-md px-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
+                isActive && "bg-background text-foreground shadow-sm",
+                !isActive && isSetUp && "text-muted-foreground hover:text-foreground",
+                !isSetUp && "text-muted-foreground/60 hover:text-foreground",
               )}
             >
-              <Icon className="h-4 w-4" />
+              {isSetUp ? <Icon className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
               {tab.label}
             </button>
           );
@@ -173,11 +191,13 @@ function NavBody({
   online,
   mode,
   onLogout,
+  onSetUpSection,
 }: {
   location: string;
   online: boolean;
   mode: string;
   onLogout: () => void;
+  onSetUpSection: (section: Section) => void;
 }) {
   const advancedActive = ADVANCED_NAV.some((i) => isItemActive(i, location));
   const [advancedOpen, setAdvancedOpen] = useState(advancedActive);
@@ -190,7 +210,7 @@ function NavBody({
 
   return (
     <div className="flex h-full flex-col p-4">
-      <SectionSwitcher />
+      <SectionSwitcher onSetUp={onSetUpSection} />
 
       <nav className="space-y-1">
         {PRIMARY_NAV.map((item) => (
@@ -279,7 +299,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const isDemo = useIsDemo();
-  const { section } = useSection();
+  const { section, setSection } = useSection();
   const { data: botStatus } = useGetBotStatus({
     query: { refetchInterval: 5000, queryKey: getGetBotStatusQueryKey() }
   });
@@ -287,6 +307,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     query: { refetchInterval: 15000, queryKey: getHealthCheckQueryKey() }
   });
   const { data: config } = useGetConfig({ query: { queryKey: getGetConfigQueryKey() } });
+  const queryClient = useQueryClient();
   void health;
 
   // Close the drawer after navigating so it never lingers over the page.
@@ -300,9 +321,39 @@ export function Layout({ children }: { children: React.ReactNode }) {
     window.location.reload();
   }
 
+  // Setting up the other market runs the onboarding wizard with its market
+  // question skipped — the same flow Settings → Add Market opens, so there is
+  // one path to maintain and the user meets the questions they already know.
+  const [settingUp, setSettingUp] = useState<{ target: Section; previous: Section } | null>(null);
+
   const navBody = (
-    <NavBody location={location} online={online} mode={mode} onLogout={handleLogout} />
+    <NavBody
+      location={location}
+      online={online}
+      mode={mode}
+      onLogout={handleLogout}
+      onSetUpSection={(target) => setSettingUp({ target, previous: section })}
+    />
   );
+
+  if (settingUp) {
+    return (
+      <OnboardingWizard
+        presetMarket={settingUp.target}
+        onDone={(completed) => {
+          // The wizard has to make its target the active section to write to it
+          // at all (every call is X-Section scoped). If the user backed out,
+          // that switch has to be undone — otherwise declining to set Forex up
+          // leaves the whole app sitting in Forex.
+          if (!completed) setSection(settingUp.previous);
+          setSettingUp(null);
+          // The config write is what marks a section set up, so the switcher
+          // must re-read rather than keep offering one that now exists.
+          void queryClient.invalidateQueries({ queryKey: getGetSectionsQueryKey() });
+        }}
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background text-foreground md:flex-row">

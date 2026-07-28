@@ -1,5 +1,5 @@
 import {
-  useGetConfig, useUpdateConfig, getGetConfigQueryKey,
+  useGetConfig, useUpdateConfig, useGetSections, getGetConfigQueryKey, getGetSectionsQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label, Switch } from "@/components/ui";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -241,6 +241,10 @@ export function Settings() {
   const isForexSection = section === "forex";
   const isFutures = formData.marketType === "futures";
   const otherSection: Section = isForexSection ? "crypto" : "forex";
+  // Once the other market exists, the sidebar switcher is how you reach it —
+  // an "Add Market" card for something already added is just clutter.
+  const { data: sections } = useGetSections({ query: { queryKey: getGetSectionsQueryKey() } });
+  const otherSectionSetUp = !!sections?.activated?.includes(otherSection);
 
   // Demo → Live is a deliberate, credential-gated flow rather than a toggle;
   // Live → Demo stays instant. Demo and Live are execution targets for the
@@ -249,7 +253,11 @@ export function Settings() {
   const { configured: brokerConfigured } = useBrokerConfigured(section);
   const [upgrading, setUpgrading] = useState(false);
   const [liveConfirmOpen, setLiveConfirmOpen] = useState(false);
-  const [addingMarket, setAddingMarket] = useState(false);
+  // Both the target and the section to return to are captured at click time.
+  // `otherSection` is derived from the ACTIVE section, and opening this flow
+  // switches the active section — so reading it again during the overlay's
+  // render yields the market the user already had, not the one being added.
+  const [addingMarket, setAddingMarket] = useState<{ target: Section; previous: Section } | null>(null);
 
   const requestLive = () => {
     if (!brokerConfigured) { setUpgrading(true); return; }
@@ -415,10 +423,15 @@ export function Settings() {
         <BrokerCredentialsCard section={section} />
       )}
 
-      <AddMarketCard
-        other={otherSection}
-        onAdd={() => { setSection(otherSection); setAddingMarket(true); }}
-      />
+      {!otherSectionSetUp && (
+        <AddMarketCard
+          other={otherSection}
+          onAdd={() => {
+            setAddingMarket({ target: otherSection, previous: section });
+            setSection(otherSection);
+          }}
+        />
+      )}
 
       {isForexSection ? (
         <Card>
@@ -741,8 +754,15 @@ export function Settings() {
       {addingMarket && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
           <OnboardingWizard
-            presetMarket={otherSection}
-            onDone={() => setAddingMarket(false)}
+            presetMarket={addingMarket.target}
+            onDone={(completed) => {
+              // Opening this switched the app to the other market so the wizard
+              // could write to it; backing out has to switch back rather than
+              // leave Settings pointed at a market the user just declined.
+              if (!completed) setSection(addingMarket.previous);
+              setAddingMarket(null);
+              queryClient.invalidateQueries({ queryKey: getGetSectionsQueryKey() });
+            }}
           />
         </div>
       )}
