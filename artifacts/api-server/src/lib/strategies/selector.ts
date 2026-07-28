@@ -8,10 +8,12 @@
  *     stop, target, leverage, size, expected duration, plus a written
  *     DecisionReport — and approve or reject their own trade.
  *   • Legacy strategies (evaluate() only) run through legacyDecide(), a
- *     byte-for-byte relocation of the historical selector pipeline
- *     (evaluate → dollar-risk override → per-coin fit → confidence unify),
- *     wrapped into an equivalent TradePlan. The harness Δ0 gate proves this
- *     adapter changes nothing for them.
+ *     relocation of the historical selector pipeline (evaluate → dollar-risk
+ *     override → per-coin fit → confidence unify), wrapped into an equivalent
+ *     TradePlan. It was byte-for-byte behaviour-neutral until the per-coin
+ *     fit step below started ADAPTING an unreachable target instead of
+ *     rejecting it outright (Phase 10) — a deliberate, harness-validated
+ *     departure from parity, not a regression. See dollarPlanFitsCoin.
  *
  * One check stays CENTRAL for both paths: the net reward:risk cost floor —
  * a structural viability invariant (fees make the trade unwinnable), not
@@ -32,6 +34,8 @@ import {
   TARGET_REACH_K,
 } from "./base";
 import { type MultiTimeframeCandles, type SignalRow, unifyConfidence } from "../strategy";
+import { timeFeasible } from "./toolkit";
+import { adaptTargetToReachable } from "../dollarRisk";
 import {
   netRewardRisk,
   MIN_VIABLE_REWARD_RISK,
@@ -51,39 +55,32 @@ export const MIN_STOP_ATR_MULT = 1.5;
 /**
  * Per-coin fit check for a DOLLAR trade plan. The same dollar numbers imply
  * the same %-distances on every coin — but coins differ wildly in
- * volatility, so on some the stop sits inside pure noise (random stop-out)
- * and on others the target is physically unreachable within the holding
- * window (guaranteed timeout + fees). Both are structural losses no signal
- * quality can beat, so such signals are rejected per coin, with the reason.
- * (The legacy % model gets the same protection via computeAdaptiveSLTP.)
+ * volatility, so on some the stop sits inside pure noise (random stop-out).
+ * That is a structural loss no signal quality can beat, and stays a hard
+ * reject.
+ *
+ * It ONLY checks the stop now. Target-reachability used to be a second reject
+ * branch here — "unreachable within the hold window" — but a target the coin
+ * cannot deliver doesn't mean the trade is impossible, it means the ORIGINAL
+ * dollar target was wrong for this coin's volatility. That case is handled by
+ * legacyDecide adapting the target via `adaptTargetToReachable` instead of
+ * calling this function's old reachability branch — see there. (The legacy %
+ * model has always adapted this way, via computeAdaptiveSLTP; the dollar
+ * model rejected instead, until Phase 10.)
  */
-function dollarPlanFitsCoin(
+function stopClearsNoiseBand(
   plan: DollarRiskPlan,
   row: SignalRow,
-  maxHoldingSeconds: number,
 ): { fits: boolean; reason?: string } {
   const atrPct = row.atrPercent; // % per primary candle
   if (!(atrPct > 0)) return { fits: true }; // no volatility data → don't block
   const slPct = plan.slFraction * 100;
-  const tpPct = plan.tpFraction * 100;
-
   const noiseFloorPct = atrPct * MIN_STOP_ATR_MULT;
   if (slPct < noiseFloorPct) {
     return {
       fits: false,
       reason: `stop ${slPct.toFixed(2)}% is inside this coin's noise band (~${noiseFloorPct.toFixed(2)}%) — would stop out randomly`,
     };
-  }
-
-  if (maxHoldingSeconds > 0 && tpPct > 0) {
-    const holdCandles = maxHoldingSeconds / 60 / Math.max(1, row.candleMinutes);
-    const reachablePct = atrPct * Math.sqrt(holdCandles) * TARGET_REACH_K;
-    if (tpPct > reachablePct) {
-      return {
-        fits: false,
-        reason: `target ${tpPct.toFixed(2)}% unreachable within the hold window (~${reachablePct.toFixed(2)}% reachable at this coin's volatility)`,
-      };
-    }
   }
   return { fits: true };
 }
@@ -179,8 +176,9 @@ function legacyDecide(
   // The netRewardRisk gate in decideSymbol then runs on the resolved levels.
   const resolved = resolveDollarPlan(config, dollarRisk);
   let dollarPlanApplied = false;
+  let targetAdapted: { from: number; to: number; reachablePct: number } | null = null;
   if (resolved) {
-    const plan = planDollarRisk(signal.entryPrice, signal.side, resolved);
+    let plan = planDollarRisk(signal.entryPrice, signal.side, resolved);
     if (!plan.feasible || !plan.safe || plan.qty <= 0) {
       console.warn(
         `[selector] ${strategy.strategyId} rejected on ${symbol}: dollar risk not placeable ` +
@@ -199,12 +197,13 @@ function legacyDecide(
         },
       };
     }
-    // Per-coin fit: same dollars, different volatility per coin — skip
-    // coins where this plan's stop sits inside noise or the target
-    // can't be reached in the hold window (structurally doomed trades).
-    const fit = dollarPlanFitsCoin(plan, row, config.maxHoldingSeconds);
-    if (!fit.fits) {
-      console.warn(`[selector] ${strategy.strategyId} skipped ${symbol}: ${fit.reason}`);
+
+    // Stop-in-noise-band: hard structural reject, unaffected by the target —
+    // a stop this tight gets hit by ordinary candle noise regardless of
+    // direction, so no amount of target adaptation rescues it.
+    const stopFit = stopClearsNoiseBand(plan, row);
+    if (!stopFit.fits) {
+      console.warn(`[selector] ${strategy.strategyId} skipped ${symbol}: ${stopFit.reason}`);
       return {
         kind: "rejection",
         rejection: {
@@ -213,11 +212,43 @@ function legacyDecide(
           symbol,
           side: signal.side,
           stage: "coin-fit",
-          reason: fit.reason ?? "dollar plan does not fit this coin",
+          reason: stopFit.reason ?? "dollar plan does not fit this coin",
           confidence: signal.confidence,
         },
       };
     }
+
+    // Target reachability: ADAPT, don't reject. A target this coin can't
+    // deliver in the hold window doesn't make the trade impossible — it means
+    // the configured dollar target was wrong for this coin's volatility.
+    // Shrink it to what's reachable, holding maxLossUsdt/leverage/trade
+    // amount exactly as configured, and let the centralized reward:risk floor
+    // (below, in decideSymbol) decide whether the resulting trade still
+    // clears the bar. Uses the same multi-timeframe reachability math the
+    // native decide() strategies already use, so both paths agree.
+    const tf = timeFeasible(plan.tpFraction, row, config.maxHoldingSeconds, mtf);
+    if (!tf.feasible) {
+      const adapted = adaptTargetToReachable(resolved, tf.reachablePct);
+      if (!adapted) {
+        console.warn(`[selector] ${strategy.strategyId} skipped ${symbol}: no viable target at this volatility`);
+        return {
+          kind: "rejection",
+          rejection: {
+            strategyId: strategy.strategyId,
+            strategyName: strategy.strategyName,
+            symbol,
+            side: signal.side,
+            stage: "coin-fit",
+            reason: `target ${plan.tpPercent.toFixed(2)}% unreachable within the hold window (~${tf.reachablePct.toFixed(2)}% reachable) ` +
+              `and even a reachable target wouldn't clear round-trip costs here`,
+            confidence: signal.confidence,
+          },
+        };
+      }
+      targetAdapted = { from: resolved.targetProfitUsdt, to: adapted.targetProfitUsdt, reachablePct: tf.reachablePct };
+      plan = planDollarRisk(signal.entryPrice, signal.side, adapted);
+    }
+
     signal.suggestedSL = plan.slPrice;
     signal.suggestedTP = plan.tpPrice;
     signal.qty = plan.qty;
@@ -270,6 +301,11 @@ function legacyDecide(
           ? `dollar plan: stop/target/size derived from the strategy's configured $ risk`
           : `legacy % model: stop/target from the strategy's configured percentages`,
         `stop ${signal.suggestedSL.toFixed(6)} · qty ${signal.qty.toFixed(6)}`,
+        // Never a silent substitution: the configured target moved, so the
+        // report says so in plain dollars, not just in the price levels.
+        ...(targetAdapted
+          ? [`target adjusted $${targetAdapted.from.toFixed(2)} → $${targetAdapted.to.toFixed(2)} — this coin's volatility allows ~${targetAdapted.reachablePct.toFixed(2)}% in the ${Math.round(config.maxHoldingSeconds / 60)}min window`]
+          : []),
       ],
       exitLogic: [
         `target ${signal.suggestedTP.toFixed(6)}`,
@@ -280,7 +316,13 @@ function legacyDecide(
         ...(dollarPlanApplied
           ? [
               { name: "Dollar plan placeable", passed: true, detail: "stop safe vs fees + liquidation" },
-              { name: "Coin fit", passed: true, detail: "stop outside noise band; target reachable in window" },
+              {
+                name: "Coin fit",
+                passed: true,
+                detail: targetAdapted
+                  ? `stop outside noise band; target adapted to fit the hold window`
+                  : "stop outside noise band; target reachable in window",
+              },
             ]
           : []),
       ],
