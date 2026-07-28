@@ -417,10 +417,10 @@ function EditorCard({ existing, onDone }: { existing?: CustomStrategy; onDone: (
         {error && <p className="text-xs text-destructive">{error}</p>}
 
         <div className="flex gap-2 justify-end">
-          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={onDone}>
+          <Button variant="ghost" size="sm" className="text-xs" onClick={onDone}>
             <X className="h-3.5 w-3.5 mr-1" /> Cancel
           </Button>
-          <Button size="sm" className="h-8 text-xs" onClick={handleSave} disabled={creating || updating}>
+          <Button size="sm" className="text-xs" onClick={handleSave} disabled={creating || updating}>
             <Check className="h-3.5 w-3.5 mr-1" /> {creating || updating ? 'Saving…' : existing ? 'Save changes' : 'Create strategy'}
           </Button>
         </div>

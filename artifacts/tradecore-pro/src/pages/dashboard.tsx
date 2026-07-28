@@ -163,7 +163,7 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
                         {isClosing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
                         Confirm close at market
                       </Button>
-                      <Button size="sm" variant="outline" className="h-8 text-xs" disabled={isClosing} onClick={() => onArmClose(null)}>
+                      <Button size="sm" variant="outline" className="text-xs" disabled={isClosing} onClick={() => onArmClose(null)}>
                         Keep
                       </Button>
                     </div>
