@@ -5,7 +5,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  Activity, Bitcoin, CandlestickChart, Check, ChevronLeft, Loader2,
+  Bitcoin, CandlestickChart, Check, ChevronLeft, Loader2,
   ShieldCheck, TrendingUp, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { useSection, type Section } from "@/lib/section";
 import { ModePicker, MODE_LABELS, type TradingMode } from "@/components/mode-picker";
 import { BrokerCredentialsCard, useBrokerConfigured } from "@/components/broker-credentials";
 import { AutoPilotConfirmDialog } from "@/components/autopilot-confirm-dialog";
+import { CactusLogo } from "@/components/cactus-logo";
 
 /**
  * First run: opening a trading account, not configuring software.
@@ -92,10 +93,7 @@ export function OnboardingWizard({
       <div className="ambient-glow" />
       <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-2xl flex-col px-5 py-8 sm:py-12">
         <header className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md border border-primary/40 bg-primary/15">
-            <Activity className="h-5 w-5 text-primary" />
-          </div>
-          <span className="text-lg font-semibold leading-none tracking-tight">TradeCore Pro</span>
+          <CactusLogo size="lg" tagline />
           <button
             type="button"
             onClick={() => onDone(false)}
@@ -381,7 +379,7 @@ function DemoFinish({
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-success/15">
         <Check className="h-6 w-6 text-success" />
       </div>
-      <h1 className="mt-5 text-2xl font-semibold tracking-tight">Welcome to TradeCore.</h1>
+      <h1 className="mt-5 text-2xl font-semibold tracking-tight">Welcome to Cactus AI.</h1>
       <p className="mt-2 text-sm text-muted-foreground">Your Demo account is ready.</p>
 
       <ul className="mt-6 space-y-2.5">
