@@ -9,9 +9,13 @@
  * Differences from the Binance downloader that matter:
  *
  *  - AUTH: OANDA's candle endpoint requires a token (there is no public
- *    market-data API), so downloads run with the requesting user's stored
- *    OANDA credentials — same practice/live base URL selection as the
- *    live engine (botConfig.testnet on the forex section row).
+ *    market-data API). Whose token depends on the forex section's
+ *    executionTarget, mirroring the live engine's buildExchange(): a "demo"
+ *    section downloads with the platform's shared practice token (same one
+ *    demoMarketData.ts uses for live demo trading — a demo user should never
+ *    need to bring their own OANDA account just to backtest); a "live"
+ *    section downloads with the user's own stored credentials, at their
+ *    practice/live base URL (botConfig.testnet on the forex section row).
  *  - MARKET HOURS: forex closes on weekends, so a naive candles-per-
  *    millisecond coverage estimate would flag every cached week as "full
  *    of gaps" (~5/7 ≈ 71% < the 90% re-download threshold) and re-fetch
@@ -33,6 +37,7 @@ import { getOandaCredentials } from "./oandaCredentials";
 import { isInstrumentOpen } from "./marketHours";
 import { logger } from "./logger";
 import type { Candle } from "./historicalData";
+import { DemoDataUnavailableError } from "./execution/demoMarketData";
 
 const MAX_COUNT = 5000; // OANDA per-request candle cap
 const DELAY_MS = 150;   // polite spacing between paged requests
@@ -52,18 +57,44 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-/** Client from the user's stored credentials + their forex practice/live flag. */
-async function clientForUser(userId: number): Promise<OandaClient> {
+/**
+ * Client for this user's forex backtest download. Branches on the forex
+ * section's executionTarget exactly like botEngine.ts's buildExchange():
+ * a "demo" section downloads with the platform's shared practice token (no
+ * personal OANDA account required — same reasoning as live demo trading,
+ * see execution/demoMarketData.ts), always against the practice endpoint
+ * regardless of the section's testnet flag. A "live" section downloads with
+ * the user's own stored credentials, at their own practice/live base URL.
+ *
+ * Exported (only) so the demo/live branch can be asserted directly in tests
+ * without a network call — building an OandaClient is pure object
+ * construction; only ensureForexCandles' later use of it touches the wire.
+ */
+export async function clientForUser(userId: number): Promise<OandaClient> {
+  const [cfg] = await db
+    .select({ testnet: botConfigTable.testnet, executionTarget: botConfigTable.executionTarget })
+    .from(botConfigTable)
+    .where(and(eq(botConfigTable.userId, userId), eq(botConfigTable.section, "forex")));
+
+  if (cfg?.executionTarget === "demo") {
+    const token = process.env.OANDA_PLATFORM_TOKEN;
+    const accountId = process.env.OANDA_PLATFORM_ACCOUNT_ID;
+    if (!token || !accountId) {
+      throw new DemoDataUnavailableError(
+        "Forex demo backtesting is unavailable: OANDA has no public market-data API, so the platform needs " +
+          "its own practice account. Set OANDA_PLATFORM_TOKEN and OANDA_PLATFORM_ACCOUNT_ID, or switch this " +
+          "section to Live and connect your own OANDA account on the Settings page (Trading tab).",
+      );
+    }
+    return new OandaClient({ token, accountId, practice: true });
+  }
+
   const creds = await getOandaCredentials(userId);
   if (!creds) {
     throw new Error(
       "No OANDA credentials configured — add your API token and account ID on the Settings page (Trading tab, Forex section) to backtest forex instruments.",
     );
   }
-  const [cfg] = await db
-    .select({ testnet: botConfigTable.testnet })
-    .from(botConfigTable)
-    .where(and(eq(botConfigTable.userId, userId), eq(botConfigTable.section, "forex")));
   return new OandaClient({ token: creds.token, accountId: creds.accountId, practice: cfg?.testnet ?? true });
 }
 
