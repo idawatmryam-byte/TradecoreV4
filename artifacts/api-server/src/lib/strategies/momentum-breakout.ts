@@ -13,7 +13,12 @@
  * - ADX >= 20
  * - 1h macro bearish
  *
- * Percentage-based stop and take-profit (Phase 5A).
+ * decide() (the pro-brain path, used whenever a dollar plan is configured)
+ * puts the stop AT the broken level and solves leverage backward from it; a
+ * target this coin can't reach inside the hold window gets ADAPTED down to
+ * what's reachable rather than rejected (Phase 10), holding max loss and
+ * leverage fixed. evaluate() (legacy, no dollar plan) still uses a plain
+ * percentage stop/target (Phase 5A).
  *
  * REGIME GATE (evidence-based, post-parity-diagnosis): this strategy is now
  * restricted to `strong_trend` ONLY (previously it also fired in `weak_trend`).
@@ -36,6 +41,7 @@ import {
   marketFacts, solveLeverage, timeFeasible, feeViability, suggestLeverageForTarget,
   adaptiveDeadline, INTRADAY_MAX_HOLD_SECONDS, maxLossNeededForLeverage,
 } from "./toolkit";
+import { adaptTargetToReachable, planDollarRisk } from "../dollarRisk";
 
 export class MomentumBreakoutStrategy implements Strategy {
   readonly strategyId = "momentum_breakout";
@@ -118,7 +124,7 @@ export class MomentumBreakoutStrategy implements Strategy {
     }
 
     // ── Risk: structural stop at the broken level, leverage solved from it ──
-    const solved = solveLeverage({
+    let solved = solveLeverage({
       entryPrice: lastPrice, side, marketType: ctx.marketType,
       marginUsdt: dp.tradeAmountUsdt, maxLossUsdt: dp.maxLossUsdt, targetProfitUsdt: dp.targetProfitUsdt,
       leverageCap: ctx.leverageCap, feeRate: ctx.feeRate,
@@ -134,19 +140,41 @@ export class MomentumBreakoutStrategy implements Strategy {
     // the full intraday window (up to 2h) — the per-trade deadline below is
     // adaptive, not a fixed kill-timer.
     const window = Math.max(config.maxHoldingSeconds, INTRADAY_MAX_HOLD_SECONDS);
-    const tf = timeFeasible(solved.tpFraction, row, window, mtf);
+    let tf = timeFeasible(solved.tpFraction, row, window, mtf);
+    let targetAdapted: { from: number; to: number; reachablePct: number } | null = null;
     if (!tf.feasible) {
-      // Would more leverage make the target reachable while the stop still
-      // holds at the broken level? Tell the user instead of dead-ending.
-      const better = suggestLeverageForTarget({
-        entryPrice: lastPrice, side, marketType: ctx.marketType,
-        marginUsdt: dp.tradeAmountUsdt, maxLossUsdt: dp.maxLossUsdt, targetProfitUsdt: dp.targetProfitUsdt,
-        feeRate: ctx.feeRate, atrPercent: row.atrPercent, invalidationPrice: level,
-      }, tf.reachablePct);
-      const hint = better != null && better > ctx.leverageCap
-        ? ` — WOULD be feasible at ~${better}× leverage (your cap is ${ctx.leverageCap}×): raise the Max Leverage Cap, lower Target Profit, or raise Trade Amount`
-        : ` — no leverage makes this target reachable safely here: lower Target Profit or raise Trade Amount`;
-      return rejection("coin-fit", (tf.reason ?? "target unreachable within the hold window") + hint);
+      // ADAPT, don't reject: the coin can't deliver the configured target in
+      // this window, but the stop still legitimately sits at the broken
+      // level — the trade thesis is fine, only the profit target was sized
+      // for a move this coin's current volatility can't deliver. Shrink it
+      // to what's reachable, holding max loss AND the already-solved
+      // leverage fixed; only reject if even a reachable target can't clear
+      // round-trip costs at this leverage.
+      const adaptedCfg = adaptTargetToReachable(
+        {
+          marketType: ctx.marketType, tradeAmountUsdt: dp.tradeAmountUsdt,
+          leverage: solved.leverage, maxLossUsdt: dp.maxLossUsdt,
+          targetProfitUsdt: dp.targetProfitUsdt, feeRate: ctx.feeRate,
+        },
+        tf.reachablePct,
+      );
+      if (!adaptedCfg) {
+        // Would more leverage make a reachable target viable? Tell the user
+        // instead of dead-ending.
+        const better = suggestLeverageForTarget({
+          entryPrice: lastPrice, side, marketType: ctx.marketType,
+          marginUsdt: dp.tradeAmountUsdt, maxLossUsdt: dp.maxLossUsdt, targetProfitUsdt: dp.targetProfitUsdt,
+          feeRate: ctx.feeRate, atrPercent: row.atrPercent, invalidationPrice: level,
+        }, tf.reachablePct);
+        const hint = better != null && better > ctx.leverageCap
+          ? ` — WOULD be feasible at ~${better}× leverage (your cap is ${ctx.leverageCap}×): raise the Max Leverage Cap, lower Target Profit, or raise Trade Amount`
+          : ` — even a reachable target wouldn't clear round-trip costs at ${solved.leverage}×: lower Target Profit or raise Trade Amount`;
+        return rejection("coin-fit", (tf.reason ?? "target unreachable within the hold window") + hint);
+      }
+      const adaptedPlan = planDollarRisk(lastPrice, side, adaptedCfg);
+      targetAdapted = { from: dp.targetProfitUsdt, to: adaptedCfg.targetProfitUsdt, reachablePct: tf.reachablePct };
+      solved = { ...solved, tpFraction: adaptedPlan.tpFraction, tpPrice: adaptedPlan.tpPrice };
+      tf = timeFeasible(solved.tpFraction, row, window, mtf);
     }
     const expectedHold = Math.min(window, Math.max(300, tf.expectedSeconds));
     const deadline = adaptiveDeadline(expectedHold, window);
@@ -175,11 +203,12 @@ export class MomentumBreakoutStrategy implements Strategy {
 
     // ── The written plan ────────────────────────────────────────────────────
     const breakWord = isShort ? "breakdown below" : "breakout above";
+    const effectiveTarget = targetAdapted ? targetAdapted.to : dp.targetProfitUsdt;
     const report: DecisionReport = {
       summary:
         `Fresh ${breakWord} the 20-bar level ${level.toPrecision(6)} on ${row.volumeRatio.toFixed(1)}× volume with ADX ${row.adx.toFixed(0)} ` +
         `and the 1h macro trend agreeing. Stop sits AT the broken level (the trade is wrong if price trades back through it), ` +
-        `risking $${dp.maxLossUsdt} to make $${dp.targetProfitUsdt} at ${solved.leverage}×; expecting ~${Math.round(expectedHold / 60)}min.`,
+        `risking $${dp.maxLossUsdt} to make $${effectiveTarget.toFixed(2)} at ${solved.leverage}×; expecting ~${Math.round(expectedHold / 60)}min.`,
       marketView: [
         `regime ${row.regime} · ADX ${row.adx.toFixed(1)} · ${row.volumeRatio.toFixed(2)}× volume`,
         `1h macro ${isShort ? "bearish" : "bullish"} — trading with the larger trend`,
@@ -199,9 +228,14 @@ export class MomentumBreakoutStrategy implements Strategy {
           ? [`leverage limited by the $${dp.maxLossUsdt} max loss (a bigger notional would squeeze the stop under its ${(solved.minStopFraction * 100).toFixed(2)}% floor) — raising Max Loss to ~$${Math.ceil(maxLossNeededForLeverage(dp.tradeAmountUsdt, ctx.leverageCap, ctx.feeRate, solved.minStopFraction))} would unlock the full ${ctx.leverageCap}× and bring the target ${(100 - (solved.leverage / ctx.leverageCap) * 100).toFixed(0)}% closer`]
           : []),
         `stop ${solved.stopDistPct.toFixed(2)}% away at ${solved.slPrice.toPrecision(6)} — the broken level itself: back through it = breakout failed`,
+        // Never a silent substitution: the configured target moved, so the
+        // report says so in plain dollars, not just in the price levels.
+        ...(targetAdapted
+          ? [`target adjusted $${targetAdapted.from.toFixed(2)} → $${targetAdapted.to.toFixed(2)} — this coin's volatility allows ~${targetAdapted.reachablePct.toFixed(2)}% in the ${Math.round(window / 60)}min window`]
+          : []),
       ],
       exitLogic: [
-        `target ${targetPct.toFixed(2)}% at ${solved.tpPrice.toPrecision(6)} (+$${dp.targetProfitUsdt} net)`,
+        `target ${targetPct.toFixed(2)}% at ${solved.tpPrice.toPrecision(6)} (+$${effectiveTarget.toFixed(2)} net)`,
         ...(config.tp1RMultiple > 0
           ? [`two-stage exit: bank ${config.tp1ClosePercent}% at +${config.tp1RMultiple}R and move the stop to BREAK-EVEN — a reversal after progress keeps its profit${config.trailingStopMode !== "none" ? "; the rest trails the move" : ""}`]
           : []),
@@ -210,7 +244,12 @@ export class MomentumBreakoutStrategy implements Strategy {
       checks: [
         { name: "Fresh break", passed: true, detail: `${extensionPct.toFixed(2)}% past the level (chase limit ${maxChasePct.toFixed(2)}%)` },
         { name: "Leverage solver", passed: true, detail: `${solved.leverage}× ≤ cap ${ctx.leverageCap}× · stop at the ${solved.bindingFloor}` },
-        { name: "Time feasibility", passed: true, detail: `~${Math.round(tf.expectedSeconds / 60)}min needed vs ${Math.round(window / 60)}min intraday window` },
+        {
+          name: "Time feasibility", passed: true,
+          detail: targetAdapted
+            ? `target adapted $${targetAdapted.from.toFixed(2)} → $${targetAdapted.to.toFixed(2)} to fit the ${Math.round(window / 60)}min window (~${Math.round(tf.expectedSeconds / 60)}min needed now)`
+            : `~${Math.round(tf.expectedSeconds / 60)}min needed vs ${Math.round(window / 60)}min intraday window`,
+        },
         { name: "Room to target", passed: true, detail: wall != null ? `${wall.toFixed(2)}% to the nearest level vs ${targetPct.toFixed(2)}% target` : "no blocking level" },
         { name: "Fee viability", passed: true, detail: `net R:R ${fee.netRR.toFixed(2)} ≥ ${fee.floor}` },
       ],
@@ -218,6 +257,7 @@ export class MomentumBreakoutStrategy implements Strategy {
         level, extensionPct, adx: row.adx, volumeRatio: row.volumeRatio,
         solvedLeverage: solved.leverage, bindingFloor: solved.bindingFloor,
         expectedHoldSeconds: expectedHold, reachablePct: tf.reachablePct, targetPct,
+        ...(targetAdapted ? { targetAdaptedFromUsdt: targetAdapted.from, targetAdaptedToUsdt: targetAdapted.to } : {}),
       },
     };
 

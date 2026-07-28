@@ -25,10 +25,15 @@
  * five different lenses is a far better directional filter than five flavors
  * of the same oscillator.
  *
- * EXITS use the shared volatility-adaptive SL/TP + the selector's per-coin fit
- * check, so on coins too quiet to reach the target inside the 20-minute window
- * the trade is skipped rather than left to time out. Pair with the per-strategy
- * dollar plan (Trade Amount / Max Loss / Target) on the Strategies page.
+ * EXITS solve leverage backward from the safety floors, then check the
+ * target's reachability at this coin's volatility (this owns that check
+ * directly — it never touches the selector's legacy dollar-plan path, since
+ * this strategy implements decide()). A target the coin can't deliver inside
+ * the window is ADAPTED down to what's reachable, holding max loss and
+ * leverage fixed, rather than skipping the trade — the same discipline
+ * legacyDecide applies via adaptTargetToReachable (Phase 10). Pair with the
+ * per-strategy dollar plan (Trade Amount / Max Loss / Target) on the
+ * Strategies page.
  */
 import {
   type Strategy, type StrategySignal, type StrategyConfig, type PositionSide,
@@ -40,6 +45,7 @@ import {
   marketFacts, solveLeverage, timeFeasible, feeViability, suggestLeverageForTarget,
   adaptiveDeadline, INTRADAY_MAX_HOLD_SECONDS, maxLossNeededForLeverage,
 } from "./toolkit";
+import { adaptTargetToReachable, planDollarRisk } from "../dollarRisk";
 
 export class TwentyMinMomentumStrategy implements Strategy {
   readonly strategyId = "twenty_min_momentum";
@@ -127,7 +133,7 @@ export class TwentyMinMomentumStrategy implements Strategy {
     // oversized stop the dollar budget can't honor; there the dollar/noise
     // floors govern instead.
     const invalidationPrice = vwapDistPct > 0.05 && vwapDistPct <= 1.5 ? vwap : undefined;
-    const solved = solveLeverage({
+    let solved = solveLeverage({
       entryPrice: lastPrice, side, marketType: ctx.marketType,
       marginUsdt: dp.tradeAmountUsdt, maxLossUsdt: dp.maxLossUsdt, targetProfitUsdt: dp.targetProfitUsdt,
       leverageCap: ctx.leverageCap, feeRate: ctx.feeRate,
@@ -146,21 +152,42 @@ export class TwentyMinMomentumStrategy implements Strategy {
     // a perfectly good intraday trade). A user-configured hold LONGER than
     // 2h extends the window; a shorter one no longer strangles it.
     const window = Math.max(config.maxHoldingSeconds, INTRADAY_MAX_HOLD_SECONDS);
-    const tf = timeFeasible(solved.tpFraction, row, window, mtf);
+    let tf = timeFeasible(solved.tpFraction, row, window, mtf);
+    let targetAdapted: { from: number; to: number; reachablePct: number } | null = null;
     if (!tf.feasible) {
-      // Professional follow-up: would MORE leverage make the target
-      // reachable (bigger notional → smaller % move needed) while the stop
-      // still clears every floor? If yes but it's above the user's cap, say
-      // so — an actionable rejection instead of a dead end.
-      const better = suggestLeverageForTarget({
-        entryPrice: lastPrice, side, marketType: ctx.marketType,
-        marginUsdt: dp.tradeAmountUsdt, maxLossUsdt: dp.maxLossUsdt, targetProfitUsdt: dp.targetProfitUsdt,
-        feeRate: ctx.feeRate, atrPercent: row.atrPercent, invalidationPrice,
-      }, tf.reachablePct);
-      const hint = better != null && better > ctx.leverageCap
-        ? ` — WOULD be feasible at ~${better}× leverage (your cap is ${ctx.leverageCap}×): raise the Max Leverage Cap, lower Target Profit, or raise Trade Amount`
-        : ` — no leverage makes this target reachable safely here: lower Target Profit or raise Trade Amount`;
-      return rejection("coin-fit", (tf.reason ?? "target unreachable within the hold window") + hint);
+      // ADAPT, don't reject: the coin can't deliver the configured target in
+      // this window, but that doesn't make the trade impossible — it means
+      // the target was wrong for this coin's volatility. Shrink it to what's
+      // reachable, holding max loss AND leverage exactly as already solved
+      // (the risk the user configured never moves); only reject if even a
+      // reachable target can't clear round-trip costs at this leverage.
+      const adaptedCfg = adaptTargetToReachable(
+        {
+          marketType: ctx.marketType, tradeAmountUsdt: dp.tradeAmountUsdt,
+          leverage: solved.leverage, maxLossUsdt: dp.maxLossUsdt,
+          targetProfitUsdt: dp.targetProfitUsdt, feeRate: ctx.feeRate,
+        },
+        tf.reachablePct,
+      );
+      if (!adaptedCfg) {
+        // Professional follow-up: would MORE leverage make a reachable
+        // target viable (bigger notional → smaller % move needed, and more
+        // room for the target to clear fees)? If yes but above the user's
+        // cap, say so — an actionable rejection instead of a dead end.
+        const better = suggestLeverageForTarget({
+          entryPrice: lastPrice, side, marketType: ctx.marketType,
+          marginUsdt: dp.tradeAmountUsdt, maxLossUsdt: dp.maxLossUsdt, targetProfitUsdt: dp.targetProfitUsdt,
+          feeRate: ctx.feeRate, atrPercent: row.atrPercent, invalidationPrice,
+        }, tf.reachablePct);
+        const hint = better != null && better > ctx.leverageCap
+          ? ` — WOULD be feasible at ~${better}× leverage (your cap is ${ctx.leverageCap}×): raise the Max Leverage Cap, lower Target Profit, or raise Trade Amount`
+          : ` — even a reachable target wouldn't clear round-trip costs at ${solved.leverage}×: lower Target Profit or raise Trade Amount`;
+        return rejection("coin-fit", (tf.reason ?? "target unreachable within the hold window") + hint);
+      }
+      const adaptedPlan = planDollarRisk(lastPrice, side, adaptedCfg);
+      targetAdapted = { from: dp.targetProfitUsdt, to: adaptedCfg.targetProfitUsdt, reachablePct: tf.reachablePct };
+      solved = { ...solved, tpFraction: adaptedPlan.tpFraction, tpPrice: adaptedPlan.tpPrice };
+      tf = timeFeasible(solved.tpFraction, row, window, mtf);
     }
     // Honest expected duration from the volatility math, and an ADAPTIVE
     // deadline: ~2× the expected time, clamped to the 20min–2h intraday band
@@ -197,10 +224,11 @@ export class TwentyMinMomentumStrategy implements Strategy {
 
     // ── The written plan ────────────────────────────────────────────────────
     const dirWord = isShort ? "down" : "up";
+    const effectiveTarget = targetAdapted ? targetAdapted.to : dp.targetProfitUsdt;
     const report: DecisionReport = {
       summary:
         `All five lenses agree ${dirWord} (EMA trend, MACD momentum, ${isShort ? "below" : "above"} VWAP, RSI ${rsi.toFixed(0)} with room, ` +
-        `ADX ${adx.toFixed(0)} on ${vol.toFixed(1)}× volume). Risking $${dp.maxLossUsdt} to make $${dp.targetProfitUsdt} at ${solved.leverage}× ` +
+        `ADX ${adx.toFixed(0)} on ${vol.toFixed(1)}× volume). Risking $${dp.maxLossUsdt} to make $${effectiveTarget.toFixed(2)} at ${solved.leverage}× ` +
         `with the stop ${invalidationPrice ? "at the VWAP invalidation line" : "outside the noise band"}; ` +
         `expecting resolution in ~${Math.round(expectedHold / 60)}min.`,
       marketView: [
@@ -227,9 +255,14 @@ export class TwentyMinMomentumStrategy implements Strategy {
           ? [`leverage limited by the $${dp.maxLossUsdt} max loss (a bigger notional would squeeze the stop under its ${(solved.minStopFraction * 100).toFixed(2)}% floor) — raising Max Loss to ~$${Math.ceil(maxLossNeededForLeverage(dp.tradeAmountUsdt, ctx.leverageCap, ctx.feeRate, solved.minStopFraction))} would unlock the full ${ctx.leverageCap}× and bring the target ${(100 - (solved.leverage / ctx.leverageCap) * 100).toFixed(0)}% closer`]
           : []),
         `stop ${solved.stopDistPct.toFixed(2)}% away at ${solved.slPrice.toPrecision(6)}${invalidationPrice ? " — the VWAP thesis-invalidation line" : ""}`,
+        // Never a silent substitution: the configured target moved, so the
+        // report says so in plain dollars, not just in the price levels.
+        ...(targetAdapted
+          ? [`target adjusted $${targetAdapted.from.toFixed(2)} → $${targetAdapted.to.toFixed(2)} — this coin's volatility allows ~${targetAdapted.reachablePct.toFixed(2)}% in the ${Math.round(window / 60)}min window`]
+          : []),
       ],
       exitLogic: [
-        `target ${targetPct.toFixed(2)}% at ${solved.tpPrice.toPrecision(6)} (+$${dp.targetProfitUsdt} net)`,
+        `target ${targetPct.toFixed(2)}% at ${solved.tpPrice.toPrecision(6)} (+$${effectiveTarget.toFixed(2)} net)`,
         ...(config.tp1RMultiple > 0
           ? [`two-stage exit: bank ${config.tp1ClosePercent}% at +${config.tp1RMultiple}R and move the stop to BREAK-EVEN — a reversal after progress keeps its profit${config.trailingStopMode !== "none" ? "; the rest trails the move" : ""}`]
           : []),
@@ -238,7 +271,12 @@ export class TwentyMinMomentumStrategy implements Strategy {
       checks: [
         { name: "Confluence", passed: true, detail: "5/5 lenses aligned" },
         { name: "Leverage solver", passed: true, detail: `${solved.leverage}× ≤ cap ${ctx.leverageCap}× · stop clears ${solved.bindingFloor}` },
-        { name: "Time feasibility", passed: true, detail: `~${Math.round(tf.expectedSeconds / 60)}min needed vs ${Math.round(window / 60)}min intraday window` },
+        {
+          name: "Time feasibility", passed: true,
+          detail: targetAdapted
+            ? `target adapted $${targetAdapted.from.toFixed(2)} → $${targetAdapted.to.toFixed(2)} to fit the ${Math.round(window / 60)}min window (~${Math.round(tf.expectedSeconds / 60)}min needed now)`
+            : `~${Math.round(tf.expectedSeconds / 60)}min needed vs ${Math.round(window / 60)}min intraday window`,
+        },
         { name: "Room to target", passed: true, detail: wall != null ? `${wall.toFixed(2)}% to the nearest level vs ${targetPct.toFixed(2)}% target` : "no blocking level" },
         { name: "Fee viability", passed: true, detail: `net R:R ${fee.netRR.toFixed(2)} ≥ ${fee.floor}` },
       ],
@@ -246,6 +284,7 @@ export class TwentyMinMomentumStrategy implements Strategy {
         adx, rsi, volumeRatio: vol, vwapDistPct, volatilityPercentile: facts.volatilityPercentile,
         solvedLeverage: solved.leverage, bindingFloor: solved.bindingFloor,
         expectedHoldSeconds: expectedHold, reachablePct: tf.reachablePct, targetPct,
+        ...(targetAdapted ? { targetAdaptedFromUsdt: targetAdapted.from, targetAdaptedToUsdt: targetAdapted.to } : {}),
       },
     };
 
