@@ -136,7 +136,14 @@ export class DemoExecutor implements TradeExecutor {
           entryPrice: fillPrice.toFixed(8),
           quantity: filledQty.toFixed(8),
           status: "open",
-          confidence: row.confidence.toFixed(2),
+          // The PLAN's confidence — the value the strategy gated on — not
+          // `row.confidence`, which is the 12-indicator market-structure score
+          // for the LONG side. Writing that here stamped every short with the
+          // long-side score: in a live export, the single `buy` trade stored
+          // 41.30 while all fourteen `sell` trades stored 0.00–12.60, against
+          // strategy thresholds of 55–70. Every other field on this insert
+          // already comes from `plan`; this one was the odd man out.
+          confidence: plan.confidence.toFixed(2),
           stopLoss: realSl.toFixed(8),
           takeProfit: realTp.toFixed(8),
           entryTime: now,

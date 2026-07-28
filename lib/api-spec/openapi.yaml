@@ -278,6 +278,31 @@ paths:
                 items:
                   $ref: "#/components/schemas/SymbolDecision"
 
+  /decisions/funnel:
+    get:
+      operationId: getDecisionFunnel
+      tags: [bot]
+      summary: Where this section's signals went over a recent window
+      description: >
+        Aggregates the decision journal by rejection stage so the conversion
+        from "a strategy produced a signal" to "a trade was placed" is one
+        number rather than a forensic exercise. The engine can reject every
+        signal it generates for days without any single screen saying so —
+        this is that screen's data. Occurrences are summed, not row-counted,
+        because identical repeated decisions dedupe onto one row.
+      parameters:
+        - name: hours
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 720, default: 24 }
+      responses:
+        "200":
+          description: Signal funnel for the window
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DecisionFunnel"
+
   /decisions:
     get:
       operationId: getDecisionJournal
@@ -2537,6 +2562,37 @@ components:
         blockedAt:
           type: string
           format: date-time
+
+    DecisionFunnel:
+      type: object
+      required: [hours, signals, executed, rejected, approvedNotTaken, stages]
+      properties:
+        hours:
+          type: integer
+          description: Window actually measured.
+        signals:
+          type: integer
+          description: Total decisions considered — executed + rejected + approved-not-taken.
+        executed:
+          type: integer
+        rejected:
+          type: integer
+        approvedNotTaken:
+          type: integer
+          description: The strategy approved it; an engine-level cap or gate stopped it.
+        stages:
+          type: array
+          description: >
+            Rejection stages, largest first. `topReason` is the most frequent
+            verbatim reason inside that stage — the actionable part, since a
+            stage name alone doesn't say which number to change.
+          items:
+            type: object
+            required: [stage, count]
+            properties:
+              stage: { type: string }
+              count: { type: integer }
+              topReason: { type: string, nullable: true }
 
     SectionsResponse:
       type: object
