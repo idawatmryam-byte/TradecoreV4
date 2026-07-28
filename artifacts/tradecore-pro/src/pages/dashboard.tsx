@@ -650,34 +650,87 @@ export function Dashboard() {
         }
       >
       <div className="p-3 sm:p-4 grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6">
-        <Card className="md:col-span-2 relative overflow-hidden bg-card/50 border-primary/20 backdrop-blur">
+        {/* The balance is the thing a person opens this page to see, so it is
+            the largest thing on it. Engine state demotes to a pill: it is a
+            fact you check, not the headline. Today's move rides directly under
+            the number as a delta, because a balance without its direction is
+            half an answer. */}
+        <Card className="md:col-span-2 relative overflow-hidden">
           {/* Cactus AI's signature ambient glow — the hero card is the one
               place besides the header it's allowed to appear. */}
           <div className="ambient-glow" />
-          <CardContent className="p-6 sm:p-8 flex flex-col justify-between h-full gap-6 relative z-10">
-            <div>
-              <h2 className="text-sm text-muted-foreground mb-1">Trading Engine</h2>
-              <div className="flex items-center gap-3 mb-6">
-                <span className={cn("relative flex h-3 w-3")}>
-                  {bot?.running && !statusUnknown && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>}
-                  <span className={cn("relative inline-flex rounded-full h-3 w-3", statusUnknown ? "bg-muted-foreground" : bot?.running ? "bg-success" : "bg-destructive")}></span>
-                </span>
-                <span className="text-xl sm:text-2xl font-bold tracking-tight">
-                  {statusUnknown ? "Status unknown" : bot?.running ? "Engine running" : "Engine stopped"}
-                </span>
+          <CardContent className="relative z-10 flex h-full flex-col justify-between gap-7 p-6 sm:p-8">
+            <div className="flex items-start gap-4">
+              <div className="min-w-0">
+                <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                  Balance
+                </p>
+                <p className={cn(
+                  "numeric mt-3 truncate text-[34px] font-semibold leading-none sm:text-[42px]",
+                  bot?.balanceUsdt == null && "text-muted-foreground",
+                )}>
+                  {bot?.balanceUsdt == null ? "—" : formatCurrency(bot.balanceUsdt)}
+                </p>
+
+                {/* Never rendered as a zero when the state is unknown — an
+                    unreachable API is not a flat day. */}
+                {!statusUnknown && bot?.dailyPnl != null ? (
+                  <span className={cn(
+                    "numeric mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold",
+                    bot.dailyPnl >= 0 ? "bg-success/12 text-success" : "bg-destructive/12 text-destructive",
+                  )}>
+                    {bot.dailyPnl >= 0
+                      ? <ArrowUpRight className="h-3.5 w-3.5 shrink-0" />
+                      : <ArrowDownRight className="h-3.5 w-3.5 shrink-0" />}
+                    {formatCurrency(bot.dailyPnl, "always")} today
+                  </span>
+                ) : (
+                  <span className="mt-4 inline-block text-[13px] text-muted-foreground">
+                    No movement recorded today
+                  </span>
+                )}
+
+                {bot?.balanceUsdt != null && (
+                  <p className="mt-3 truncate text-[13px] text-muted-foreground">
+                    {/* OANDA has no "testnet" — it's a practice account, and the
+                        engine reports balances in USD (home currency converted). */}
+                    {section === "forex"
+                      ? `USD · ${bot?.mode === "testnet" ? "practice" : bot?.mode}`
+                      : `USDT · ${bot?.mode}`}
+                  </p>
+                )}
               </div>
-              {botError && (
-                <div className="flex items-start gap-2 mb-4 text-[13px] font-mono text-destructive">
-                  <WifiOff className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                  <span>Can't reach the API — this is NOT a confirmed idle state. Open positions may still exist.</span>
-                </div>
-              )}
+
+              <span className={cn(
+                "ml-auto flex shrink-0 items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-semibold",
+                statusUnknown ? "bg-muted text-muted-foreground"
+                  : bot?.running ? "bg-success/12 text-success"
+                  : "bg-muted text-muted-foreground",
+              )}>
+                <span className="relative flex h-2 w-2">
+                  {bot?.running && !statusUnknown && (
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
+                  )}
+                  <span className={cn(
+                    "relative inline-flex h-2 w-2 rounded-full",
+                    statusUnknown ? "bg-muted-foreground" : bot?.running ? "bg-success" : "bg-destructive",
+                  )} />
+                </span>
+                {statusUnknown ? "Unknown" : bot?.running ? "Running" : "Stopped"}
+              </span>
             </div>
 
-            <div className="flex items-center gap-3 sm:gap-4">
+            {botError && (
+              <div className="flex items-start gap-2 text-[13px] text-destructive">
+                <WifiOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>Can't reach the API — this is NOT a confirmed idle state. Open positions may still exist.</span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3">
               <Button
                 size="lg"
-                className={cn("flex-1 sm:flex-none sm:w-40 font-mono tracking-wider font-bold transition-all", (bot?.running || isDemo) ? "opacity-50 cursor-not-allowed" : "bg-success text-success-foreground hover:bg-success/90")}
+                className={cn("flex-1 sm:flex-none sm:w-36", (bot?.running || isDemo) ? "opacity-50 cursor-not-allowed" : "bg-success text-success-foreground hover:bg-success/90")}
                 onClick={handleStart}
                 disabled={bot?.running || startBot.isPending || isDemo}
                 title={isDemo ? "Disabled in the read-only demo" : undefined}
@@ -686,8 +739,8 @@ export function Dashboard() {
               </Button>
               <Button
                 size="lg"
-                variant="destructive"
-                className={cn("flex-1 sm:flex-none sm:w-40 font-mono tracking-wider font-bold transition-all", (!bot?.running || isDemo) ? "opacity-50 cursor-not-allowed" : "")}
+                variant="outline"
+                className={cn("flex-1 sm:flex-none sm:w-36", (!bot?.running || isDemo) && "opacity-50 cursor-not-allowed")}
                 onClick={handleStop}
                 disabled={!bot?.running || stopBot.isPending || isDemo}
                 title={isDemo ? "Disabled in the read-only demo" : undefined}
@@ -701,32 +754,6 @@ export function Dashboard() {
         {/* Quick Stats — 2-up on phones, 3-up from small screens, within the
             right half on desktop. Reuses <Stat> so type/padding scale down. */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6 md:col-span-2">
-          <Stat
-            label="Balance"
-            valueClass={bot?.balanceUsdt == null ? "text-muted-foreground" : undefined}
-            value={bot?.balanceUsdt == null ? "—" : formatCurrency(bot.balanceUsdt)}
-            sub={bot?.balanceUsdt != null && (
-              <p className="text-[13px] text-muted-foreground mt-1 truncate">
-                {/* OANDA has no "testnet" — it's a practice account, and the
-                    engine reports balances in USD (home currency converted). */}
-                {section === "forex"
-                  ? `USD · ${bot?.mode === "testnet" ? "practice" : bot?.mode}`
-                  : `USDT · ${bot?.mode}`}
-              </p>
-            )}
-          />
-          <Stat
-            label="Today's PnL"
-            valueClass={statusUnknown ? "text-muted-foreground" : (bot?.dailyPnl ?? 0) >= 0 ? "text-success" : "text-destructive"}
-            value={statusUnknown ? "—" : formatCurrency(bot?.dailyPnl, "always")}
-          />
-          {/* winRateToday is a 0–1 fraction; formatPercent expects 0–100.
-              The engine reports a literal 0 when nothing has closed today
-              (botEngine: `closedToday.length > 0 ? wins/n : 0`), so a null
-              check is not enough — an account that has never traded would
-              still read "0.00%", which is a measured-looking claim about a
-              day with no measurements. Gate on the trade count instead: no
-              trades closed today means there is no win rate today. */}
           <Stat
             label="Win Rate"
             valueClass={statusUnknown ? "text-muted-foreground" : "text-primary"}
