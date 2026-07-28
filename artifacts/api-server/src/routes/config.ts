@@ -6,6 +6,7 @@ import { getOrCreateEngine } from "../lib/engineRegistry";
 import { forexDemoAvailable } from "../lib/execution/demoMarketData";
 import {
   GetConfigResponse,
+  GetSectionsResponse,
   UpdateConfigBody,
   UpdateConfigResponse,
 } from "@workspace/api-zod";
@@ -92,6 +93,25 @@ function mapConfig(c: typeof botConfigTable.$inferSelect) {
   };
 }
 
+/**
+ * Which sections has this user actually set up?
+ *
+ * Deliberately reads the table directly instead of going through
+ * `getOrCreateEngine` — that helper creates the row it fails to find, which
+ * would make this endpoint manufacture the very thing it is reporting on.
+ * Not section-scoped: it is a question about the sections, not within one.
+ */
+router.get("/sections", async (req, res): Promise<void> => {
+  const rows = await db
+    .select({ section: botConfigTable.section, activated: botConfigTable.activated })
+    .from(botConfigTable)
+    .where(eq(botConfigTable.userId, req.userId!));
+
+  res.json(GetSectionsResponse.parse({
+    activated: rows.filter((r) => r.activated).map((r) => r.section),
+  }));
+});
+
 router.get("/config", async (req, res): Promise<void> => {
   const config = await getOrCreateEngine(req.userId!, req.section!).loadConfig();
   res.json(GetConfigResponse.parse(mapConfig(config)));
@@ -115,6 +135,11 @@ router.put("/config", async (req, res): Promise<void> => {
   const [updated] = await db
     .update(botConfigTable)
     .set({
+      // Writing a section's configuration IS setting it up — this is the
+      // definition of the flag, not a side effect. It is what promotes a
+      // section from "offered" to "yours" in the navigation, and why merely
+      // opening the Add Market flow (a read) leaves nothing behind.
+      activated: true,
       ...(u.marketType                !== undefined && { marketType:                 u.marketType }),
       ...(u.leverage                  !== undefined && { leverage:                   u.leverage }),
       ...(u.marginMode                !== undefined && { marginMode:                 u.marginMode }),

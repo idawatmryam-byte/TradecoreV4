@@ -3865,6 +3865,13 @@ class BotEngine {
         // Forex practice accounts are conventionally much larger than crypto
         // ones; mirrors the balances the read-only showroom demo displays.
         demoStartingBalanceUsdt: this.section === "forex" ? "100000" : "10000",
+        // Same backfill-vs-creation split as the two above: the COLUMN default
+        // is `true` so pre-existing rows keep their tab, while a row created
+        // here is merely a side effect of something reading this section's
+        // config — opening Add Market and backing out lands exactly here — and
+        // must not count as the user having chosen this market. Writing config
+        // (PUT /config) or starting the engine is what makes it real.
+        activated: false,
       })
       .returning();
     return inserted!;

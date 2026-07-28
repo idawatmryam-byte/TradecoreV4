@@ -45,8 +45,13 @@ export function OnboardingWizard({
   onDone,
   presetMarket,
 }: {
-  /** Called when the user finishes or skips. The caller records completion. */
-  onDone: () => void;
+  /**
+   * Called when the user finishes or skips. `completed` is true only when this
+   * market was actually configured — callers that switched the active section
+   * to run this wizard need it to know whether to switch back, since backing
+   * out must not strand the user in a market they declined to set up.
+   */
+  onDone: (completed: boolean) => void;
   /** Skips the market question — used by Settings → Add Market. */
   presetMarket?: Section;
 }) {
@@ -93,7 +98,7 @@ export function OnboardingWizard({
           <span className="text-lg font-semibold leading-none tracking-tight">TradeCore Pro</span>
           <button
             type="button"
-            onClick={onDone}
+            onClick={() => onDone(false)}
             className="ml-auto text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
             Skip for now
@@ -321,7 +326,7 @@ function DemoFinish({
   mode: TradingMode;
   apply: () => Promise<void>;
   onBack: () => void;
-  onDone: () => void;
+  onDone: (completed: boolean) => void;
 }) {
   const [state, setState] = useState<"idle" | "working" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -362,7 +367,7 @@ function DemoFinish({
         <Button className="mt-6 w-full" size="lg" onClick={() => setState("idle")}>Try again</Button>
         <button
           type="button"
-          onClick={onDone}
+          onClick={() => onDone(false)}
           className="mt-3 w-full text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
           Go to the dashboard instead
@@ -386,7 +391,7 @@ function DemoFinish({
 
       <p className="mt-6 text-sm text-muted-foreground">The engine is now watching the market.</p>
 
-      <Button className="mt-8 w-full" size="lg" onClick={onDone}>Go to Dashboard</Button>
+      <Button className="mt-8 w-full" size="lg" onClick={() => onDone(true)}>Go to Dashboard</Button>
     </div>
   );
 }
@@ -410,7 +415,7 @@ function LiveFinish({
   applyLive: (finalMode: TradingMode) => Promise<void>;
   start: () => Promise<void>;
   onBack: () => void;
-  onDone: () => void;
+  onDone: (completed: boolean) => void;
 }) {
   const { configured } = useBrokerConfigured(market);
   const [phase, setPhase] = useState<"credentials" | "enabling" | "ready" | "starting">("credentials");
@@ -444,7 +449,7 @@ function LiveFinish({
     setError(null);
     try {
       await start();
-      onDone();
+      onDone(true);
     } catch (err: unknown) {
       const body = (err as { response?: { data?: { error?: string } } })?.response?.data;
       setError(body?.error ?? (err as Error)?.message ?? "The engine refused to start.");
@@ -482,7 +487,7 @@ function LiveFinish({
         </Button>
         <button
           type="button"
-          onClick={onDone}
+          onClick={() => onDone(true)}
           className="mt-3 w-full text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
           I'll start it later
