@@ -247,7 +247,7 @@ export function AuthGate({
                   </div>
                   <div>
                     <div className="text-sm font-semibold">{f.title}</div>
-                    <div className="text-xs text-muted-foreground leading-relaxed mt-0.5">{f.text}</div>
+                    <div className="text-[13px] text-muted-foreground leading-relaxed mt-0.5">{f.text}</div>
                   </div>
                 </li>
               ))}
@@ -267,7 +267,7 @@ export function AuthGate({
             {/* compact brand header for mobile, where the pitch panel is hidden */}
             <div className="lg:hidden mb-8 text-center">
               <div className="flex justify-center"><CactusLogo size="lg" tagline /></div>
-              <p className="mt-3 text-xs text-muted-foreground">
+              <p className="mt-3 text-[13px] text-muted-foreground">
                 Self-hosted algorithmic trading — dollar-based risk, honest backtests, full audit trail.
               </p>
             </div>
@@ -275,7 +275,7 @@ export function AuthGate({
             <h2 className="text-xl font-bold">
               {mode === "login" ? "Welcome back" : "Create your account"}
             </h2>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-[13px] text-muted-foreground">
               {mode === "login"
                 ? "Log in to your trading cockpit."
                 : "Your own engine, your own Binance keys — set up in minutes."}
@@ -299,7 +299,7 @@ export function AuthGate({
                 </p>
                 <div className="my-5 flex items-center gap-3">
                   <div className="h-px flex-1 bg-border" />
-                  <span className="text-xs text-muted-foreground">or sign in</span>
+                  <span className="text-[13px] text-muted-foreground">or sign in</span>
                   <div className="h-px flex-1 bg-border" />
                 </div>
               </>
@@ -331,7 +331,7 @@ export function AuthGate({
                 </div>
                 <div className="my-5 flex items-center gap-3">
                   <div className="h-px flex-1 bg-border" />
-                  <span className="text-xs text-muted-foreground">or</span>
+                  <span className="text-[13px] text-muted-foreground">or</span>
                   <div className="h-px flex-1 bg-border" />
                 </div>
               </>
@@ -378,7 +378,7 @@ export function AuthGate({
                   </button>
                 </div>
               </div>
-              {error && <p className="text-xs text-destructive">{error}</p>}
+              {error && <p className="text-[13px] text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={submitting || !username || !password}>
                 {submitting
                   ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -386,7 +386,7 @@ export function AuthGate({
               </Button>
               <button
                 type="button"
-                className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+                className="w-full text-[13px] text-muted-foreground hover:text-foreground transition-colors"
                 onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }}
               >
                 {mode === "login" ? "New to Cactus AI? Create an account" : "Already have an account? Log in"}

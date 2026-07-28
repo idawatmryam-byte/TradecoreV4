@@ -52,19 +52,19 @@ export function StatTile({
 
   return (
     <Card className={className}>
-      <CardContent className="p-4 sm:p-5">
-        <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+      <CardContent className="p-5 sm:p-6">
+        <p className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
           {Icon && <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />}
           {label}
         </p>
         {loading ? (
           <Skeleton className="mt-2 h-8 w-24" />
         ) : (
-          <p className={cn("mt-1.5 truncate text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl", toneClass, valueClass)}>
+          <p className={cn("numeric mt-2.5 truncate text-[28px] font-semibold leading-none sm:text-[34px]", toneClass, valueClass)}>
             {value ?? "—"}
           </p>
         )}
-        {hint && !loading && <p className="mt-1 truncate text-xs text-muted-foreground">{hint}</p>}
+        {hint && !loading && <p className="mt-2 truncate text-[13px] text-muted-foreground">{hint}</p>}
         {footer && !loading && footer}
       </CardContent>
     </Card>

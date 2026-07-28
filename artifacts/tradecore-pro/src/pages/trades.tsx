@@ -109,19 +109,19 @@ export function Trades() {
 
                 return (
                   <TableRow key={trade.id}>
-                    <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">
+                    <TableCell className="font-mono text-[13px] text-muted-foreground whitespace-nowrap">
                       {formatDate(trade.entryTime)}
                     </TableCell>
                     <TableCell className="font-bold">{trade.symbol}</TableCell>
                     <TableCell>
                       <span className={cn(
-                        "text-xs font-bold",
+                        "text-[13px] font-bold",
                         trade.side === 'buy' ? "text-success" : "text-destructive"
                       )}>
                         {trade.side}
                       </span>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
+                    <TableCell className="font-mono text-[13px]">
                       <div>{formatNumber(trade.entryPrice, 4)}</div>
                       {trade.exitPrice && (
                         <div className="text-muted-foreground flex items-center gap-1 mt-0.5">
@@ -129,7 +129,7 @@ export function Trades() {
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{formatNumber(trade.quantity, 4)}</TableCell>
+                    <TableCell className="font-mono text-[13px]">{formatNumber(trade.quantity, 4)}</TableCell>
                     <TableCell className="text-right">
                       {(trade.pnl !== null && trade.pnl !== undefined) ? (
                         <div className={cn("font-mono font-bold flex items-center justify-end gap-1", isProfit ? "text-success" : "text-destructive")}>
@@ -148,7 +148,7 @@ export function Trades() {
                         {trade.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                    <TableCell className="text-[13px] text-muted-foreground">
                       {trade.exitReason?.replace('_', ' ') || '-'}
                     </TableCell>
                   </TableRow>

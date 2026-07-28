@@ -97,7 +97,7 @@ export function OnboardingWizard({
           <button
             type="button"
             onClick={() => onDone(false)}
-            className="ml-auto text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="ml-auto text-[13px] text-muted-foreground transition-colors hover:text-foreground"
           >
             Skip for now
           </button>
@@ -238,7 +238,7 @@ function StepShell({
         <button
           type="button"
           onClick={onBack}
-          className="mb-4 -ml-1 flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="mb-4 -ml-1 flex items-center gap-1 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
         >
           <ChevronLeft className="h-3.5 w-3.5" /> Back
         </button>
@@ -285,7 +285,7 @@ function ChoiceCard({
             </span>
           )}
         </span>
-        <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{blurb}</span>
+        <span className="mt-1 block text-[13px] leading-relaxed text-muted-foreground">{blurb}</span>
       </div>
     </button>
   );
@@ -302,7 +302,7 @@ function ForexDemoUnavailable({ onUseCrypto, onUseLive }: { onUseCrypto: () => v
       <div className="flex items-center gap-2 text-sm font-semibold text-warning">
         <AlertTriangle className="h-4 w-4" /> Forex demo isn't available here
       </div>
-      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+      <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
         Simulated forex needs a market-data source this deployment doesn't have.
         Crypto needs no credentials and works right now — or connect your own
         OANDA account and trade this section live.
@@ -359,14 +359,14 @@ function DemoFinish({
         subtitle="Your account is fine — the demo just couldn't be started. You can go to the dashboard and press Start yourself, or go back and pick a different market."
         onBack={onBack}
       >
-        <p className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+        <p className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[13px] text-destructive">
           {error}
         </p>
         <Button className="mt-6 w-full" size="lg" onClick={() => setState("idle")}>Try again</Button>
         <button
           type="button"
           onClick={() => onDone(false)}
-          className="mt-3 w-full text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="mt-3 w-full text-[13px] text-muted-foreground transition-colors hover:text-foreground"
         >
           Go to the dashboard instead
         </button>
@@ -475,7 +475,7 @@ function LiveFinish({
         </ul>
 
         {error && (
-          <p className="mt-6 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+          <p className="mt-6 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[13px] text-destructive">
             {error}
           </p>
         )}
@@ -486,7 +486,7 @@ function LiveFinish({
         <button
           type="button"
           onClick={() => onDone(true)}
-          className="mt-3 w-full text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="mt-3 w-full text-[13px] text-muted-foreground transition-colors hover:text-foreground"
         >
           I'll start it later
         </button>
@@ -505,7 +505,7 @@ function LiveFinish({
       <BrokerCredentialsCard section={market} />
 
       {error && (
-        <p className="mt-4 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+        <p className="mt-4 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[13px] text-destructive">
           {error}
         </p>
       )}

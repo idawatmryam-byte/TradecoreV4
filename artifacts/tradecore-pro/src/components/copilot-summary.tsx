@@ -45,7 +45,7 @@ export function CopilotSummary() {
           <Inbox className="h-5 w-5 shrink-0 text-muted-foreground/50" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium">Nothing waiting on you</p>
-            <p className="truncate text-xs text-muted-foreground">
+            <p className="truncate text-[13px] text-muted-foreground">
               In Co-Pilot the engine recommends and never opens a position on its own.
             </p>
           </div>
@@ -79,7 +79,7 @@ export function CopilotSummary() {
               </Badge>
             </p>
             {/* The "why", from the plan the engine actually made. */}
-            <p className="truncate text-xs text-muted-foreground">
+            <p className="truncate text-[13px] text-muted-foreground">
               {top!.strategyName} · {top!.entryReason || "Open for the full reasoning"}
             </p>
           </div>

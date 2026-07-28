@@ -76,7 +76,7 @@ export function MemoryInfluencePanel() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle className="text-[15px] flex items-center gap-2">
             <BrainCog className="h-4 w-4" /> Gated Memory Influence
           </CardTitle>
         </CardHeader>
@@ -93,19 +93,19 @@ export function MemoryInfluencePanel() {
       <div className="absolute top-0 right-0 p-32 bg-primary/5 blur-3xl rounded-full pointer-events-none" />
 
       <CardHeader>
-        <CardTitle className="text-sm flex items-center gap-2">
+        <CardTitle className="text-[15px] flex items-center gap-2">
           <BrainCog className="h-4 w-4 text-primary" /> Gated Memory Influence
           <Badge
             variant="outline"
             className={cn(
-              "ml-auto text-xs",
+              "ml-auto text-[13px]",
               data.active ? "border-primary/40 text-primary" : "border-border text-muted-foreground",
             )}
           >
             {data.active ? "active" : "inactive"}
           </Badge>
         </CardTitle>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[13px] text-muted-foreground">
           Lets your own closed trades raise the confidence bar on new plans.
           It can only ever <span className="text-foreground font-medium">withhold</span> a trade —
           it never takes one your strategies did not ask for.
@@ -119,7 +119,7 @@ export function MemoryInfluencePanel() {
             <Label htmlFor="memory-influence" className="text-sm font-medium">
               Let memory raise the bar
             </Label>
-            <p className="text-xs text-muted-foreground max-w-xl">{data.reason}</p>
+            <p className="text-[13px] text-muted-foreground max-w-xl">{data.reason}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {data.enabled && !data.active && (
@@ -140,10 +140,10 @@ export function MemoryInfluencePanel() {
         {/* Walk-forward validation — the only thing that unlocks live. */}
         <div className="rounded border border-border p-3 space-y-2">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
               <FlaskConical className="h-3.5 w-3.5" /> Walk-forward validation
               {verdictMeta && (
-                <Badge variant="outline" className={cn("text-xs", verdictMeta.className)}>
+                <Badge variant="outline" className={cn("text-[13px]", verdictMeta.className)}>
                   {verdictMeta.label}
                 </Badge>
               )}
@@ -154,16 +154,16 @@ export function MemoryInfluencePanel() {
           </div>
 
           {v?.summary ? (
-            <p className="text-xs text-muted-foreground">{v.summary}</p>
+            <p className="text-[13px] text-muted-foreground">{v.summary}</p>
           ) : (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[13px] text-muted-foreground">
               Not run yet. Cells are fitted on an earlier window and tested on a later one they
               never saw — the only evidence that unlocks influence on a live account.
             </p>
           )}
 
           {v && v.validationTrades > 0 && (
-            <div className="grid grid-cols-1 gap-3 font-mono text-xs pt-1 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 font-mono text-[13px] pt-1 sm:grid-cols-3">
               <div>
                 <p className="text-muted-foreground">Out-of-sample</p>
                 <p className="font-bold">{v.validationTrades} trades</p>
@@ -189,7 +189,7 @@ export function MemoryInfluencePanel() {
           )}
 
           {data.needsValidation && (
-            <p className="text-xs text-warning">
+            <p className="text-[13px] text-warning">
               Live influence stays paused until a run returns “improved” for the current rule set
               ({data.version}). Demo needs no approval — that is where a rule set is meant to be tried first.
             </p>
@@ -199,7 +199,7 @@ export function MemoryInfluencePanel() {
         {/* The rules themselves. */}
         {data.rules.length > 0 && (
           <div>
-            <p className="text-xs text-muted-foreground mb-1">
+            <p className="text-[13px] text-muted-foreground mb-1">
               Acting rules · cap +{data.maxDelta} points · {data.version}
             </p>
             <Table>
@@ -223,7 +223,7 @@ export function MemoryInfluencePanel() {
                         vs {(r.baselineWinRate * 100).toFixed(0)}%
                       </span>
                     </TableCell>
-                    <TableCell className="font-mono text-right text-xs text-muted-foreground">
+                    <TableCell className="font-mono text-right text-[13px] text-muted-foreground">
                       {r.qValue.toFixed(3)}
                     </TableCell>
                     <TableCell className="font-mono text-right font-bold text-warning">+{r.delta}</TableCell>
@@ -237,12 +237,12 @@ export function MemoryInfluencePanel() {
         {/* The audit trail. Both outcomes, so this is not a list of saves. */}
         {data.recent.length > 0 && (
           <div>
-            <p className="text-xs text-muted-foreground mb-1">
+            <p className="text-[13px] text-muted-foreground mb-1">
               Applied · last {data.recent.length}
             </p>
             <div className="space-y-0.5 max-h-56 overflow-y-auto">
               {data.recent.map((r) => (
-                <div key={r.id} className="flex items-center gap-3 text-xs font-mono">
+                <div key={r.id} className="flex items-center gap-3 text-[13px] font-mono">
                   <span className={cn("w-16 shrink-0", r.admitted ? "text-muted-foreground" : "text-warning")}>
                     {r.admitted ? "passed" : "withheld"}
                   </span>
@@ -265,7 +265,7 @@ export function MemoryInfluencePanel() {
             <Button size="sm" variant="destructive" onClick={() => onToggle(false)} disabled={update.isPending}>
               <Power className="h-3.5 w-3.5 mr-1.5" /> Turn off now
             </Button>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[13px] text-muted-foreground">
               Takes effect on the next scan — no restart, and nothing in flight keeps acting on it.
             </p>
           </div>

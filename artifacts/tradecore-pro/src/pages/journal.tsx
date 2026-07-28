@@ -56,7 +56,7 @@ function JournalCard({ entry }: { entry: JournalEntry }) {
           {isShort ? <ArrowDownRight className="h-3.5 w-3.5" /> : <ArrowUpRight className="h-3.5 w-3.5" />}
           {isShort ? "SHORT" : "LONG"}
         </span>
-        <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
+        <span className="text-[13px] text-muted-foreground truncate flex-1 min-w-0">
           {entry.strategyName ?? entry.strategyId} — {entry.summary}
         </span>
         {entry.grade && (
@@ -84,27 +84,27 @@ function JournalCard({ entry }: { entry: JournalEntry }) {
         <CardContent className="border-t border-border pt-4 pb-4 space-y-4">
           <p className="text-sm leading-relaxed">{entry.summary}</p>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 font-mono text-xs">
-            <div><div className="text-xs text-muted-foreground">Entry</div>{entry.entryPrice.toPrecision(6)}</div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 font-mono text-[13px]">
+            <div><div className="text-[13px] text-muted-foreground">Entry</div>{entry.entryPrice.toPrecision(6)}</div>
             {entry.exitPrice != null && (
-              <div><div className="text-xs text-muted-foreground">Exit</div>{entry.exitPrice.toPrecision(6)}</div>
+              <div><div className="text-[13px] text-muted-foreground">Exit</div>{entry.exitPrice.toPrecision(6)}</div>
             )}
             {entry.holdingSeconds != null && (
-              <div><div className="text-xs text-muted-foreground">Held</div>{Math.round(entry.holdingSeconds / 60)}min</div>
+              <div><div className="text-[13px] text-muted-foreground">Held</div>{Math.round(entry.holdingSeconds / 60)}min</div>
             )}
             {entry.exitReason && (
-              <div><div className="text-xs text-muted-foreground">Exit reason</div>{entry.exitReason}</div>
+              <div><div className="text-[13px] text-muted-foreground">Exit reason</div>{entry.exitReason}</div>
             )}
           </div>
 
           {entry.findings.length > 0 && (
             <div>
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5">
+              <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground mb-1.5">
                 <ListChecks className="h-3.5 w-3.5" /> Findings
               </div>
               <ul className="space-y-1">
                 {entry.findings.map((f, i) => (
-                  <li key={i} className="text-xs leading-relaxed pl-3 border-l border-border">{f}</li>
+                  <li key={i} className="text-[13px] leading-relaxed pl-3 border-l border-border">{f}</li>
                 ))}
               </ul>
             </div>
