@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from "@/components/ui";
 import { useToast } from "@/components/ui/use-toast";
-import { EmptyState, PageHeader, PageTabs } from "@/components/patterns";
+import { EmptyState, PageHeader, PageTabs, LoadingFields } from "@/components/patterns";
 import { SETTINGS_TABS } from "./settings";
 import {
   UserCircle2, Save, KeyRound, Loader2, ShieldCheck, Trash2, AlertTriangle, Link2, Copy, Check,
@@ -141,10 +141,27 @@ export function Account() {
     }
   }
 
+  // Skeletons in the shape of the page rather than a bare centred spinner:
+  // the header and tabs are known before the fetch resolves, so rendering them
+  // immediately means the chrome doesn't pop in and the cards don't shove it
+  // down when the data lands. Matches how Settings — this page's sibling tab —
+  // already loads.
   if (loading && !info) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center">
-        <Loader2 className="h-6 w-6 text-muted-foreground animate-spin" />
+      <div className="max-w-3xl mx-auto space-y-6">
+        <PageHeader
+          icon={UserCircle2}
+          title="Profile"
+          description="Your name, password, and connected sign-in methods."
+        />
+        <PageTabs tabs={SETTINGS_TABS} />
+        {[0, 1, 2].map((i) => (
+          <Card key={i}>
+            <CardContent className="p-6">
+              <LoadingFields />
+            </CardContent>
+          </Card>
+        ))}
       </div>
     );
   }
