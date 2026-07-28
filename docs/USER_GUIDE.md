@@ -14,7 +14,7 @@ walk through a fully-populated, read-only account first.
 
 1. **Create an account** — username + password (or Google/Apple if the
    operator enabled them).
-2. **Connect a broker** in **Account & Safety**:
+2. **Connect a broker** on the **Settings** page (Trading tab):
    - *Crypto* → Binance API key + secret. Use **testnet** keys
      (`testnet.binance.vision`) to paper-trade first, with no real funds.
    - *Forex* → an OANDA API token + account id. Start on an OANDA **practice**
@@ -133,7 +133,7 @@ one strategy. It sweeps that strategy's knobs on a training window and then
 Only apply changes the Autopsy validated out-of-sample — that's what keeps it a
 diagnosis rather than curve-fitting to noise.
 
-## Risk settings (Account & Safety)
+## Risk settings (Settings page, Trading tab)
 
 - **Risk model** — *dollar* (recommended): state Max Loss and Target Profit
   per trade; the engine derives everything else. *Percent* is the legacy
