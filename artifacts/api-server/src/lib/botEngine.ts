@@ -90,7 +90,8 @@ import type {
   MarketMonitor,
   BlockingSummary,
 } from "./decisionTrace";
-import { buildMarketStateResult } from "./intelligence/market-state/builder";\nimport type { MarketStateResult } from "./intelligence/market-state/types";
+import { buildMarketStateResult } from "./intelligence/market-state/builder";
+import type { MarketStateResult } from "./intelligence/market-state/types";
 
 // ---------------------------------------------------------------------------
 // Types
