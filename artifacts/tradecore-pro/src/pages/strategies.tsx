@@ -19,6 +19,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { TrendingUp, Target, Waves, Zap, ArrowUpDown, BarChart3, Edit2, X, Check, RefreshCw, Flame, ChevronDown, ChevronUp, Stethoscope, Hammer, FlaskConical, ShieldAlert, Plus, Layers } from 'lucide-react';
 import { EmptyState, PageHeader, LoadingCards } from '@/components/patterns';
+import { SpecialistCouncil } from '@/components/specialist-council';
 
 /** Account context the dollar-plan preview needs (from Configuration). */
 interface AccountCtx {
@@ -517,6 +518,9 @@ export function Strategies() {
           </Link>
         }
       />
+
+      {/* Phase 3: strategy outputs presented as specialist advisers. */}
+      <SpecialistCouncil />
 
       {/* Live opportunities */}
       <Card>
