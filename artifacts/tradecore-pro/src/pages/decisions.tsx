@@ -7,6 +7,7 @@ import { Card, CardContent, Button, Badge } from "@/components/ui";
 import { PageHeader, PageTabs, EmptyState, LoadingRows } from "@/components/patterns";
 import { PERFORMANCE_TABS } from "./stats";
 import { cn } from "@/lib/utils";
+import { BrainStatusStrip } from "@/components/brain-status";
 import {
   Scale, CheckCircle2, XCircle, PauseCircle, ChevronDown, ChevronUp, Loader2,
   ArrowUpRight, ArrowDownRight, Eye, LineChart, ShieldCheck, Clock, Download,
@@ -245,7 +246,7 @@ export function Decisions() {
         }
       />
 
-      <PageTabs tabs={PERFORMANCE_TABS} />
+      <PageTabs tabs={PERFORMANCE_TABS} />\n\n      <BrainStatusStrip compact />
 
       <div className="-mx-1 flex flex-wrap items-center gap-1 px-1">
         {(["all", "executed", "approved_not_taken", "rejected"] as Kind[]).map((k) => (
