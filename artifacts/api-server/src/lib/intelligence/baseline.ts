@@ -165,7 +165,7 @@ export const BASELINE_METRICS = [
     unit: "ratio",
     direction: "higher",
     definition: "Share of evaluated regimes in which candidate performance is non-inferior to control.",
-    requiredContext: ["regimeCounts", "nonInferiorityMargin", "confidenceInterval"],
+    requiredContext: ["regimeCounts", "sampleSize", "nonInferiorityMargin", "confidenceInterval"],
   },
   {
     key: "liveBacktestDrift",
