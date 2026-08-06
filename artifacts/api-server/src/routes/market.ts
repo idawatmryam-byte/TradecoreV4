@@ -37,6 +37,13 @@ router.get("/market/live", async (req, res): Promise<void> => {
   res.json(getOrCreateEngine(req.userId!, req.section!).getMarketMonitor());
 });
 
+// Phase 2 observational market perception. Available states contain only
+// validated closed candles; blocked entries explain why a state was refused.
+// This endpoint is read-only and no consumer feeds it back into execution.
+router.get("/market/state", (req, res): void => {
+  res.json(getOrCreateEngine(req.userId!, req.section!).getMarketStates());
+});
+
 // Recent candles for the dashboard position chart. Public market data, served
 // through the engine so the chart uses the SAME feed trades are priced on.
 router.get("/market/candles", async (req, res): Promise<void> => {
