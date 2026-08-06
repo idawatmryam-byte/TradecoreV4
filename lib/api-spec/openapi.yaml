@@ -1453,6 +1453,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /strategies/council:
+    get:
+      operationId: getSpecialistCouncil
+      tags: [strategies]
+      summary: Get observational specialist opinions
+      description: >-
+        Translates the unchanged Brain V0 strategy results into evidence-linked
+        specialist opinions. Correlation discounts are informational and this
+        endpoint has no execution authority.
+      responses:
+        "200":
+          description: Current specialist council snapshots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SpecialistCouncilSnapshot"
+
   /strategies/signals:
     get:
       operationId: getStrategySignals
@@ -3820,6 +3839,88 @@ components:
           type: number
         avgDurationSeconds:
           type: number
+
+    StrategyOpinion:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, opinionId, specialistId, specialistVersion, marketStateFingerprint, symbol, stance, strength, applicableRegimes, supportingEvidence, opposingEvidence, trigger, invalidationConditions, expectedDurationSeconds, proposedRewardRisk, uncertainty, abstentionReason, dataTimestamp, expiresAt]
+      properties:
+        schemaVersion: { type: string, enum: ["1.0.0"] }
+        opinionId: { type: string, format: uuid }
+        specialistId: { type: string }
+        specialistVersion: { type: string }
+        marketStateFingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}$' }
+        symbol: { type: string }
+        stance: { type: string, enum: [long, short, neutral, abstain] }
+        strength: { type: number, minimum: 0, maximum: 1 }
+        applicableRegimes:
+          type: array
+          minItems: 1
+          items: { type: string }
+        supportingEvidence:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/EvidenceReference" }
+        opposingEvidence:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/EvidenceReference" }
+        trigger: { type: ["string", "null"] }
+        invalidationConditions:
+          type: array
+          maxItems: 20
+          items: { type: string }
+        expectedDurationSeconds: { type: ["integer", "null"], minimum: 1 }
+        proposedRewardRisk: { type: ["number", "null"], exclusiveMinimum: 0 }
+        uncertainty: { type: number, minimum: 0, maximum: 1 }
+        abstentionReason: { type: ["string", "null"] }
+        dataTimestamp: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+
+    SpecialistOpinionView:
+      type: object
+      additionalProperties: false
+      required: [role, correlationGroup, correlationDiscount, effectiveStrength, operationalStatus, opinion]
+      properties:
+        role:
+          type: string
+          enum: [trend, breakout, mean_reversion, volatility, market_structure, execution_quality, portfolio_conflict]
+        correlationGroup: { type: string }
+        correlationDiscount: { type: number, minimum: 0, maximum: 1 }
+        effectiveStrength: { type: number, minimum: 0, maximum: 1 }
+        operationalStatus: { type: string, enum: [active, abstained] }
+        opinion: { $ref: "#/components/schemas/StrategyOpinion" }
+
+    SpecialistConsensus:
+      type: object
+      additionalProperties: false
+      required: [stance, longScore, shortScore, actionableOpinions, abstentions, disagreement, explanation]
+      properties:
+        stance: { type: string, enum: [long, short, mixed, abstain] }
+        longScore: { type: number, minimum: 0 }
+        shortScore: { type: number, minimum: 0 }
+        actionableOpinions: { type: integer, minimum: 0 }
+        abstentions: { type: integer, minimum: 0 }
+        disagreement: { type: boolean }
+        explanation: { type: string }
+
+    SpecialistCouncilSnapshot:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, councilVersion, mode, cannotExecute, symbol, marketStateFingerprint, dataTimestamp, generatedAt, consensus, opinions]
+      properties:
+        schemaVersion: { type: string, enum: ["1.0.0"] }
+        councilVersion: { type: string, enum: [specialist-council-v1] }
+        mode: { type: string, enum: [observational] }
+        cannotExecute: { type: boolean, const: true }
+        symbol: { type: string }
+        marketStateFingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}$' }
+        dataTimestamp: { type: string, format: date-time }
+        generatedAt: { type: string, format: date-time }
+        consensus: { $ref: "#/components/schemas/SpecialistConsensus" }
+        opinions:
+          type: array
+          items: { $ref: "#/components/schemas/SpecialistOpinionView" }
 
     StrategyInfo:
       type: object
