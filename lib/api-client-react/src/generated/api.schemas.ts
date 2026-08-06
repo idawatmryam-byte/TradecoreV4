@@ -1354,6 +1354,49 @@ export interface BinanceCredentialsStatus {
   updatedAt: string | null;
 }
 
+export type ConnectionTestResultProvider = typeof ConnectionTestResultProvider[keyof typeof ConnectionTestResultProvider];
+
+
+export const ConnectionTestResultProvider = {
+  binance: 'binance',
+  oanda: 'oanda',
+} as const;
+
+export type ConnectionTestResultMarketType = typeof ConnectionTestResultMarketType[keyof typeof ConnectionTestResultMarketType];
+
+
+export const ConnectionTestResultMarketType = {
+  spot: 'spot',
+  futures: 'futures',
+  forex: 'forex',
+} as const;
+
+export interface ConnectionTestResult {
+  ok: true;
+  provider: ConnectionTestResultProvider;
+  environment: string;
+  marketType: ConnectionTestResultMarketType;
+  accountAccessible: boolean;
+  /**
+     * Null when the provider offers no safe, non-mutating permission probe.
+     * @nullable
+     */
+  tradingEnabled: boolean | null;
+  /**
+     * Provider time minus this server's midpoint time; Binance only.
+     * @nullable
+     */
+  serverTimeOffsetMs: number | null;
+  /**
+     * Null when the selected provider/environment does not expose it.
+     * @nullable
+     */
+  ipRestrictionEnabled: boolean | null;
+  permissions: string[];
+  warnings: string[];
+  message: string;
+}
+
 export type AutopsyWindowMetricsExitReasons = {[key: string]: number};
 
 export interface AutopsyWindowMetrics {
@@ -2158,9 +2201,19 @@ export type SetBinanceCredentialsBody = {
   apiSecret: string;
 };
 
+export type TestBinanceConnectionBody = {
+  apiKey?: string;
+  apiSecret?: string;
+};
+
 export type SetOandaCredentialsBody = {
   apiToken: string;
   accountId: string;
+};
+
+export type TestOandaConnectionBody = {
+  apiToken?: string;
+  accountId?: string;
 };
 
 export type StartAutopsyBody = {

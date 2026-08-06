@@ -1196,7 +1196,7 @@ export const GetBinanceCredentialsResponse = zod.object({
 
 
 /**
- * Encrypted at rest (AES-256-GCM) and linked only to the logged-in user's account. The bot engine only reads credentials at start(), so restart the bot (if running) for a changed credential to take effect.
+ * Encrypted at rest (AES-256-GCM) and linked only to the logged-in user's account. Any cached Crypto provider client is invalidated and a desired-running engine reconnects before this operation completes.
  * @summary Set the logged-in user's Binance API key/secret
  */
 export const SetBinanceCredentialsBody = zod.object({
@@ -1222,6 +1222,30 @@ export const DeleteBinanceCredentialsResponse = zod.object({
 
 
 /**
+ * A read-only check against the Crypto section's selected Spot/Futures and Testnet/Live environment. Uses the supplied key pair, or the stored encrypted pair when both fields are omitted. Never places an order and never requires withdrawal permission.
+ * @summary Test Binance authentication, endpoint, account and trading access
+ */
+export const TestBinanceConnectionBody = zod.object({
+  "apiKey": zod.string().optional(),
+  "apiSecret": zod.string().optional()
+})
+
+export const TestBinanceConnectionResponse = zod.object({
+  "ok": zod.literal(true),
+  "provider": zod.enum(['binance', 'oanda']),
+  "environment": zod.string(),
+  "marketType": zod.enum(['spot', 'futures', 'forex']),
+  "accountAccessible": zod.boolean(),
+  "tradingEnabled": zod.boolean().nullable().describe('Null when the provider offers no safe, non-mutating permission probe.'),
+  "serverTimeOffsetMs": zod.number().nullable().describe('Provider time minus this server\'s midpoint time; Binance only.'),
+  "ipRestrictionEnabled": zod.boolean().nullable().describe('Null when the selected provider\/environment does not expose it.'),
+  "permissions": zod.array(zod.string()),
+  "warnings": zod.array(zod.string()),
+  "message": zod.string()
+})
+
+
+/**
  * Never returns the plaintext token/account id — only whether one is configured and a masked preview (last 4 chars of the account id).
  * @summary Get the logged-in user's OANDA credential status (forex section)
  */
@@ -1233,7 +1257,7 @@ export const GetOandaCredentialsResponse = zod.object({
 
 
 /**
- * Encrypted at rest (AES-256-GCM), same scheme as the Binance keys. Practice vs live is decided by the forex section's paper-trading toggle at engine start — each OANDA environment only accepts its own tokens. Restart the forex engine for a changed credential to apply.
+ * Encrypted at rest (AES-256-GCM), same scheme as the Binance keys. Practice vs live is decided by the forex section's paper-trading toggle — each OANDA environment only accepts its own tokens. Any cached Forex provider client is invalidated and a desired-running engine reconnects before this operation completes.
  * @summary Set the logged-in user's OANDA API token + account id
  */
 export const SetOandaCredentialsBody = zod.object({
@@ -1255,6 +1279,30 @@ export const DeleteOandaCredentialsResponse = zod.object({
   "configured": zod.boolean(),
   "accountIdPreview": zod.string().nullable().describe('Last 4 chars of the stored account id, e.g. \"...4567\" — never the full id or token.'),
   "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * A read-only check against the Forex section's selected Practice/Live environment. Uses the supplied token/account id, or the stored encrypted pair when both fields are omitted. Never places an order.
+ * @summary Test OANDA authentication, environment and account access
+ */
+export const TestOandaConnectionBody = zod.object({
+  "apiToken": zod.string().optional(),
+  "accountId": zod.string().optional()
+})
+
+export const TestOandaConnectionResponse = zod.object({
+  "ok": zod.literal(true),
+  "provider": zod.enum(['binance', 'oanda']),
+  "environment": zod.string(),
+  "marketType": zod.enum(['spot', 'futures', 'forex']),
+  "accountAccessible": zod.boolean(),
+  "tradingEnabled": zod.boolean().nullable().describe('Null when the provider offers no safe, non-mutating permission probe.'),
+  "serverTimeOffsetMs": zod.number().nullable().describe('Provider time minus this server\'s midpoint time; Binance only.'),
+  "ipRestrictionEnabled": zod.boolean().nullable().describe('Null when the selected provider\/environment does not expose it.'),
+  "permissions": zod.array(zod.string()),
+  "warnings": zod.array(zod.string()),
+  "message": zod.string()
 })
 
 

@@ -1,9 +1,12 @@
 import {
   useGetBinanceCredentials, useSetBinanceCredentials, useDeleteBinanceCredentials, getGetBinanceCredentialsQueryKey,
   useGetOandaCredentials, useSetOandaCredentials, useDeleteOandaCredentials, getGetOandaCredentialsQueryKey,
+  useTestBinanceConnection, useTestOandaConnection,
+  getGetBotStatusQueryKey, getGetMarketLiveQueryKey,
+  type ConnectionTestResult,
 } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from "@/components/ui";
-import { KeyRound, Trash2 } from "lucide-react";
+import { KeyRound, PlugZap, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
@@ -18,9 +21,9 @@ import type { Section } from "@/lib/section";
  * Forking the markup would have meant three places to keep the (safety
  * critical, quite specific) copy in sync.
  *
- * There is no separate "test connection" endpoint — saving IS the check. The
- * server either accepts and encrypts the credential or errors, so `onSaved`
- * firing is the signal a caller can gate a Live switch on.
+ * Saving persists encrypted credentials and refreshes any active runtime.
+ * Test Connection is deliberately separate and read-only: it validates the
+ * provider endpoint and permissions without placing an order.
  */
 
 /** True once this section's broker has a credential on file. */
@@ -41,17 +44,40 @@ interface CredentialsCardProps {
   onSaved?: () => void;
 }
 
+function apiErrorMessage(err: unknown, fallback: string): string {
+  const data = (err as { data?: { error?: unknown } | null })?.data;
+  return typeof data?.error === "string" ? data.error : fallback;
+}
+
+function ConnectionResult({ result }: { result: ConnectionTestResult | null }) {
+  if (!result) return null;
+  return (
+    <div className="rounded-md border border-success/40 bg-success/5 px-3 py-2 text-[13px]">
+      <p className="font-medium text-success">{result.message}</p>
+      {result.warnings.map((warning) => (
+        <p key={warning} className="mt-1 text-muted-foreground">{warning}</p>
+      ))}
+    </div>
+  );
+}
+
 export function BinanceCredentialsCard({ onSaved }: CredentialsCardProps = {}) {
   const { data: status, isLoading } = useGetBinanceCredentials({ query: { queryKey: getGetBinanceCredentialsQueryKey() } });
   const setCredentials = useSetBinanceCredentials();
   const deleteCredentials = useDeleteBinanceCredentials();
+  const testConnection = useTestBinanceConnection();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
+  const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetBinanceCredentialsQueryKey() });
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: getGetBinanceCredentialsQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getGetMarketLiveQueryKey() });
+  };
 
   const handleSave = () => {
     if (!apiKey.trim() || !apiSecret.trim()) return;
@@ -60,12 +86,13 @@ export function BinanceCredentialsCard({ onSaved }: CredentialsCardProps = {}) {
         setApiKey("");
         setApiSecret("");
         invalidate();
-        toast({ title: "Binance Credentials Saved", description: "Restart the bot for the new credentials to take effect." });
+        toast({ title: "Binance Credentials Saved", description: "Encrypted credentials saved and active connection state refreshed." });
         onSaved?.();
       },
-      onError: () => {
-        toast({ title: "Error", description: "Failed to save Binance credentials.", variant: "destructive" });
+      onError: (err) => {
+        toast({ title: "Binance connection stopped", description: apiErrorMessage(err, "Failed to save Binance credentials."), variant: "destructive" });
       },
+      onSettled: invalidate,
     });
   };
 
@@ -75,9 +102,25 @@ export function BinanceCredentialsCard({ onSaved }: CredentialsCardProps = {}) {
         invalidate();
         toast({ title: "Binance Credentials Removed" });
       },
-      onError: () => {
-        toast({ title: "Error", description: "Failed to remove Binance credentials.", variant: "destructive" });
+      onError: (err) => {
+        toast({ title: "Error", description: apiErrorMessage(err, "Failed to remove Binance credentials."), variant: "destructive" });
       },
+      onSettled: invalidate,
+    });
+  };
+
+  const handleTest = () => {
+    setTestResult(null);
+    const entered = apiKey.trim() && apiSecret.trim()
+      ? { apiKey: apiKey.trim(), apiSecret: apiSecret.trim() }
+      : undefined;
+    testConnection.mutate({ data: entered }, {
+      onSuccess: (result) => setTestResult(result),
+      onError: (err) => toast({
+        title: "Binance connection failed",
+        description: apiErrorMessage(err, "Binance could not verify this connection."),
+        variant: "destructive",
+      }),
     });
   };
 
@@ -123,7 +166,17 @@ export function BinanceCredentialsCard({ onSaved }: CredentialsCardProps = {}) {
               <Trash2 className="mr-2 h-4 w-4" /> Remove
             </Button>
           )}
+          <Button
+            variant="outline"
+            onClick={handleTest}
+            disabled={testConnection.isPending ||
+              (!!apiKey.trim() !== !!apiSecret.trim()) ||
+              (!apiKey.trim() && !apiSecret.trim() && !status?.configured)}
+          >
+            <PlugZap className="mr-2 h-4 w-4" /> {testConnection.isPending ? "Testing..." : "Test Connection"}
+          </Button>
         </div>
+        <ConnectionResult result={testResult} />
       </CardContent>
     </Card>
   );
@@ -133,13 +186,19 @@ export function OandaCredentialsCard({ onSaved }: CredentialsCardProps = {}) {
   const { data: status, isLoading } = useGetOandaCredentials({ query: { queryKey: getGetOandaCredentialsQueryKey() } });
   const setCredentials = useSetOandaCredentials();
   const deleteCredentials = useDeleteOandaCredentials();
+  const testConnection = useTestOandaConnection();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const [apiToken, setApiToken] = useState("");
   const [accountId, setAccountId] = useState("");
+  const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetOandaCredentialsQueryKey() });
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: getGetOandaCredentialsQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getGetMarketLiveQueryKey() });
+  };
 
   const handleSave = () => {
     if (!apiToken.trim() || !accountId.trim()) return;
@@ -148,12 +207,13 @@ export function OandaCredentialsCard({ onSaved }: CredentialsCardProps = {}) {
         setApiToken("");
         setAccountId("");
         invalidate();
-        toast({ title: "OANDA Credentials Saved", description: "Restart the forex engine for the new credentials to take effect." });
+        toast({ title: "OANDA Credentials Saved", description: "Encrypted credentials saved and active connection state refreshed." });
         onSaved?.();
       },
-      onError: () => {
-        toast({ title: "Error", description: "Failed to save OANDA credentials.", variant: "destructive" });
+      onError: (err) => {
+        toast({ title: "OANDA connection stopped", description: apiErrorMessage(err, "Failed to save OANDA credentials."), variant: "destructive" });
       },
+      onSettled: invalidate,
     });
   };
 
@@ -163,9 +223,25 @@ export function OandaCredentialsCard({ onSaved }: CredentialsCardProps = {}) {
         invalidate();
         toast({ title: "OANDA Credentials Removed" });
       },
-      onError: () => {
-        toast({ title: "Error", description: "Failed to remove OANDA credentials.", variant: "destructive" });
+      onError: (err) => {
+        toast({ title: "Error", description: apiErrorMessage(err, "Failed to remove OANDA credentials."), variant: "destructive" });
       },
+      onSettled: invalidate,
+    });
+  };
+
+  const handleTest = () => {
+    setTestResult(null);
+    const entered = apiToken.trim() && accountId.trim()
+      ? { apiToken: apiToken.trim(), accountId: accountId.trim() }
+      : undefined;
+    testConnection.mutate({ data: entered }, {
+      onSuccess: (result) => setTestResult(result),
+      onError: (err) => toast({
+        title: "OANDA connection failed",
+        description: apiErrorMessage(err, "OANDA could not verify this connection."),
+        variant: "destructive",
+      }),
     });
   };
 
@@ -214,7 +290,17 @@ export function OandaCredentialsCard({ onSaved }: CredentialsCardProps = {}) {
               <Trash2 className="mr-2 h-4 w-4" /> Remove
             </Button>
           )}
+          <Button
+            variant="outline"
+            onClick={handleTest}
+            disabled={testConnection.isPending ||
+              (!!apiToken.trim() !== !!accountId.trim()) ||
+              (!apiToken.trim() && !accountId.trim() && !status?.configured)}
+          >
+            <PlugZap className="mr-2 h-4 w-4" /> {testConnection.isPending ? "Testing..." : "Test Connection"}
+          </Button>
         </div>
+        <ConnectionResult result={testResult} />
       </CardContent>
     </Card>
   );

@@ -10,10 +10,9 @@
  * `Accept-Datetime-Format: UNIX` makes every timestamp an epoch-seconds
  * string ("1657234800.000000000") — parse with parseFloat and ×1000 for ms.
  *
- * Error mapping: 401/403 throw ccxt's real `AuthenticationError` so the
- * engine's start-time `instanceof AuthenticationError` classification
- * (botEngine.ts) works identically for both brokers; everything else throws
- * a plain Error carrying the HTTP status and OANDA's `errorMessage`.
+ * Error mapping: 401/403 throw ccxt's real `AuthenticationError`; everything
+ * else throws a plain Error. Errors retain useful status/detail diagnostics
+ * but redact the encrypted-at-rest account id before reaching any logger.
  */
 import { AuthenticationError } from "ccxt";
 
@@ -46,6 +45,7 @@ export class OandaClient {
   ): Promise<T> {
     const res = await fetch(`${this.baseUrl}${path}`, {
       method,
+      signal: AbortSignal.timeout(15_000),
       headers: {
         Authorization: `Bearer ${this.token}`,
         "Content-Type": "application/json",
@@ -62,7 +62,9 @@ export class OandaClient {
       } catch {
         /* non-JSON error body — status alone will have to do */
       }
-      const msg = `OANDA ${method} ${path} failed: HTTP ${res.status}${detail ? ` — ${detail}` : ""}`;
+      const safePath = this.redactAccountId(path);
+      const safeDetail = this.redactAccountId(detail);
+      const msg = `OANDA ${method} ${safePath} failed: HTTP ${res.status}${safeDetail ? ` — ${safeDetail}` : ""}`;
       if (res.status === 401 || res.status === 403) {
         // Real ccxt class on purpose — see module header.
         throw new AuthenticationError(msg);
@@ -76,6 +78,10 @@ export class OandaClient {
   /** Shorthand for account-scoped paths: acct("/summary") → /v3/accounts/{id}/summary */
   acct<T = any>(method: "GET" | "POST" | "PUT", subPath: string, body?: unknown): Promise<T> {
     return this.request<T>(method, `/v3/accounts/${this.accountId}${subPath}`, body);
+  }
+
+  private redactAccountId(value: string): string {
+    return this.accountId ? value.split(this.accountId).join("[account]") : value;
   }
 }
 

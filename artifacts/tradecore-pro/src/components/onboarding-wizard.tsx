@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   useGetConfig, useUpdateConfig, useStartBot,
-  getGetConfigQueryKey, getGetBotStatusQueryKey,
+  getGetConfigQueryKey, getGetBotStatusQueryKey, getGetMarketLiveQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -39,6 +39,11 @@ const MARKETS: { id: Section; label: string; icon: typeof Bitcoin; blurb: string
 ];
 
 const MARKET_LABELS: Record<Section, string> = { crypto: "Crypto", forex: "Forex" };
+
+function apiErrorMessage(err: unknown, fallback: string): string {
+  const data = (err as { data?: { error?: unknown } | null })?.data;
+  return typeof data?.error === "string" ? data.error : fallback;
+}
 
 type StepId = "target" | "market" | "mode" | "finish";
 
@@ -197,6 +202,7 @@ export function OnboardingWizard({
                   queryClient.invalidateQueries({ queryKey: getGetConfigQueryKey() });
                   await startBot.mutateAsync(undefined);
                   queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() });
+                  queryClient.invalidateQueries({ queryKey: getGetMarketLiveQueryKey() });
                 }}
               />
             ) : (
@@ -208,10 +214,13 @@ export function OnboardingWizard({
                 applyLive={async (finalMode) => {
                   await updateConfig.mutateAsync({ data: { executionTarget: "live", mode: finalMode } });
                   queryClient.invalidateQueries({ queryKey: getGetConfigQueryKey() });
+                  queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() });
+                  queryClient.invalidateQueries({ queryKey: getGetMarketLiveQueryKey() });
                 }}
                 start={async () => {
                   await startBot.mutateAsync(undefined);
                   queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() });
+                  queryClient.invalidateQueries({ queryKey: getGetMarketLiveQueryKey() });
                 }}
               />
             )
@@ -429,8 +438,7 @@ function LiveFinish({
       await applyLive(chosen);
       setPhase("ready");
     } catch (err: unknown) {
-      const body = (err as { response?: { data?: { error?: string } } })?.response?.data;
-      setError(body?.error ?? (err as Error)?.message ?? "The server refused the request.");
+      setError(apiErrorMessage(err, "The server refused the request."));
       setPhase("credentials");
     }
   };
@@ -449,8 +457,7 @@ function LiveFinish({
       await start();
       onDone(true);
     } catch (err: unknown) {
-      const body = (err as { response?: { data?: { error?: string } } })?.response?.data;
-      setError(body?.error ?? (err as Error)?.message ?? "The engine refused to start.");
+      setError(apiErrorMessage(err, "The engine refused to start."));
       setPhase("ready");
     }
   };
