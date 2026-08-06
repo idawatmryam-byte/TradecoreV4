@@ -156,7 +156,7 @@ Harder:
 - [x] Add closed-candle MarketState construction and refusal tests.
 - [x] Add append-only brain decision/evidence schema definitions.
 - [ ] Regenerate API Zod and React Query packages.
-- [ ] Expose observational MarketState through an authenticated read-only endpoint.
-- [ ] Add Market Overview and enriched Decisions UI.
+- [x] Expose observational MarketState through an authenticated read-only endpoint.
+- [x] Add Market Overview and enriched Decisions UI.
 - [ ] Run full typecheck, unit, integration, and browser suites.
 - [ ] Keep the stacked PR draft until Phase 0 merges and all gates pass.
