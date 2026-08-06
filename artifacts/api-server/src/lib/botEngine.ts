@@ -92,7 +92,7 @@ import type {
 } from "./decisionTrace";
 import { buildMarketStateResult } from "./intelligence/market-state/builder";
 import type { MarketStateResult } from "./intelligence/market-state/types";
-import { buildSpecialistCouncilSnapshot, type SpecialistCouncilSnapshot } from "./intelligence/specialists";
+import { buildSpecialistCouncilSnapshot, recordSpecialistOpinions, type SpecialistCouncilSnapshot } from "./intelligence/specialists";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -2468,6 +2468,15 @@ class BotEngine {
         `SCAN_SUMMARY — ${pairs.length} scanned · ${totalSignals} signals · ${entered} entered` +
           (entered === 0 ? ` · TOP BLOCK: ${topBlock}` : ""),
       );
+
+      // Persist every eligible opinion, including abstentions. Deterministic
+      // opinion IDs and the database unique constraint deduplicate repeated
+      // 15-second scans over the same closed candle snapshot.
+      const specialistSnapshots = Array.from(this.specialistCouncils.values());
+      if (specialistSnapshots.length > 0) {
+        void recordSpecialistOpinions(this.userId, this.section, specialistSnapshots)
+          .catch((err) => logger.warn({ err }, "Specialist opinion capture failed"));
+      }
 
       // Flush the decision journal (fire-and-forget — never blocks the scan)
       // and prune old rows roughly hourly.
