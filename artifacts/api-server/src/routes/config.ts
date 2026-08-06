@@ -4,6 +4,13 @@ import { botConfigTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getOrCreateEngine } from "../lib/engineRegistry";
 import { forexDemoAvailable } from "../lib/execution/demoMarketData";
+import { getBinanceCredentials } from "../lib/binanceCredentials";
+import { getOandaCredentials } from "../lib/oandaCredentials";
+import {
+  actionableConnectionError,
+  testBinanceConnection,
+  testOandaConnection,
+} from "../lib/brokers/connectionTest";
 import {
   GetConfigResponse,
   GetSectionsResponse,
@@ -129,8 +136,57 @@ router.put("/config", async (req, res): Promise<void> => {
     return;
   }
 
-  const existing = await getOrCreateEngine(req.userId!, req.section!).loadConfig();
+  const engine = getOrCreateEngine(req.userId!, req.section!, { resumeIdleDemo: false });
+  const existing = await engine.loadConfig();
   const u = parsed.data;
+  const nextExecutionTarget = u.executionTarget ?? existing.executionTarget;
+  const nextMarketType = u.marketType ?? existing.marketType;
+  const nextTestnet = u.testnet ?? existing.testnet;
+  const connectionChanged =
+    nextExecutionTarget !== existing.executionTarget ||
+    nextMarketType !== existing.marketType ||
+    nextTestnet !== existing.testnet;
+
+  if (connectionChanged && nextExecutionTarget === "demo" && !demoDataAvailableFor(existing.section)) {
+    res.status(400).json({
+      error: "Forex Demo is unavailable on this deployment because OANDA has no public market-data API. Configure the platform OANDA practice account before switching this section to Demo.",
+      code: "DEMO_DATA_UNAVAILABLE",
+    });
+    return;
+  }
+
+  // A transition onto a broker endpoint is validated BEFORE persistence, so
+  // the database cannot claim Live while the selected credentials belong to
+  // another environment or lack the required product permission.
+  if (connectionChanged && nextExecutionTarget === "live") {
+    try {
+      if (existing.section === "forex") {
+        const credentials = await getOandaCredentials(req.userId!);
+        if (!credentials) {
+          res.status(400).json({ error: "Connect and test an OANDA account before enabling Live trading.", code: "CREDENTIALS_MISSING" });
+          return;
+        }
+        await testOandaConnection({ ...credentials, practice: nextTestnet });
+      } else {
+        const credentials = await getBinanceCredentials(req.userId!);
+        if (!credentials) {
+          res.status(400).json({ error: "Connect and test Binance credentials before enabling Live trading.", code: "CREDENTIALS_MISSING" });
+          return;
+        }
+        await testBinanceConnection({
+          ...credentials,
+          marketType: nextMarketType === "futures" ? "futures" : "spot",
+          testnet: nextTestnet,
+        });
+      }
+    } catch (err) {
+      const provider = existing.section === "forex" ? "oanda" : "binance";
+      const mapped = actionableConnectionError(provider, err);
+      req.log.warn({ userId: req.userId, section: existing.section, code: mapped.code }, "Live config transition refused by connection validation");
+      res.status(400).json({ error: mapped.message, code: mapped.code });
+      return;
+    }
+  }
 
   const [updated] = await db
     .update(botConfigTable)
@@ -174,6 +230,23 @@ router.put("/config", async (req, res): Promise<void> => {
     .returning();
 
   req.log.info({ configId: existing.id }, "Config updated");
+  if (connectionChanged) {
+    try {
+      await engine.refreshConnection({
+        restartIfDesired: true,
+        reason: "Execution target/environment changed — reconnecting from persisted configuration",
+      });
+    } catch (err) {
+      const provider = existing.section === "forex" ? "oanda" : "binance";
+      const mapped = actionableConnectionError(provider, err);
+      req.log.error({ userId: req.userId, section: existing.section, code: mapped.code }, "Config saved but engine reconnect failed");
+      res.status(409).json({
+        error: `Configuration was saved, but the engine was stopped because reconnection failed. ${mapped.message}`,
+        code: mapped.code,
+      });
+      return;
+    }
+  }
   res.json(UpdateConfigResponse.parse(mapConfig(updated ?? existing)));
 });
 

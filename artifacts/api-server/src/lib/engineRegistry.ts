@@ -25,14 +25,18 @@ const lastActivity = new Map<string, number>();
 
 const key = (userId: number, section: Section) => `${userId}:${section}`;
 
-export function getOrCreateEngine(userId: number, section: Section = "crypto"): BotEngine {
+export function getOrCreateEngine(
+  userId: number,
+  section: Section = "crypto",
+  options: { resumeIdleDemo?: boolean } = {},
+): BotEngine {
   const k = key(userId, section);
   lastActivity.set(k, Date.now());
   let engine = engines.get(k);
   if (!engine) {
     engine = new BotEngine(userId, section);
     engines.set(k, engine);
-  } else if (!engine.isRunning() && engine.isDemoTarget()) {
+  } else if (options.resumeIdleDemo !== false && !engine.isRunning() && engine.isDemoTarget()) {
     // The user is back. A demo engine paused for inactivity resumes itself, so
     // session-scoping is invisible: nobody has to press Start again because
     // they went to lunch. Fire-and-forget — a request must never block on the

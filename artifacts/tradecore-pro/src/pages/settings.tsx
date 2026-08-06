@@ -1,5 +1,6 @@
 import {
   useGetConfig, useUpdateConfig, useGetSections, getGetConfigQueryKey, getGetSectionsQueryKey,
+  getGetBotStatusQueryKey, getGetMarketLiveQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label, Switch } from "@/components/ui";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -45,6 +46,11 @@ const FOREX_UNIVERSE = [
 // that protect the WHOLE account across every strategy.
 
 const MARKET_LABELS: Record<Section, string> = { crypto: "Crypto", forex: "Forex" };
+
+function apiErrorMessage(err: unknown, fallback: string): string {
+  const data = (err as { data?: { error?: unknown } | null })?.data;
+  return typeof data?.error === "string" ? data.error : fallback;
+}
 
 /**
  * What a Demo section sees where the broker card would be.
@@ -103,14 +109,21 @@ function UpgradeToLiveCard({
     updateConfig.mutate({ data: { executionTarget: "live", mode: finalMode } }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetConfigQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetMarketLiveQueryKey() });
         toast({
           title: "Live trading enabled",
           description: `${MARKET_LABELS[section]} now places real orders. Nothing happens until you start the engine.`,
         });
         onUpgraded();
       },
-      onError: () => {
-        toast({ title: "Error", description: "Couldn't switch this section to live.", variant: "destructive" });
+      onError: (err) => {
+        toast({ title: "Live connection refused", description: apiErrorMessage(err, "Couldn't switch this section to live."), variant: "destructive" });
+      },
+      onSettled: () => {
+        void queryClient.invalidateQueries({ queryKey: getGetConfigQueryKey() });
+        void queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() });
+        void queryClient.invalidateQueries({ queryKey: getGetMarketLiveQueryKey() });
       },
     });
   };
@@ -262,7 +275,41 @@ export function Settings() {
   const requestLive = () => {
     if (!brokerConfigured) { setUpgrading(true); return; }
     if (formData.mode === "autopilot") { setLiveConfirmOpen(true); return; }
-    handleChange("executionTarget", "live");
+    applyExecutionTarget("live", formData.mode);
+  };
+
+  const invalidateRuntimeState = () => {
+    void queryClient.invalidateQueries({ queryKey: getGetConfigQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getGetMarketLiveQueryKey() });
+  };
+
+  const applyExecutionTarget = (
+    executionTarget: "demo" | "live",
+    mode: "research" | "copilot" | "autopilot",
+  ) => {
+    updateConfig.mutate({
+      data: {
+        executionTarget,
+        mode,
+        marketType: formData.marketType,
+        testnet: formData.testnet,
+      },
+    }, {
+      onSuccess: () => {
+        setFormData((prev) => ({ ...prev, executionTarget, mode }));
+        toast({
+          title: executionTarget === "demo" ? "Demo trading enabled" : "Live trading enabled",
+          description: "Persisted configuration and active engine connection now use the same execution target.",
+        });
+      },
+      onError: (err) => toast({
+        title: "Connection change failed",
+        description: apiErrorMessage(err, "The execution target could not be changed."),
+        variant: "destructive",
+      }),
+      onSettled: invalidateRuntimeState,
+    });
   };
 
   const handleSave = () => {
@@ -273,19 +320,20 @@ export function Settings() {
     
     updateConfig.mutate({ data: payload }, {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetConfigQueryKey() });
+        invalidateRuntimeState();
         toast({
           title: "Configuration Saved",
           description: "Engine parameters have been updated.",
         });
       },
-      onError: () => {
+      onError: (err) => {
         toast({
           title: "Error",
-          description: "Failed to update configuration.",
+          description: apiErrorMessage(err, "Failed to update configuration."),
           variant: "destructive"
         });
-      }
+      },
+      onSettled: invalidateRuntimeState,
     });
   };
 
@@ -394,8 +442,9 @@ export function Settings() {
               checked={formData.executionTarget === 'live'}
               onCheckedChange={(v) => {
                 if (v) requestLive();
-                else handleChange('executionTarget', 'demo');
+                else applyExecutionTarget('demo', formData.mode);
               }}
+              disabled={updateConfig.isPending}
             />
           </div>
           {formData.executionTarget === 'demo' && (
@@ -740,11 +789,11 @@ export function Settings() {
         marketLabel={MARKET_LABELS[section]}
         onSwitchToCopilot={() => {
           setLiveConfirmOpen(false);
-          setFormData((prev) => ({ ...prev, mode: 'copilot', executionTarget: 'live' }));
+          applyExecutionTarget('live', 'copilot');
         }}
         onContinueWithAutoPilot={() => {
           setLiveConfirmOpen(false);
-          handleChange('executionTarget', 'live');
+          applyExecutionTarget('live', 'autopilot');
         }}
       />
 

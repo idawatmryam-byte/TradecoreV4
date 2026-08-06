@@ -14,7 +14,6 @@
 import {
   binance as BinanceExchange,
   binanceusdm as BinanceUsdmExchange,
-  AuthenticationError,
 } from "ccxt";
 import { db } from "@workspace/db";
 import {
@@ -33,6 +32,8 @@ import { getBinanceCredentials } from "./binanceCredentials";
 import { getOandaCredentials } from "./oandaCredentials";
 import { OandaAdapter } from "./brokers/oandaAdapter";
 import type { MarketType } from "./brokers/brokerAdapter";
+import { buildBinanceClient } from "./brokers/binanceClient";
+import { actionableConnectionError } from "./brokers/connectionTest";
 import {
   buildSignalRow,
   type MultiTimeframeCandles,
@@ -171,6 +172,10 @@ class BotEngine {
   // the existing `ex: any` convention already used throughout
   // ExitManager/TradeManager's host callbacks for the same reason.
   private exchange: any = null;
+  /** Identity of the cached provider client. Configuration is re-read every
+   * scan, so the cache must be keyed by every value that selects an endpoint
+   * or credential source; otherwise Demo can retain a Live client. */
+  private exchangeIdentity: string | null = null;
   private availableMarkets: Set<string> = new Set();
   /** Exact DB-symbol ⟷ unified-symbol maps, built from loadMarkets() at start(). */
   private symbolMaps: SymbolMarketMaps | null = null;
@@ -242,6 +247,24 @@ class BotEngine {
 
   // Single-flight guard: prevents overlapping scan executions
   private scanning = false;
+  /** Resolved when the active scan releases all provider references. */
+  private scanIdleWaiters: Array<() => void> = [];
+  /** Prevent timer callbacks from starting while a connection mutation is
+   * quiescing the engine. */
+  private connectionSuspended = false;
+  /** Serializes credential/config-driven reconnects for this engine. */
+  private connectionMutation: Promise<void> = Promise.resolve();
+
+  private notifyProviderWorkIdle(): void {
+    if (this.scanning || this.tickerPolling) return;
+    const waiters = this.scanIdleWaiters.splice(0);
+    for (const resolve of waiters) resolve();
+  }
+
+  private waitForProviderWorkIdle(): Promise<void> {
+    if (!this.scanning && !this.tickerPolling) return Promise.resolve();
+    return new Promise((resolve) => this.scanIdleWaiters.push(resolve));
+  }
 
   // Cached account balance for risk-based position sizing
   private cachedBalance = 0;
@@ -509,9 +532,15 @@ class BotEngine {
   // ---------------------------------------------------------------------------
 
   private async initExchange(testnet: boolean, marketType: MarketType): Promise<any> {
-    if (this.exchange) return this.exchange;
+    const identity = `${this.executionTarget}:${marketType}:${testnet ? "test" : "live"}`;
+    if (this.exchange && this.exchangeIdentity === identity) return this.exchange;
+    // Defense in depth: route mutations perform an orderly reconnect, but a
+    // config written by another trusted process must still never make a scan
+    // reuse a client from a different target/environment.
+    if (this.exchange) this.invalidateConnectionState();
     const ex = await this.buildExchange(testnet, marketType);
     this.exchange = ex;
+    this.exchangeIdentity = identity;
     return ex;
   }
 
@@ -546,36 +575,15 @@ class BotEngine {
       );
     }
 
-    const ExchangeClass = marketType === "futures" ? BinanceUsdmExchange : BinanceExchange;
-    const ex = new ExchangeClass({
+    // Spot sandbox and futures Demo Trading are deliberately selected by the
+    // shared factory used by Test Connection as well; each issues distinct
+    // credentials and the two paths must never disagree about the endpoint.
+    return buildBinanceClient({
       apiKey: credentials.apiKey,
-      secret: credentials.apiSecret,
-      options: {
-        defaultType: marketType,
-        adjustForTimeDifference: true,
-      },
+      apiSecret: credentials.apiSecret,
+      marketType,
+      testnet,
     });
-
-    if (testnet) {
-      // Paper trading reaches Binance two different ways, and they are NOT
-      // interchangeable — ccxt throws if you enable both:
-      //
-      //   spot    → setSandboxMode(true)     → testnet.binance.vision
-      //   futures → enableDemoTrading(true)  → demo-fapi.binance.com
-      //
-      // Binance retired the futures testnet (testnet.binancefuture.com), so
-      // ccxt now hard-rejects setSandboxMode on binanceusdm for every private
-      // call. Demo Trading is its replacement. Note the two environments issue
-      // SEPARATE API keys: spot-testnet keys will not authenticate against
-      // demo-fapi, and vice versa.
-      if (marketType === "futures") {
-        ex.enableDemoTrading(true);
-      } else {
-        ex.setSandboxMode(true);
-      }
-    }
-
-    return ex;
   }
 
   /**
@@ -958,9 +966,17 @@ class BotEngine {
         // Spot Testnet" even when connected to futures Demo Trading, which
         // made the zero-pairs bug (marketSymbols.ts) look like a spot session.
         exchange:
-          this.activeMarketType === "futures"
-            ? this.state.mode === "testnet" ? "Binance Futures Demo (demo-fapi)" : "Binance USDⓈ-M Futures"
-            : this.state.mode === "testnet" ? "Binance Spot Testnet" : "Binance Spot",
+          this.activeMarketType === "forex"
+            ? this.executionTarget === "demo"
+              ? "OANDA Practice Market Data (Demo execution)"
+              : this.state.mode === "testnet" ? "OANDA Practice" : "OANDA Live"
+            : this.executionTarget === "demo"
+              ? this.activeMarketType === "futures"
+                ? "Binance Public Futures Market Data (Demo execution)"
+                : "Binance Public Spot Market Data (Demo execution)"
+            : this.activeMarketType === "futures"
+              ? this.state.mode === "testnet" ? "Binance Futures Demo (demo-fapi)" : "Binance USDⓈ-M Futures"
+              : this.state.mode === "testnet" ? "Binance Spot Testnet" : "Binance Spot",
         marketsLoaded: this.marketsLoaded,
         credentialsVerified: this.credentialsVerified,
         lastTickerFetchAt: this.lastTickerFetchAt,
@@ -1103,6 +1119,7 @@ class BotEngine {
       logger.warn({ err }, "Ticker poll failed");
     } finally {
       this.tickerPolling = false;
+      this.notifyProviderWorkIdle();
     }
   }
 
@@ -1126,7 +1143,26 @@ class BotEngine {
     const ex = await this.initExchange(config.testnet, this.activeMarketType);
 
     logger.info(`Loading ${this.activeMarketType === "forex" ? "OANDA instruments" : "Binance markets"}…`);
-    await ex.loadMarkets();
+    try {
+      await ex.loadMarkets();
+    } catch (providerErr) {
+      this.invalidateConnectionState();
+      if (this.executionTarget === "live") {
+        // Provider errors are not a safe API/logging contract. OANDA request
+        // paths can contain the full account id, and Binance bodies may carry
+        // operational details that should not be reflected to clients.
+        throw actionableConnectionError(
+          this.activeMarketType === "forex" ? "oanda" : "binance",
+          providerErr,
+        );
+      }
+      if (this.activeMarketType === "forex") {
+        throw new Error(
+          "Forex Demo market data is unavailable. Try again later or contact the platform operator.",
+        );
+      }
+      throw actionableConnectionError("binance", providerErr);
+    }
     this.availableMarkets = new Set(Object.keys(ex.markets));
     this.marketsLoaded = this.availableMarkets.size;
     // Exact DB-symbol ⟷ unified-symbol maps (spot "BTC/USDT" vs futures
@@ -1156,63 +1192,43 @@ class BotEngine {
       this.credentialsVerified = true;
       logger.info({ balanceUsdt: demoBal }, "Demo account — no exchange credentials required");
     } else {
-    try {
-      // This call verifies credentials AND primes the balance — previously the
-      // result was discarded, so the user couldn't see their balance until
-      // the first sizing-time fetch. Surface it in state immediately.
-      const startupBal = await ex.fetchBalance();
-      const freeUsdt = Number((startupBal as any)?.["USDT"]?.free ?? (startupBal as any)?.total?.["USDT"] ?? 0);
-      if (freeUsdt > 0) {
-        this.cachedBalance = freeUsdt;
-        this.lastBalanceFetch = Date.now();
-      }
-      this.state.balanceUsdt = freeUsdt;
-      this.credentialsVerified = true;
-      // OANDA accounts may live in a non-USD home currency — the adapter
-      // already converted to USD; log the currency + rate so a GBP account
-      // reading "$127k" is explainable at a glance.
-      const balInfo = (startupBal as any)?.info;
-      logger.info(
-        {
-          balanceUsdt: freeUsdt,
-          ...(balInfo?.homeCurrency && balInfo.homeCurrency !== "USD" && {
-            homeCurrency: balInfo.homeCurrency,
-            homeToUsdRate: balInfo.homeToUsdRate,
-          }),
-        },
-        "Exchange credentials verified",
-      );
-    } catch (authErr: any) {
-      this.credentialsVerified = false;
-      this.exchange = null;
+      try {
+        // This call verifies credentials AND primes the balance — previously the
+        // result was discarded, so the user couldn't see their balance until
+        // the first sizing-time fetch. Surface it in state immediately.
+        const startupBal = await ex.fetchBalance();
+        const freeUsdt = Number((startupBal as any)?.["USDT"]?.free ?? (startupBal as any)?.total?.["USDT"] ?? 0);
+        if (freeUsdt > 0) {
+          this.cachedBalance = freeUsdt;
+          this.lastBalanceFetch = Date.now();
+        }
+        this.state.balanceUsdt = freeUsdt;
+        this.credentialsVerified = true;
+        // OANDA accounts may live in a non-USD home currency — the adapter
+        // already converted to USD; log the currency + rate so a GBP account
+        // reading "$127k" is explainable at a glance.
+        const balInfo = (startupBal as any)?.info;
+        logger.info(
+          {
+            balanceUsdt: freeUsdt,
+            ...(balInfo?.homeCurrency && balInfo.homeCurrency !== "USD" && {
+              homeCurrency: balInfo.homeCurrency,
+              homeToUsdRate: balInfo.homeToUsdRate,
+            }),
+          },
+          "Exchange credentials verified",
+        );
+      } catch (providerErr: unknown) {
+        this.credentialsVerified = false;
+        this.invalidateConnectionState();
 
-      // Only a genuine credential rejection should be reported as one. This
-      // used to rewrite EVERY failure — network errors, and ccxt's NotSupported
-      // for the retired futures testnet — into "check your API keys", which
-      // sends you hunting for a credential problem that isn't there.
-      if (!(authErr instanceof AuthenticationError)) {
-        throw authErr;
+        // Never echo the raw provider message: OANDA embeds the full account id
+        // in its request path, and provider bodies are not a safe UI contract.
+        throw actionableConnectionError(
+          config.marketType === "forex" ? "oanda" : "binance",
+          providerErr,
+        );
       }
-
-      // ccxt attaches `info` (the raw Binance error body) at runtime; it isn't
-      // on the typed AuthenticationError surface, hence the cast.
-      const code = (authErr as { info?: { code?: string } }).info?.code ?? authErr.message ?? "unknown";
-      const environment =
-        config.marketType === "forex"
-          ? config.testnet
-            ? "OANDA practice (api-fxpractice.oanda.com)"
-            : "OANDA live (api-fxtrade.oanda.com)"
-          : config.testnet
-            ? config.marketType === "futures"
-              ? "Binance Futures Demo Trading (demo-fapi.binance.com)"
-              : "Binance spot testnet (testnet.binance.vision)"
-            : "Binance live";
-      throw new Error(
-        `Exchange authentication failed (${code}). ` +
-          `The credentials on the Settings page must be issued by ${environment} — ` +
-          `each environment issues its own keys/tokens and will reject another's.`,
-      );
-    }
     }
 
     this.state.running = true;
@@ -1397,7 +1413,6 @@ class BotEngine {
   }
 
   async stop(): Promise<void> {
-    if (!this.state.running) return;
     // Clear the persisted desired state FIRST — an explicit Stop must never
     // be undone by an auto-resume on the next server restart.
     try {
@@ -1408,7 +1423,7 @@ class BotEngine {
     } catch (err) {
       logger.warn({ err }, "Could not persist engine desired-running=false");
     }
-    this.teardown("Bot engine stopped");
+    await this.quiesceAndTeardown("Bot engine stopped");
   }
 
   /**
@@ -1423,11 +1438,14 @@ class BotEngine {
    */
   async pauseForIdle(): Promise<void> {
     if (!this.state.running) return;
-    this.teardown("Demo engine paused — idle, will resume on next activity");
+    await this.quiesceAndTeardown("Demo engine paused — idle, will resume on next activity");
   }
 
-  /** Shared teardown for stop() and pauseForIdle(). */
-  private teardown(message: string): void {
+  /** Stop new work, then wait until the current provider calls release their
+   * local client references before clearing the cached client. Mutation APIs
+   * do not return until this completes. */
+  private async quiesceAndTeardown(message: string): Promise<void> {
+    this.connectionSuspended = true;
     if (this.scanTimer) {
       clearInterval(this.scanTimer);
       this.scanTimer = null;
@@ -1436,8 +1454,19 @@ class BotEngine {
       clearInterval(this.tickerTimer);
       this.tickerTimer = null;
     }
+    this.state.running = false;
+    await this.waitForProviderWorkIdle();
+    this.invalidateConnectionState();
+    this.connectionSuspended = false;
+    this.state.startedAt = null;
+    logger.info(message);
+  }
+
+  /** Clear every object derived from a provider connection or credential. */
+  private invalidateConnectionState(): void {
     // Reset monitor health so a stopped engine doesn't report stale connection data.
     this.liveTickers.clear();
+    this.monitoredMarkets = [];
     this.lastTickerFetchAt = null;
     this.lastTickerLatencyMs = null;
     this.lastConnError = null;
@@ -1447,8 +1476,11 @@ class BotEngine {
     // silently reused the OLD connection — the config change never took
     // effect. Stop → Start must always reconnect with the current config.
     this.exchange = null;
+    this.exchangeIdentity = null;
     this.credentialsVerified = false;
     this.symbolMaps = null;
+    this.availableMarkets.clear();
+    this.marketsLoaded = 0;
     // The balance cache belongs to the torn-down connection's environment —
     // spot testnet and futures demo are DIFFERENT accounts with different
     // balances, so a restart into another environment must not size its
@@ -1457,8 +1489,47 @@ class BotEngine {
     this.lastBalanceFetch = 0;
     this.state.balanceUsdt = null;
     this.state.running = false;
-    this.state.startedAt = null;
-    logger.info(message);
+  }
+
+  /**
+   * Reconnect after a persisted credential or endpoint-selecting config
+   * mutation. Operations are serialized per engine. A running (or idle-paused
+   * but desired-running) engine restarts from the database; deleting the live
+   * credential uses restartIfDesired=false and clears auto-resume intent.
+   */
+  refreshConnection(options: {
+    restartIfDesired: boolean;
+    reason: string;
+  }): Promise<void> {
+    const operation = this.connectionMutation.then(async () => {
+      const desired = this.state.running || await this.isDesiredRunning();
+      await this.quiesceAndTeardown(options.reason);
+
+      if (!options.restartIfDesired) {
+        await db
+          .update(botConfigTable)
+          .set({ engineDesiredRunning: false })
+          .where(and(eq(botConfigTable.userId, this.userId), eq(botConfigTable.section, this.section)));
+        return;
+      }
+      if (!desired) return;
+
+      try {
+        await this.start();
+      } catch (err) {
+        // Never leave boot-time auto-resume armed against a configuration that
+        // just failed verification. The stored config remains truthful and the
+        // engine remains visibly stopped until the user fixes the cause.
+        await this.quiesceAndTeardown("Connection refresh failed — engine stopped");
+        await db
+          .update(botConfigTable)
+          .set({ engineDesiredRunning: false })
+          .where(and(eq(botConfigTable.userId, this.userId), eq(botConfigTable.section, this.section)));
+        throw err;
+      }
+    });
+    this.connectionMutation = operation.catch(() => {});
+    return operation;
   }
 
   // ---------------------------------------------------------------------------
@@ -1466,6 +1537,7 @@ class BotEngine {
   // ---------------------------------------------------------------------------
 
   private async runScan(): Promise<void> {
+    if (this.connectionSuspended || !this.state.running) return;
     // Single-flight guard — skip this tick if previous scan is still in progress
     if (this.scanning) {
       logger.warn("Scan skipped — previous scan still running");
@@ -2409,6 +2481,7 @@ class BotEngine {
       logger.error({ err }, "Scan loop error");
     } finally {
       this.scanning = false;
+      this.notifyProviderWorkIdle();
     }
   }
 
