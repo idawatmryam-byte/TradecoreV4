@@ -60,6 +60,18 @@ expect("valid fixture has no validation errors", validateBaselineManifest(origin
 expect("canonical JSON is independent of symbol and candle ordering", canonicalManifestJson(original) === canonicalManifestJson(reordered));
 expect("fingerprint is deterministic", baselineManifestFingerprint(original) === baselineManifestFingerprint(original));
 expect("equivalent manifests share a fingerprint", baselineManifestFingerprint(original) === baselineManifestFingerprint(reordered));
+const reorderedKeys = {
+  execution: original.execution,
+  costs: original.costs,
+  marketData: original.marketData,
+  risk: original.risk,
+  strategy: original.strategy,
+  source: original.source,
+  role: original.role,
+  brainVersion: original.brainVersion,
+  schemaVersion: original.schemaVersion,
+} as BrainV0BaselineManifest;
+expect("fingerprint is independent of object key insertion order", baselineManifestFingerprint(original) === baselineManifestFingerprint(reorderedKeys));
 expect("fingerprint is SHA-256", /^[a-f0-9]{64}$/.test(baselineManifestFingerprint(original)));
 
 const badHash = fixture();
