@@ -92,7 +92,8 @@ import type {
 } from "./decisionTrace";
 import { buildMarketStateResult } from "./intelligence/market-state/builder";
 import type { MarketStateResult } from "./intelligence/market-state/types";
-import { buildSpecialistCouncilSnapshot, recordSpecialistOpinions, type SpecialistCouncilSnapshot } from "./intelligence/specialists";
+import { buildSpecialistCouncilSnapshot, type SpecialistCouncilSnapshot } from "./intelligence/specialists";
+import { recordSpecialistOpinions } from "./intelligence/specialists/store";
 
 // ---------------------------------------------------------------------------
 // Types
