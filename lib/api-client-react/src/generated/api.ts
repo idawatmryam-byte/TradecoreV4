@@ -31,6 +31,7 @@ import type {
   BotConfig,
   BotConfigUpdate,
   BotStatus,
+  ConnectionTestResult,
   CorrelationHeatMap,
   CustomStrategy,
   CustomStrategyCreate,
@@ -87,6 +88,8 @@ import type {
   StrategyInfo,
   StrategySignalItem,
   SymbolDecision,
+  TestBinanceConnectionBody,
+  TestOandaConnectionBody,
   ToxicHour,
   Trade,
   UpdateMemoryInfluence,
@@ -3273,7 +3276,7 @@ export const getSetBinanceCredentialsUrl = () => {
 }
 
 /**
- * Encrypted at rest (AES-256-GCM) and linked only to the logged-in user's account. The bot engine only reads credentials at start(), so restart the bot (if running) for a changed credential to take effect.
+ * Encrypted at rest (AES-256-GCM) and linked only to the logged-in user's account. Any cached Crypto provider client is invalidated and a desired-running engine reconnects before this operation completes.
  * @summary Set the logged-in user's Binance API key/secret
  */
 export const setBinanceCredentials = async (setBinanceCredentialsBody: SetBinanceCredentialsBody, options?: RequestInit): Promise<BinanceCredentialsStatus> => {
@@ -3290,7 +3293,7 @@ export const setBinanceCredentials = async (setBinanceCredentialsBody: SetBinanc
 
 
 
-export const getSetBinanceCredentialsMutationOptions = <TError = ErrorType<void>,
+export const getSetBinanceCredentialsMutationOptions = <TError = ErrorType<void | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setBinanceCredentials>>, TError,{data: BodyType<SetBinanceCredentialsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof setBinanceCredentials>>, TError,{data: BodyType<SetBinanceCredentialsBody>}, TContext> => {
 
@@ -3319,12 +3322,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type SetBinanceCredentialsMutationResult = NonNullable<Awaited<ReturnType<typeof setBinanceCredentials>>>
     export type SetBinanceCredentialsMutationBody = BodyType<SetBinanceCredentialsBody>
-    export type SetBinanceCredentialsMutationError = ErrorType<void>
+    export type SetBinanceCredentialsMutationError = ErrorType<void | ErrorResponse>
 
     /**
  * @summary Set the logged-in user's Binance API key/secret
  */
-export const useSetBinanceCredentials = <TError = ErrorType<void>,
+export const useSetBinanceCredentials = <TError = ErrorType<void | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setBinanceCredentials>>, TError,{data: BodyType<SetBinanceCredentialsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof setBinanceCredentials>>,
@@ -3403,6 +3406,77 @@ export const useDeleteBinanceCredentials = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteBinanceCredentialsMutationOptions(options));
+    }
+
+export const getTestBinanceConnectionUrl = () => {
+
+
+
+
+  return `/api/me/binance-credentials/test`
+}
+
+/**
+ * A read-only check against the Crypto section's selected Spot/Futures and Testnet/Live environment. Uses the supplied key pair, or the stored encrypted pair when both fields are omitted. Never places an order and never requires withdrawal permission.
+ * @summary Test Binance authentication, endpoint, account and trading access
+ */
+export const testBinanceConnection = async (testBinanceConnectionBody?: TestBinanceConnectionBody, options?: RequestInit): Promise<ConnectionTestResult> => {
+
+  return customFetch<ConnectionTestResult>(getTestBinanceConnectionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(testBinanceConnectionBody)
+  }
+);}
+
+
+
+
+export const getTestBinanceConnectionMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testBinanceConnection>>, TError,{data?: BodyType<TestBinanceConnectionBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof testBinanceConnection>>, TError,{data?: BodyType<TestBinanceConnectionBody>}, TContext> => {
+
+const mutationKey = ['testBinanceConnection'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof testBinanceConnection>>, {data?: BodyType<TestBinanceConnectionBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  testBinanceConnection(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TestBinanceConnectionMutationResult = NonNullable<Awaited<ReturnType<typeof testBinanceConnection>>>
+    export type TestBinanceConnectionMutationBody = BodyType<TestBinanceConnectionBody> | undefined
+    export type TestBinanceConnectionMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Test Binance authentication, endpoint, account and trading access
+ */
+export const useTestBinanceConnection = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testBinanceConnection>>, TError,{data?: BodyType<TestBinanceConnectionBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof testBinanceConnection>>,
+        TError,
+        {data?: BodyType<TestBinanceConnectionBody>},
+        TContext
+      > => {
+      return useMutation(getTestBinanceConnectionMutationOptions(options));
     }
 
 export const getGetOandaCredentialsUrl = () => {
@@ -3492,7 +3566,7 @@ export const getSetOandaCredentialsUrl = () => {
 }
 
 /**
- * Encrypted at rest (AES-256-GCM), same scheme as the Binance keys. Practice vs live is decided by the forex section's paper-trading toggle at engine start — each OANDA environment only accepts its own tokens. Restart the forex engine for a changed credential to apply.
+ * Encrypted at rest (AES-256-GCM), same scheme as the Binance keys. Practice vs live is decided by the forex section's paper-trading toggle — each OANDA environment only accepts its own tokens. Any cached Forex provider client is invalidated and a desired-running engine reconnects before this operation completes.
  * @summary Set the logged-in user's OANDA API token + account id
  */
 export const setOandaCredentials = async (setOandaCredentialsBody: SetOandaCredentialsBody, options?: RequestInit): Promise<OandaCredentialsStatus> => {
@@ -3509,7 +3583,7 @@ export const setOandaCredentials = async (setOandaCredentialsBody: SetOandaCrede
 
 
 
-export const getSetOandaCredentialsMutationOptions = <TError = ErrorType<void>,
+export const getSetOandaCredentialsMutationOptions = <TError = ErrorType<void | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setOandaCredentials>>, TError,{data: BodyType<SetOandaCredentialsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof setOandaCredentials>>, TError,{data: BodyType<SetOandaCredentialsBody>}, TContext> => {
 
@@ -3538,12 +3612,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type SetOandaCredentialsMutationResult = NonNullable<Awaited<ReturnType<typeof setOandaCredentials>>>
     export type SetOandaCredentialsMutationBody = BodyType<SetOandaCredentialsBody>
-    export type SetOandaCredentialsMutationError = ErrorType<void>
+    export type SetOandaCredentialsMutationError = ErrorType<void | ErrorResponse>
 
     /**
  * @summary Set the logged-in user's OANDA API token + account id
  */
-export const useSetOandaCredentials = <TError = ErrorType<void>,
+export const useSetOandaCredentials = <TError = ErrorType<void | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setOandaCredentials>>, TError,{data: BodyType<SetOandaCredentialsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof setOandaCredentials>>,
@@ -3622,6 +3696,77 @@ export const useDeleteOandaCredentials = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteOandaCredentialsMutationOptions(options));
+    }
+
+export const getTestOandaConnectionUrl = () => {
+
+
+
+
+  return `/api/me/oanda-credentials/test`
+}
+
+/**
+ * A read-only check against the Forex section's selected Practice/Live environment. Uses the supplied token/account id, or the stored encrypted pair when both fields are omitted. Never places an order.
+ * @summary Test OANDA authentication, environment and account access
+ */
+export const testOandaConnection = async (testOandaConnectionBody?: TestOandaConnectionBody, options?: RequestInit): Promise<ConnectionTestResult> => {
+
+  return customFetch<ConnectionTestResult>(getTestOandaConnectionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(testOandaConnectionBody)
+  }
+);}
+
+
+
+
+export const getTestOandaConnectionMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testOandaConnection>>, TError,{data?: BodyType<TestOandaConnectionBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof testOandaConnection>>, TError,{data?: BodyType<TestOandaConnectionBody>}, TContext> => {
+
+const mutationKey = ['testOandaConnection'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof testOandaConnection>>, {data?: BodyType<TestOandaConnectionBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  testOandaConnection(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TestOandaConnectionMutationResult = NonNullable<Awaited<ReturnType<typeof testOandaConnection>>>
+    export type TestOandaConnectionMutationBody = BodyType<TestOandaConnectionBody> | undefined
+    export type TestOandaConnectionMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Test OANDA authentication, environment and account access
+ */
+export const useTestOandaConnection = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testOandaConnection>>, TError,{data?: BodyType<TestOandaConnectionBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof testOandaConnection>>,
+        TError,
+        {data?: BodyType<TestOandaConnectionBody>},
+        TContext
+      > => {
+      return useMutation(getTestOandaConnectionMutationOptions(options));
     }
 
 export const getStartAutopsyUrl = () => {
