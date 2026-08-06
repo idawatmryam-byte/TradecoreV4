@@ -921,6 +921,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Configuration persisted, but the active engine reconnect failed and it was stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /me/binance-credentials:
     get:
@@ -944,8 +950,8 @@ paths:
       summary: Set the logged-in user's Binance API key/secret
       description: >-
         Encrypted at rest (AES-256-GCM) and linked only to the logged-in
-        user's account. The bot engine only reads credentials at start(), so
-        restart the bot (if running) for a changed credential to take effect.
+        user's account. Any cached Crypto provider client is invalidated and a
+        desired-running engine reconnects before this operation completes.
       requestBody:
         required: true
         content:
@@ -967,6 +973,12 @@ paths:
                 $ref: "#/components/schemas/BinanceCredentialsStatus"
         "400":
           description: apiKey/apiSecret missing
+        "409":
+          description: Credentials persisted, but the active engine reconnect failed and it was stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
     delete:
       operationId: deleteBinanceCredentials
@@ -979,6 +991,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BinanceCredentialsStatus"
+
+  /me/binance-credentials/test:
+    post:
+      operationId: testBinanceConnection
+      tags: [credentials]
+      summary: Test Binance authentication, endpoint, account and trading access
+      description: >-
+        A read-only check against the Crypto section's selected Spot/Futures
+        and Testnet/Live environment. Uses the supplied key pair, or the stored
+        encrypted pair when both fields are omitted. Never places an order and
+        never requires withdrawal permission.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                apiKey: { type: string }
+                apiSecret: { type: string }
+      responses:
+        "200":
+          description: Connection capabilities verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionTestResult"
+        "400":
+          description: Missing, invalid, mismatched or unauthorized credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /me/oanda-credentials:
     get:
@@ -1003,8 +1048,9 @@ paths:
       description: >-
         Encrypted at rest (AES-256-GCM), same scheme as the Binance keys.
         Practice vs live is decided by the forex section's paper-trading
-        toggle at engine start — each OANDA environment only accepts its own
-        tokens. Restart the forex engine for a changed credential to apply.
+        toggle — each OANDA environment only accepts its own tokens. Any cached
+        Forex provider client is invalidated and a desired-running engine
+        reconnects before this operation completes.
       requestBody:
         required: true
         content:
@@ -1026,6 +1072,12 @@ paths:
                 $ref: "#/components/schemas/OandaCredentialsStatus"
         "400":
           description: apiToken/accountId missing
+        "409":
+          description: Credentials persisted, but the active engine reconnect failed and it was stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
     delete:
       operationId: deleteOandaCredentials
@@ -1038,6 +1090,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OandaCredentialsStatus"
+
+  /me/oanda-credentials/test:
+    post:
+      operationId: testOandaConnection
+      tags: [credentials]
+      summary: Test OANDA authentication, environment and account access
+      description: >-
+        A read-only check against the Forex section's selected Practice/Live
+        environment. Uses the supplied token/account id, or the stored
+        encrypted pair when both fields are omitted. Never places an order.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                apiToken: { type: string }
+                accountId: { type: string }
+      responses:
+        "200":
+          description: Connection capabilities verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionTestResult"
+        "400":
+          description: Missing, invalid, mismatched or unauthorized credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /backtests/autopsy:
     post:
@@ -2847,6 +2931,41 @@ components:
         updatedAt:
           type: ["string", "null"]
           format: date-time
+
+    ConnectionTestResult:
+      type: object
+      required: [ok, provider, environment, marketType, accountAccessible, tradingEnabled, serverTimeOffsetMs, ipRestrictionEnabled, permissions, warnings, message]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        provider:
+          type: string
+          enum: [binance, oanda]
+        environment:
+          type: string
+        marketType:
+          type: string
+          enum: [spot, futures, forex]
+        accountAccessible:
+          type: boolean
+        tradingEnabled:
+          type: ["boolean", "null"]
+          description: Null when the provider offers no safe, non-mutating permission probe.
+        serverTimeOffsetMs:
+          type: ["integer", "null"]
+          description: Provider time minus this server's midpoint time; Binance only.
+        ipRestrictionEnabled:
+          type: ["boolean", "null"]
+          description: Null when the selected provider/environment does not expose it.
+        permissions:
+          type: array
+          items: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
+        message:
+          type: string
 
     AutopsyWindowMetrics:
       type: object
