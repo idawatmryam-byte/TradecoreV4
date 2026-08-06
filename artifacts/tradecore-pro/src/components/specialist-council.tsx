@@ -121,7 +121,7 @@ export function SpecialistCouncil() {
         </Card>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <div className="rounded-lg border bg-card p-3">
               <p className="text-[11px] text-muted-foreground">Active opinions</p>
               <p className="font-mono text-xl font-semibold">{activeOpinions}</p>
