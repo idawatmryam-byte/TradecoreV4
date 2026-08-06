@@ -86,7 +86,7 @@ const invalidRange = fixture();
 invalidRange.marketData.candleRanges = [{ timeframe: "1m", startInclusive: "2025-02-01T00:00:00.000Z", endExclusive: "2025-01-01T00:00:00.000Z" }];
 expect("invalid point-in-time ranges are rejected", validateBaselineManifest(invalidRange).some((error) => error.includes("half-open interval")));
 
-const metricKeys = new Set(BASELINE_METRICS.map((metric) => metric.key));
+const metricKeys: ReadonlySet<string> = new Set(BASELINE_METRICS.map((metric) => metric.key));
 expect("metric keys are unique", metricKeys.size === BASELINE_METRICS.length);
 expect("headline P&L is split into gross, costs, and net", ["grossPnl", "costs", "netPnl"].every((key) => metricKeys.has(key)));
 expect("every metric requires sample context", BASELINE_METRICS.every((metric) => metric.requiredContext.includes("sampleSize") || metric.key === "liveBacktestDrift"));
