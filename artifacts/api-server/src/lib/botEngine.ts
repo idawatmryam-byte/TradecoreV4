@@ -90,6 +90,8 @@ import type {
   MarketMonitor,
   BlockingSummary,
 } from "./decisionTrace";
+import { buildMarketStateResult } from "./intelligence/market-state/builder";
+import type { MarketStateResult } from "./intelligence/market-state/types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -182,6 +184,8 @@ class BotEngine {
   /** Market type of the ACTIVE exchange connection (set at start()). */
   private activeMarketType: MarketType = "spot";
   private scannerData: Map<string, ScannerRow> = new Map();
+  /** Phase 2 observational state; never read by strategy, risk, or execution. */
+  private marketStates: Map<string, MarketStateResult> = new Map();
   private openOrderIds: Map<number, OpenOrderIds> = new Map();
 
   // ── Correlation inputs (P6) ────────────────────────────────────────────────
@@ -822,6 +826,10 @@ class BotEngine {
 
   getScannerData(): ScannerRow[] {
     return Array.from(this.scannerData.values());
+  }
+
+  getMarketStates(): MarketStateResult[] {
+    return Array.from(this.marketStates.values());
   }
 
   /**
@@ -1817,8 +1825,21 @@ class BotEngine {
         // Deferred-work #2: feed the last regime we saw for THIS symbol so
         // detectMarketRegime can apply hysteresis and stop whipsawing at the
         // 15s scan cadence. Store the resolved regime back for the next tick.
-        const row = buildSignalRow(symbol, mtf, this.lastRegime.get(symbol));
+        const previousRegime = this.lastRegime.get(symbol);
+        const row = buildSignalRow(symbol, mtf, previousRegime);
         this.lastRegime.set(symbol, row.regime);
+        // Phase 2 is observational only. State construction uses validated
+        // CLOSED candles and its result is exposed read-only; no strategy,
+        // risk gate, or executor consumes it in this phase.
+        this.marketStates.set(symbol, buildMarketStateResult({
+          symbol,
+          venue: this.activeMarketType,
+          provider: this.activeMarketType === "forex" ? "oanda" : "binance",
+          candles: mtf,
+          observedAt: now,
+          maximumAgeMs: 3 * 60_000,
+          previousRegime,
+        }));
         regimeCounts[row.regime] = (regimeCounts[row.regime] ?? 0) + 1;
         // Inputs for the capture log. dataTimestampMs is MARKET time (the
         // newest candle's close), never now() — an as-of-T query is only
