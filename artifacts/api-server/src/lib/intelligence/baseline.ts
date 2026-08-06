@@ -125,7 +125,7 @@ export const BASELINE_METRICS = [
     unit: "ratio",
     direction: "higher",
     definition: "Mean winning R divided by the absolute mean losing R.",
-    requiredContext: ["wins", "losses", "scratches"],
+    requiredContext: ["wins", "losses", "scratches", "sampleSize"],
   },
   {
     key: "turnover",
@@ -157,7 +157,7 @@ export const BASELINE_METRICS = [
     unit: "fraction",
     direction: "context",
     definition: "Eligible decision snapshots ending without an entry divided by all eligible snapshots.",
-    requiredContext: ["eligibleDecisions", "abstentions", "reasonCodes"],
+    requiredContext: ["eligibleDecisions", "abstentions", "reasonCodes", "sampleSize"],
   },
   {
     key: "regimeStability",
