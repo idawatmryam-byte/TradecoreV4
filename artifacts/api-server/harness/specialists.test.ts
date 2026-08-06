@@ -158,7 +158,7 @@ const correlated = build(
   [plan("mean_reversion", "long", 80), plan("vwap_reversion", "long", 70)],
 );
 check("correlated same-direction hypotheses receive diminishing weight", () => {
-  const views = correlated.opinions.sort((a, b) => b.opinion.strength - a.opinion.strength);
+  const views = [...correlated.opinions].sort((a, b) => b.opinion.strength - a.opinion.strength);
   assert.equal(views[0]!.correlationDiscount, 1);
   assert.equal(views[1]!.correlationDiscount, 0.5);
   assert.equal(views[1]!.effectiveStrength, 0.35);
