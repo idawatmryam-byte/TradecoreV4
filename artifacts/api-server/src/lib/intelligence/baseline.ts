@@ -317,7 +317,12 @@ export function validateBaselineManifest(manifest: BrainV0BaselineManifest): rea
   return errors;
 }
 
-function stableJson(value: unknown): string {\n  if (value === null || typeof value !== "object") {\n    const encoded = JSON.stringify(value);\n    if (encoded === undefined) throw new Error("Manifest contains a non-serializable value");\n    return encoded;\n  }
+function stableJson(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    const encoded = JSON.stringify(value);
+    if (encoded === undefined) throw new Error("Manifest contains a non-serializable value");
+    return encoded;
+  }
   if (Array.isArray(value)) return "[" + value.map(stableJson).join(",") + "]";
   const record = value as Record<string, unknown>;
   return "{" + Object.keys(record)
