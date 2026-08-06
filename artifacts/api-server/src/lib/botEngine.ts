@@ -41,7 +41,7 @@ import {
   type MarketRegime,
   type IndicatorVote,
 } from "./strategy";
-import { strategySelector, computeTp1Tp2Ladder, type StrategyConfig, type PositionSide, type TradePlan } from "./strategies";
+import { strategySelector, strategiesForSection, computeTp1Tp2Ladder, type StrategyConfig, type PositionSide, type TradePlan } from "./strategies";
 import { recordDecisions, pruneDecisions, planToRecord, rejectionToRecord, type DecisionRecord } from "./decisionRecorder";
 import { DEFAULT_FEE_RATE, FUTURES_FEE_RATE, FOREX_COST_RATE, DEFAULT_SLIPPAGE_RATE, FOREX_SLIPPAGE_RATE } from "./tradingCosts";
 import { requiredMarginUsd, minStopDistancePrice } from "./forexSizing";
@@ -92,6 +92,8 @@ import type {
 } from "./decisionTrace";
 import { buildMarketStateResult } from "./intelligence/market-state/builder";
 import type { MarketStateResult } from "./intelligence/market-state/types";
+import { buildSpecialistCouncilSnapshot, type SpecialistCouncilSnapshot } from "./intelligence/specialists";
+import { recordSpecialistOpinions } from "./intelligence/specialists/store";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -186,6 +188,8 @@ class BotEngine {
   private scannerData: Map<string, ScannerRow> = new Map();
   /** Phase 2 observational state; never read by strategy, risk, or execution. */
   private marketStates: Map<string, MarketStateResult> = new Map();
+  /** Phase 3 specialist opinions translated from the unchanged Brain V0 outputs. */
+  private specialistCouncils: Map<string, SpecialistCouncilSnapshot> = new Map();
   private openOrderIds: Map<number, OpenOrderIds> = new Map();
 
   // ── Correlation inputs (P6) ────────────────────────────────────────────────
@@ -830,6 +834,10 @@ class BotEngine {
 
   getMarketStates(): MarketStateResult[] {
     return Array.from(this.marketStates.values());
+  }
+
+  getSpecialistCouncils(): SpecialistCouncilSnapshot[] {
+    return Array.from(this.specialistCouncils.values());
   }
 
   /**
@@ -1717,8 +1725,12 @@ class BotEngine {
         })
       );
 
-      // Rebuild the decision trace fresh every scan.
+      // Rebuild observational projections fresh every scan so stopped,
+      // removed, or data-blocked symbols never retain an actionable-looking
+      // state from a previous cycle.
       this.symbolDecisions.clear();
+      this.marketStates.clear();
+      this.specialistCouncils.clear();
 
       const confThreshold = Number(config.confidenceThreshold);
       // P8: resolved ONCE per scan, not per symbol. The state must be stable
@@ -1831,7 +1843,7 @@ class BotEngine {
         // Phase 2 is observational only. State construction uses validated
         // CLOSED candles and its result is exposed read-only; no strategy,
         // risk gate, or executor consumes it in this phase.
-        this.marketStates.set(symbol, buildMarketStateResult({
+        const marketStateResult = buildMarketStateResult({
           symbol,
           venue: this.activeMarketType,
           provider: this.activeMarketType === "forex" ? "oanda" : "binance",
@@ -1839,7 +1851,8 @@ class BotEngine {
           observedAt: now,
           maximumAgeMs: 3 * 60_000,
           previousRegime,
-        }));
+        });
+        this.marketStates.set(symbol, marketStateResult);
         regimeCounts[row.regime] = (regimeCounts[row.regime] ?? 0) + 1;
         // Inputs for the capture log. dataTimestampMs is MARKET time (the
         // newest candle's close), never now() — an as-of-T query is only
@@ -1983,6 +1996,19 @@ class BotEngine {
         const { plans, rejections } = strategySelector.decideSymbol(
           symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt, dollarRisk, customStrategies
         );
+        // Phase 3 compatibility mode: translate the exact selector output into
+        // specialist opinions AFTER Brain V0 has decided. The council is
+        // observational and has no reference to risk, executors, or brokers.
+        if (marketStateResult.status === "available") {
+          this.specialistCouncils.set(symbol, buildSpecialistCouncilSnapshot({
+            marketState: marketStateResult.state,
+            strategies: [...strategiesForSection(this.section), ...customStrategies],
+            configs: strategyConfigs,
+            plans,
+            rejections,
+            generatedAt: now,
+          }));
+        }
         // Considered-and-rejected trades are first-class output now — queue
         // them for the persistent decision journal (flushed once per scan).
         for (const r of rejections) noteDecision(rejectionToRecord(r));
@@ -2443,6 +2469,15 @@ class BotEngine {
         `SCAN_SUMMARY — ${pairs.length} scanned · ${totalSignals} signals · ${entered} entered` +
           (entered === 0 ? ` · TOP BLOCK: ${topBlock}` : ""),
       );
+
+      // Persist every eligible opinion, including abstentions. Deterministic
+      // opinion IDs and the database unique constraint deduplicate repeated
+      // 15-second scans over the same closed candle snapshot.
+      const specialistSnapshots = Array.from(this.specialistCouncils.values());
+      if (specialistSnapshots.length > 0) {
+        void recordSpecialistOpinions(this.userId, this.section, specialistSnapshots)
+          .catch((err) => logger.warn({ err }, "Specialist opinion capture failed"));
+      }
 
       // Flush the decision journal (fire-and-forget — never blocks the scan)
       // and prune old rows roughly hourly.
