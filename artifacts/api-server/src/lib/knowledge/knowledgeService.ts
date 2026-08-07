@@ -93,11 +93,23 @@ export async function loadObservations(
     .select({
       id: tradesTable.id,
       symbol: tradesTable.symbol,
+      section: tradesTable.section,
+      side: tradesTable.side,
+      marketType: tradesTable.marketType,
       strategyId: tradesTable.strategyId,
       entryPrice: tradesTable.entryPrice,
       stopLoss: tradesTable.stopLoss,
       quantity: tradesTable.quantity,
       pnl: tradesTable.pnl,
+      grossPnl: tradesTable.grossPnl,
+      feesUsdt: tradesTable.feesUsdt,
+      slippageUsdt: tradesTable.slippageUsdt,
+      maeUsdt: tradesTable.maeUsdt,
+      mfeUsdt: tradesTable.mfeUsdt,
+      tp1Filled: tradesTable.tp1Filled,
+      tp2Filled: tradesTable.tp2Filled,
+      breakEvenActive: tradesTable.breakEvenActive,
+      trailingStopActive: tradesTable.trailingStopActive,
       confidence: tradesTable.confidence,
       exitReason: tradesTable.exitReason,
       entryTime: tradesTable.entryTime,
@@ -136,16 +148,38 @@ export async function loadObservations(
     const features = featuresFromSnapshot(r.features);
     const plan = (r.tradePlan ?? null) as { regime?: unknown } | null;
     const regime = typeof plan?.regime === "string" ? plan.regime : null;
+    const managementPolicy = r.trailingStopActive
+      ? "adaptive_trailing"
+      : r.breakEvenActive
+        ? "break_even"
+        : r.tp1Filled || r.tp2Filled
+          ? "partial_targets"
+          : "fixed_sltp";
+    const numericOrNull = (value: unknown): number | null => {
+      if (value == null) return null;
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? numeric : null;
+    };
 
     observations.push({
       tradeId: r.id,
       closedAt: r.exitTime!.getTime(),
       entryTime: r.entryTime.getTime(),
       symbol: r.symbol,
+      symbolClass: r.section === "forex" ? "forex" : r.marketType,
+      direction: r.side === "sell" ? "short" : "long",
+      managementPolicy,
       strategyId: r.strategyId,
       regime,
       atrPercent: features?.atrPercent ?? null,
       pnl: Number(r.pnl),
+      grossPnlUsdt: numericOrNull(r.grossPnl),
+      feesUsdt: numericOrNull(r.feesUsdt),
+      slippageUsdt: numericOrNull(r.slippageUsdt),
+      maeUsdt: numericOrNull(r.maeUsdt),
+      mfeUsdt: numericOrNull(r.mfeUsdt),
+      timeToMaeSeconds: null,
+      timeToMfeSeconds: null,
       plannedRisk: plannedRiskDollars(entryPrice, Number(r.stopLoss), Number(r.quantity)),
       exitReason: r.exitReason,
       confidence: r.confidence != null ? Number(r.confidence) : null,
