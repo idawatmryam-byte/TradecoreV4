@@ -251,7 +251,11 @@ export class CouncilReasoningGateway {
           usage,
         };
       } catch (error) {
-        lastFailure = error instanceof ProviderTimeoutError ? "PROVIDER_TIMEOUT" : "PROVIDER_RESPONSE_INVALID";
+        lastFailure = error instanceof ProviderTimeoutError
+          ? "PROVIDER_TIMEOUT"
+          : error instanceof z.ZodError
+            ? "PROVIDER_RESPONSE_INVALID"
+            : "PROVIDER_ERROR";
       }
     }
 
