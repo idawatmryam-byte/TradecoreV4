@@ -1,9 +1,11 @@
+
 import { z } from "zod";
 import type { BrainDecision, EvidenceReference } from "../contracts";
 import type { CouncilReasoningReport, ReasoningUsage } from "./types";
 
 const ProviderOutputSchema = z.object({
   summary: z.string().min(1).max(2000),
+  summaryEvidenceIds: z.array(z.string().min(1).max(160)).min(1).max(10),
   claims: z.array(z.object({
     claim: z.string().min(1).max(1000),
     evidenceIds: z.array(z.string().min(1).max(160)).min(1).max(10),
@@ -169,6 +171,22 @@ export class CouncilReasoningGateway {
       };
     }
 
+    if (evidence.length === 0) {
+      return {
+        status: "degraded",
+        providerId: this.provider.providerId,
+        modelVersion: this.provider.modelVersion,
+        summary: fallback,
+        claims: [],
+        challenges: [],
+        uncertaintyNotes: ["There is no structured evidence available for an AI review."],
+        validationFailures: ["NO_REVIEWABLE_EVIDENCE"],
+        attempts: 0,
+        latencyMs: Date.now() - started,
+        usage: EMPTY_USAGE,
+      };
+    }
+
     const knownIds = new Set(evidence.map((item) => item.evidenceId));
     const request: ProviderReasoningRequest = {
       systemInstruction: SYSTEM_INSTRUCTION,
@@ -202,6 +220,8 @@ export class CouncilReasoningGateway {
         const output = ProviderOutputSchema.parse(response.output);
         const usage = UsageSchema.parse(response.usage);
         const validationFailures: string[] = [];
+        const unknownSummaryEvidence = output.summaryEvidenceIds.filter((id) => !knownIds.has(id));
+        if (unknownSummaryEvidence.length > 0) validationFailures.push("SUMMARY_UNKNOWN_EVIDENCE");
         const validateClaims = (items: typeof output.claims, label: string) => items.flatMap((item, index) => {
           const unknown = item.evidenceIds.filter((id) => !knownIds.has(id));
           if (unknown.length > 0) {
@@ -221,7 +241,7 @@ export class CouncilReasoningGateway {
           status: validationFailures.length > 0 ? "degraded" : "validated",
           providerId: this.provider.providerId,
           modelVersion: this.provider.modelVersion,
-          summary: sanitize(output.summary, 2000),
+          summary: unknownSummaryEvidence.length > 0 ? fallback : sanitize(output.summary, 2000),
           claims,
           challenges,
           uncertaintyNotes: output.uncertaintyNotes.map((note) => sanitize(note, 500)),
