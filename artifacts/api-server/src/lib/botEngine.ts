@@ -94,6 +94,8 @@ import { buildMarketStateResult } from "./intelligence/market-state/builder";
 import type { MarketStateResult } from "./intelligence/market-state/types";
 import { buildSpecialistCouncilSnapshot, type SpecialistCouncilSnapshot } from "./intelligence/specialists";
 import { recordSpecialistOpinions } from "./intelligence/specialists/store";
+import { DecisionCouncil, type ShadowCouncilRun } from "./intelligence/council";
+import { recordShadowCouncilRun } from "./intelligence/council/store";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -190,6 +192,9 @@ class BotEngine {
   private marketStates: Map<string, MarketStateResult> = new Map();
   /** Phase 3 specialist opinions translated from the unchanged Brain V0 outputs. */
   private specialistCouncils: Map<string, SpecialistCouncilSnapshot> = new Map();
+  /** Phase 4 remains observational and has no executor or broker dependency. */
+  private shadowCouncilRuns: Map<string, ShadowCouncilRun> = new Map();
+  private readonly decisionCouncil = new DecisionCouncil();
   private openOrderIds: Map<number, OpenOrderIds> = new Map();
 
   // ── Correlation inputs (P6) ────────────────────────────────────────────────
@@ -838,6 +843,10 @@ class BotEngine {
 
   getSpecialistCouncils(): SpecialistCouncilSnapshot[] {
     return Array.from(this.specialistCouncils.values());
+  }
+
+  getShadowCouncilRuns(): ShadowCouncilRun[] {
+    return Array.from(this.shadowCouncilRuns.values());
   }
 
   /**
@@ -1731,6 +1740,7 @@ class BotEngine {
       this.symbolDecisions.clear();
       this.marketStates.clear();
       this.specialistCouncils.clear();
+      this.shadowCouncilRuns.clear();
 
       const confThreshold = Number(config.confidenceThreshold);
       // P8: resolved ONCE per scan, not per symbol. The state must be stable
@@ -2000,14 +2010,57 @@ class BotEngine {
         // specialist opinions AFTER Brain V0 has decided. The council is
         // observational and has no reference to risk, executors, or brokers.
         if (marketStateResult.status === "available") {
-          this.specialistCouncils.set(symbol, buildSpecialistCouncilSnapshot({
+          const specialistCouncil = buildSpecialistCouncilSnapshot({
             marketState: marketStateResult.state,
             strategies: [...strategiesForSection(this.section), ...customStrategies],
             configs: strategyConfigs,
             plans,
             rejections,
             generatedAt: now,
-          }));
+          });
+          this.specialistCouncils.set(symbol, specialistCouncil);
+
+          // Phase 4 evaluates beside Brain V0 and returns through an
+          // append-only Shadow projection. It is deliberately not awaited:
+          // an optional reasoning provider can never delay the money path.
+          void this.decisionCouncil.evaluate({
+            marketState: marketStateResult.state,
+            specialistCouncil,
+            brainV0Plans: plans,
+            executionCosts: {
+              feeRatePerLeg: this.activeTakerFee,
+              slippageRatePerLeg: this.activeSlippageRate,
+              source: "engine-market-cost-model",
+              version: `engine-cost-model-v1:${this.activeMarketType}`,
+            },
+            portfolio: {
+              status: Number.isFinite(balance) ? "partial" : "unavailable",
+              currency: this.section === "forex" ? "USD" : "USDT",
+              availableBalance: Number.isFinite(balance) ? balance : null,
+              openPositionCount: null,
+              observedAt: now.toISOString(),
+              limitations: [
+                "Position-level exposure and reserved risk are not authoritative until Phase 6.",
+              ],
+            },
+            historicalEvidence: {
+              status: "unavailable",
+              ruleVersion: null,
+              items: [],
+              limitations: [
+                "No historical evidence may influence decisions until Phase 5 promotion controls exist.",
+              ],
+            },
+            generatedAt: now.toISOString(),
+          }).then((run) => {
+            const current = this.shadowCouncilRuns.get(symbol);
+            if (!current || current.decision.dataTimestamp <= run.decision.dataTimestamp) {
+              this.shadowCouncilRuns.set(symbol, run);
+            }
+            return recordShadowCouncilRun(this.userId, this.section, run);
+          }).catch((err) => {
+            logger.warn({ err, symbol }, "Shadow Decision Council evaluation failed");
+          });
         }
         // Considered-and-rejected trades are first-class output now — queue
         // them for the persistent decision journal (flushed once per scan).
