@@ -238,7 +238,7 @@ export function buildEvidenceSnapshot(view: PointInTimeView<TradeObservation>, o
       evidenceId: deterministicUuid({ fingerprint, type: "evidence-record" }), fingerprint,
       lifecycle,
       scope: draft.scope, metrics: draft.metrics,
-      statistics: { baselineWinRate: baseline, pValue: draft.pValue == null ? null : round4(draft.pValue), qValue: draft.qValue, falseDiscoveryRate: fdr, correction: "benjamini-hochberg", significant: draft.significant, effectDirection },
+      statistics: { baselineWinRate: baseline, pValue: draft.pValue == null ? null : round4(draft.pValue), qValue: draft.qValue, falseDiscoveryRate: fdr, correction: "benjamini-hochberg" as const, significant: draft.significant, effectDirection },
       drift: driftOf(draft.rows), permission,
       learnedStatement,
       permittedBehavior: permission === "withhold" ? "May withhold a matching candidate only after validation and explicit approval." : "Display only; cannot change a decision.",
