@@ -195,6 +195,8 @@ class BotEngine {
   /** Phase 4 remains observational and has no executor or broker dependency. */
   private shadowCouncilRuns: Map<string, ShadowCouncilRun> = new Map();
   private readonly decisionCouncil = new DecisionCouncil();
+  /** Bounded process-local guard; database constraints remain the durable dedupe. */
+  private readonly capturedShadowRunIds = new Set<string>();
   private openOrderIds: Map<number, OpenOrderIds> = new Map();
 
   // ── Correlation inputs (P6) ────────────────────────────────────────────────
@@ -2057,7 +2059,16 @@ class BotEngine {
             if (!current || current.decision.dataTimestamp <= run.decision.dataTimestamp) {
               this.shadowCouncilRuns.set(symbol, run);
             }
-            return recordShadowCouncilRun(this.userId, this.section, run);
+            if (this.capturedShadowRunIds.has(run.runId)) return;
+            this.capturedShadowRunIds.add(run.runId);
+            if (this.capturedShadowRunIds.size > 500) {
+              const oldest = this.capturedShadowRunIds.values().next().value as string | undefined;
+              if (oldest) this.capturedShadowRunIds.delete(oldest);
+            }
+            return recordShadowCouncilRun(this.userId, this.section, run).catch((err) => {
+              this.capturedShadowRunIds.delete(run.runId);
+              throw err;
+            });
           }).catch((err) => {
             logger.warn({ err, symbol }, "Shadow Decision Council evaluation failed");
           });
