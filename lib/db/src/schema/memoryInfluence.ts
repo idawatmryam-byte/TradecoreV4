@@ -104,6 +104,16 @@ export const memoryValidationsTable = pgTable("memory_validations", {
   /** Which execution target's record it was fitted on. */
   executionTarget: text("execution_target").notNull().default("demo"),
 
+  /** Point-in-time provenance and the gap between fit and evaluation. */
+  dataCutoff: timestamp("data_cutoff", { withTimezone: true }),
+  embargoMs: integer("embargo_ms").notNull().default(86400000),
+  embargoedTrades: integer("embargoed_trades").notNull().default(0),
+  trainFrom: timestamp("train_from", { withTimezone: true }),
+  trainTo: timestamp("train_to", { withTimezone: true }),
+  validationFrom: timestamp("validation_from", { withTimezone: true }),
+  validationTo: timestamp("validation_to", { withTimezone: true }),
+  correction: text("correction").notNull().default("benjamini-hochberg"),
+
   trainTrades: integer("train_trades").notNull().default(0),
   validationTrades: integer("validation_trades").notNull().default(0),
   withheld: integer("withheld").notNull().default(0),
