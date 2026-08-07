@@ -39,11 +39,11 @@ import {
   rollbackDecision,
   type PromotionCandidate,
 } from "../intelligence/evidence/lifecycle";
+import { buildEvidenceSnapshot } from "../intelligence/evidence";
 import {
-  buildEvidenceSnapshot,
   driftStatusForInfluenceState,
   persistEvidenceSnapshot,
-} from "../intelligence/evidence";
+} from "../intelligence/evidence/service";
 import type { Section } from "../engineRegistry";
 
 export const STATE_TTL_MS = 15 * 60 * 1000;
