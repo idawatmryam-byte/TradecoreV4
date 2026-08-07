@@ -93,7 +93,7 @@ export function validateInfluence(
   const split = chronologicalSplit(view, opts.trainFraction ?? 0.7);
   const trainView = asOfView(split.train.rows, split.train.asOf);
   const embargoCutoff = split.train.rows.length ? split.train.asOf + embargoMs : view.asOf;
-  const validationRows = split.validation.rows.filter((row) => row.closedAt > embargoCutoff);
+  // The embargo is half-open: an outcome exactly at the boundary is eligible.\n  const validationRows = split.validation.rows.filter((row) => row.closedAt >= embargoCutoff);
   const validation = asOfView(validationRows, split.validation.asOf);
   const embargoedTrades = split.validation.rows.length - validation.rows.length;
 
