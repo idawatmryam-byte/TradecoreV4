@@ -32,6 +32,9 @@ export async function recordSpecialistOpinions(
     await db
       .insert(strategyOpinionsTable)
       .values(rows.slice(offset, offset + INSERT_BATCH_SIZE))
-      .onConflictDoNothing({ target: strategyOpinionsTable.opinionId });
+      .onConflictDoNothing({
+        target: [strategyOpinionsTable.userId, strategyOpinionsTable.section, strategyOpinionsTable.opinionId],
+      });
   }
 }
+
