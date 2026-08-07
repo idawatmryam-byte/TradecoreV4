@@ -109,6 +109,19 @@ export interface TradeObservation extends Observable {
   readonly atrPercent: number | null;
   /** Net P&L in account currency. */
   readonly pnl: number;
+  /** Optional outcome decomposition. Null means the source record did not capture it. */
+  readonly grossPnlUsdt?: number | null;
+  readonly feesUsdt?: number | null;
+  readonly slippageUsdt?: number | null;
+  readonly maeUsdt?: number | null;
+  readonly mfeUsdt?: number | null;
+  /** Historical rows do not contain excursion timestamps; never infer them. */
+  readonly timeToMaeSeconds?: number | null;
+  readonly timeToMfeSeconds?: number | null;
+  /** Additional conditional evidence axes, all fixed at trade entry/close. */
+  readonly symbolClass?: string | null;
+  readonly direction?: "long" | "short" | null;
+  readonly managementPolicy?: string | null;
   /** Planned dollar risk (|entry − stop| × qty) — the denominator for R. */
   readonly plannedRisk: number | null;
   readonly exitReason: string | null;
