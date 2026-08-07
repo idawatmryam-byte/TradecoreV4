@@ -1,168 +1,185 @@
 /**
- * TradeCore Pro — memory state loading, permission, and the influence log
+ * Memory permission and evidence lifecycle.
  *
- * Where the pure rules in influence.ts meet the account they act on. Three
- * responsibilities, all of them safety-relevant:
- *
- *  PERMISSION. Enabling influence is not one flag, it is a conjunction. The
- *  user must have turned it on; there must be qualifying rules; and on LIVE
- *  the state's version must match a walk-forward validation that returned
- *  `improved`. Demo needs no approval — a simulated account is where a rule
- *  set is supposed to be tried, and requiring proof before it can ever run is
- *  a deadlock. That asymmetry is the paper-first rollout.
- *
- *  CACHING. The scan loop runs every 15 seconds by default. Rebuilding cells
- *  from the whole trade record on each pass would be both a performance
- *  problem and a subtle correctness one: the state a scan acts on should be
- *  stable, not silently different for the symbol evaluated last.
- *
- *  KILL SWITCH. `revoke()` clears both the flag and the cache for a user in
- *  one call, and the engine re-reads the cache each scan, so the next scan
- *  after a revoke runs with the inert state. No restart, no drain.
+ * Validation never authorizes behavior. The engine may use only the exact
+ * immutable InfluenceState referenced by an ACTIVE lifecycle row and the
+ * account configuration. Every transition is audited; every error is inert.
  */
-import { db, botConfigTable, memoryInfluencesTable, memoryValidationsTable } from "@workspace/db";
+import {
+  db,
+  botConfigTable,
+  evidenceRuleEventsTable,
+  evidenceRuleSetsTable,
+  memoryInfluencesTable,
+  memoryValidationsTable,
+} from "@workspace/db";
 import { and, desc, eq } from "drizzle-orm";
 import { logger } from "../logger";
-import { loadObservations, currentExecutionTarget, type ExecutionTarget } from "../knowledge/knowledgeService";
-import { buildKnowledge } from "../knowledge/cells";
 import {
-  buildInfluenceState, INERT_STATE, DEFAULT_MAX_DELTA,
-  type InfluenceOutcome, type InfluenceState,
+  currentExecutionTarget,
+  loadObservations,
+  type ExecutionTarget,
+} from "../knowledge/knowledgeService";
+import {
+  buildInfluenceState,
+  DEFAULT_MAX_DELTA,
+  INERT_STATE,
+  type InfluenceOutcome,
+  type InfluenceState,
 } from "./influence";
-import { validateInfluence, type ValidationResult } from "./validation";
+import {
+  MIN_VALIDATION_TRADES,
+  validateInfluence,
+  type ValidationResult,
+} from "./validation";
+import {
+  PROMOTION_CONFIRMATION,
+  ROLLBACK_CONFIRMATION,
+  promotionDecision,
+  rollbackDecision,
+  type PromotionCandidate,
+} from "../intelligence/evidence/lifecycle";
+import {
+  buildEvidenceSnapshot,
+  driftStatusForInfluenceState,
+  persistEvidenceSnapshot,
+} from "../intelligence/evidence";
 import type { Section } from "../engineRegistry";
 
-/**
- * How long a built state is reused before it is rebuilt.
- *
- * Fifteen minutes: long enough that the scan loop never pays for it, short
- * enough that a user who just closed a run of trades sees the effect within a
- * coffee break. Memory is a slow-moving signal built from dozens of trades —
- * a state that changed every scan would be noise, not learning.
- */
 export const STATE_TTL_MS = 15 * 60 * 1000;
 
 interface CacheEntry {
   state: InfluenceState;
   builtAt: number;
   executionTarget: ExecutionTarget;
+  version: string;
 }
 
 const cache = new Map<string, CacheEntry>();
 const keyOf = (userId: number, section: Section) => `${userId}:${section}`;
 
-/** Drop a cached state so the next scan rebuilds it. */
 export function invalidate(userId: number, section: Section): void {
   cache.delete(keyOf(userId, section));
 }
 
 export interface MemoryPermission {
-  /** The state the engine should act on. Inert unless every gate passed. */
   state: InfluenceState;
-  /** Why influence is or is not active, in one sentence, for the UI and logs. */
   reason: string;
   executionTarget: ExecutionTarget;
-  /** True when the user asked for it, regardless of whether it was granted. */
   requested: boolean;
-  /** Set when live influence is blocked for want of a matching validation. */
   needsValidation: boolean;
 }
 
-/**
- * Build (or reuse) the influence state for one section, and decide whether the
- * engine is permitted to act on it.
- *
- * Never throws: a failure here must leave the engine trading exactly as it
- * would without memory, not stop it. The inert state is the safe default in
- * every error path.
- */
+function parseInfluenceState(raw: unknown, expectedVersion: string): InfluenceState | null {
+  if (!raw || typeof raw !== "object") return null;
+  const state = raw as Partial<InfluenceState>;
+  if (
+    state.version !== expectedVersion
+    || state.enabled !== true
+    || !Array.isArray(state.rules)
+    || state.rules.length === 0
+    || typeof state.maxDelta !== "number"
+    || !Number.isFinite(state.maxDelta)
+  ) return null;
+  return state as InfluenceState;
+}
+
 export async function loadMemoryPermission(
   userId: number,
   section: Section,
   now = Date.now(),
 ): Promise<MemoryPermission> {
   const inert = (reason: string, extra: Partial<MemoryPermission> = {}): MemoryPermission => ({
-    state: INERT_STATE, reason, executionTarget: "demo",
-    requested: false, needsValidation: false, ...extra,
+    state: INERT_STATE,
+    reason,
+    executionTarget: "demo",
+    requested: false,
+    needsValidation: false,
+    ...extra,
   });
 
   try {
-    const [cfg] = await db
-      .select({
-        enabled: botConfigTable.memoryInfluenceEnabled,
-        maxDelta: botConfigTable.memoryInfluenceMaxDelta,
-        approvedVersion: botConfigTable.memoryInfluenceApprovedVersion,
-        executionTarget: botConfigTable.executionTarget,
-      })
-      .from(botConfigTable)
+    const [config] = await db.select({
+      enabled: botConfigTable.memoryInfluenceEnabled,
+      approvedVersion: botConfigTable.memoryInfluenceApprovedVersion,
+      executionTarget: botConfigTable.executionTarget,
+    }).from(botConfigTable)
       .where(and(eq(botConfigTable.userId, userId), eq(botConfigTable.section, section)))
       .limit(1);
 
-    const executionTarget: ExecutionTarget = cfg?.executionTarget === "demo" ? "demo" : "live";
-    if (!cfg?.enabled) {
-      // The common path, and the one that must cost nothing: no query, no
-      // cell build, no state. Off means the feature is not there.
-      return inert("Memory influence is off — the engine decides exactly as it would without it.", { executionTarget });
+    const executionTarget: ExecutionTarget = config?.executionTarget === "demo" ? "demo" : "live";
+    if (!config?.enabled) {
+      return inert("Evidence influence is off; historical evidence cannot change a decision.", { executionTarget });
     }
-
-    const maxDelta = Number(cfg.maxDelta) || DEFAULT_MAX_DELTA;
-    const cached = cache.get(keyOf(userId, section));
-    let state: InfluenceState;
-
-    if (cached && cached.executionTarget === executionTarget && now - cached.builtAt < STATE_TTL_MS
-        && cached.state.maxDelta === maxDelta) {
-      state = cached.state;
-    } else {
-      const view = await loadObservations(userId, section, { executionTarget, asOf: new Date(now) });
-      const report = buildKnowledge(view);
-      state = buildInfluenceState(report, { maxDelta, enabled: true, now });
-      cache.set(keyOf(userId, section), { state, builtAt: now, executionTarget });
-    }
-
-    if (state.rules.length === 0) {
+    if (!config.approvedVersion) {
       return inert(
-        "Memory influence is on, but no cell in the record has both enough trades and evidence that survives multiple-comparison correction. Nothing is being adjusted.",
-        { executionTarget, requested: true },
-      );
-    }
-
-    // Paper-first: demo may act on a fresh state; live may not.
-    if (executionTarget === "live" && cfg.approvedVersion !== state.version) {
-      return inert(
-        cfg.approvedVersion
-          ? "The rules changed since the last approved validation, so live influence is paused until a new walk-forward run approves them."
-          : "Live influence needs a walk-forward validation that beats the memory-off baseline out-of-sample. Run one, or trade this in demo first.",
+        "Influence was requested, but no exact evidence version is active. Validate a Shadow version and approve it explicitly.",
         { executionTarget, requested: true, needsValidation: true },
       );
     }
 
+    const cached = cache.get(keyOf(userId, section));
+    if (
+      cached
+      && cached.version === config.approvedVersion
+      && cached.executionTarget === executionTarget
+      && now - cached.builtAt < STATE_TTL_MS
+    ) {
+      return {
+        state: cached.state,
+        reason: `Validated evidence ${cached.version} is active with tightening-only authority.`,
+        executionTarget,
+        requested: true,
+        needsValidation: false,
+      };
+    }
+
+    const [ruleSet] = await db.select().from(evidenceRuleSetsTable)
+      .where(and(
+        eq(evidenceRuleSetsTable.userId, userId),
+        eq(evidenceRuleSetsTable.section, section),
+        eq(evidenceRuleSetsTable.ruleVersion, config.approvedVersion),
+        eq(evidenceRuleSetsTable.status, "active"),
+      ))
+      .limit(1);
+
+    if (!ruleSet) {
+      return inert(
+        "The configured evidence version has no ACTIVE lifecycle record, so influence failed closed.",
+        { executionTarget, requested: true, needsValidation: true },
+      );
+    }
+    if (ruleSet.executionTarget !== executionTarget) {
+      return inert(
+        `Evidence validated on ${ruleSet.executionTarget} cannot influence the ${executionTarget} account.`,
+        { executionTarget, requested: true, needsValidation: true },
+      );
+    }
+    const state = parseInfluenceState(ruleSet.state, config.approvedVersion);
+    if (!state || ruleSet.permits !== "withhold") {
+      return inert(
+        "The active evidence payload failed its version or permission check, so influence failed closed.",
+        { executionTarget, requested: true, needsValidation: true },
+      );
+    }
+
+    cache.set(keyOf(userId, section), {
+      state,
+      builtAt: now,
+      executionTarget,
+      version: config.approvedVersion,
+    });
     return {
       state,
-      reason: `Memory influence active on ${state.rules.length} cell${state.rules.length === 1 ? "" : "s"} (${state.version}).`,
+      reason: `Validated evidence ${state.version} is active with tightening-only authority.`,
       executionTarget,
       requested: true,
       needsValidation: false,
     };
-  } catch (err) {
-    logger.warn({ err, userId, section }, "MEMORY_PERMISSION_FAILED — falling back to inert");
-    return inert("Memory state could not be read; the engine is running without influence.");
+  } catch (error) {
+    logger.warn({ error, userId, section }, "MEMORY_PERMISSION_FAILED — falling back to inert");
+    return inert("Evidence state could not be verified; the engine is running without influence.");
   }
-}
-
-/**
- * The kill switch.
- *
- * Clears the flag and the cache together. The engine reloads permission every
- * scan, so the next scan is already inert — nothing to restart, nothing to
- * drain, and no in-flight decision keeps acting on a revoked rule set.
- */
-export async function revokeInfluence(userId: number, section: Section, reason = "disabled by the user"): Promise<void> {
-  await db
-    .update(botConfigTable)
-    .set({ memoryInfluenceEnabled: false, memoryInfluenceApprovedVersion: null })
-    .where(and(eq(botConfigTable.userId, userId), eq(botConfigTable.section, section)));
-  invalidate(userId, section);
-  logger.warn({ userId, section, reason }, "MEMORY_INFLUENCE_REVOKED");
 }
 
 export interface LoggedInfluence {
@@ -177,14 +194,6 @@ export interface LoggedInfluence {
   planFingerprint?: string;
 }
 
-/**
- * Record an applied influence, admitted or not.
- *
- * Best-effort, like the capture log: an audit write must never be the reason a
- * scan fails. Both outcomes are logged — a log of only the withheld trades
- * would read as a list of saves and hide every time a rule fired harmlessly,
- * which is precisely the comparison needed to judge whether to keep it on.
- */
 export async function logInfluence(entry: LoggedInfluence): Promise<void> {
   if (!entry.outcome.applied) return;
   try {
@@ -206,17 +215,206 @@ export async function logInfluence(entry: LoggedInfluence): Promise<void> {
       reason: entry.outcome.reason,
       dataTimestamp: new Date(entry.dataTimestampMs),
     });
-  } catch (err) {
-    logger.warn({ err, symbol: entry.symbol }, "MEMORY_INFLUENCE_LOG_FAILED");
+  } catch (error) {
+    logger.warn({ error, symbol: entry.symbol }, "MEMORY_INFLUENCE_LOG_FAILED");
   }
 }
 
+export class EvidenceLifecycleError extends Error {
+  constructor(readonly statusCode: number, message: string) {
+    super(message);
+    this.name = "EvidenceLifecycleError";
+  }
+}
+
+function validationCandidate(row: typeof evidenceRuleSetsTable.$inferSelect): PromotionCandidate {
+  const validation = row.validation as Partial<ValidationResult>;
+  return {
+    status: row.status as PromotionCandidate["status"],
+    verdict: validation.verdict ?? "insufficient_data",
+    permits: row.permits as PromotionCandidate["permits"],
+    driftStatus: row.driftStatus as PromotionCandidate["driftStatus"],
+    validationTrades: validation.validationTrades ?? 0,
+    minimumValidationTrades: MIN_VALIDATION_TRADES,
+  };
+}
+
+async function recordRefusal(
+  userId: number,
+  section: Section,
+  ruleVersion: string,
+  event: string,
+  status: string,
+  reason: string,
+): Promise<never> {
+  await db.insert(evidenceRuleEventsTable).values({
+    userId, section, ruleVersion, event, fromStatus: status, toStatus: status,
+    actor: "user", reason,
+  });
+  throw new EvidenceLifecycleError(409, reason);
+}
+
+async function activateEvidenceVersion(
+  userId: number,
+  section: Section,
+  ruleVersion: string,
+  confirmation: string,
+  rollback: boolean,
+) {
+  const [row] = await db.select().from(evidenceRuleSetsTable)
+    .where(and(
+      eq(evidenceRuleSetsTable.userId, userId),
+      eq(evidenceRuleSetsTable.section, section),
+      eq(evidenceRuleSetsTable.ruleVersion, ruleVersion),
+    )).limit(1);
+  if (!row) throw new EvidenceLifecycleError(404, "Evidence version not found.");
+
+  const target = await currentExecutionTarget(userId, section);
+  if (row.executionTarget !== target) {
+    return recordRefusal(userId, section, ruleVersion, rollback ? "rollback_refused" : "promotion_refused", row.status,
+      `This version was validated on ${row.executionTarget}; the section currently uses ${target}.`);
+  }
+  const decision = rollback
+    ? rollbackDecision(validationCandidate(row), confirmation)
+    : promotionDecision(validationCandidate(row), confirmation);
+  if (!decision.allowed) {
+    return recordRefusal(userId, section, ruleVersion, rollback ? "rollback_refused" : "promotion_refused", row.status, decision.reason);
+  }
+
+  const now = new Date();
+  await db.transaction(async (transaction) => {
+    const activeRows = await transaction.select().from(evidenceRuleSetsTable)
+      .where(and(
+        eq(evidenceRuleSetsTable.userId, userId),
+        eq(evidenceRuleSetsTable.section, section),
+        eq(evidenceRuleSetsTable.status, "active"),
+      ));
+    for (const active of activeRows) {
+      if (active.ruleVersion === ruleVersion) continue;
+      await transaction.update(evidenceRuleSetsTable).set({
+        status: "suspended", suspendedAt: now, updatedAt: now,
+      }).where(eq(evidenceRuleSetsTable.id, active.id));
+      await transaction.insert(evidenceRuleEventsTable).values({
+        userId, section, ruleVersion: active.ruleVersion,
+        event: "superseded", fromStatus: "active", toStatus: "suspended",
+        actor: "system", reason: `Superseded by ${ruleVersion}.`,
+      });
+    }
+    await transaction.update(evidenceRuleSetsTable).set({
+      status: "active",
+      approvedAt: row.approvedAt ?? now,
+      activatedAt: now,
+      suspendedAt: null,
+      updatedAt: now,
+    }).where(eq(evidenceRuleSetsTable.id, row.id));
+    await transaction.update(botConfigTable).set({
+      memoryInfluenceEnabled: true,
+      memoryInfluenceApprovedVersion: ruleVersion,
+    }).where(and(eq(botConfigTable.userId, userId), eq(botConfigTable.section, section)));
+    await transaction.insert(evidenceRuleEventsTable).values({
+      userId, section, ruleVersion,
+      event: rollback ? "rolled_back" : "promoted",
+      fromStatus: row.status,
+      toStatus: "active",
+      actor: "user",
+      reason: decision.reason,
+      metadata: { confirmation },
+    });
+  });
+  invalidate(userId, section);
+  logger.warn({ userId, section, ruleVersion, rollback }, "EVIDENCE_VERSION_ACTIVATED");
+  return { ruleVersion, status: "active" as const, reason: decision.reason };
+}
+
+export function promoteEvidenceVersion(
+  userId: number,
+  section: Section,
+  ruleVersion: string,
+  confirmation: string,
+) {
+  return activateEvidenceVersion(userId, section, ruleVersion, confirmation, false);
+}
+
+export function rollbackEvidenceVersion(
+  userId: number,
+  section: Section,
+  ruleVersion: string,
+  confirmation: string,
+) {
+  return activateEvidenceVersion(userId, section, ruleVersion, confirmation, true);
+}
+
+export async function suspendEvidenceVersion(
+  userId: number,
+  section: Section,
+  ruleVersion: string,
+  reason = "Suspended by the user.",
+) {
+  const [row] = await db.select().from(evidenceRuleSetsTable)
+    .where(and(
+      eq(evidenceRuleSetsTable.userId, userId),
+      eq(evidenceRuleSetsTable.section, section),
+      eq(evidenceRuleSetsTable.ruleVersion, ruleVersion),
+    )).limit(1);
+  if (!row) throw new EvidenceLifecycleError(404, "Evidence version not found.");
+  if (row.status !== "active") throw new EvidenceLifecycleError(409, `A ${row.status} version is already inert.`);
+  const now = new Date();
+  await db.transaction(async (transaction) => {
+    await transaction.update(evidenceRuleSetsTable).set({
+      status: "suspended", suspendedAt: now, updatedAt: now,
+    }).where(eq(evidenceRuleSetsTable.id, row.id));
+    await transaction.update(botConfigTable).set({
+      memoryInfluenceEnabled: false,
+      memoryInfluenceApprovedVersion: null,
+    }).where(and(eq(botConfigTable.userId, userId), eq(botConfigTable.section, section)));
+    await transaction.insert(evidenceRuleEventsTable).values({
+      userId, section, ruleVersion, event: "suspended",
+      fromStatus: "active", toStatus: "suspended", actor: "user", reason,
+    });
+  });
+  invalidate(userId, section);
+  logger.warn({ userId, section, ruleVersion, reason }, "EVIDENCE_VERSION_SUSPENDED");
+  return { ruleVersion, status: "suspended" as const, reason };
+}
+
+/** Global kill switch kept for the existing UI and operational paths. */
+export async function revokeInfluence(
+  userId: number,
+  section: Section,
+  reason = "disabled by the user",
+): Promise<void> {
+  const [config] = await db.select({ version: botConfigTable.memoryInfluenceApprovedVersion })
+    .from(botConfigTable)
+    .where(and(eq(botConfigTable.userId, userId), eq(botConfigTable.section, section)))
+    .limit(1);
+  const now = new Date();
+  await db.transaction(async (transaction) => {
+    if (config?.version) {
+      await transaction.update(evidenceRuleSetsTable).set({
+        status: "suspended", suspendedAt: now, updatedAt: now,
+      }).where(and(
+        eq(evidenceRuleSetsTable.userId, userId),
+        eq(evidenceRuleSetsTable.section, section),
+        eq(evidenceRuleSetsTable.ruleVersion, config.version),
+        eq(evidenceRuleSetsTable.status, "active"),
+      ));
+      await transaction.insert(evidenceRuleEventsTable).values({
+        userId, section, ruleVersion: config.version, event: "kill_switch",
+        fromStatus: "active", toStatus: "suspended", actor: "user", reason,
+      });
+    }
+    await transaction.update(botConfigTable).set({
+      memoryInfluenceEnabled: false,
+      memoryInfluenceApprovedVersion: null,
+    }).where(and(eq(botConfigTable.userId, userId), eq(botConfigTable.section, section)));
+  });
+  invalidate(userId, section);
+  logger.warn({ userId, section, reason }, "MEMORY_INFLUENCE_REVOKED");
+}
+
 /**
- * Run a walk-forward validation and persist the verdict.
- *
- * On `improved` the approved version is written to config, which is what
- * unlocks live influence — and only for that exact state version, so a later
- * refit with different rules starts unapproved again.
+ * Validate and persist a Shadow candidate. This function deliberately never
+ * writes the approval fields in bot_config.
  */
 export async function runValidation(
   userId: number,
@@ -225,26 +423,27 @@ export async function runValidation(
 ): Promise<{ id: number; result: ValidationResult }> {
   const now = opts.now ?? Date.now();
   const executionTarget = opts.executionTarget ?? (await currentExecutionTarget(userId, section));
-
-  const [row] = await db
-    .insert(memoryValidationsTable)
+  const [created] = await db.insert(memoryValidationsTable)
     .values({ userId, section, status: "running", executionTarget })
     .returning({ id: memoryValidationsTable.id });
-  const id = row!.id;
+  const id = created!.id;
 
   try {
-    const [cfg] = await db
-      .select({ maxDelta: botConfigTable.memoryInfluenceMaxDelta, threshold: botConfigTable.confidenceThreshold })
-      .from(botConfigTable)
+    const [config] = await db.select({
+      maxDelta: botConfigTable.memoryInfluenceMaxDelta,
+      threshold: botConfigTable.confidenceThreshold,
+    }).from(botConfigTable)
       .where(and(eq(botConfigTable.userId, userId), eq(botConfigTable.section, section)))
       .limit(1);
-
     const view = await loadObservations(userId, section, { executionTarget, asOf: new Date(now) });
     const result = validateInfluence(view, {
-      maxDelta: opts.maxDelta ?? (Number(cfg?.maxDelta) || DEFAULT_MAX_DELTA),
-      defaultThreshold: cfg?.threshold ?? 65,
+      maxDelta: opts.maxDelta ?? (Number(config?.maxDelta) || DEFAULT_MAX_DELTA),
+      defaultThreshold: config?.threshold ?? 65,
       now,
     });
+    const snapshot = buildEvidenceSnapshot(view, { executionTarget, generatedAt: now });
+    await persistEvidenceSnapshot(userId, section, snapshot);
+    const driftStatus = driftStatusForInfluenceState(result.state, snapshot);
 
     await db.update(memoryValidationsTable).set({
       status: "completed",
@@ -252,6 +451,14 @@ export async function runValidation(
       summary: result.summary,
       stateVersion: result.state.version,
       state: result.state as unknown as object,
+      dataCutoff: new Date(result.dataCutoff),
+      embargoMs: result.embargoMs,
+      embargoedTrades: result.embargoedTrades,
+      trainFrom: result.trainFrom ? new Date(result.trainFrom) : null,
+      trainTo: result.trainTo ? new Date(result.trainTo) : null,
+      validationFrom: result.validationFrom ? new Date(result.validationFrom) : null,
+      validationTo: result.validationTo ? new Date(result.validationTo) : null,
+      correction: result.correction,
       trainTrades: result.trainTrades,
       validationTrades: result.validationTrades,
       withheld: result.withheld,
@@ -262,45 +469,65 @@ export async function runValidation(
       completedAt: new Date(now),
     }).where(eq(memoryValidationsTable.id, id));
 
-    if (result.verdict === "improved") {
-      await db.update(botConfigTable)
-        .set({ memoryInfluenceApprovedVersion: result.state.version })
-        .where(and(eq(botConfigTable.userId, userId), eq(botConfigTable.section, section)));
-      logger.info({ userId, section, version: result.state.version }, "MEMORY_VALIDATION_APPROVED");
-    } else {
-      // A failed re-validation must not leave a stale approval standing.
-      await db.update(botConfigTable)
-        .set({ memoryInfluenceApprovedVersion: null })
-        .where(and(eq(botConfigTable.userId, userId), eq(botConfigTable.section, section)));
+    if (result.verdict === "improved" && result.state.rules.length > 0) {
+      const [existing] = await db.select().from(evidenceRuleSetsTable)
+        .where(and(
+          eq(evidenceRuleSetsTable.userId, userId),
+          eq(evidenceRuleSetsTable.section, section),
+          eq(evidenceRuleSetsTable.ruleVersion, result.state.version),
+        )).limit(1);
+      const values = {
+        validationId: id,
+        state: result.state as unknown as object,
+        validation: result as unknown as object,
+        driftStatus,
+        dataCutoff: new Date(result.dataCutoff),
+        updatedAt: new Date(now),
+      };
+      if (existing) {
+        await db.update(evidenceRuleSetsTable).set(values).where(eq(evidenceRuleSetsTable.id, existing.id));
+      } else {
+        await db.insert(evidenceRuleSetsTable).values({
+          userId, section,
+          ruleVersion: result.state.version,
+          executionTarget,
+          permits: "withhold",
+          status: "shadow",
+          ...values,
+        });
+      }
     }
-
+    await db.insert(evidenceRuleEventsTable).values({
+      userId, section, ruleVersion: result.state.version,
+      event: "validation_completed", fromStatus: null,
+      toStatus: result.verdict === "improved" ? "shadow" : null,
+      actor: "system", reason: result.summary,
+      metadata: { validationId: id, verdict: result.verdict, driftStatus },
+    });
     invalidate(userId, section);
+    logger.info({ userId, section, version: result.state.version, verdict: result.verdict }, "MEMORY_VALIDATION_COMPLETED_SHADOW_ONLY");
     return { id, result };
-  } catch (err) {
-    await db.update(memoryValidationsTable)
-      .set({ status: "failed", error: String((err as Error)?.message ?? err), completedAt: new Date(now) })
-      .where(eq(memoryValidationsTable.id, id));
-    throw err;
+  } catch (error) {
+    await db.update(memoryValidationsTable).set({
+      status: "failed",
+      error: String((error as Error)?.message ?? error),
+      completedAt: new Date(now),
+    }).where(eq(memoryValidationsTable.id, id));
+    throw error;
   }
 }
 
-/** The most recent validation for a section, for the settings screen. */
 export async function latestValidation(userId: number, section: Section) {
-  const [row] = await db
-    .select()
-    .from(memoryValidationsTable)
+  const [row] = await db.select().from(memoryValidationsTable)
     .where(and(eq(memoryValidationsTable.userId, userId), eq(memoryValidationsTable.section, section)))
-    .orderBy(desc(memoryValidationsTable.createdAt))
-    .limit(1);
+    .orderBy(desc(memoryValidationsTable.createdAt)).limit(1);
   return row;
 }
 
-/** Recent applied influences, newest first — the audit trail as a feed. */
 export async function recentInfluences(userId: number, section: Section, limit = 50) {
-  return db
-    .select()
-    .from(memoryInfluencesTable)
+  return db.select().from(memoryInfluencesTable)
     .where(and(eq(memoryInfluencesTable.userId, userId), eq(memoryInfluencesTable.section, section)))
-    .orderBy(desc(memoryInfluencesTable.createdAt))
-    .limit(Math.min(limit, 200));
+    .orderBy(desc(memoryInfluencesTable.createdAt)).limit(Math.min(limit, 200));
 }
+
+export { PROMOTION_CONFIRMATION, ROLLBACK_CONFIRMATION };
