@@ -25,7 +25,7 @@ import {
   suspendEvidenceVersion,
 } from "../lib/memory/memoryState";
 import { summariseState } from "../lib/memory/influence";
-import { evidenceOverview } from "../lib/intelligence/evidence";
+import { evidenceOverview } from "../lib/intelligence/evidence/service";
 
 const router: IRouter = Router();
 
