@@ -1472,6 +1472,55 @@ paths:
                 items:
                   $ref: "#/components/schemas/SpecialistCouncilSnapshot"
 
+  /intelligence/shadow:
+    get:
+      operationId: getShadowDecisionCouncil
+      tags: [intelligence]
+      summary: Get current Shadow Decision Council runs
+      description: >-
+        Returns the append-only current engine projection for the unified
+        Decision Council. Every result is Shadow-only and structurally cannot
+        execute or alter Brain V0.
+      responses:
+        "200":
+          description: Current Shadow decisions for this user and market section
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ShadowCouncilRun"
+
+  /intelligence/shadow/{decisionId}/replay:
+    get:
+      operationId: getShadowDecisionReplay
+      tags: [intelligence]
+      summary: Reconstruct one current Shadow decision
+      parameters:
+        - in: path
+          name: decisionId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Immutable market, specialist, cost, portfolio, evidence, and Brain V0 inputs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShadowReplayBundle"
+        "400":
+          description: Invalid decision identifier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Decision is not present in the current engine projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /strategies/signals:
     get:
       operationId: getStrategySignals
@@ -3921,6 +3970,719 @@ components:
         opinions:
           type: array
           items: { $ref: "#/components/schemas/SpecialistOpinionView" }
+
+    ExecutionCostContext:
+      type: object
+      additionalProperties: false
+      required: [feeRatePerLeg, slippageRatePerLeg, source, version]
+      properties:
+        feeRatePerLeg: { type: number, minimum: 0 }
+        slippageRatePerLeg: { type: number, minimum: 0 }
+        source: { type: string, enum: [engine-market-cost-model] }
+        version: { type: string }
+
+    PreliminaryPortfolioContext:
+      type: object
+      additionalProperties: false
+      required: [status, currency, availableBalance, openPositionCount, observedAt, limitations]
+      properties:
+        status: { type: string, enum: [partial, unavailable] }
+        currency: { type: string }
+        availableBalance: { type: [number, "null"], minimum: 0 }
+        openPositionCount: { type: [integer, "null"], minimum: 0 }
+        observedAt: { type: string, format: date-time }
+        limitations:
+          type: array
+          items: { type: string }
+
+    HistoricalEvidenceContext:
+      type: object
+      additionalProperties: false
+      required: [status, ruleVersion, items, limitations]
+      properties:
+        status: { type: string, enum: [unavailable, observational, approved] }
+        ruleVersion: { type: ["string", "null"] }
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        limitations:
+          type: array
+          items: { type: string }
+
+    BrainV0Candidate:
+      type: object
+      additionalProperties: false
+      required: [strategyId, strategyName, side, confidence, netRewardRisk]
+      properties:
+        strategyId: { type: string }
+        strategyName: { type: string }
+        side: { type: string, enum: [long, short] }
+        confidence: { type: number, minimum: 0, maximum: 100 }
+        netRewardRisk: { type: [number, "null"], exclusiveMinimum: 0 }
+
+    BrainV0Comparison:
+      type: object
+      additionalProperties: false
+      required: [mode, candidateCount, disposition, topCandidate]
+      properties:
+        mode: { type: string, enum: [control] }
+        candidateCount: { type: integer, minimum: 0 }
+        disposition: { type: string, enum: [CANDIDATE_PRODUCED, NO_CANDIDATE] }
+        topCandidate:
+          oneOf:
+            - $ref: "#/components/schemas/BrainV0Candidate"
+            - type: "null"
+
+    DeterministicAssessment:
+      type: object
+      additionalProperties: false
+      required: [version, longScore, shortScore, dominantShare, averageEffectiveStrength, regimeSuitability, costPenalty, decisionStrength, thresholds, ruleTrace]
+      properties:
+        version: { type: string, enum: [deterministic-council-v1] }
+        longScore: { type: number, minimum: 0 }
+        shortScore: { type: number, minimum: 0 }
+        dominantShare: { type: number, minimum: 0, maximum: 1 }
+        averageEffectiveStrength: { type: number, minimum: 0, maximum: 1 }
+        regimeSuitability: { type: number, minimum: 0, maximum: 1 }
+        costPenalty: { type: number, minimum: 0, maximum: 1 }
+        decisionStrength: { type: number, minimum: 0, maximum: 1 }
+        thresholds:
+          type: object
+          additionalProperties: false
+          required: [enterNow, waitForTrigger]
+          properties:
+            enterNow: { type: number, minimum: 0, maximum: 1 }
+            waitForTrigger: { type: number, minimum: 0, maximum: 1 }
+        ruleTrace:
+          type: array
+          items: { type: string }
+
+    ReasoningClaim:
+      type: object
+      additionalProperties: false
+      required: [claim, evidenceIds]
+      properties:
+        claim: { type: string }
+        evidenceIds:
+          type: array
+          items: { type: string }
+
+    CouncilReasoningReport:
+      type: object
+      additionalProperties: false
+      required: [status, providerId, modelVersion, summary, claims, challenges, uncertaintyNotes, validationFailures, attempts, latencyMs, usage]
+      properties:
+        status: { type: string, enum: [not_configured, validated, degraded, circuit_open, provider_error] }
+        providerId: { type: ["string", "null"] }
+        modelVersion: { type: ["string", "null"] }
+        summary: { type: string }
+        claims:
+          type: array
+          items: { $ref: "#/components/schemas/ReasoningClaim" }
+        challenges:
+          type: array
+          items: { $ref: "#/components/schemas/ReasoningClaim" }
+        uncertaintyNotes:
+          type: array
+          items: { type: string }
+        validationFailures:
+          type: array
+          items: { type: string }
+        attempts: { type: integer, minimum: 0 }
+        latencyMs: { type: integer, minimum: 0 }
+        usage:
+          type: object
+          additionalProperties: false
+          required: [inputTokens, outputTokens, costUsd]
+          properties:
+            inputTokens: { type: [integer, "null"], minimum: 0 }
+            outputTokens: { type: [integer, "null"], minimum: 0 }
+            costUsd: { type: [number, "null"], minimum: 0 }
+
+    ShadowReplayBundle:
+      type: object
+      additionalProperties: false
+      required: [marketState, specialistCouncil, executionCosts, portfolio, historicalEvidence, brainV0]
+      properties:
+        marketState: { $ref: "#/components/schemas/MarketState" }
+        specialistCouncil: { $ref: "#/components/schemas/SpecialistCouncilSnapshot" }
+        executionCosts: { $ref: "#/components/schemas/ExecutionCostContext" }
+        portfolio: { $ref: "#/components/schemas/PreliminaryPortfolioContext" }
+        historicalEvidence: { $ref: "#/components/schemas/HistoricalEvidenceContext" }
+        brainV0: { $ref: "#/components/schemas/BrainV0Comparison" }
+
+    ShadowCouncilRun:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, councilVersion, runId, inputFingerprint, runFingerprint, mode, cannotExecute, generatedAt, decision, decisionFingerprint, deterministicAssessment, reasoning, replay]
+      properties:
+        schemaVersion: { type: string, enum: ["1.0.0"] }
+        councilVersion: { type: string, enum: [shadow-decision-council-v1] }
+        runId: { type: string, format: uuid }
+        inputFingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}
+      required: [strategyId, strategyName, supportedRegimes, indicators, decisionMaker, config, performance]
+      properties:
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        supportedRegimes:
+          type: array
+          items:
+            type: string
+        indicators:
+          description: The indicators this strategy reads, human-readable with timeframe.
+          type: array
+          items:
+            type: string
+        decisionMaker:
+          description: True when the strategy is a native decision-maker owning its full TradePlan (leverage, structural stop, duration, written reasoning).
+          type: boolean
+        config:
+          $ref: "#/components/schemas/StrategyConfig"
+        performance:
+          $ref: "#/components/schemas/StrategyPerformance"
+        custom:
+          description: True when this is a user-built custom strategy (no-code builder), not a built-in.
+          type: boolean
+        customId:
+          description: The custom strategy's numeric id (for /custom-strategies/{id} CRUD). Present only when custom.
+          type: integer
+        backtested:
+          description: Custom strategies only — true once a single-strategy backtest of the CURRENT rules has completed (required before live enable).
+          type: boolean
+
+    CustomStrategyCondition:
+      type: object
+      required: [indicator, op, value]
+      properties:
+        indicator:
+          description: One of the builder's indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).
+          type: string
+        op:
+          description: Comparison — gt/gte/lt/lte for numeric indicators, eq for enum/boolean ones.
+          type: string
+          enum: [gt, gte, lt, lte, eq]
+        value:
+          description: Number for numeric indicators; string for enum/boolean ones ("true"/"false" or a regime name).
+          oneOf:
+            - type: number
+            - type: string
+
+    CustomStrategyStop:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [atr, percent, swing]
+        atrMult:
+          description: atr mode — stop at N × ATR from entry (0.5–10).
+          type: number
+        pct:
+          description: percent mode — fixed % distance from entry (0.05–20).
+          type: number
+        lookback:
+          description: swing mode — lowest low / highest high of the last N 15m bars (3–50).
+          type: integer
+
+    CustomStrategyRules:
+      type: object
+      required: [stop, confidence]
+      properties:
+        long:
+          description: AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomStrategyCondition"
+        short:
+          description: AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomStrategyCondition"
+        stop:
+          $ref: "#/components/schemas/CustomStrategyStop"
+        confidence:
+          description: Static plan confidence (50–95); the per-strategy confidence threshold still applies on top.
+          type: number
+
+    CustomStrategy:
+      type: object
+      required: [id, strategyId, section, name, rules, indicators, rulesValid, backtested, rulesUpdatedAt, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        strategyId:
+          description: Engine-facing id, custom_<id> — the key used on /strategies, backtests and autopsies.
+          type: string
+        section:
+          type: string
+          enum: [crypto, forex]
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+        indicators:
+          description: Human-readable rendering of the rules ("LONG when RSI < 30 …").
+          type: array
+          items:
+            type: string
+        rulesValid:
+          type: boolean
+        backtested:
+          description: True once a single-strategy backtest of the CURRENT rules completed. Editing rules resets this — and live enablement requires it.
+          type: boolean
+        lastBacktestAt:
+          type: string
+          format: date-time
+          nullable: true
+        rulesUpdatedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CustomStrategyCreate:
+      type: object
+      required: [name, rules]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+
+    CustomStrategyUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+
+    StrategySignalItem:
+      type: object
+      required: [symbol, confidence, regime, lastPrice, status]
+      properties:
+        symbol:
+          type: string
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        confidence:
+          type: number
+        regime:
+          type: string
+        lastPrice:
+          type: number
+        adx:
+          type: number
+        rsi:
+          type: number
+        volumeRatio:
+          type: number
+        status:
+          type: string
+        entryReason:
+          type: string
+ }
+        runFingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}
+      required: [strategyId, strategyName, supportedRegimes, indicators, decisionMaker, config, performance]
+      properties:
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        supportedRegimes:
+          type: array
+          items:
+            type: string
+        indicators:
+          description: The indicators this strategy reads, human-readable with timeframe.
+          type: array
+          items:
+            type: string
+        decisionMaker:
+          description: True when the strategy is a native decision-maker owning its full TradePlan (leverage, structural stop, duration, written reasoning).
+          type: boolean
+        config:
+          $ref: "#/components/schemas/StrategyConfig"
+        performance:
+          $ref: "#/components/schemas/StrategyPerformance"
+        custom:
+          description: True when this is a user-built custom strategy (no-code builder), not a built-in.
+          type: boolean
+        customId:
+          description: The custom strategy's numeric id (for /custom-strategies/{id} CRUD). Present only when custom.
+          type: integer
+        backtested:
+          description: Custom strategies only — true once a single-strategy backtest of the CURRENT rules has completed (required before live enable).
+          type: boolean
+
+    CustomStrategyCondition:
+      type: object
+      required: [indicator, op, value]
+      properties:
+        indicator:
+          description: One of the builder's indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).
+          type: string
+        op:
+          description: Comparison — gt/gte/lt/lte for numeric indicators, eq for enum/boolean ones.
+          type: string
+          enum: [gt, gte, lt, lte, eq]
+        value:
+          description: Number for numeric indicators; string for enum/boolean ones ("true"/"false" or a regime name).
+          oneOf:
+            - type: number
+            - type: string
+
+    CustomStrategyStop:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [atr, percent, swing]
+        atrMult:
+          description: atr mode — stop at N × ATR from entry (0.5–10).
+          type: number
+        pct:
+          description: percent mode — fixed % distance from entry (0.05–20).
+          type: number
+        lookback:
+          description: swing mode — lowest low / highest high of the last N 15m bars (3–50).
+          type: integer
+
+    CustomStrategyRules:
+      type: object
+      required: [stop, confidence]
+      properties:
+        long:
+          description: AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomStrategyCondition"
+        short:
+          description: AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomStrategyCondition"
+        stop:
+          $ref: "#/components/schemas/CustomStrategyStop"
+        confidence:
+          description: Static plan confidence (50–95); the per-strategy confidence threshold still applies on top.
+          type: number
+
+    CustomStrategy:
+      type: object
+      required: [id, strategyId, section, name, rules, indicators, rulesValid, backtested, rulesUpdatedAt, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        strategyId:
+          description: Engine-facing id, custom_<id> — the key used on /strategies, backtests and autopsies.
+          type: string
+        section:
+          type: string
+          enum: [crypto, forex]
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+        indicators:
+          description: Human-readable rendering of the rules ("LONG when RSI < 30 …").
+          type: array
+          items:
+            type: string
+        rulesValid:
+          type: boolean
+        backtested:
+          description: True once a single-strategy backtest of the CURRENT rules completed. Editing rules resets this — and live enablement requires it.
+          type: boolean
+        lastBacktestAt:
+          type: string
+          format: date-time
+          nullable: true
+        rulesUpdatedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CustomStrategyCreate:
+      type: object
+      required: [name, rules]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+
+    CustomStrategyUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+
+    StrategySignalItem:
+      type: object
+      required: [symbol, confidence, regime, lastPrice, status]
+      properties:
+        symbol:
+          type: string
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        confidence:
+          type: number
+        regime:
+          type: string
+        lastPrice:
+          type: number
+        adx:
+          type: number
+        rsi:
+          type: number
+        volumeRatio:
+          type: number
+        status:
+          type: string
+        entryReason:
+          type: string
+ }
+        mode: { type: string, enum: [shadow] }
+        cannotExecute: { type: boolean, const: true }
+        generatedAt: { type: string, format: date-time }
+        decision: { $ref: "#/components/schemas/BrainDecision" }
+        decisionFingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}
+      required: [strategyId, strategyName, supportedRegimes, indicators, decisionMaker, config, performance]
+      properties:
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        supportedRegimes:
+          type: array
+          items:
+            type: string
+        indicators:
+          description: The indicators this strategy reads, human-readable with timeframe.
+          type: array
+          items:
+            type: string
+        decisionMaker:
+          description: True when the strategy is a native decision-maker owning its full TradePlan (leverage, structural stop, duration, written reasoning).
+          type: boolean
+        config:
+          $ref: "#/components/schemas/StrategyConfig"
+        performance:
+          $ref: "#/components/schemas/StrategyPerformance"
+        custom:
+          description: True when this is a user-built custom strategy (no-code builder), not a built-in.
+          type: boolean
+        customId:
+          description: The custom strategy's numeric id (for /custom-strategies/{id} CRUD). Present only when custom.
+          type: integer
+        backtested:
+          description: Custom strategies only — true once a single-strategy backtest of the CURRENT rules has completed (required before live enable).
+          type: boolean
+
+    CustomStrategyCondition:
+      type: object
+      required: [indicator, op, value]
+      properties:
+        indicator:
+          description: One of the builder's indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).
+          type: string
+        op:
+          description: Comparison — gt/gte/lt/lte for numeric indicators, eq for enum/boolean ones.
+          type: string
+          enum: [gt, gte, lt, lte, eq]
+        value:
+          description: Number for numeric indicators; string for enum/boolean ones ("true"/"false" or a regime name).
+          oneOf:
+            - type: number
+            - type: string
+
+    CustomStrategyStop:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [atr, percent, swing]
+        atrMult:
+          description: atr mode — stop at N × ATR from entry (0.5–10).
+          type: number
+        pct:
+          description: percent mode — fixed % distance from entry (0.05–20).
+          type: number
+        lookback:
+          description: swing mode — lowest low / highest high of the last N 15m bars (3–50).
+          type: integer
+
+    CustomStrategyRules:
+      type: object
+      required: [stop, confidence]
+      properties:
+        long:
+          description: AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomStrategyCondition"
+        short:
+          description: AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomStrategyCondition"
+        stop:
+          $ref: "#/components/schemas/CustomStrategyStop"
+        confidence:
+          description: Static plan confidence (50–95); the per-strategy confidence threshold still applies on top.
+          type: number
+
+    CustomStrategy:
+      type: object
+      required: [id, strategyId, section, name, rules, indicators, rulesValid, backtested, rulesUpdatedAt, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        strategyId:
+          description: Engine-facing id, custom_<id> — the key used on /strategies, backtests and autopsies.
+          type: string
+        section:
+          type: string
+          enum: [crypto, forex]
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+        indicators:
+          description: Human-readable rendering of the rules ("LONG when RSI < 30 …").
+          type: array
+          items:
+            type: string
+        rulesValid:
+          type: boolean
+        backtested:
+          description: True once a single-strategy backtest of the CURRENT rules completed. Editing rules resets this — and live enablement requires it.
+          type: boolean
+        lastBacktestAt:
+          type: string
+          format: date-time
+          nullable: true
+        rulesUpdatedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CustomStrategyCreate:
+      type: object
+      required: [name, rules]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+
+    CustomStrategyUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+
+    StrategySignalItem:
+      type: object
+      required: [symbol, confidence, regime, lastPrice, status]
+      properties:
+        symbol:
+          type: string
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        confidence:
+          type: number
+        regime:
+          type: string
+        lastPrice:
+          type: number
+        adx:
+          type: number
+        rsi:
+          type: number
+        volumeRatio:
+          type: number
+        status:
+          type: string
+        entryReason:
+          type: string
+ }
+        deterministicAssessment: { $ref: "#/components/schemas/DeterministicAssessment" }
+        reasoning: { $ref: "#/components/schemas/CouncilReasoningReport" }
+        replay: { $ref: "#/components/schemas/ShadowReplayBundle" }
 
     StrategyInfo:
       type: object
