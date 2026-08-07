@@ -224,6 +224,7 @@ export function buildEvidenceSnapshot(view: PointInTimeView<TradeObservation>, o
     const decayWeight = Math.pow(0.5, ageDays / halfLifeDays);
     const effectDirection = baseline == null || draft.metrics.winRate == null ? "unknown" as const : !draft.significant ? "indistinguishable" as const : draft.metrics.winRate < baseline ? "worse" as const : "better" as const;
     const permission = effectDirection === "worse" && (draft.metrics.averageR ?? 0) < 0 ? "withhold" as const : "observe" as const;
+    const lifecycle: EvidenceRecord["lifecycle"] = permission === "observe" ? "observational" : "shadow";
     const fingerprint = sha256Fingerprint({ schemaVersion: EVIDENCE_SCHEMA_VERSION, scope: draft.scope, metrics: draft.metrics, qValue: draft.qValue, dataCutoffMs });
     const learnedStatement = draft.metrics.gated
       ? `${draft.scope.label} has ${draft.metrics.samples} outcomes; ${minimumSamples} are required before estimating performance.`
@@ -235,7 +236,7 @@ export function buildEvidenceSnapshot(view: PointInTimeView<TradeObservation>, o
     return {
       schemaVersion: EVIDENCE_SCHEMA_VERSION,
       evidenceId: deterministicUuid({ fingerprint, type: "evidence-record" }), fingerprint,
-      lifecycle: permission === "observe" ? "observational" : "shadow",
+      lifecycle,
       scope: draft.scope, metrics: draft.metrics,
       statistics: { baselineWinRate: baseline, pValue: draft.pValue == null ? null : round4(draft.pValue), qValue: draft.qValue, falseDiscoveryRate: fdr, correction: "benjamini-hochberg", significant: draft.significant, effectDirection },
       drift: driftOf(draft.rows), permission,
