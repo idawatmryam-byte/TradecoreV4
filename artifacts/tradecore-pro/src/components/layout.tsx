@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert,
   Layers, LogOut, Menu, UserCircle2, Bitcoin, CandlestickChart, Eye, Hammer, Inbox,
-  ChevronDown, Plus,
+  ChevronDown, Plus, Database,
 } from "lucide-react";
 import { useGetBotStatus, useHealthCheck, useGetConfig, useGetSections, getGetBotStatusQueryKey, getHealthCheckQueryKey, getGetConfigQueryKey, getGetSectionsQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
@@ -138,6 +138,7 @@ interface NavItem {
  */
 const PRIMARY_NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: Activity },
+  { href: "/ai-brain", label: "AI Brain", icon: BrainCircuit },
   { href: "/copilot", label: "AI Co-Pilot", icon: Inbox },
   { href: "/trades", label: "Portfolio", icon: History, match: ["/journal"] },
   { href: "/stats", label: "Performance", icon: BarChart2, match: ["/decisions"] },
@@ -155,7 +156,7 @@ const ADVANCED_NAV: NavItem[] = [
   { href: "/strategies", label: "Strategies", icon: Layers },
   { href: "/builder", label: "Strategy Builder", icon: Hammer },
   { href: "/backtest", label: "Backtesting", icon: FlaskConical },
-  { href: "/memory", label: "Learning", icon: BrainCircuit },
+  { href: "/memory", label: "Learning", icon: Database },
 ];
 
 /** Does `location` belong to this nav item? */
