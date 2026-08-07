@@ -791,6 +791,123 @@ paths:
                 items:
                   $ref: "#/components/schemas/HourlyStat"
 
+  /memory/evidence:
+    get:
+      operationId: getEvidenceOverview
+      tags: [memory]
+      summary: Point-in-time learning evidence and version lifecycle
+      description: >-
+        Returns observational and Shadow evidence separately from the exact
+        validated rule version, if any, that a user explicitly activated.
+      responses:
+        "200":
+          description: Evidence overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceOverview"
+
+  /memory/evidence/validate:
+    post:
+      operationId: validateEvidence
+      tags: [memory]
+      summary: Validate a frozen tightening-only rule set
+      description: >-
+        Fits on an earlier chronological window, applies an embargo, and tests
+        on later outcomes. An improved result creates Shadow only and never
+        activates influence.
+      responses:
+        "200":
+          description: Completed Shadow validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceValidationResult"
+
+  /memory/evidence/{version}/promote:
+    post:
+      operationId: promoteEvidenceVersion
+      tags: [memory]
+      summary: Explicitly activate an exact validated evidence version
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvidenceConfirmation"
+      responses:
+        "200":
+          description: Exact version activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceLifecycleResult"
+        "409":
+          description: Promotion gate refused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /memory/evidence/{version}/suspend:
+    post:
+      operationId: suspendEvidenceVersion
+      tags: [memory]
+      summary: Suspend the active evidence version immediately
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvidenceSuspension"
+      responses:
+        "200":
+          description: Version suspended and influence disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceLifecycleResult"
+
+  /memory/evidence/{version}/rollback:
+    post:
+      operationId: rollbackEvidenceVersion
+      tags: [memory]
+      summary: Explicitly roll back to a previously validated version
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvidenceConfirmation"
+      responses:
+        "200":
+          description: Validated version reactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceLifecycleResult"
+        "409":
+          description: Rollback gate refused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /memory/blacklist:
     get:
       operationId: getBlacklist
@@ -1625,6 +1742,3405 @@ components:
         — for scripts, curl, or a non-browser client. Same shared credentials
         as sessionCookie; this is just the non-cookie way to present them.
   schemas:
+    EvidenceOverview:
+      type: object
+      required: [executionTarget, snapshot, activeRuleVersion, ruleSets]
+      properties:
+        executionTarget:
+          type: string
+          enum: [demo, live]
+        activeRuleVersion:
+          type: [string, "null"]
+        snapshot:
+          $ref: "#/components/schemas/EvidenceSnapshot"
+        ruleSets:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvidenceRuleSet"
+
+    EvidenceSnapshot:
+      type: object
+      required: [schemaVersion, snapshotVersion, fingerprint, executionTarget, generatedAt, dataCutoff, totalOutcomes, minimumSamples, falseDiscoveryRate, cellsTested, records, limitations]
+      properties:
+        schemaVersion: { type: string, const: evidence-v1 }
+        snapshotVersion: { type: string }
+        fingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    BotStatus:
+      type: object
+      required: [running, dailyPnl, openPositions, totalTradesToday, winRateToday, circuitBreakerActive, riskPaused, mode]
+      properties:
+        running:
+          type: boolean
+        balanceUsdt:
+          type: ["number", "null"]
+          description: "Free USDT on the connected exchange environment; null when the engine is stopped."
+        dailyPnl:
+          type: number
+        openPositions:
+          type: integer
+        totalTradesToday:
+          type: integer
+        winRateToday:
+          type: number
+        circuitBreakerActive:
+          type: boolean
+        riskPaused:
+          type: boolean
+          description: "True when trading is suspended after 3 consecutive risk violations — see POST /bot/reset-risk-pause."
+        mode:
+          type: string
+          enum: [live, testnet, backtest]
+        startedAt:
+          type: ["string", "null"]
+          format: date-time
+        lastScanAt:
+          type: ["string", "null"]
+          format: date-time
+
+    IndicatorVote:
+      type: object
+      required: [name, signal, weight, value]
+      properties:
+        name:
+          type: string
+        signal:
+          type: string
+          enum: [bullish, bearish, neutral]
+        weight:
+          type: number
+        value:
+          type: number
+
+    ScannerRow:
+      type: object
+      required: [symbol, confidence, rsi, atrPercent, status, ema5AboveEma20, macroBullish, volumeRatio, regime, adx, macdHistogram, atrAbs, votes]
+      properties:
+        symbol:
+          type: string
+        confidence:
+          type: number
+        rsi:
+          type: number
+        atrPercent:
+          type: number
+        status:
+          type: string
+          enum: [watching, entered, blacklisted, skipped]
+        ema5AboveEma20:
+          type: boolean
+        macroBullish:
+          type: boolean
+        volumeRatio:
+          type: number
+        lastPrice:
+          type: number
+        regime:
+          type: string
+          enum: [strong_trend, weak_trend, range, high_volatility, low_volatility]
+        adx:
+          type: number
+        macdHistogram:
+          type: number
+        atrAbs:
+          type: number
+        votes:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndicatorVote"
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        entryReason:
+          type: string
+        side:
+          type: string
+          enum: [long, short]
+
+    PipelineStage:
+      type: object
+      required: [name, status, detail]
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [pass, fail, skip]
+        detail:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+
+    SymbolDecision:
+      type: object
+      required: [symbol, timestamp, confidence, finalDecision, blockStage, blockReason, stages]
+      properties:
+        symbol:
+          type: string
+        timestamp:
+          type: string
+        confidence:
+          type: number
+        finalDecision:
+          type: string
+          enum: [ENTERED, BLOCKED]
+        blockStage:
+          type: ["string", "null"]
+        blockReason:
+          type: ["string", "null"]
+        stages:
+          type: array
+          items:
+            $ref: "#/components/schemas/PipelineStage"
+
+    StrategyDecisionEntry:
+      type: object
+      required: [id, createdAt, symbol, strategyId, kind, occurrences, lastSeenAt]
+      properties:
+        id:
+          type: integer
+        createdAt:
+          type: string
+        symbol:
+          type: string
+        strategyId:
+          type: string
+        strategyName:
+          type: ["string", "null"]
+        kind:
+          type: string
+          enum: [executed, approved_not_taken, rejected]
+        side:
+          type: ["string", "null"]
+        confidence:
+          type: ["number", "null"]
+        stage:
+          type: ["string", "null"]
+        reason:
+          type: ["string", "null"]
+        report:
+          description: DecisionReport for rejections; the full TradePlan for approved/executed decisions.
+          type: ["object", "null"]
+          additionalProperties: true
+        tradeId:
+          type: ["integer", "null"]
+        occurrences:
+          type: integer
+        lastSeenAt:
+          type: string
+
+    Recommendation:
+      type: object
+      required: [id, status, authoredBy, symbol, strategyId, side, confidence, entryPrice, slPrice, tpPrice, qty, leverage, planFingerprint, expiresAt, createdAt]
+      properties:
+        id: { type: integer }
+        status:
+          type: string
+          enum: [created, executed, rejected, expired, superseded, blocked]
+        authoredBy:
+          type: string
+          enum: [engine, user]
+          description: "\"user\" marks a plan the trader modified — outcome attribution depends on it."
+        derivedFromId:
+          type: ["integer", "null"]
+        symbol: { type: string }
+        strategyId: { type: string }
+        strategyName: { type: ["string", "null"] }
+        side: { type: string, enum: [long, short] }
+        confidence: { type: number }
+        entryPrice: { type: number }
+        slPrice: { type: number }
+        tpPrice: { type: number }
+        qty: { type: number }
+        leverage: { type: integer }
+        planFingerprint:
+          type: string
+          description: "SHA-256 of the decision content. Identical to the plan AutoPilot would have executed for the same scan."
+        entryReason: { type: ["string", "null"] }
+        expiresAt: { type: string }
+        createdAt: { type: string }
+        actedAt: { type: ["string", "null"] }
+        tradeId: { type: ["integer", "null"] }
+        resolutionReason: { type: ["string", "null"] }
+
+    RecommendationList:
+      type: object
+      required: [recommendations]
+      properties:
+        recommendations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Recommendation"
+
+    RevalidationCheck:
+      type: object
+      required: [name, passed, detail]
+      properties:
+        name: { type: string }
+        passed: { type: boolean }
+        detail: { type: string }
+
+    RecommendationActionResult:
+      type: object
+      required: [ok, status, reason]
+      properties:
+        ok: { type: boolean }
+        status:
+          type: string
+          enum: [created, executed, rejected, expired, superseded, blocked]
+        reason: { type: string }
+        checks:
+          type: array
+          description: "Every re-validation check that ran, pass or fail — not just the first failure."
+          items:
+            $ref: "#/components/schemas/RevalidationCheck"
+        tradeId: { type: integer }
+        newRecommendationId:
+          type: integer
+          description: "Set by modify(): the new user-authored plan."
+
+    PortfolioImpact:
+      type: object
+      required: [currentOpenPositions, maxOpenPositions, candidateRiskUsdt, currentPortfolioRiskUsdt, afterPortfolioRiskUsdt, maxPortfolioRiskUsdt]
+      properties:
+        currentOpenPositions: { type: integer }
+        maxOpenPositions: { type: integer }
+        candidateRiskUsdt:
+          type: number
+          description: "This plan's own worst-case dollar risk: |entry − stop| × qty."
+        currentPortfolioRiskUsdt: { type: number }
+        afterPortfolioRiskUsdt:
+          type: number
+          description: "currentPortfolioRiskUsdt + candidateRiskUsdt — what the cap would read if this trade executes."
+        maxPortfolioRiskUsdt: { type: number }
+
+    CellStats:
+      type: object
+      required: [samples, wins, losses, scratches, gated, minSamples, winRate, winRateLow, winRateHigh, expectancyUsdt, profitFactor, avgR, netPnlUsdt]
+      description: >-
+        Outcome summary for one bucket of closed trades. Counts and net P&L are
+        facts and are always present; every rate is null while `gated` is true.
+      properties:
+        samples: { type: integer }
+        wins: { type: integer }
+        losses: { type: integer }
+        scratches:
+          type: integer
+          description: "Break-even washes — excluded from the win-rate denominator, not counted as losses."
+        gated:
+          type: boolean
+          description: "samples < minSamples. Every rate below is null."
+        minSamples: { type: integer }
+        winRate:
+          type: ["number", "null"]
+          description: "Scratch-adjusted: wins / (wins + losses)."
+        winRateLow:
+          type: ["number", "null"]
+          description: "Lower bound of the 95% Wilson interval on winRate."
+        winRateHigh: { type: ["number", "null"] }
+        expectancyUsdt: { type: ["number", "null"] }
+        profitFactor: { type: ["number", "null"] }
+        avgR: { type: ["number", "null"] }
+        netPnlUsdt: { type: number }
+
+    CellSignificance:
+      type: object
+      required: [pValue, qValue, significant]
+      properties:
+        pValue:
+          type: number
+          description: "Exact two-sided binomial test against the account baseline win rate."
+        qValue:
+          type: number
+          description: "Benjamini–Hochberg adjusted p-value: the false-discovery rate incurred by treating this cell as a real edge."
+        significant:
+          type: boolean
+          description: "qValue is within the family's FDR budget."
+
+    KnowledgeCell:
+      allOf:
+        - $ref: "#/components/schemas/CellStats"
+        - type: object
+          required: [dimension, key, label, significance]
+          properties:
+            dimension:
+              type: string
+              enum: [strategy_regime, symbol_strategy, session, volatility]
+            key: { type: string }
+            label: { type: string }
+            significance:
+              oneOf:
+                - $ref: "#/components/schemas/CellSignificance"
+                - type: "null"
+              description: "Null when the cell is gated, or when there is no trustworthy baseline to test against."
+
+    ReliabilityBin:
+      type: object
+      required: [low, high, count, meanPredicted, observedRate]
+      properties:
+        low: { type: number }
+        high: { type: number }
+        count: { type: integer }
+        meanPredicted: { type: ["number", "null"] }
+        observedRate:
+          type: ["number", "null"]
+          description: "Observed win frequency in the bin. Perfect calibration puts this on the diagonal."
+
+    CalibrationScores:
+      type: object
+      required: [brier, logLoss, ece]
+      properties:
+        brier: { type: ["number", "null"] }
+        logLoss: { type: ["number", "null"] }
+        ece:
+          type: ["number", "null"]
+          description: "Expected Calibration Error — sample-weighted average gap between promised and observed frequency."
+
+    CalibrationReport:
+      type: object
+      required: [gated, minSamples, totalSamples, trainSamples, validationSamples, samplesNeeded, raw, calibrated, climatologyBrier, beatsClimatology, bins]
+      description: >-
+        Whether strategy confidence behaves like a probability on this account's
+        record. Fitted on an earlier chronological slice and scored on a later
+        one — never on its own training data. Gated on the VALIDATION set, since
+        that is where every published number is measured.
+      properties:
+        gated: { type: boolean }
+        minSamples: { type: integer }
+        totalSamples: { type: integer }
+        trainSamples: { type: integer }
+        validationSamples: { type: integer }
+        samplesNeeded:
+          type: integer
+          description: "Further validation-set trades needed to open the gate; 0 once open."
+        raw:
+          $ref: "#/components/schemas/CalibrationScores"
+        calibrated:
+          $ref: "#/components/schemas/CalibrationScores"
+        climatologyBrier:
+          type: ["number", "null"]
+          description: "Brier score of predicting the base rate for every trade — the bar any calibration must clear to be worth anything."
+        beatsClimatology:
+          type: boolean
+          description: "calibrated.brier < climatologyBrier. False means confidence carries no usable information on this record."
+        bins:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReliabilityBin"
+
+    KnowledgeOverview:
+      type: object
+      required: [executionTarget, asOf, totalTrades, baselineWinRate, minSamples, fdr, cellsTested, cells, calibration]
+      properties:
+        executionTarget:
+          type: string
+          enum: [demo, live]
+          description: "Which record these numbers describe. Demo and live are never pooled."
+        asOf:
+          type: string
+          description: "The point-in-time cut. Every claim is 'given only what was knowable at this moment'."
+        totalTrades: { type: integer }
+        baselineWinRate:
+          type: ["number", "null"]
+          description: "The account's own scratch-adjusted win rate — the null hypothesis each cell is tested against. Null below the gate."
+        minSamples: { type: integer }
+        fdr:
+          type: number
+          description: "False-discovery-rate budget for the significance family."
+        cellsTested:
+          type: integer
+          description: "How many cells entered the multiple-comparison family."
+        cells:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeCell"
+        calibration:
+          $ref: "#/components/schemas/CalibrationReport"
+
+    InfluenceRule:
+      type: object
+      required: [dimension, key, label, samples, winRate, baselineWinRate, qValue, delta]
+      description: >-
+        One knowledge cell memory is acting on. Present only for cells that
+        cleared the sample gate AND whose q-value survived the
+        multiple-comparison correction.
+      properties:
+        dimension:
+          type: string
+          enum: [strategy_regime, symbol_strategy, session, volatility]
+        key: { type: string }
+        label: { type: string }
+        samples: { type: integer }
+        winRate: { type: number }
+        baselineWinRate: { type: number }
+        qValue: { type: number }
+        delta:
+          type: number
+          description: "Confidence points this cell adds to the bar. Always positive — memory only tightens."
+
+    MemoryArmMetrics:
+      type: object
+      required: [trades, wins, losses, winRate, netPnlUsdt, expectancyUsdt]
+      properties:
+        trades: { type: integer }
+        wins: { type: integer }
+        losses: { type: integer }
+        winRate: { type: ["number", "null"] }
+        netPnlUsdt: { type: number }
+        expectancyUsdt: { type: number }
+
+    MemoryValidationSummary:
+      type: object
+      required: [id, status, verdict, summary, stateVersion, executionTarget, trainTrades, validationTrades, withheld, withheldPnlUsdt, expectancyDelta, createdAt]
+      properties:
+        id: { type: integer }
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        verdict:
+          type: ["string", "null"]
+          enum: [improved, no_better, insufficient_data, null]
+        summary: { type: ["string", "null"] }
+        stateVersion:
+          type: ["string", "null"]
+          description: "The rule-set version this run approved. Permission is version-scoped — a refit revokes it."
+        executionTarget: { type: string }
+        trainTrades: { type: integer }
+        validationTrades: { type: integer }
+        withheld: { type: integer }
+        withheldPnlUsdt: { type: ["number", "null"] }
+        expectancyDelta: { type: ["number", "null"] }
+        createdAt: { type: string }
+
+    MemoryValidationResult:
+      type: object
+      required: [verdict, summary, stateVersion, trainTrades, validationTrades, withheld, withheldPnlUsdt, expectancyDelta, baseline, withMemory, rules]
+      properties:
+        verdict:
+          type: string
+          enum: [improved, no_better, insufficient_data]
+        summary: { type: string }
+        stateVersion: { type: string }
+        trainTrades: { type: integer }
+        validationTrades: { type: integer }
+        withheld:
+          type: integer
+          description: "Out-of-sample trades memory would have withheld."
+        withheldPnlUsdt:
+          type: number
+          description: "P&L of the withheld trades. Negative is the point."
+        expectancyDelta: { type: number }
+        baseline:
+          $ref: "#/components/schemas/MemoryArmMetrics"
+        withMemory:
+          $ref: "#/components/schemas/MemoryArmMetrics"
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/InfluenceRule"
+
+    AppliedInfluence:
+      type: object
+      required: [id, symbol, strategyId, admitted, confidence, requiredConfidence, delta, memoryVersion, executionTarget, reason, createdAt]
+      description: >-
+        One time memory raised a plan's bar. Both outcomes are recorded —
+        logging only the withheld trades would read as a list of saves and hide
+        every time a rule fired harmlessly.
+      properties:
+        id: { type: integer }
+        symbol: { type: string }
+        strategyId: { type: string }
+        admitted:
+          type: boolean
+          description: "True when the plan cleared the raised bar anyway."
+        confidence: { type: number }
+        requiredConfidence: { type: number }
+        delta: { type: number }
+        memoryVersion: { type: string }
+        executionTarget: { type: string }
+        reason: { type: string }
+        createdAt: { type: string }
+
+    MemoryInfluenceStatus:
+      type: object
+      required: [enabled, maxDelta, approvedVersion, active, needsValidation, executionTarget, reason, summary, version, rules, latestValidation, recent]
+      properties:
+        enabled:
+          type: boolean
+          description: "What the user asked for. Not the same as `active`."
+        maxDelta:
+          type: number
+          description: "Hard cap in confidence points, applied after summing every matching cell."
+        approvedVersion: { type: ["string", "null"] }
+        active:
+          type: boolean
+          description: "Whether the engine is actually acting on memory right now."
+        needsValidation:
+          type: boolean
+          description: "Live influence is requested but blocked for want of a matching passing validation."
+        executionTarget: { type: string }
+        reason: { type: string }
+        summary: { type: string }
+        version:
+          type: string
+          description: "\"memory-0\" when inert; \"memory-1:<hash>\" when it carries rules."
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/InfluenceRule"
+        latestValidation:
+          oneOf:
+            - $ref: "#/components/schemas/MemoryValidationSummary"
+            - type: "null"
+        recent:
+          type: array
+          items:
+            $ref: "#/components/schemas/AppliedInfluence"
+
+    UpdateMemoryInfluence:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        maxDelta:
+          type: number
+          minimum: 0
+          maximum: 25
+          description: "Hard cap in confidence points. Bounded server-side; memory is not permitted an unlimited reach."
+
+    MemoryInfluenceToggle:
+      type: object
+      required: [enabled, active, needsValidation, version, reason]
+      properties:
+        enabled: { type: boolean }
+        active: { type: boolean }
+        needsValidation: { type: boolean }
+        version: { type: string }
+        reason: { type: string }
+
+    SimilarMatch:
+      type: object
+      required: [tradeId, symbol, strategyId, closedAt, similarity, pnl, rMultiple, outcome]
+      properties:
+        tradeId: { type: integer }
+        symbol: { type: string }
+        strategyId: { type: ["string", "null"] }
+        closedAt: { type: number, description: "Epoch milliseconds the outcome was settled." }
+        similarity:
+          type: number
+          description: "Cosine similarity on z-score-normalised feature vectors, in [-1, 1]."
+        pnl: { type: number }
+        rMultiple: { type: ["number", "null"] }
+        outcome:
+          type: string
+          enum: [win, loss, scratch]
+
+    SimilarTrades:
+      type: object
+      required: [available, reason, poolSize, minPoolSize, similarityFloor, matches, stats, featuresUsed]
+      description: >-
+        Closed trades whose entry conditions resembled the candidate. Cosine
+        similarity over z-scored vectors — raw cosine would be dominated by
+        whichever features have the largest magnitude. A similarity FLOOR comes
+        before any top-N cap, so a sparse account gets "nothing comparable"
+        rather than its N least-dissimilar trades. `reason` is always populated.
+      properties:
+        available: { type: boolean }
+        reason: { type: string }
+        poolSize:
+          type: integer
+          description: "Closed trades carrying recorded indicator readings."
+        minPoolSize:
+          type: integer
+          description: "Pool needed before z-scores are trustworthy enough to normalise with."
+        similarityFloor: { type: number }
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/SimilarMatch"
+        stats:
+          oneOf:
+            - $ref: "#/components/schemas/CellStats"
+            - type: "null"
+          description: "Aggregate outcome of the matches, gated separately — individual trades are facts, their win rate is an estimate."
+        featuresUsed:
+          type: array
+          items: { type: string }
+
+    RecommendationWorkspace:
+      type: object
+      required: [recommendation, decisionTrace, portfolioImpact, similarTrades]
+      properties:
+        recommendation:
+          $ref: "#/components/schemas/Recommendation"
+        decisionTrace:
+          type: array
+          items:
+            $ref: "#/components/schemas/PipelineStage"
+        portfolioImpact:
+          $ref: "#/components/schemas/PortfolioImpact"
+        similarTrades:
+          $ref: "#/components/schemas/SimilarTrades"
+
+    Notification:
+      type: object
+      required: [id, type, message, severity, createdAt, readAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        message:
+          type: string
+        severity:
+          type: string
+          enum: [info, warning, critical]
+        createdAt:
+          type: string
+        readAt:
+          type: ["string", "null"]
+
+    NotificationList:
+      type: object
+      required: [unreadCount, notifications]
+      properties:
+        unreadCount:
+          type: integer
+        notifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
+
+    JournalEntry:
+      type: object
+      required: [id, tradeId, outcome, findings, summary, createdAt, symbol, side, entryPrice, entryTime]
+      properties:
+        id:
+          type: integer
+        tradeId:
+          type: integer
+        outcome:
+          type: string
+          enum: [win, loss, breakeven]
+        rMultiple:
+          description: Realized reward:risk in R units = net P&L ÷ planned dollar risk.
+          type: ["number", "null"]
+        grade:
+          description: Evidence-based execution grade A-F — a scorecard of what happened, not a prediction.
+          type: ["string", "null"]
+        findings:
+          description: Itemised factual findings (fees vs. move, stop-in-noise, momentum decay, etc.).
+          type: array
+          items:
+            type: string
+        summary:
+          type: string
+        createdAt:
+          type: string
+        symbol:
+          type: string
+        side:
+          type: string
+        strategyId:
+          type: ["string", "null"]
+        strategyName:
+          type: ["string", "null"]
+        entryPrice:
+          type: number
+        exitPrice:
+          type: ["number", "null"]
+        pnl:
+          type: ["number", "null"]
+        entryTime:
+          type: string
+        exitTime:
+          type: ["string", "null"]
+        exitReason:
+          type: ["string", "null"]
+        holdingSeconds:
+          type: ["integer", "null"]
+
+    LiveTicker:
+      type: object
+      required: [symbol, last, bid, ask, spread, spreadPercent, baseVolume, quoteVolume, changePercent, timestamp]
+      properties:
+        symbol:
+          type: string
+        last:
+          type: number
+        bid:
+          type: number
+        ask:
+          type: number
+        spread:
+          type: number
+        spreadPercent:
+          type: number
+        baseVolume:
+          type: number
+        quoteVolume:
+          type: number
+        changePercent:
+          type: number
+        timestamp:
+          type: number
+
+    ConnectionStatus:
+      type: object
+      required: [connected, mode, exchange, marketsLoaded, credentialsVerified, lastTickerFetchAt, lastTickerLatencyMs, lastError]
+      properties:
+        connected:
+          type: boolean
+        mode:
+          type: string
+          enum: [live, testnet, backtest]
+        exchange:
+          type: string
+        marketsLoaded:
+          type: integer
+        credentialsVerified:
+          type: boolean
+        lastTickerFetchAt:
+          type: ["string", "null"]
+        lastTickerLatencyMs:
+          type: ["number", "null"]
+        lastError:
+          type: ["string", "null"]
+
+    EvidenceReference:
+      type: object
+      additionalProperties: false
+      required: [evidenceId, kind, source, summary, reference, dataTimestamp, strength]
+      properties:
+        evidenceId: { type: string, minLength: 1, maxLength: 160 }
+        kind:
+          type: string
+          enum: [observation, specialist, statistical, memory, portfolio, execution]
+        source: { type: string, minLength: 1, maxLength: 120 }
+        summary: { type: string, minLength: 1, maxLength: 1000 }
+        reference: { type: string, minLength: 1, maxLength: 500 }
+        fingerprint:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+        dataTimestamp: { type: string, format: date-time }
+        strength: { type: number, minimum: 0, maximum: 1 }
+
+    ProposedTradePlan:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, strategyId, strategyName, symbol, side, confidence, entryPrice, stopPrice, targetPrice, quantity, leverage, expectedHoldSeconds, maxHoldSeconds, regime, netRewardRisk, report]
+      properties:
+        schemaVersion: { type: string, enum: ["1.0.0"] }
+        strategyId: { type: string, minLength: 1, maxLength: 120 }
+        strategyName: { type: string, minLength: 1, maxLength: 200 }
+        symbol: { type: string, minLength: 1, maxLength: 80 }
+        side: { type: string, enum: [long, short] }
+        confidence: { type: number, minimum: 0, maximum: 100 }
+        entryPrice: { type: number, exclusiveMinimum: 0 }
+        stopPrice: { type: number, exclusiveMinimum: 0 }
+        targetPrice: { type: number, exclusiveMinimum: 0 }
+        quantity: { type: number, exclusiveMinimum: 0 }
+        leverage: { type: integer, minimum: 1 }
+        expectedHoldSeconds: { type: integer, minimum: 1 }
+        maxHoldSeconds: { type: integer, minimum: 1 }
+        regime: { type: string, minLength: 1, maxLength: 120 }
+        netRewardRisk:
+          type: [number, "null"]
+          exclusiveMinimum: 0
+        report:
+          type: object
+          additionalProperties: false
+          required: [summary, marketView, entryLogic, riskLogic, exitLogic, checks]
+          properties:
+            summary: { type: string, minLength: 1 }
+            marketView: { type: array, items: { type: string } }
+            entryLogic: { type: array, items: { type: string } }
+            riskLogic: { type: array, items: { type: string } }
+            exitLogic: { type: array, items: { type: string } }
+            checks:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required: [name, passed, detail]
+                properties:
+                  name: { type: string }
+                  passed: { type: boolean }
+                  detail: { type: string }
+            data:
+              type: object
+              additionalProperties: true
+
+    BrainDecision:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, decisionId, action, symbol, marketStateFingerprint, supportingEvidence, opposingEvidence, uncertainty, dataTimestamp, expiresAt, invalidationConditions, versions, reasonCode, thesis, proposedTrade]
+      properties:
+        schemaVersion: { type: string, enum: ["1.0.0"] }
+        decisionId: { type: string, format: uuid }
+        action:
+          type: string
+          enum: [ENTER_NOW, WAIT_FOR_TRIGGER, OBSERVE, REJECT, REDUCE, EXIT]
+        symbol: { type: string, minLength: 1, maxLength: 80 }
+        marketStateFingerprint:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+        supportingEvidence:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/EvidenceReference" }
+        opposingEvidence:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/EvidenceReference" }
+        uncertainty:
+          type: object
+          additionalProperties: false
+          required: [score, reasons, calibrated]
+          properties:
+            score: { type: number, minimum: 0, maximum: 1 }
+            reasons:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items: { type: string, minLength: 1, maxLength: 500 }
+            calibrated: { type: boolean }
+        dataTimestamp: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        invalidationConditions:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { type: string, minLength: 1, maxLength: 500 }
+        versions:
+          type: object
+          additionalProperties: false
+          required: [brain, strategy, model, config, marketState]
+          properties:
+            brain: { type: string }
+            strategy: { type: string }
+            model: { type: string }
+            config: { type: string }
+            marketState: { type: string }
+        reasonCode:
+          type: string
+          pattern: '^[A-Z0-9_]{3,120}$'
+        thesis:
+          type: [object, "null"]
+          additionalProperties: true
+        proposedTrade:
+          oneOf:
+            - $ref: "#/components/schemas/ProposedTradePlan"
+            - type: "null"
+
+    MarketState:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, marketStateVersion, fingerprint, symbol, venue, provider, dataTimestamp, observedAt, freshness, dataQuality, observations, inferences, context]
+      properties:
+        schemaVersion: { type: string, enum: ["1.0.0"] }
+        marketStateVersion: { type: string, enum: [market-state-v1] }
+        fingerprint:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+        symbol: { type: string, minLength: 1, maxLength: 80 }
+        venue: { type: string, enum: [spot, futures, forex] }
+        provider: { type: string, enum: [binance, oanda, fixture] }
+        dataTimestamp: { type: string, format: date-time }
+        observedAt: { type: string, format: date-time }
+        freshness:
+          type: object
+          additionalProperties: false
+          required: [status, ageMs, maximumAgeMs]
+          properties:
+            status: { type: string, enum: [fresh, stale] }
+            ageMs: { type: integer, minimum: 0 }
+            maximumAgeMs: { type: integer, minimum: 1 }
+        dataQuality:
+          type: object
+          additionalProperties: false
+          required: [status, issues]
+          properties:
+            status: { type: string, enum: [healthy, degraded] }
+            issues:
+              type: array
+              maxItems: 50
+              items: { type: string, minLength: 1 }
+        observations:
+          type: object
+          additionalProperties: true
+          required: [lastPrice, timeframes, trend, volatility, momentum, liquidity, structure]
+          properties:
+            lastPrice: { type: number, exclusiveMinimum: 0 }
+            timeframes:
+              type: array
+              minItems: 5
+              maxItems: 5
+              items:
+                type: object
+                additionalProperties: false
+                required: [timeframe, intervalMs, candleCount, lastClosedAt, lastClose, excludedOpenCandles]
+                properties:
+                  timeframe: { type: string, enum: [1m, 3m, 5m, 15m, 1h] }
+                  intervalMs: { type: integer, minimum: 1 }
+                  candleCount: { type: integer, minimum: 1 }
+                  lastClosedAt: { type: string, format: date-time }
+                  lastClose: { type: number, exclusiveMinimum: 0 }
+                  excludedOpenCandles: { type: integer, minimum: 0 }
+            trend: { type: object, additionalProperties: true }
+            volatility: { type: object, additionalProperties: true }
+            momentum: { type: object, additionalProperties: true }
+            liquidity: { type: object, additionalProperties: true }
+            structure: { type: object, additionalProperties: true }
+        inferences:
+          type: object
+          additionalProperties: false
+          required: [regime, regimeConfidence, dominantDirection, session, anomaly]
+          properties:
+            regime: { type: string, enum: [strong_trend, weak_trend, range, high_volatility, low_volatility] }
+            regimeConfidence: { type: number, minimum: 0, maximum: 1 }
+            dominantDirection: { type: string, enum: [bullish, bearish, neutral] }
+            session: { type: string, enum: [asia, europe, us, europe_us_overlap, off_hours] }
+            anomaly: { type: object, additionalProperties: true }
+        context:
+          type: object
+          additionalProperties: false
+          required: [breadth, leadership, correlation]
+          properties:
+            breadth: { type: object, additionalProperties: true }
+            leadership: { type: object, additionalProperties: true }
+            correlation: { type: object, additionalProperties: true }
+
+    MarketStateBuildIssue:
+      type: object
+      additionalProperties: false
+      required: [code, detail]
+      properties:
+        code: { type: string }
+        detail: { type: string }
+        timeframe: { type: string }
+
+    MarketStateResult:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [status, state]
+          properties:
+            status: { type: string, enum: [available] }
+            state: { $ref: "#/components/schemas/MarketState" }
+        - type: object
+          additionalProperties: false
+          required: [status, symbol, observedAt, issues]
+          properties:
+            status: { type: string, enum: [blocked] }
+            symbol: { type: string }
+            observedAt: { type: string, format: date-time }
+            issues:
+              type: array
+              minItems: 1
+              items: { $ref: "#/components/schemas/MarketStateBuildIssue" }
+
+    MarketMonitor:
+      type: object
+      required: [connection, tickers]
+      properties:
+        connection:
+          $ref: "#/components/schemas/ConnectionStatus"
+        tickers:
+          type: array
+          items:
+            $ref: "#/components/schemas/LiveTicker"
+
+    CorrelationCell:
+      type: object
+      required: [a, b, correlation]
+      properties:
+        a:
+          type: string
+        b:
+          type: string
+        correlation:
+          type: number
+          nullable: true
+          description: >-
+            Pearson r over the days both symbols share. Null means too little
+            shared history to measure — render "insufficient history", not a
+            number.
+
+    CorrelationHeatMap:
+      type: object
+      required: [symbols, cells, openSymbols, threshold, minObservations]
+      properties:
+        symbols:
+          type: array
+          items:
+            type: string
+        cells:
+          type: array
+          description: Upper triangle only — correlation is symmetric and the diagonal is trivially 1.
+          items:
+            $ref: "#/components/schemas/CorrelationCell"
+        openSymbols:
+          type: array
+          description: Symbols currently carrying a position.
+          items:
+            type: string
+        threshold:
+          type: number
+          description: Reinforcement level at which two symbols count as the same bet.
+        minObservations:
+          type: integer
+          description: Shared days required before a correlation is reported at all.
+
+    BlockingReason:
+      type: object
+      required: [stage, reason, count, symbols]
+      properties:
+        stage:
+          type: string
+        reason:
+          type: string
+        count:
+          type: integer
+        symbols:
+          type: array
+          items:
+            type: string
+
+    BlockingSummary:
+      type: object
+      required: [tradingActive, running, globalBlock, entered, totalEvaluated, reasons, lastScanAt]
+      properties:
+        tradingActive:
+          type: boolean
+        running:
+          type: boolean
+        globalBlock:
+          type: ["string", "null"]
+        entered:
+          type: integer
+        totalEvaluated:
+          type: integer
+        reasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/BlockingReason"
+        lastScanAt:
+          type: ["string", "null"]
+
+    Trade:
+      type: object
+      required: [id, symbol, side, entryPrice, quantity, status, confidence, stopLoss, takeProfit, entryTime]
+      properties:
+        id:
+          type: integer
+        symbol:
+          type: string
+        side:
+          type: string
+          enum: [buy, sell]
+        entryPrice:
+          type: number
+        exitPrice:
+          type: ["number", "null"]
+        quantity:
+          type: number
+        pnl:
+          type: ["number", "null"]
+        status:
+          type: string
+          enum: [open, closed, stopped]
+        confidence:
+          type: number
+        stopLoss:
+          type: number
+        takeProfit:
+          type: number
+        entryTime:
+          type: string
+          format: date-time
+        exitTime:
+          type: ["string", "null"]
+          format: date-time
+        exitReason:
+          type: ["string", "null"]
+          # "timeout" is the on-the-wire value for the Phase 4 TIME_LIMIT exit —
+          # see lib/exitTypes.ts for the canonical mapping.
+          enum: [take_profit, stop_loss, signal_exit, timeout, break_even, trailing_stop, manual, emergency_stop, circuit_breaker, reconciled_missing, null]
+        isBacktest:
+          type: boolean
+        plannedStopLoss:
+          type: ["number", "null"]
+        plannedTakeProfit:
+          type: ["number", "null"]
+        plannedQuantity:
+          type: ["number", "null"]
+        feesUsdt:
+          type: ["number", "null"]
+        slippageUsdt:
+          type: ["number", "null"]
+        holdingSeconds:
+          type: ["integer", "null"]
+        grossPnl:
+          type: ["number", "null"]
+        remainingQuantity:
+          type: ["number", "null"]
+        tp1Price:
+          type: ["number", "null"]
+        tp1Quantity:
+          type: ["number", "null"]
+        tp1Filled:
+          type: boolean
+        tp1FillPrice:
+          type: ["number", "null"]
+        tp2Price:
+          type: ["number", "null"]
+        tp2Quantity:
+          type: ["number", "null"]
+        tp2Filled:
+          type: boolean
+        tp2FillPrice:
+          type: ["number", "null"]
+        breakEvenActive:
+          type: boolean
+        trailingStopActive:
+          type: boolean
+        trailingStopMode:
+          type: ["string", "null"]
+
+    StatsSummary:
+      type: object
+      required: [totalTrades, winRate, totalPnl, maxDrawdown, avgConfidence, bestTrade, worstTrade, streakCurrent, streakType]
+      properties:
+        totalTrades:
+          type: integer
+        winRate:
+          type: number
+        totalPnl:
+          type: number
+        maxDrawdown:
+          type: number
+        avgConfidence:
+          type: number
+        bestTrade:
+          type: number
+        worstTrade:
+          type: number
+        streakCurrent:
+          type: integer
+        streakType:
+          type: string
+          enum: [win, loss, none]
+
+    DailyStats:
+      type: object
+      required: [date, tradesCount, winRate, totalPnl, openPositions, circuitBreakerHit]
+      properties:
+        date:
+          type: string
+        tradesCount:
+          type: integer
+        winRate:
+          type: number
+        totalPnl:
+          type: number
+        openPositions:
+          type: integer
+        circuitBreakerHit:
+          type: boolean
+        hourlyBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/HourlyStat"
+
+    DailyReport:
+      type: object
+      required: [date, generatedAt, summary, byStrategy, bySymbol, exitReasons, trades]
+      properties:
+        date:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+        summary:
+          type: object
+          required: [totalTrades, wins, losses, winRate, totalPnl, totalFeesUsdt, bestTrade, worstTrade, openPositions]
+          properties:
+            totalTrades:
+              type: integer
+            wins:
+              type: integer
+            losses:
+              type: integer
+            winRate:
+              type: number
+            totalPnl:
+              type: number
+            totalFeesUsdt:
+              type: number
+            bestTrade:
+              type: number
+            worstTrade:
+              type: number
+            openPositions:
+              type: integer
+        byStrategy:
+          type: array
+          items:
+            type: object
+            required: [strategyName, trades, wins, pnl]
+            properties:
+              strategyName:
+                type: string
+              trades:
+                type: integer
+              wins:
+                type: integer
+              pnl:
+                type: number
+        bySymbol:
+          type: array
+          items:
+            type: object
+            required: [symbol, trades, wins, pnl]
+            properties:
+              symbol:
+                type: string
+              trades:
+                type: integer
+              wins:
+                type: integer
+              pnl:
+                type: number
+        exitReasons:
+          type: object
+          additionalProperties:
+            type: integer
+        trades:
+          type: array
+          items:
+            type: object
+            required: [id, symbol, side, entryTime, entryPrice, quantity]
+            properties:
+              id:
+                type: integer
+              symbol:
+                type: string
+              side:
+                type: string
+              strategyName:
+                type: ["string", "null"]
+              entryTime:
+                type: string
+                format: date-time
+              exitTime:
+                type: ["string", "null"]
+                format: date-time
+              entryPrice:
+                type: number
+              exitPrice:
+                type: ["number", "null"]
+              quantity:
+                type: number
+              pnl:
+                type: ["number", "null"]
+              exitReason:
+                type: ["string", "null"]
+
+    HourlyStat:
+      type: object
+      required: [hour, pnl, tradeCount, winRate, isToxic]
+      properties:
+        hour:
+          type: integer
+        pnl:
+          type: number
+        tradeCount:
+          type: integer
+        winRate:
+          type: number
+        isToxic:
+          type: boolean
+
+    BlacklistEntry:
+      type: object
+      required: [symbol, winRate, tradeCount, blacklistedAt, expiresAt]
+      properties:
+        symbol:
+          type: string
+        winRate:
+          type: number
+        tradeCount:
+          type: integer
+        blacklistedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+
+    ToxicHour:
+      type: object
+      required: [hour, cumulativePnl, tradeCount, blockedAt]
+      properties:
+        hour:
+          type: integer
+        cumulativePnl:
+          type: number
+        tradeCount:
+          type: integer
+        blockedAt:
+          type: string
+          format: date-time
+
+    DecisionFunnel:
+      type: object
+      required: [hours, signals, executed, rejected, approvedNotTaken, stages]
+      properties:
+        hours:
+          type: integer
+          description: Window actually measured.
+        signals:
+          type: integer
+          description: Total decisions considered — executed + rejected + approved-not-taken.
+        executed:
+          type: integer
+        rejected:
+          type: integer
+        approvedNotTaken:
+          type: integer
+          description: The strategy approved it; an engine-level cap or gate stopped it.
+        stages:
+          type: array
+          description: >
+            Rejection stages, largest first. `topReason` is the most frequent
+            verbatim reason inside that stage — the actionable part, since a
+            stage name alone doesn't say which number to change.
+          items:
+            type: object
+            required: [stage, count]
+            properties:
+              stage: { type: string }
+              count: { type: integer }
+              topReason: { type: string, nullable: true }
+
+    SectionsResponse:
+      type: object
+      required: [activated]
+      properties:
+        activated:
+          type: array
+          description: >-
+            Sections the user has deliberately set up. May be empty for a brand
+            new account that skipped onboarding — callers should fall back to
+            showing the currently selected section rather than nothing.
+          items:
+            type: string
+            enum: [crypto, forex]
+
+    BotConfig:
+      type: object
+      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, maxSymbolConcentrationPercent, maxNetExposurePercent, maxCorrelatedExposurePercent, correlationThreshold, correlationUnknownPolicy, confidenceThreshold, riskModel, stopLossPercent, takeProfitPercent, maxLossUsdt, targetProfitUsdt, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode, broker, executionTarget, mode, demoStartingBalanceUsdt, demoDataAvailable]
+      properties:
+        demoDataAvailable:
+          type: boolean
+          readOnly: true
+          description: >-
+            Whether this section can actually run in Demo on this deployment.
+            Crypto is always true (Binance's public endpoints need no
+            credentials). Forex is false unless the platform supplies its own
+            OANDA practice token, because OANDA publishes no public market
+            data — so a keyless forex demo is impossible, not merely
+            unconfigured. Read-only; a property of the deployment, not the user.
+        broker:
+          type: string
+          enum: [binance, oanda]
+          description: "Which broker this section's engine connects to — binance (crypto section) or oanda (forex section). Fixed per section, not user-editable."
+        marketType:
+          type: string
+          enum: [spot, futures, forex]
+          description: "Spot (no leverage, long-only), USDⓈ-M Futures (leveraged, long+short), or forex (OANDA, margin-based)"
+        leverage:
+          type: integer
+          description: "Futures leverage multiplier. Ignored in spot mode (always 1)."
+        marginMode:
+          type: string
+          enum: [isolated, cross]
+          description: "Futures margin mode. Ignored in spot mode."
+        positionSizeUsdt:
+          type: number
+        riskPercent:
+          type: number
+          description: "% of account balance to risk per trade (0 = fixed positionSizeUsdt)"
+        maxOpenPositions:
+          type: integer
+        maxPortfolioRiskPercent:
+          type: number
+          description: "Maximum % of total balance across all open positions"
+        dailyLossLimitUsdt:
+          type: number
+        maxSymbolConcentrationPercent:
+          type: number
+          description: "Max notional (entry price × qty) allowed in a single symbol, as % of balance. Default 100 (permissive — no effective limit) until tightened."
+        maxNetExposurePercent:
+          type: number
+          description: "Max net long-short notional exposure across all open positions, as % of balance. Default 200 (permissive — no effective limit) until tightened."
+        maxCorrelatedExposurePercent:
+          type: number
+          description: "Max notional across one correlated cluster (the candidate plus every open position measured to be the same directional bet), as % of balance. Default 200 (permissive) until tightened."
+        correlationThreshold:
+          type: number
+          description: "Reinforcement level (r adjusted for trade direction) at which two symbols count as the same bet."
+        correlationUnknownPolicy:
+          type: string
+          enum: [allow, block]
+          description: "What to do when a pair has too little shared history to measure. Never silently treated as uncorrelated."
+        confidenceThreshold:
+          type: integer
+        riskModel:
+          type: string
+          enum: [percent, dollar]
+          description: "How SL/TP are decided. 'percent': SL/TP are a % of price (stopLossPercent/takeProfitPercent) and size comes from riskPercent/positionSizeUsdt. 'dollar': SL/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt/targetProfitUsdt)."
+        stopLossPercent:
+          type: number
+          description: "Stop-loss distance as a % below entry price (used when riskModel = percent)"
+        takeProfitPercent:
+          type: number
+          description: "Take-profit distance as a % above entry price (used when riskModel = percent)"
+        maxLossUsdt:
+          type: number
+          description: "Dollar mode: max dollars to lose on one trade (net of fees)"
+        targetProfitUsdt:
+          type: number
+          description: "Dollar mode: desired dollar profit on one trade (net of fees)"
+        cooldownMinutes:
+          type: integer
+        scanIntervalSeconds:
+          type: integer
+        pairs:
+          type: array
+          items:
+            type: string
+        executionTarget:
+          type: string
+          enum: [demo, live]
+          description: "Where approved TradePlans execute. 'demo' = TradeCore's internal simulation on live market data (no broker, no API keys, no real money); 'live' = real orders through the connected broker."
+        mode:
+          type: string
+          enum: [research, copilot, autopilot]
+          description: "What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three."
+        demoStartingBalanceUsdt:
+          type: number
+          description: "Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades."
+        testnet:
+          type: boolean
+        backtestMode:
+          type: boolean
+        highFrequencyTestMode:
+          type: boolean
+          description: "Testnet/demo only: when on, the live engine overrides its turnover-limiting gates (cooldown, confidence floor, toxic hours, max positions, daily-loss breaker, max holding time) to generate a high volume of trades for end-to-end testing. Ignored on real-money keys. Not a profitable configuration."
+        alertWebhookUrl:
+          type: string
+          nullable: true
+          description: "Discord / Telegram / Slack incoming-webhook URL for risk alerts"
+
+    BotConfigUpdate:
+      type: object
+      properties:
+        marketType:
+          type: string
+          enum: [spot, futures, forex]
+        leverage:
+          type: integer
+          minimum: 1
+          maximum: 125
+          description: "Futures leverage multiplier (1 = no leverage). Ignored in spot mode."
+        marginMode:
+          type: string
+          enum: [isolated, cross]
+        positionSizeUsdt:
+          type: number
+          minimum: 1
+          maximum: 1000000
+        riskPercent:
+          type: number
+          minimum: 0
+          maximum: 10
+          description: "0 = fixed positionSizeUsdt instead of risk-based sizing. Capped at 10% per trade."
+        maxOpenPositions:
+          type: integer
+          minimum: 1
+          maximum: 50
+        maxPortfolioRiskPercent:
+          type: number
+          minimum: 0.1
+          maximum: 100
+        dailyLossLimitUsdt:
+          type: number
+          minimum: 0
+          description: "Stored as a positive magnitude; the circuit breaker trips when dailyPnl <= -this value."
+        maxSymbolConcentrationPercent:
+          type: number
+          minimum: 1
+          maximum: 100
+          description: "Max notional allowed in a single symbol, as % of balance."
+        maxNetExposurePercent:
+          type: number
+          minimum: 1
+          maximum: 200
+          description: "Max net long-short notional exposure across all open positions, as % of balance."
+        maxCorrelatedExposurePercent:
+          type: number
+          minimum: 1
+          maximum: 200
+          description: "Max notional across one correlated cluster, as % of balance."
+        correlationThreshold:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: "Reinforcement level at which two symbols count as the same bet."
+        correlationUnknownPolicy:
+          type: string
+          enum: [allow, block]
+          description: "Policy for pairs with too little shared history to measure."
+        confidenceThreshold:
+          type: integer
+          minimum: 0
+          maximum: 100
+        riskModel:
+          type: string
+          enum: [percent, dollar]
+          description: "percent = %-based SL/TP + riskPercent sizing; dollar = fixed max-loss/target-profit sizing (maxLossUsdt/targetProfitUsdt)."
+        stopLossPercent:
+          type: number
+          minimum: 0.01
+          maximum: 20
+        takeProfitPercent:
+          type: number
+          minimum: 0.3
+          maximum: 100
+          description: "Must clear round-trip trading costs (~0.3% at default fee/slippage assumptions) — see lib/tradingCosts.ts. A lower value is a guaranteed net loss on every winning trade, confirmed empirically in the Phase 6 audit."
+        maxLossUsdt:
+          type: number
+          minimum: 0.01
+          maximum: 1000000
+          description: "Dollar mode: max dollars to lose on one trade (net of fees)."
+        targetProfitUsdt:
+          type: number
+          minimum: 0.01
+          maximum: 1000000
+          description: "Dollar mode: desired dollar profit on one trade (net of fees)."
+        cooldownMinutes:
+          type: integer
+          minimum: 0
+          maximum: 1440
+        scanIntervalSeconds:
+          type: integer
+          minimum: 5
+          maximum: 3600
+        pairs:
+          type: array
+          items:
+            type: string
+        executionTarget:
+          type: string
+          enum: [demo, live]
+          description: "Where approved TradePlans execute. 'demo' = TradeCore's internal simulation on live market data (no broker, no API keys, no real money); 'live' = real orders through the connected broker."
+        mode:
+          type: string
+          enum: [research, copilot, autopilot]
+          description: "What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three."
+        demoStartingBalanceUsdt:
+          type: number
+          description: "Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades."
+        testnet:
+          type: boolean
+        backtestMode:
+          type: boolean
+        highFrequencyTestMode:
+          type: boolean
+          description: "Testnet/demo only: when on, the live engine overrides its turnover-limiting gates to generate a high volume of trades for end-to-end testing. Ignored on real-money keys."
+        alertWebhookUrl:
+          type: string
+          nullable: true
+          description: "Discord / Telegram / Slack incoming-webhook URL for risk alerts"
+
+    BinanceCredentialsStatus:
+      type: object
+      required: [configured, apiKeyPreview, updatedAt]
+      properties:
+        configured:
+          type: boolean
+        apiKeyPreview:
+          type: ["string", "null"]
+          description: "Last 4 chars of the stored API key, e.g. \"...ab12\" — never the full key."
+        updatedAt:
+          type: ["string", "null"]
+          format: date-time
+
+    ConnectionTestResult:
+      type: object
+      required: [ok, provider, environment, marketType, accountAccessible, tradingEnabled, serverTimeOffsetMs, ipRestrictionEnabled, permissions, warnings, message]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        provider:
+          type: string
+          enum: [binance, oanda]
+        environment:
+          type: string
+        marketType:
+          type: string
+          enum: [spot, futures, forex]
+        accountAccessible:
+          type: boolean
+        tradingEnabled:
+          type: ["boolean", "null"]
+          description: Null when the provider offers no safe, non-mutating permission probe.
+        serverTimeOffsetMs:
+          type: ["integer", "null"]
+          description: Provider time minus this server's midpoint time; Binance only.
+        ipRestrictionEnabled:
+          type: ["boolean", "null"]
+          description: Null when the selected provider/environment does not expose it.
+        permissions:
+          type: array
+          items: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
+        message:
+          type: string
+
+    AutopsyWindowMetrics:
+      type: object
+      required: [totalTrades, winRate, profitFactor, sharpeRatio, maxDrawdown, totalPnl, exitReasons]
+      properties:
+        totalTrades: { type: integer }
+        winRate: { type: number }
+        profitFactor: { type: number }
+        sharpeRatio: { type: number }
+        maxDrawdown: { type: number }
+        totalPnl: { type: number }
+        exitReasons:
+          type: object
+          additionalProperties: { type: integer }
+
+    AutopsyParams:
+      type: object
+      required: [confidenceThreshold, maxHoldingSeconds]
+      properties:
+        maxLossUsdt: { type: ["number", "null"] }
+        targetProfitUsdt: { type: ["number", "null"] }
+        confidenceThreshold: { type: number }
+        maxHoldingSeconds: { type: number }
+
+    AutopsyFinding:
+      type: object
+      required: [param, label, evidence, action]
+      properties:
+        param: { type: string }
+        label: { type: string }
+        current: { type: ["number", "null"] }
+        suggested: { type: ["number", "null"] }
+        evidence: { type: string }
+        action: { type: string }
+
+    AutopsyDiagnosis:
+      type: object
+      required: [verdict, summary, findings]
+      properties:
+        verdict:
+          type: string
+          enum: [improved, no_better, insufficient_data]
+        summary: { type: string }
+        findings:
+          type: array
+          items:
+            $ref: "#/components/schemas/AutopsyFinding"
+
+    AutopsyRun:
+      type: object
+      required: [id, displayNo, strategyId, symbols, timeframe, trainStart, trainEnd, valStart, valEnd, status, progress, totalBacktests, truncated, currentParams, createdAt]
+      properties:
+        id: { type: integer, description: "Global DB id — for links/API only, never shown as the run number." }
+        displayNo: { type: integer, description: "Per-section run number (1..N) shown in the UI." }
+        strategyId: { type: string }
+        strategyName: { type: ["string", "null"] }
+        symbols:
+          type: array
+          items: { type: string }
+        timeframe: { type: string }
+        trainStart: { type: string, format: date-time }
+        trainEnd: { type: string, format: date-time }
+        valStart: { type: string, format: date-time }
+        valEnd: { type: string, format: date-time }
+        status: { type: string, enum: [pending, running, completed, failed] }
+        progress: { type: integer }
+        stage: { type: ["string", "null"] }
+        totalBacktests: { type: integer }
+        truncated: { type: boolean }
+        currentParams:
+          $ref: "#/components/schemas/AutopsyParams"
+        bestParams:
+          oneOf:
+            - $ref: "#/components/schemas/AutopsyParams"
+            - type: "null"
+        currentTrain:
+          oneOf:
+            - $ref: "#/components/schemas/AutopsyWindowMetrics"
+            - type: "null"
+        currentVal:
+          oneOf:
+            - $ref: "#/components/schemas/AutopsyWindowMetrics"
+            - type: "null"
+        bestTrain:
+          oneOf:
+            - $ref: "#/components/schemas/AutopsyWindowMetrics"
+            - type: "null"
+        bestVal:
+          oneOf:
+            - $ref: "#/components/schemas/AutopsyWindowMetrics"
+            - type: "null"
+        verdict: { type: ["string", "null"] }
+        diagnosis:
+          oneOf:
+            - $ref: "#/components/schemas/AutopsyDiagnosis"
+            - type: "null"
+        error: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: ["string", "null"] }
+
+    OandaCredentialsStatus:
+      type: object
+      required: [configured, accountIdPreview, updatedAt]
+      properties:
+        configured:
+          type: boolean
+        accountIdPreview:
+          type: ["string", "null"]
+          description: "Last 4 chars of the stored account id, e.g. \"...4567\" — never the full id or token."
+        updatedAt:
+          type: ["string", "null"]
+          format: date-time
+
+    BacktestRun:
+      type: object
+      required: [id, displayNo, strategyVersion, strategyName, symbols, timeframe, startDate, endDate, startingBalance, status, progress, createdAt]
+      properties:
+        id:
+          type: integer
+          description: "Global DB id — for links/API/export only, never shown as the run number."
+        displayNo:
+          type: integer
+          description: "Per-section run number (1..N) shown in the UI."
+        strategyVersion:
+          type: string
+        strategyName:
+          type: string
+        symbols:
+          type: array
+          items:
+            type: string
+        timeframe:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        startingBalance:
+          type: number
+        endingBalance:
+          type: ["number", "null"]
+        totalReturn:
+          type: ["number", "null"]
+        totalPnl:
+          type: ["number", "null"]
+        totalTrades:
+          type: ["integer", "null"]
+        winningTrades:
+          type: ["integer", "null"]
+        losingTrades:
+          type: ["integer", "null"]
+        winRate:
+          type: ["number", "null"]
+        profitFactor:
+          type: ["number", "null"]
+        sharpeRatio:
+          type: ["number", "null"]
+        sortinoRatio:
+          type: ["number", "null"]
+        maxDrawdown:
+          type: ["number", "null"]
+        averageWin:
+          type: ["number", "null"]
+        averageLoss:
+          type: ["number", "null"]
+        expectancy:
+          type: ["number", "null"]
+        largestWin:
+          type: ["number", "null"]
+        largestLoss:
+          type: ["number", "null"]
+        dailyReturns:
+          nullable: true
+        monthlyReturns:
+          nullable: true
+        strategyComparison:
+          nullable: true
+        effectiveConfig:
+          nullable: true
+          description: >-
+            Diagnostic: the actual per-strategy stopLossPercent/takeProfitPercent,
+            confidenceThreshold, and riskPercent used for this run — shape
+            `{ summary: [...per-strategy], runLevelOverrides: {...} }` —
+            computed before the simulation started (Phase 5A).
+            See lib/backtestConfig.ts.
+        params:
+          nullable: true
+        status:
+          type: string
+          enum: [pending, running, completed, failed, cancelled]
+        progress:
+          type: integer
+        error:
+          type: ["string", "null"]
+        aiAnalysis:
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    BacktestTrade:
+      type: object
+      required: [id, runId, symbol, side, entryTime, entryPrice, quantity, stopLoss, takeProfit]
+      properties:
+        id:
+          type: integer
+        runId:
+          type: integer
+        symbol:
+          type: string
+        side:
+          type: string
+        strategyId:
+          type: ["string", "null"]
+        strategyName:
+          type: ["string", "null"]
+        entryTime:
+          type: string
+          format: date-time
+        exitTime:
+          type: ["string", "null"]
+          format: date-time
+        entryPrice:
+          type: number
+        exitPrice:
+          type: ["number", "null"]
+        quantity:
+          type: number
+        stopLoss:
+          type: number
+        takeProfit:
+          type: number
+        slPercent:
+          type: ["number", "null"]
+        tpPercent:
+          type: ["number", "null"]
+        fees:
+          type: ["number", "null"]
+        slippage:
+          type: ["number", "null"]
+        pnl:
+          type: ["number", "null"]
+        grossPnl:
+          type: ["number", "null"]
+        pnlPercent:
+          type: ["number", "null"]
+        confidence:
+          type: ["number", "null"]
+        exitReason:
+          type: ["string", "null"]
+        durationSeconds:
+          type: ["integer", "null"]
+        mfe:
+          type: ["number", "null"]
+        mae:
+          type: ["number", "null"]
+        riskReward:
+          type: ["number", "null"]
+        # ── Phase 7: trade-management ladder ────────────────────────────────
+        tp1Price:
+          type: ["number", "null"]
+        tp1Filled:
+          type: boolean
+        tp1FillPrice:
+          type: ["number", "null"]
+        tp2Price:
+          type: ["number", "null"]
+        tp2Filled:
+          type: boolean
+        tp2FillPrice:
+          type: ["number", "null"]
+        breakEvenActive:
+          type: boolean
+        trailingStopActive:
+          type: boolean
+        trailingStopMode:
+          type: ["string", "null"]
+
+    EquityCurvePoint:
+      type: object
+      required: [timestamp, balance, drawdown]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        balance:
+          type: number
+        drawdown:
+          type: number
+
+    OptimizationResult:
+      type: object
+      required: [id, parameterSet, score, winRate, pnl, drawdown, profitFactor, totalTrades]
+      properties:
+        id:
+          type: integer
+        parameterSet:
+          type: object
+        score:
+          type: number
+        winRate:
+          type: number
+        pnl:
+          type: number
+        drawdown:
+          type: number
+        profitFactor:
+          type: number
+        totalTrades:
+          type: integer
+
+    BacktestDetail:
+      type: object
+      required: [run, trades, equityCurve, optimizationResults]
+      properties:
+        run:
+          $ref: "#/components/schemas/BacktestRun"
+        trades:
+          type: array
+          items:
+            $ref: "#/components/schemas/BacktestTrade"
+        equityCurve:
+          type: array
+          items:
+            $ref: "#/components/schemas/EquityCurvePoint"
+        optimizationResults:
+          type: array
+          items:
+            $ref: "#/components/schemas/OptimizationResult"
+
+    BacktestRunRequest:
+      type: object
+      required: [symbols, timeframe, startDate, endDate]
+      properties:
+        symbols:
+          type: array
+          items:
+            type: string
+        timeframe:
+          type: string
+          enum: ["1m","3m","5m","15m","30m","1h","4h","1d"]
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        startingBalance:
+          type: number
+          default: 1000
+        confidenceThreshold:
+          type: integer
+          default: 65
+        stopLossPercent:
+          type: number
+          default: 1.5
+          description: "Stop-loss distance as a % below entry (Phase 5A — replaces atrMultiplierSl)"
+        takeProfitPercent:
+          type: number
+          default: 2.5
+          minimum: 0.3
+          description: "Take-profit distance as a % above entry (Phase 5A — replaces atrMultiplierTp). Minimum clears round-trip trading costs — see lib/tradingCosts.ts."
+        positionSizeUsdt:
+          type: number
+          default: 10
+        maxOpenPositions:
+          type: integer
+          default: 5
+        dailyLossLimitUsdt:
+          type: number
+          default: 50
+        riskPercent:
+          type: number
+          default: 0
+          description: >-
+            0 = use each strategy's own configured risk% (no override).
+            Any other value overrides risk% for every strategy in this run.
+            (Bug fix: this field was already read by the backend but was
+            missing from this schema and had no UI field — see CHANGES.md.)
+        feeRate:
+          type: number
+          default: 0.001
+        slippageRate:
+          type: number
+          default: 0.0005
+        marketType:
+          type: string
+          enum: [spot, futures]
+          default: spot
+          description: "futures models isolated-margin liquidation (leverage affects liquidation risk only, not position size — matches live sizing)."
+        leverage:
+          type: integer
+          minimum: 1
+          maximum: 125
+          default: 1
+          description: "Futures leverage. Only affects liquidation risk in the backtest, not position size."
+        marginMode:
+          type: string
+          enum: [isolated, cross]
+          default: isolated
+        riskModel:
+          type: string
+          enum: [percent, dollar]
+          default: percent
+          description: "dollar = size each trade from a fixed max-loss/target-profit (maxLossUsdt/targetProfitUsdt) using the SAME planner as the live engine, so the backtest reflects live dollar-model trading. percent (default) = %-based SL/TP as before."
+        maxLossUsdt:
+          type: number
+          minimum: 0.01
+          description: "Dollar mode only: max dollars to lose per trade (net of fees)."
+        targetProfitUsdt:
+          type: number
+          minimum: 0.01
+          description: "Dollar mode only: desired dollar profit per trade (net of fees)."
+        onlyStrategyId:
+          type: string
+          description: "Test ONE strategy in isolation: it is force-enabled (even if disabled for live) and all others disabled for this run, using its own saved config (SL/TP or dollar plan). Omit to run every enabled strategy."
+        perStrategyConfigs:
+          type: boolean
+          default: true
+          description: "true (default): each strategy uses its own SL/TP/confidence, matching live. false: flatten every strategy to the run-level stopLossPercent/takeProfitPercent/confidenceThreshold (a single-config sweep). Ignored (forced true) when onlyStrategyId is set."
+        rrRatio:
+          type: number
+          minimum: 0
+          maximum: 10
+          default: 0
+          description: "Faithful mode only: reshape every strategy to TP = its own SL × this ratio (e.g. 3 → 1:3 reward:risk), keeping everything else per-strategy. 0 = off. The volatility-adaptive cap preserves the ratio when it shrinks targets."
+        pureExits:
+          type: boolean
+          default: false
+          description: "Faithful mode only: disable TP1 partials, break-even, and trailing stops so trades resolve only at the full SL or TP. Required to evaluate asymmetric-R:R styles, which the management layer otherwise clips at ~1R."
+        holdMultiplier:
+          type: number
+          minimum: 0.1
+          maximum: 100
+          default: 1
+          description: "Faithful mode only: multiply every strategy's maxHoldingSeconds (swing-profile test). Adaptive targets grow ~√hold, so per-trade moves get larger while the roughly-fixed per-trade fee shrinks in proportion. 1 = off."
+        makerEntry:
+          type: boolean
+          default: false
+          description: "Model entries as post-only MAKER limit orders instead of taker markets. The limit rests at the signal price and only becomes a position if a later candle trades through it within makerEntryFillWindowMinutes; otherwise the entry is MISSED. On fill there is no adverse entry slippage and the maker fee applies; take-profit exits (resting limits) are also charged the maker rate. Trades cheaper/better fills against missed trades — the honest way to test whether an edge survives real fees."
+        makerFeeRate:
+          type: number
+          description: "Maker fee for passive fills (default when makerEntry is on: 0.0002 futures / 0.001 spot). Ignored unless makerEntry is on. Defaults to feeRate otherwise, so non-maker runs are unchanged."
+        makerEntryFillWindowMinutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+          default: 30
+          description: "How long a maker-entry limit rests before it's cancelled unfilled. Only used when makerEntry is on."
+
+    OptimizeRequest:
+      type: object
+      required: [symbols, timeframe, startDate, endDate]
+      properties:
+        symbols:
+          type: array
+          items:
+            type: string
+        timeframe:
+          type: string
+          enum: ["1m","3m","5m","15m","30m","1h","4h","1d"]
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        startingBalance:
+          type: number
+          default: 1000
+        confidenceThresholds:
+          type: array
+          items:
+            type: number
+        stopLossPercents:
+          type: array
+          items:
+            type: number
+          description: "Stop-loss % values to grid-search (Phase 5A — replaces atrMultiplierSls)"
+        takeProfitPercents:
+          type: array
+          items:
+            type: number
+          description: "Take-profit % values to grid-search (Phase 5A — replaces atrMultiplierTps)"
+        positionSizeUsdts:
+          type: array
+          items:
+            type: number
+        rankBy:
+          type: string
+          enum: [pnl, profitFactor, sharpeRatio, winRate, maxDrawdown]
+          default: profitFactor
+
+    BacktestStarted:
+      type: object
+      required: [runId, status]
+      properties:
+        runId:
+          type: integer
+        status:
+          type: string
+
+    StrategyConfig:
+      type: object
+      required: [strategyId, enabled, riskPercent, confidenceThreshold, stopLossPercent, takeProfitPercent, maxHoldingSeconds, maxConcurrentPositions, cooldownMinutes]
+      properties:
+        strategyId:
+          type: string
+        enabled:
+          type: boolean
+        tradeAmountUsdt:
+          type: ["number", "null"]
+          description: "Dollar trade plan: spot notional / futures margin per trade. null → global positionSizeUsdt."
+        maxLossUsdt:
+          type: ["number", "null"]
+          description: "Dollar trade plan: max dollars to lose on one trade (net of fees). With targetProfitUsdt set, this strategy trades the dollar risk model."
+        targetProfitUsdt:
+          type: ["number", "null"]
+          description: "Dollar trade plan: desired dollar profit for one trade (net of fees)."
+        riskPercent:
+          type: number
+          description: "% of account balance to risk per trade"
+        confidenceThreshold:
+          type: integer
+          description: "Minimum confidence score 0–100 required to enter"
+        stopLossPercent:
+          type: number
+          description: "Stop-loss distance as a % below entry price (Phase 5A — replaces atrMultiplierSl)"
+        takeProfitPercent:
+          type: number
+          description: "Take-profit distance as a % above entry price (Phase 5A — replaces atrMultiplierTp)"
+        maxHoldingSeconds:
+          type: integer
+        maxConcurrentPositions:
+          type: integer
+        cooldownMinutes:
+          type: integer
+        breakEvenRMultiple:
+          description: "Pre-TP1 break-even arm: at this many R of unrealized profit the stop moves to entry — the trade can no longer lose. 0 disables."
+          type: number
+        tp1RMultiple:
+          description: "R-multiple at which TP1 banks a partial and moves the stop to break-even. 0 = single TP."
+          type: number
+
+    StrategyConfigUpdate:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        tradeAmountUsdt:
+          type: ["number", "null"]
+          description: "null clears the field (fall back to global positionSizeUsdt)."
+        maxLossUsdt:
+          type: ["number", "null"]
+          description: "null clears the dollar plan (strategy reverts to %-based SL/TP)."
+        targetProfitUsdt:
+          type: ["number", "null"]
+          description: "null clears the dollar plan (strategy reverts to %-based SL/TP)."
+        riskPercent:
+          type: number
+        confidenceThreshold:
+          type: integer
+        stopLossPercent:
+          type: number
+        takeProfitPercent:
+          type: number
+          minimum: 0.3
+        maxHoldingSeconds:
+          type: integer
+        maxConcurrentPositions:
+          type: integer
+        cooldownMinutes:
+          type: integer
+        breakEvenRMultiple:
+          description: "Pre-TP1 break-even arm: at this many R of unrealized profit the stop moves to entry — the trade can no longer lose. 0 disables."
+          type: number
+        tp1RMultiple:
+          description: "R-multiple at which TP1 banks a partial and moves the stop to break-even. 0 = single TP."
+          type: number
+
+    StrategyPerformance:
+      type: object
+      required: [totalTrades, winningTrades, losingTrades, totalPnl, avgWin, avgLoss, avgDurationSeconds]
+      properties:
+        totalTrades:
+          type: integer
+        winningTrades:
+          type: integer
+        losingTrades:
+          type: integer
+        winRate:
+          type: ["number", "null"]
+        totalPnl:
+          type: number
+        avgWin:
+          type: number
+        avgLoss:
+          type: number
+        avgDurationSeconds:
+          type: number
+
+    StrategyOpinion:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, opinionId, specialistId, specialistVersion, marketStateFingerprint, symbol, stance, strength, applicableRegimes, supportingEvidence, opposingEvidence, trigger, invalidationConditions, expectedDurationSeconds, proposedRewardRisk, uncertainty, abstentionReason, dataTimestamp, expiresAt]
+      properties:
+        schemaVersion: { type: string, enum: ["1.0.0"] }
+        opinionId: { type: string, format: uuid }
+        specialistId: { type: string }
+        specialistVersion: { type: string }
+        marketStateFingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}$' }
+        symbol: { type: string }
+        stance: { type: string, enum: [long, short, neutral, abstain] }
+        strength: { type: number, minimum: 0, maximum: 1 }
+        applicableRegimes:
+          type: array
+          minItems: 1
+          items: { type: string }
+        supportingEvidence:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/EvidenceReference" }
+        opposingEvidence:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/EvidenceReference" }
+        trigger: { type: ["string", "null"] }
+        invalidationConditions:
+          type: array
+          maxItems: 20
+          items: { type: string }
+        expectedDurationSeconds: { type: ["integer", "null"], minimum: 1 }
+        proposedRewardRisk: { type: ["number", "null"], exclusiveMinimum: 0 }
+        uncertainty: { type: number, minimum: 0, maximum: 1 }
+        abstentionReason: { type: ["string", "null"] }
+        dataTimestamp: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+
+    SpecialistOpinionView:
+      type: object
+      additionalProperties: false
+      required: [role, correlationGroup, correlationDiscount, effectiveStrength, operationalStatus, opinion]
+      properties:
+        role:
+          type: string
+          enum: [trend, breakout, mean_reversion, volatility, market_structure, execution_quality, portfolio_conflict]
+        correlationGroup: { type: string }
+        correlationDiscount: { type: number, minimum: 0, maximum: 1 }
+        effectiveStrength: { type: number, minimum: 0, maximum: 1 }
+        operationalStatus: { type: string, enum: [active, abstained] }
+        opinion: { $ref: "#/components/schemas/StrategyOpinion" }
+
+    SpecialistConsensus:
+      type: object
+      additionalProperties: false
+      required: [stance, longScore, shortScore, actionableOpinions, abstentions, disagreement, explanation]
+      properties:
+        stance: { type: string, enum: [long, short, mixed, abstain] }
+        longScore: { type: number, minimum: 0 }
+        shortScore: { type: number, minimum: 0 }
+        actionableOpinions: { type: integer, minimum: 0 }
+        abstentions: { type: integer, minimum: 0 }
+        disagreement: { type: boolean }
+        explanation: { type: string }
+
+    SpecialistCouncilSnapshot:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, councilVersion, mode, cannotExecute, symbol, marketStateFingerprint, dataTimestamp, generatedAt, consensus, opinions]
+      properties:
+        schemaVersion: { type: string, enum: ["1.0.0"] }
+        councilVersion: { type: string, enum: [specialist-council-v1] }
+        mode: { type: string, enum: [observational] }
+        cannotExecute: { type: boolean, const: true }
+        symbol: { type: string }
+        marketStateFingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}$' }
+        dataTimestamp: { type: string, format: date-time }
+        generatedAt: { type: string, format: date-time }
+        consensus: { $ref: "#/components/schemas/SpecialistConsensus" }
+        opinions:
+          type: array
+          items: { $ref: "#/components/schemas/SpecialistOpinionView" }
+
+    ExecutionCostContext:
+      type: object
+      additionalProperties: false
+      required: [feeRatePerLeg, slippageRatePerLeg, source, version]
+      properties:
+        feeRatePerLeg: { type: number, minimum: 0 }
+        slippageRatePerLeg: { type: number, minimum: 0 }
+        source: { type: string, enum: [engine-market-cost-model] }
+        version: { type: string }
+
+    PreliminaryPortfolioContext:
+      type: object
+      additionalProperties: false
+      required: [status, currency, availableBalance, openPositionCount, observedAt, limitations]
+      properties:
+        status: { type: string, enum: [partial, unavailable] }
+        currency: { type: string }
+        availableBalance: { type: [number, "null"], minimum: 0 }
+        openPositionCount: { type: [integer, "null"], minimum: 0 }
+        observedAt: { type: string, format: date-time }
+        limitations:
+          type: array
+          items: { type: string }
+
+    HistoricalEvidenceContext:
+      type: object
+      additionalProperties: false
+      required: [status, ruleVersion, items, limitations]
+      properties:
+        status: { type: string, enum: [unavailable, observational, approved] }
+        ruleVersion: { type: ["string", "null"] }
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        limitations:
+          type: array
+          items: { type: string }
+
+    BrainV0Candidate:
+      type: object
+      additionalProperties: false
+      required: [strategyId, strategyName, side, confidence, netRewardRisk]
+      properties:
+        strategyId: { type: string }
+        strategyName: { type: string }
+        side: { type: string, enum: [long, short] }
+        confidence: { type: number, minimum: 0, maximum: 100 }
+        netRewardRisk: { type: [number, "null"], exclusiveMinimum: 0 }
+
+    BrainV0Comparison:
+      type: object
+      additionalProperties: false
+      required: [mode, candidateCount, disposition, topCandidate]
+      properties:
+        mode: { type: string, enum: [control] }
+        candidateCount: { type: integer, minimum: 0 }
+        disposition: { type: string, enum: [CANDIDATE_PRODUCED, NO_CANDIDATE] }
+        topCandidate:
+          oneOf:
+            - $ref: "#/components/schemas/BrainV0Candidate"
+            - type: "null"
+
+    DeterministicAssessment:
+      type: object
+      additionalProperties: false
+      required: [version, longScore, shortScore, dominantShare, averageEffectiveStrength, regimeSuitability, costPenalty, decisionStrength, thresholds, ruleTrace]
+      properties:
+        version: { type: string, enum: [deterministic-council-v1] }
+        longScore: { type: number, minimum: 0 }
+        shortScore: { type: number, minimum: 0 }
+        dominantShare: { type: number, minimum: 0, maximum: 1 }
+        averageEffectiveStrength: { type: number, minimum: 0, maximum: 1 }
+        regimeSuitability: { type: number, minimum: 0, maximum: 1 }
+        costPenalty: { type: number, minimum: 0, maximum: 1 }
+        decisionStrength: { type: number, minimum: 0, maximum: 1 }
+        thresholds:
+          type: object
+          additionalProperties: false
+          required: [enterNow, waitForTrigger]
+          properties:
+            enterNow: { type: number, minimum: 0, maximum: 1 }
+            waitForTrigger: { type: number, minimum: 0, maximum: 1 }
+        ruleTrace:
+          type: array
+          items: { type: string }
+
+    ReasoningClaim:
+      type: object
+      additionalProperties: false
+      required: [claim, evidenceIds]
+      properties:
+        claim: { type: string }
+        evidenceIds:
+          type: array
+          items: { type: string }
+
+    CouncilReasoningReport:
+      type: object
+      additionalProperties: false
+      required: [status, providerId, modelVersion, summary, claims, challenges, uncertaintyNotes, validationFailures, attempts, latencyMs, usage]
+      properties:
+        status: { type: string, enum: [not_configured, validated, degraded, circuit_open, provider_error] }
+        providerId: { type: ["string", "null"] }
+        modelVersion: { type: ["string", "null"] }
+        summary: { type: string }
+        claims:
+          type: array
+          items: { $ref: "#/components/schemas/ReasoningClaim" }
+        challenges:
+          type: array
+          items: { $ref: "#/components/schemas/ReasoningClaim" }
+        uncertaintyNotes:
+          type: array
+          items: { type: string }
+        validationFailures:
+          type: array
+          items: { type: string }
+        attempts: { type: integer, minimum: 0 }
+        latencyMs: { type: integer, minimum: 0 }
+        usage:
+          type: object
+          additionalProperties: false
+          required: [inputTokens, outputTokens, costUsd]
+          properties:
+            inputTokens: { type: [integer, "null"], minimum: 0 }
+            outputTokens: { type: [integer, "null"], minimum: 0 }
+            costUsd: { type: [number, "null"], minimum: 0 }
+
+    ShadowReplayBundle:
+      type: object
+      additionalProperties: false
+      required: [marketState, specialistCouncil, executionCosts, portfolio, historicalEvidence, brainV0]
+      properties:
+        marketState: { $ref: "#/components/schemas/MarketState" }
+        specialistCouncil: { $ref: "#/components/schemas/SpecialistCouncilSnapshot" }
+        executionCosts: { $ref: "#/components/schemas/ExecutionCostContext" }
+        portfolio: { $ref: "#/components/schemas/PreliminaryPortfolioContext" }
+        historicalEvidence: { $ref: "#/components/schemas/HistoricalEvidenceContext" }
+        brainV0: { $ref: "#/components/schemas/BrainV0Comparison" }
+
+    ShadowCouncilRun:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, councilVersion, runId, inputFingerprint, runFingerprint, mode, cannotExecute, generatedAt, decision, decisionFingerprint, deterministicAssessment, reasoning, replay]
+      properties:
+        schemaVersion: { type: string, enum: ["1.0.0"] }
+        councilVersion: { type: string, enum: [shadow-decision-council-v1] }
+        runId: { type: string, format: uuid }
+        inputFingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}
+      required: [strategyId, strategyName, supportedRegimes, indicators, decisionMaker, config, performance]
+      properties:
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        supportedRegimes:
+          type: array
+          items:
+            type: string
+        indicators:
+          description: The indicators this strategy reads, human-readable with timeframe.
+          type: array
+          items:
+            type: string
+        decisionMaker:
+          description: True when the strategy is a native decision-maker owning its full TradePlan (leverage, structural stop, duration, written reasoning).
+          type: boolean
+        config:
+          $ref: "#/components/schemas/StrategyConfig"
+        performance:
+          $ref: "#/components/schemas/StrategyPerformance"
+        custom:
+          description: True when this is a user-built custom strategy (no-code builder), not a built-in.
+          type: boolean
+        customId:
+          description: The custom strategy's numeric id (for /custom-strategies/{id} CRUD). Present only when custom.
+          type: integer
+        backtested:
+          description: Custom strategies only — true once a single-strategy backtest of the CURRENT rules has completed (required before live enable).
+          type: boolean
+
+    CustomStrategyCondition:
+      type: object
+      required: [indicator, op, value]
+      properties:
+        indicator:
+          description: One of the builder's indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).
+          type: string
+        op:
+          description: Comparison — gt/gte/lt/lte for numeric indicators, eq for enum/boolean ones.
+          type: string
+          enum: [gt, gte, lt, lte, eq]
+        value:
+          description: Number for numeric indicators; string for enum/boolean ones ("true"/"false" or a regime name).
+          oneOf:
+            - type: number
+            - type: string
+
+    CustomStrategyStop:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [atr, percent, swing]
+        atrMult:
+          description: atr mode — stop at N × ATR from entry (0.5–10).
+          type: number
+        pct:
+          description: percent mode — fixed % distance from entry (0.05–20).
+          type: number
+        lookback:
+          description: swing mode — lowest low / highest high of the last N 15m bars (3–50).
+          type: integer
+
+    CustomStrategyRules:
+      type: object
+      required: [stop, confidence]
+      properties:
+        long:
+          description: AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomStrategyCondition"
+        short:
+          description: AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomStrategyCondition"
+        stop:
+          $ref: "#/components/schemas/CustomStrategyStop"
+        confidence:
+          description: Static plan confidence (50–95); the per-strategy confidence threshold still applies on top.
+          type: number
+
+    CustomStrategy:
+      type: object
+      required: [id, strategyId, section, name, rules, indicators, rulesValid, backtested, rulesUpdatedAt, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        strategyId:
+          description: Engine-facing id, custom_<id> — the key used on /strategies, backtests and autopsies.
+          type: string
+        section:
+          type: string
+          enum: [crypto, forex]
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+        indicators:
+          description: Human-readable rendering of the rules ("LONG when RSI < 30 …").
+          type: array
+          items:
+            type: string
+        rulesValid:
+          type: boolean
+        backtested:
+          description: True once a single-strategy backtest of the CURRENT rules completed. Editing rules resets this — and live enablement requires it.
+          type: boolean
+        lastBacktestAt:
+          type: string
+          format: date-time
+          nullable: true
+        rulesUpdatedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CustomStrategyCreate:
+      type: object
+      required: [name, rules]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+
+    CustomStrategyUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+
+    StrategySignalItem:
+      type: object
+      required: [symbol, confidence, regime, lastPrice, status]
+      properties:
+        symbol:
+          type: string
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        confidence:
+          type: number
+        regime:
+          type: string
+        lastPrice:
+          type: number
+        adx:
+          type: number
+        rsi:
+          type: number
+        volumeRatio:
+          type: number
+        status:
+          type: string
+        entryReason:
+          type: string
+ }
+        runFingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}
+      required: [strategyId, strategyName, supportedRegimes, indicators, decisionMaker, config, performance]
+      properties:
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        supportedRegimes:
+          type: array
+          items:
+            type: string
+        indicators:
+          description: The indicators this strategy reads, human-readable with timeframe.
+          type: array
+          items:
+            type: string
+        decisionMaker:
+          description: True when the strategy is a native decision-maker owning its full TradePlan (leverage, structural stop, duration, written reasoning).
+          type: boolean
+        config:
+          $ref: "#/components/schemas/StrategyConfig"
+        performance:
+          $ref: "#/components/schemas/StrategyPerformance"
+        custom:
+          description: True when this is a user-built custom strategy (no-code builder), not a built-in.
+          type: boolean
+        customId:
+          description: The custom strategy's numeric id (for /custom-strategies/{id} CRUD). Present only when custom.
+          type: integer
+        backtested:
+          description: Custom strategies only — true once a single-strategy backtest of the CURRENT rules has completed (required before live enable).
+          type: boolean
+
+    CustomStrategyCondition:
+      type: object
+      required: [indicator, op, value]
+      properties:
+        indicator:
+          description: One of the builder's indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).
+          type: string
+        op:
+          description: Comparison — gt/gte/lt/lte for numeric indicators, eq for enum/boolean ones.
+          type: string
+          enum: [gt, gte, lt, lte, eq]
+        value:
+          description: Number for numeric indicators; string for enum/boolean ones ("true"/"false" or a regime name).
+          oneOf:
+            - type: number
+            - type: string
+
+    CustomStrategyStop:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [atr, percent, swing]
+        atrMult:
+          description: atr mode — stop at N × ATR from entry (0.5–10).
+          type: number
+        pct:
+          description: percent mode — fixed % distance from entry (0.05–20).
+          type: number
+        lookback:
+          description: swing mode — lowest low / highest high of the last N 15m bars (3–50).
+          type: integer
+
+    CustomStrategyRules:
+      type: object
+      required: [stop, confidence]
+      properties:
+        long:
+          description: AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomStrategyCondition"
+        short:
+          description: AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomStrategyCondition"
+        stop:
+          $ref: "#/components/schemas/CustomStrategyStop"
+        confidence:
+          description: Static plan confidence (50–95); the per-strategy confidence threshold still applies on top.
+          type: number
+
+    CustomStrategy:
+      type: object
+      required: [id, strategyId, section, name, rules, indicators, rulesValid, backtested, rulesUpdatedAt, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        strategyId:
+          description: Engine-facing id, custom_<id> — the key used on /strategies, backtests and autopsies.
+          type: string
+        section:
+          type: string
+          enum: [crypto, forex]
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+        indicators:
+          description: Human-readable rendering of the rules ("LONG when RSI < 30 …").
+          type: array
+          items:
+            type: string
+        rulesValid:
+          type: boolean
+        backtested:
+          description: True once a single-strategy backtest of the CURRENT rules completed. Editing rules resets this — and live enablement requires it.
+          type: boolean
+        lastBacktestAt:
+          type: string
+          format: date-time
+          nullable: true
+        rulesUpdatedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CustomStrategyCreate:
+      type: object
+      required: [name, rules]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+
+    CustomStrategyUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+
+    StrategySignalItem:
+      type: object
+      required: [symbol, confidence, regime, lastPrice, status]
+      properties:
+        symbol:
+          type: string
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        confidence:
+          type: number
+        regime:
+          type: string
+        lastPrice:
+          type: number
+        adx:
+          type: number
+        rsi:
+          type: number
+        volumeRatio:
+          type: number
+        status:
+          type: string
+        entryReason:
+          type: string
+ }
+        mode: { type: string, enum: [shadow] }
+        cannotExecute: { type: boolean, const: true }
+        generatedAt: { type: string, format: date-time }
+        decision: { $ref: "#/components/schemas/BrainDecision" }
+        decisionFingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}
+      required: [strategyId, strategyName, supportedRegimes, indicators, decisionMaker, config, performance]
+      properties:
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        supportedRegimes:
+          type: array
+          items:
+            type: string
+        indicators:
+          description: The indicators this strategy reads, human-readable with timeframe.
+          type: array
+          items:
+            type: string
+        decisionMaker:
+          description: True when the strategy is a native decision-maker owning its full TradePlan (leverage, structural stop, duration, written reasoning).
+          type: boolean
+        config:
+          $ref: "#/components/schemas/StrategyConfig"
+        performance:
+          $ref: "#/components/schemas/StrategyPerformance"
+        custom:
+          description: True when this is a user-built custom strategy (no-code builder), not a built-in.
+          type: boolean
+        customId:
+          description: The custom strategy's numeric id (for /custom-strategies/{id} CRUD). Present only when custom.
+          type: integer
+        backtested:
+          description: Custom strategies only — true once a single-strategy backtest of the CURRENT rules has completed (required before live enable).
+          type: boolean
+
+    CustomStrategyCondition:
+      type: object
+      required: [indicator, op, value]
+      properties:
+        indicator:
+          description: One of the builder's indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).
+          type: string
+        op:
+          description: Comparison — gt/gte/lt/lte for numeric indicators, eq for enum/boolean ones.
+          type: string
+          enum: [gt, gte, lt, lte, eq]
+        value:
+          description: Number for numeric indicators; string for enum/boolean ones ("true"/"false" or a regime name).
+          oneOf:
+            - type: number
+            - type: string
+
+    CustomStrategyStop:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [atr, percent, swing]
+        atrMult:
+          description: atr mode — stop at N × ATR from entry (0.5–10).
+          type: number
+        pct:
+          description: percent mode — fixed % distance from entry (0.05–20).
+          type: number
+        lookback:
+          description: swing mode — lowest low / highest high of the last N 15m bars (3–50).
+          type: integer
+
+    CustomStrategyRules:
+      type: object
+      required: [stop, confidence]
+      properties:
+        long:
+          description: AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomStrategyCondition"
+        short:
+          description: AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomStrategyCondition"
+        stop:
+          $ref: "#/components/schemas/CustomStrategyStop"
+        confidence:
+          description: Static plan confidence (50–95); the per-strategy confidence threshold still applies on top.
+          type: number
+
+    CustomStrategy:
+      type: object
+      required: [id, strategyId, section, name, rules, indicators, rulesValid, backtested, rulesUpdatedAt, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        strategyId:
+          description: Engine-facing id, custom_<id> — the key used on /strategies, backtests and autopsies.
+          type: string
+        section:
+          type: string
+          enum: [crypto, forex]
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+        indicators:
+          description: Human-readable rendering of the rules ("LONG when RSI < 30 …").
+          type: array
+          items:
+            type: string
+        rulesValid:
+          type: boolean
+        backtested:
+          description: True once a single-strategy backtest of the CURRENT rules completed. Editing rules resets this — and live enablement requires it.
+          type: boolean
+        lastBacktestAt:
+          type: string
+          format: date-time
+          nullable: true
+        rulesUpdatedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CustomStrategyCreate:
+      type: object
+      required: [name, rules]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+
+    CustomStrategyUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+
+    StrategySignalItem:
+      type: object
+      required: [symbol, confidence, regime, lastPrice, status]
+      properties:
+        symbol:
+          type: string
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        confidence:
+          type: number
+        regime:
+          type: string
+        lastPrice:
+          type: number
+        adx:
+          type: number
+        rsi:
+          type: number
+        volumeRatio:
+          type: number
+        status:
+          type: string
+        entryReason:
+          type: string
+ }
+        deterministicAssessment: { $ref: "#/components/schemas/DeterministicAssessment" }
+        reasoning: { $ref: "#/components/schemas/CouncilReasoningReport" }
+        replay: { $ref: "#/components/schemas/ShadowReplayBundle" }
+
+    StrategyInfo:
+      type: object
+      required: [strategyId, strategyName, supportedRegimes, indicators, decisionMaker, config, performance]
+      properties:
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        supportedRegimes:
+          type: array
+          items:
+            type: string
+        indicators:
+          description: The indicators this strategy reads, human-readable with timeframe.
+          type: array
+          items:
+            type: string
+        decisionMaker:
+          description: True when the strategy is a native decision-maker owning its full TradePlan (leverage, structural stop, duration, written reasoning).
+          type: boolean
+        config:
+          $ref: "#/components/schemas/StrategyConfig"
+        performance:
+          $ref: "#/components/schemas/StrategyPerformance"
+        custom:
+          description: True when this is a user-built custom strategy (no-code builder), not a built-in.
+          type: boolean
+        customId:
+          description: The custom strategy's numeric id (for /custom-strategies/{id} CRUD). Present only when custom.
+          type: integer
+        backtested:
+          description: Custom strategies only — true once a single-strategy backtest of the CURRENT rules has completed (required before live enable).
+          type: boolean
+
+    CustomStrategyCondition:
+      type: object
+      required: [indicator, op, value]
+      properties:
+        indicator:
+          description: One of the builder's indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).
+          type: string
+        op:
+          description: Comparison — gt/gte/lt/lte for numeric indicators, eq for enum/boolean ones.
+          type: string
+          enum: [gt, gte, lt, lte, eq]
+        value:
+          description: Number for numeric indicators; string for enum/boolean ones ("true"/"false" or a regime name).
+          oneOf:
+            - type: number
+            - type: string
+
+    CustomStrategyStop:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [atr, percent, swing]
+        atrMult:
+          description: atr mode — stop at N × ATR from entry (0.5–10).
+          type: number
+        pct:
+          description: percent mode — fixed % distance from entry (0.05–20).
+          type: number
+        lookback:
+          description: swing mode — lowest low / highest high of the last N 15m bars (3–50).
+          type: integer
+
+    CustomStrategyRules:
+      type: object
+      required: [stop, confidence]
+      properties:
+        long:
+          description: AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomStrategyCondition"
+        short:
+          description: AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomStrategyCondition"
+        stop:
+          $ref: "#/components/schemas/CustomStrategyStop"
+        confidence:
+          description: Static plan confidence (50–95); the per-strategy confidence threshold still applies on top.
+          type: number
+
+    CustomStrategy:
+      type: object
+      required: [id, strategyId, section, name, rules, indicators, rulesValid, backtested, rulesUpdatedAt, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        strategyId:
+          description: Engine-facing id, custom_<id> — the key used on /strategies, backtests and autopsies.
+          type: string
+        section:
+          type: string
+          enum: [crypto, forex]
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+        indicators:
+          description: Human-readable rendering of the rules ("LONG when RSI < 30 …").
+          type: array
+          items:
+            type: string
+        rulesValid:
+          type: boolean
+        backtested:
+          description: True once a single-strategy backtest of the CURRENT rules completed. Editing rules resets this — and live enablement requires it.
+          type: boolean
+        lastBacktestAt:
+          type: string
+          format: date-time
+          nullable: true
+        rulesUpdatedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CustomStrategyCreate:
+      type: object
+      required: [name, rules]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+
+    CustomStrategyUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        rules:
+          $ref: "#/components/schemas/CustomStrategyRules"
+
+    StrategySignalItem:
+      type: object
+      required: [symbol, confidence, regime, lastPrice, status]
+      properties:
+        symbol:
+          type: string
+        strategyId:
+          type: string
+        strategyName:
+          type: string
+        confidence:
+          type: number
+        regime:
+          type: string
+        lastPrice:
+          type: number
+        adx:
+          type: number
+        rsi:
+          type: number
+        volumeRatio:
+          type: number
+        status:
+          type: string
+        entryReason:
+          type: string
+ }
+        executionTarget: { type: string, enum: [demo, live] }
+        generatedAt: { type: string, format: date-time }
+        dataCutoff: { type: string, format: date-time }
+        totalOutcomes: { type: integer, minimum: 0 }
+        minimumSamples: { type: integer, minimum: 1 }
+        falseDiscoveryRate: { type: number, minimum: 0, maximum: 1 }
+        cellsTested: { type: integer, minimum: 0 }
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvidenceRecord"
+        limitations:
+          type: array
+          items: { type: string }
+
+    EvidenceRecord:
+      type: object
+      required: [evidenceId, fingerprint, lifecycle, scope, metrics, statistics, drift, permission, learnedStatement, permittedBehavior, dataCutoff, ageDays, halfLifeDays, decayWeight]
+      properties:
+        evidenceId: { type: string, format: uuid }
+        fingerprint: { type: string }
+        lifecycle: { type: string, enum: [observational, shadow] }
+        scope:
+          type: object
+          required: [dimension, key, label]
+          properties:
+            dimension: { type: string }
+            key: { type: string }
+            label: { type: string }
+          additionalProperties: true
+        metrics:
+          type: object
+          required: [samples, minimumSamples, gated, wins, losses, scratches, netPnlUsdt]
+          properties:
+            samples: { type: integer, minimum: 0 }
+            minimumSamples: { type: integer, minimum: 1 }
+            gated: { type: boolean }
+            wins: { type: integer, minimum: 0 }
+            losses: { type: integer, minimum: 0 }
+            scratches: { type: integer, minimum: 0 }
+            winRate: { type: [number, "null"], minimum: 0, maximum: 1 }
+            grossPnlUsdt: { type: [number, "null"] }
+            feesUsdt: { type: [number, "null"] }
+            slippageUsdt: { type: [number, "null"] }
+            netPnlUsdt: { type: number }
+            averageR: { type: [number, "null"] }
+            averageMaeUsdt: { type: [number, "null"] }
+            averageMfeUsdt: { type: [number, "null"] }
+          additionalProperties: true
+        statistics:
+          type: object
+          required: [falseDiscoveryRate, correction, significant, effectDirection]
+          properties:
+            pValue: { type: [number, "null"] }
+            qValue: { type: [number, "null"] }
+            falseDiscoveryRate: { type: number }
+            correction: { type: string, const: benjamini-hochberg }
+            significant: { type: boolean }
+            effectDirection: { type: string, enum: [better, worse, indistinguishable, unknown] }
+        drift:
+          type: object
+          required: [status, reason]
+          properties:
+            status: { type: string, enum: [stable, watch, degraded, insufficient_data] }
+            reason: { type: string }
+          additionalProperties: true
+        permission: { type: string, enum: [observe, withhold, reduce-risk] }
+        learnedStatement: { type: string }
+        permittedBehavior: { type: string }
+        dataCutoff: { type: string, format: date-time }
+        ageDays: { type: number, minimum: 0 }
+        halfLifeDays: { type: number, exclusiveMinimum: 0 }
+        decayWeight: { type: number, minimum: 0, maximum: 1 }
+
+    EvidenceRuleSet:
+      type: object
+      required: [ruleVersion, status, validationId, executionTarget, permits, dataCutoff, createdAt, validation, drift]
+      properties:
+        ruleVersion: { type: string }
+        status: { type: string, enum: [observational, shadow, approved, active, suspended, retired] }
+        validationId: { type: integer }
+        executionTarget: { type: string, enum: [demo, live] }
+        permits: { type: string, enum: [withhold, reduce-risk] }
+        dataCutoff: { type: string, format: date-time }
+        approvedAt: { type: [string, "null"], format: date-time }
+        activatedAt: { type: [string, "null"], format: date-time }
+        suspendedAt: { type: [string, "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+        validation: { type: object, additionalProperties: true }
+        drift: { type: object, additionalProperties: true }
+
+    EvidenceValidationResult:
+      type: object
+      required: [verdict, summary, stateVersion, trainTrades, validationTrades, embargoedTrades, embargoMs, dataCutoff, withheld, withheldPnlUsdt, expectancyDelta, baseline, withMemory, rules]
+      properties:
+        verdict: { type: string, enum: [improved, no_better, insufficient_data] }
+        summary: { type: string }
+        stateVersion: { type: string }
+        trainTrades: { type: integer }
+        validationTrades: { type: integer }
+        embargoedTrades: { type: integer }
+        embargoMs: { type: integer }
+        dataCutoff: { type: string, format: date-time }
+        withheld: { type: integer }
+        withheldPnlUsdt: { type: number }
+        expectancyDelta: { type: number }
+        baseline: { type: object, additionalProperties: true }
+        withMemory: { type: object, additionalProperties: true }
+        rules: { type: array, items: { type: object, additionalProperties: true } }
+
+    EvidenceConfirmation:
+      type: object
+      required: [confirmation]
+      additionalProperties: false
+      properties:
+        confirmation:
+          type: string
+          description: Exact promotion or rollback phrase shown by the UI.
+
+    EvidenceSuspension:
+      type: object
+      additionalProperties: false
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    EvidenceLifecycleResult:
+      type: object
+      required: [ruleVersion, status, reason]
+      properties:
+        ruleVersion: { type: string }
+        status: { type: string, enum: [active, suspended] }
+        reason: { type: string }
+
     HealthStatus:
       type: object
       required: [status]
