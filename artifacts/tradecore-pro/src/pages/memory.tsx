@@ -2,7 +2,7 @@ import { useGetBlacklist, useGetToxicHours, getGetBlacklistQueryKey, getGetToxic
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge } from "@/components/ui";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/utils";
 import { KnowledgePanel } from "@/components/knowledge/knowledge-panel";
-import { MemoryInfluencePanel } from "@/components/knowledge/memory-influence-panel";
+import { EvidenceLifecyclePanel } from "@/components/knowledge/evidence-lifecycle-panel";
 import { PageHeader } from "@/components/patterns";
 import { BrainCircuit, ShieldBan, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -15,8 +15,8 @@ export function Memory() {
     <div className="max-w-6xl mx-auto space-y-6">
       <PageHeader
         icon={BrainCircuit}
-        title="Learning"
-        description="What the engine has worked out about its own record — the symbols and hours it has quarantined, what your closed trades support saying, and whether any of it is allowed to change what it does next."
+        title="Learning & Evidence"
+        description="What closed outcomes support saying, how uncertain and current that evidence is, and the exact version—if any—authorized to tighten future decisions."
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -106,8 +106,8 @@ export function Memory() {
       {/* What the record supports saying — and, as prominently, what it doesn't. */}
       <KnowledgePanel />
 
-      {/* The one control that lets that record change what the engine does. */}
-      <MemoryInfluencePanel />
+      {/* Observational evidence, validation, explicit promotion, drift, and rollback. */}
+      <EvidenceLifecyclePanel />
     </div>
   );
 }

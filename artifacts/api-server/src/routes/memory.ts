@@ -1,6 +1,6 @@
-import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
-import { blacklistTable, botConfigTable, hourlyStatsTable } from "@workspace/db";
+import { Router, type IRouter, type Response } from "express";
+import { z } from "zod";
+import { db, blacklistTable, botConfigTable, hourlyStatsTable } from "@workspace/db";
 import { and, eq, gte, sql } from "drizzle-orm";
 import {
   GetBlacklistResponse,
@@ -11,93 +11,151 @@ import {
   UpdateMemoryInfluenceResponse,
 } from "@workspace/api-zod";
 import {
-  invalidate, latestValidation, loadMemoryPermission, recentInfluences,
-  revokeInfluence, runValidation,
+  EvidenceLifecycleError,
+  PROMOTION_CONFIRMATION,
+  ROLLBACK_CONFIRMATION,
+  invalidate,
+  latestValidation,
+  loadMemoryPermission,
+  promoteEvidenceVersion,
+  recentInfluences,
+  revokeInfluence,
+  rollbackEvidenceVersion,
+  runValidation,
+  suspendEvidenceVersion,
 } from "../lib/memory/memoryState";
 import { summariseState } from "../lib/memory/influence";
+import { evidenceOverview } from "../lib/intelligence/evidence/service";
 
 const router: IRouter = Router();
 
 router.get("/memory/blacklist", async (req, res): Promise<void> => {
-  const now = new Date();
-  const rows = await db
-    .select()
-    .from(blacklistTable)
-    .where(and(eq(blacklistTable.userId, req.userId!), eq(blacklistTable.section, req.section!), gte(blacklistTable.expiresAt, now)));
-
-  res.json(
-    GetBlacklistResponse.parse(
-      rows.map((r) => ({
-        symbol: r.symbol,
-        winRate: Number(r.winRate),
-        tradeCount: r.tradeCount,
-        blacklistedAt: r.blacklistedAt.toISOString(),
-        expiresAt: r.expiresAt.toISOString(),
-      }))
-    )
-  );
+  const rows = await db.select().from(blacklistTable).where(and(
+    eq(blacklistTable.userId, req.userId!),
+    eq(blacklistTable.section, req.section!),
+    gte(blacklistTable.expiresAt, new Date()),
+  ));
+  res.json(GetBlacklistResponse.parse(rows.map((row) => ({
+    symbol: row.symbol,
+    winRate: Number(row.winRate),
+    tradeCount: row.tradeCount,
+    blacklistedAt: row.blacklistedAt.toISOString(),
+    expiresAt: row.expiresAt.toISOString(),
+  }))));
 });
 
 router.get("/memory/toxic-hours", async (req, res): Promise<void> => {
-  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]!;
-
-  const rows = await db
-    .select({
-      hour: hourlyStatsTable.hour,
-      cumulativePnl: sql<number>`sum(${hourlyStatsTable.pnl})`,
-      tradeCount: sql<number>`sum(${hourlyStatsTable.tradeCount})`,
-      blockedAt: sql<string>`min(${hourlyStatsTable.createdAt})`,
-    })
-    .from(hourlyStatsTable)
-    .where(and(eq(hourlyStatsTable.userId, req.userId!), eq(hourlyStatsTable.section, req.section!), gte(hourlyStatsTable.date, threeDaysAgo)))
+  const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]!;
+  const rows = await db.select({
+    hour: hourlyStatsTable.hour,
+    cumulativePnl: sql<number>`sum(${hourlyStatsTable.pnl})`,
+    tradeCount: sql<number>`sum(${hourlyStatsTable.tradeCount})`,
+    blockedAt: sql<string>`min(${hourlyStatsTable.createdAt})`,
+  }).from(hourlyStatsTable)
+    .where(and(
+      eq(hourlyStatsTable.userId, req.userId!),
+      eq(hourlyStatsTable.section, req.section!),
+      gte(hourlyStatsTable.date, since),
+    ))
     .groupBy(hourlyStatsTable.hour)
     .having(sql`sum(${hourlyStatsTable.pnl}) < 0`);
-
-  res.json(
-    GetToxicHoursResponse.parse(
-      rows.map((r) => ({
-        hour: r.hour,
-        cumulativePnl: Number(r.cumulativePnl),
-        tradeCount: Number(r.tradeCount),
-        blockedAt: new Date(r.blockedAt).toISOString(),
-      }))
-    )
-  );
+  res.json(GetToxicHoursResponse.parse(rows.map((row) => ({
+    hour: row.hour,
+    cumulativePnl: Number(row.cumulativePnl),
+    tradeCount: Number(row.tradeCount),
+    blockedAt: new Date(row.blockedAt).toISOString(),
+  }))));
 });
 
-// ---------------------------------------------------------------------------
-// P8 — gated memory influence
-//
-// The only endpoints in the product that can change how the engine trades, so
-// each one is deliberately narrow: read the status, run a validation, or set
-// the two knobs. Enabling is a config write plus a cache invalidation, and
-// nothing here can grant live permission — only a passing walk-forward run
-// does that, inside runValidation.
-// ---------------------------------------------------------------------------
+/** Full point-in-time evidence read model and independently controlled lifecycle. */
+router.get("/memory/evidence", async (req, res): Promise<void> => {
+  res.json(await evidenceOverview(req.userId!, req.section!));
+});
 
-/** Status: what memory would do, whether it may, and what it has done. */
+const validationResponse = (result: Awaited<ReturnType<typeof runValidation>>["result"]) => ({
+  verdict: result.verdict,
+  summary: result.summary,
+  stateVersion: result.state.version,
+  trainTrades: result.trainTrades,
+  validationTrades: result.validationTrades,
+  embargoedTrades: result.embargoedTrades,
+  embargoMs: result.embargoMs,
+  dataCutoff: result.dataCutoff,
+  withheld: result.withheld,
+  withheldPnlUsdt: result.withheldPnlUsdt,
+  expectancyDelta: result.expectancyDelta,
+  baseline: result.baseline,
+  withMemory: result.withMemory,
+  rules: result.state.rules,
+});
+
+router.post("/memory/evidence/validate", async (req, res): Promise<void> => {
+  const { result } = await runValidation(req.userId!, req.section!);
+  res.json(validationResponse(result));
+});
+
+const confirmationBody = z.object({ confirmation: z.string().min(1) }).strict();
+const suspensionBody = z.object({ reason: z.string().trim().min(3).max(500).optional() }).strict();
+
+async function lifecycleResponse(res: Response, operation: () => Promise<unknown>) {
+  try {
+    res.json(await operation());
+  } catch (error) {
+    if (error instanceof EvidenceLifecycleError) {
+      res.status(error.statusCode).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
+}
+
+router.post("/memory/evidence/:version/promote", async (req, res): Promise<void> => {
+  const body = confirmationBody.parse(req.body);
+  if (body.confirmation !== PROMOTION_CONFIRMATION) {
+    res.status(400).json({ error: `Type ${PROMOTION_CONFIRMATION} to confirm tightening-only activation.` });
+    return;
+  }
+  await lifecycleResponse(res, () => promoteEvidenceVersion(
+    req.userId!, req.section!, req.params.version!, body.confirmation,
+  ));
+});
+
+router.post("/memory/evidence/:version/suspend", async (req, res): Promise<void> => {
+  const body = suspensionBody.parse(req.body ?? {});
+  await lifecycleResponse(res, () => suspendEvidenceVersion(
+    req.userId!, req.section!, req.params.version!, body.reason,
+  ));
+});
+
+router.post("/memory/evidence/:version/rollback", async (req, res): Promise<void> => {
+  const body = confirmationBody.parse(req.body);
+  if (body.confirmation !== ROLLBACK_CONFIRMATION) {
+    res.status(400).json({ error: `Type ${ROLLBACK_CONFIRMATION} to confirm rollback.` });
+    return;
+  }
+  await lifecycleResponse(res, () => rollbackEvidenceVersion(
+    req.userId!, req.section!, req.params.version!, body.confirmation,
+  ));
+});
+
+/** Compatibility status for existing generated clients. */
 router.get("/memory/influence", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const section = req.section!;
-
-  const [cfg] = await db
-    .select({
-      enabled: botConfigTable.memoryInfluenceEnabled,
-      maxDelta: botConfigTable.memoryInfluenceMaxDelta,
-      approvedVersion: botConfigTable.memoryInfluenceApprovedVersion,
-    })
-    .from(botConfigTable)
+  const [config] = await db.select({
+    enabled: botConfigTable.memoryInfluenceEnabled,
+    maxDelta: botConfigTable.memoryInfluenceMaxDelta,
+    approvedVersion: botConfigTable.memoryInfluenceApprovedVersion,
+  }).from(botConfigTable)
     .where(and(eq(botConfigTable.userId, userId), eq(botConfigTable.section, section)))
     .limit(1);
-
   const permission = await loadMemoryPermission(userId, section);
   const validation = await latestValidation(userId, section);
   const influences = await recentInfluences(userId, section, 50);
-
   res.json(GetMemoryInfluenceResponse.parse({
-    enabled: cfg?.enabled ?? false,
-    maxDelta: Number(cfg?.maxDelta ?? 10),
-    approvedVersion: cfg?.approvedVersion ?? null,
+    enabled: config?.enabled ?? false,
+    maxDelta: Number(config?.maxDelta ?? 10),
+    approvedVersion: config?.approvedVersion ?? null,
     active: permission.state.enabled && permission.state.rules.length > 0,
     needsValidation: permission.needsValidation,
     executionTarget: permission.executionTarget,
@@ -105,92 +163,74 @@ router.get("/memory/influence", async (req, res): Promise<void> => {
     summary: summariseState(permission.state),
     version: permission.state.version,
     rules: permission.state.rules,
-    latestValidation: validation
-      ? {
-          id: validation.id,
-          status: validation.status,
-          verdict: validation.verdict,
-          summary: validation.summary,
-          stateVersion: validation.stateVersion,
-          executionTarget: validation.executionTarget,
-          trainTrades: validation.trainTrades,
-          validationTrades: validation.validationTrades,
-          withheld: validation.withheld,
-          withheldPnlUsdt: validation.withheldPnlUsdt != null ? Number(validation.withheldPnlUsdt) : null,
-          expectancyDelta: validation.expectancyDelta != null ? Number(validation.expectancyDelta) : null,
-          createdAt: validation.createdAt.toISOString(),
-        }
-      : null,
-    recent: influences.map((i) => ({
-      id: i.id,
-      symbol: i.symbol,
-      strategyId: i.strategyId,
-      admitted: i.admitted,
-      confidence: Number(i.confidence),
-      requiredConfidence: Number(i.requiredConfidence),
-      delta: Number(i.delta),
-      memoryVersion: i.memoryVersion,
-      executionTarget: i.executionTarget,
-      reason: i.reason,
-      createdAt: i.createdAt.toISOString(),
+    latestValidation: validation ? {
+      id: validation.id,
+      status: validation.status,
+      verdict: validation.verdict,
+      summary: validation.summary,
+      stateVersion: validation.stateVersion,
+      executionTarget: validation.executionTarget,
+      trainTrades: validation.trainTrades,
+      validationTrades: validation.validationTrades,
+      withheld: validation.withheld,
+      withheldPnlUsdt: validation.withheldPnlUsdt == null ? null : Number(validation.withheldPnlUsdt),
+      expectancyDelta: validation.expectancyDelta == null ? null : Number(validation.expectancyDelta),
+      createdAt: validation.createdAt.toISOString(),
+    } : null,
+    recent: influences.map((influence) => ({
+      id: influence.id,
+      symbol: influence.symbol,
+      strategyId: influence.strategyId,
+      admitted: influence.admitted,
+      confidence: Number(influence.confidence),
+      requiredConfidence: Number(influence.requiredConfidence),
+      delta: Number(influence.delta),
+      memoryVersion: influence.memoryVersion,
+      executionTarget: influence.executionTarget,
+      reason: influence.reason,
+      createdAt: influence.createdAt.toISOString(),
     })),
   }));
 });
 
-/**
- * Run a walk-forward validation.
- *
- * Cells are fitted on an earlier window and tested on a later one they never
- * saw. On `improved` this writes the approved version, which is the only way
- * live influence is ever unlocked.
- */
+/** Compatibility validation endpoint; it also creates Shadow only. */
 router.post("/memory/influence/validate", async (req, res): Promise<void> => {
   const { result } = await runValidation(req.userId!, req.section!);
-  res.json(RunMemoryValidationResponse.parse({
-    verdict: result.verdict,
-    summary: result.summary,
-    stateVersion: result.state.version,
-    trainTrades: result.trainTrades,
-    validationTrades: result.validationTrades,
-    withheld: result.withheld,
-    withheldPnlUsdt: result.withheldPnlUsdt,
-    expectancyDelta: result.expectancyDelta,
-    baseline: result.baseline,
-    withMemory: result.withMemory,
-    rules: result.state.rules,
-  }));
+  res.json(RunMemoryValidationResponse.parse(validationResponse(result)));
 });
 
 /**
- * Set the two knobs.
- *
- * Turning influence OFF goes through revokeInfluence, which also clears the
- * approved version and the cached state — the kill switch. The next scan is
- * already inert; there is nothing to restart. Changing maxDelta invalidates
- * the cache too, since the bound is part of what the state hashes.
+ * Direct activation was intentionally removed. Existing clients may still use
+ * this route for the kill switch and for a desired max delta; both operations
+ * leave influence inert until a new exact version is validated and promoted.
  */
 router.patch("/memory/influence", async (req, res): Promise<void> => {
   const body = UpdateMemoryInfluenceBody.parse(req.body);
   const userId = req.userId!;
   const section = req.section!;
 
-  if (body.enabled === false) {
-    await revokeInfluence(userId, section, "disabled from the UI");
+  if (body.enabled === true) {
+    const permission = await loadMemoryPermission(userId, section);
+    if (!permission.state.enabled) {
+      res.status(409).json({
+        error: "Direct activation is disabled. Validate a Shadow version, review it, and use the explicit promotion action.",
+      });
+      return;
+    }
   }
-
-  const updates: Record<string, unknown> = {};
-  if (body.enabled === true) updates.memoryInfluenceEnabled = true;
-  if (body.maxDelta !== undefined) updates.memoryInfluenceMaxDelta = body.maxDelta.toFixed(2);
-
-  if (Object.keys(updates).length > 0) {
-    await db.update(botConfigTable).set(updates)
+  if (body.enabled === false || body.maxDelta !== undefined) {
+    await revokeInfluence(userId, section, body.maxDelta !== undefined
+      ? "Influence suspended because its configured bound changed; revalidation is required."
+      : "Disabled from the UI.");
+  }
+  if (body.maxDelta !== undefined) {
+    await db.update(botConfigTable).set({ memoryInfluenceMaxDelta: body.maxDelta.toFixed(2) })
       .where(and(eq(botConfigTable.userId, userId), eq(botConfigTable.section, section)));
     invalidate(userId, section);
   }
-
   const permission = await loadMemoryPermission(userId, section);
   res.json(UpdateMemoryInfluenceResponse.parse({
-    enabled: body.enabled ?? permission.requested,
+    enabled: permission.requested,
     active: permission.state.enabled && permission.state.rules.length > 0,
     needsValidation: permission.needsValidation,
     version: permission.state.version,
