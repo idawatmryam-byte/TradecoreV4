@@ -134,6 +134,19 @@ router.get("/strategies", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /strategies/council — read-only Phase 3 specialist opinions
+// ---------------------------------------------------------------------------
+
+router.get("/strategies/council", (req, res) => {
+  try {
+    res.json(getOrCreateEngine(req.userId!, req.section!).getSpecialistCouncils());
+  } catch (err) {
+    logger.error({ err }, "GET /strategies/council failed");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // GET /strategies/signals  — live opportunity rankings from scanner
 // ---------------------------------------------------------------------------
 
