@@ -16,6 +16,7 @@ import { CollapsibleSection, StatTile, EmptyState } from "@/components/patterns"
 import { CopilotSummary } from "@/components/copilot-summary";
 import { SignalFunnel } from "@/components/signal-funnel";
 import { BrainStatusStrip } from "@/components/brain-status";
+import { MarketOverview } from "@/components/market-overview";
 
 /** Live per-position feed from GET /trades/monitor/active — entry vs current
  *  price, the actual SL/TP levels, and unrealized P&L, refreshed every 5s. */
@@ -631,6 +632,8 @@ export function Dashboard() {
     <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
 
       <BrainStatusStrip />
+
+      <MarketOverview />
 
       {/* First-run: section-aware guided setup (connect keys → risk → start).
           Supersedes the old Binance-only connect-keys prompt. */}

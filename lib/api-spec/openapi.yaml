@@ -601,6 +601,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/MarketMonitor"
 
+  /market/state:
+    get:
+      operationId: getMarketState
+      tags: [market]
+      summary: Get observational point-in-time market state
+      description: >-
+        Read-only Phase 2 perception built exclusively from validated closed
+        candles. Blocked entries name stale, incomplete, contradictory, or
+        non-finite inputs. This endpoint cannot influence risk or execution.
+      responses:
+        "200":
+          description: Available or refused state for each monitored symbol
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MarketStateResult"
+
   /portfolio/correlation:
     get:
       operationId: getPortfolioCorrelation
@@ -1433,6 +1452,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /strategies/council:
+    get:
+      operationId: getSpecialistCouncil
+      tags: [strategies]
+      summary: Get observational specialist opinions
+      description: >-
+        Translates the unchanged Brain V0 strategy results into evidence-linked
+        specialist opinions. Correlation discounts are informational and this
+        endpoint has no execution authority.
+      responses:
+        "200":
+          description: Current specialist council snapshots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SpecialistCouncilSnapshot"
 
   /strategies/signals:
     get:
@@ -2293,6 +2331,239 @@ components:
           type: ["number", "null"]
         lastError:
           type: ["string", "null"]
+
+    EvidenceReference:
+      type: object
+      additionalProperties: false
+      required: [evidenceId, kind, source, summary, reference, dataTimestamp, strength]
+      properties:
+        evidenceId: { type: string, minLength: 1, maxLength: 160 }
+        kind:
+          type: string
+          enum: [observation, specialist, statistical, memory, portfolio, execution]
+        source: { type: string, minLength: 1, maxLength: 120 }
+        summary: { type: string, minLength: 1, maxLength: 1000 }
+        reference: { type: string, minLength: 1, maxLength: 500 }
+        fingerprint:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+        dataTimestamp: { type: string, format: date-time }
+        strength: { type: number, minimum: 0, maximum: 1 }
+
+    ProposedTradePlan:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, strategyId, strategyName, symbol, side, confidence, entryPrice, stopPrice, targetPrice, quantity, leverage, expectedHoldSeconds, maxHoldSeconds, regime, netRewardRisk, report]
+      properties:
+        schemaVersion: { type: string, enum: ["1.0.0"] }
+        strategyId: { type: string, minLength: 1, maxLength: 120 }
+        strategyName: { type: string, minLength: 1, maxLength: 200 }
+        symbol: { type: string, minLength: 1, maxLength: 80 }
+        side: { type: string, enum: [long, short] }
+        confidence: { type: number, minimum: 0, maximum: 100 }
+        entryPrice: { type: number, exclusiveMinimum: 0 }
+        stopPrice: { type: number, exclusiveMinimum: 0 }
+        targetPrice: { type: number, exclusiveMinimum: 0 }
+        quantity: { type: number, exclusiveMinimum: 0 }
+        leverage: { type: integer, minimum: 1 }
+        expectedHoldSeconds: { type: integer, minimum: 1 }
+        maxHoldSeconds: { type: integer, minimum: 1 }
+        regime: { type: string, minLength: 1, maxLength: 120 }
+        netRewardRisk:
+          type: [number, "null"]
+          exclusiveMinimum: 0
+        report:
+          type: object
+          additionalProperties: false
+          required: [summary, marketView, entryLogic, riskLogic, exitLogic, checks]
+          properties:
+            summary: { type: string, minLength: 1 }
+            marketView: { type: array, items: { type: string } }
+            entryLogic: { type: array, items: { type: string } }
+            riskLogic: { type: array, items: { type: string } }
+            exitLogic: { type: array, items: { type: string } }
+            checks:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required: [name, passed, detail]
+                properties:
+                  name: { type: string }
+                  passed: { type: boolean }
+                  detail: { type: string }
+            data:
+              type: object
+              additionalProperties: true
+
+    BrainDecision:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, decisionId, action, symbol, marketStateFingerprint, supportingEvidence, opposingEvidence, uncertainty, dataTimestamp, expiresAt, invalidationConditions, versions, reasonCode, thesis, proposedTrade]
+      properties:
+        schemaVersion: { type: string, enum: ["1.0.0"] }
+        decisionId: { type: string, format: uuid }
+        action:
+          type: string
+          enum: [ENTER_NOW, WAIT_FOR_TRIGGER, OBSERVE, REJECT, REDUCE, EXIT]
+        symbol: { type: string, minLength: 1, maxLength: 80 }
+        marketStateFingerprint:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+        supportingEvidence:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/EvidenceReference" }
+        opposingEvidence:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/EvidenceReference" }
+        uncertainty:
+          type: object
+          additionalProperties: false
+          required: [score, reasons, calibrated]
+          properties:
+            score: { type: number, minimum: 0, maximum: 1 }
+            reasons:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items: { type: string, minLength: 1, maxLength: 500 }
+            calibrated: { type: boolean }
+        dataTimestamp: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        invalidationConditions:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { type: string, minLength: 1, maxLength: 500 }
+        versions:
+          type: object
+          additionalProperties: false
+          required: [brain, strategy, model, config, marketState]
+          properties:
+            brain: { type: string }
+            strategy: { type: string }
+            model: { type: string }
+            config: { type: string }
+            marketState: { type: string }
+        reasonCode:
+          type: string
+          pattern: '^[A-Z0-9_]{3,120}$'
+        thesis:
+          type: [object, "null"]
+          additionalProperties: true
+        proposedTrade:
+          oneOf:
+            - $ref: "#/components/schemas/ProposedTradePlan"
+            - type: "null"
+
+    MarketState:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, marketStateVersion, fingerprint, symbol, venue, provider, dataTimestamp, observedAt, freshness, dataQuality, observations, inferences, context]
+      properties:
+        schemaVersion: { type: string, enum: ["1.0.0"] }
+        marketStateVersion: { type: string, enum: [market-state-v1] }
+        fingerprint:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+        symbol: { type: string, minLength: 1, maxLength: 80 }
+        venue: { type: string, enum: [spot, futures, forex] }
+        provider: { type: string, enum: [binance, oanda, fixture] }
+        dataTimestamp: { type: string, format: date-time }
+        observedAt: { type: string, format: date-time }
+        freshness:
+          type: object
+          additionalProperties: false
+          required: [status, ageMs, maximumAgeMs]
+          properties:
+            status: { type: string, enum: [fresh, stale] }
+            ageMs: { type: integer, minimum: 0 }
+            maximumAgeMs: { type: integer, minimum: 1 }
+        dataQuality:
+          type: object
+          additionalProperties: false
+          required: [status, issues]
+          properties:
+            status: { type: string, enum: [healthy, degraded] }
+            issues:
+              type: array
+              maxItems: 50
+              items: { type: string, minLength: 1 }
+        observations:
+          type: object
+          additionalProperties: true
+          required: [lastPrice, timeframes, trend, volatility, momentum, liquidity, structure]
+          properties:
+            lastPrice: { type: number, exclusiveMinimum: 0 }
+            timeframes:
+              type: array
+              minItems: 5
+              maxItems: 5
+              items:
+                type: object
+                additionalProperties: false
+                required: [timeframe, intervalMs, candleCount, lastClosedAt, lastClose, excludedOpenCandles]
+                properties:
+                  timeframe: { type: string, enum: [1m, 3m, 5m, 15m, 1h] }
+                  intervalMs: { type: integer, minimum: 1 }
+                  candleCount: { type: integer, minimum: 1 }
+                  lastClosedAt: { type: string, format: date-time }
+                  lastClose: { type: number, exclusiveMinimum: 0 }
+                  excludedOpenCandles: { type: integer, minimum: 0 }
+            trend: { type: object, additionalProperties: true }
+            volatility: { type: object, additionalProperties: true }
+            momentum: { type: object, additionalProperties: true }
+            liquidity: { type: object, additionalProperties: true }
+            structure: { type: object, additionalProperties: true }
+        inferences:
+          type: object
+          additionalProperties: false
+          required: [regime, regimeConfidence, dominantDirection, session, anomaly]
+          properties:
+            regime: { type: string, enum: [strong_trend, weak_trend, range, high_volatility, low_volatility] }
+            regimeConfidence: { type: number, minimum: 0, maximum: 1 }
+            dominantDirection: { type: string, enum: [bullish, bearish, neutral] }
+            session: { type: string, enum: [asia, europe, us, europe_us_overlap, off_hours] }
+            anomaly: { type: object, additionalProperties: true }
+        context:
+          type: object
+          additionalProperties: false
+          required: [breadth, leadership, correlation]
+          properties:
+            breadth: { type: object, additionalProperties: true }
+            leadership: { type: object, additionalProperties: true }
+            correlation: { type: object, additionalProperties: true }
+
+    MarketStateBuildIssue:
+      type: object
+      additionalProperties: false
+      required: [code, detail]
+      properties:
+        code: { type: string }
+        detail: { type: string }
+        timeframe: { type: string }
+
+    MarketStateResult:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [status, state]
+          properties:
+            status: { type: string, enum: [available] }
+            state: { $ref: "#/components/schemas/MarketState" }
+        - type: object
+          additionalProperties: false
+          required: [status, symbol, observedAt, issues]
+          properties:
+            status: { type: string, enum: [blocked] }
+            symbol: { type: string }
+            observedAt: { type: string, format: date-time }
+            issues:
+              type: array
+              minItems: 1
+              items: { $ref: "#/components/schemas/MarketStateBuildIssue" }
 
     MarketMonitor:
       type: object
@@ -3568,6 +3839,88 @@ components:
           type: number
         avgDurationSeconds:
           type: number
+
+    StrategyOpinion:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, opinionId, specialistId, specialistVersion, marketStateFingerprint, symbol, stance, strength, applicableRegimes, supportingEvidence, opposingEvidence, trigger, invalidationConditions, expectedDurationSeconds, proposedRewardRisk, uncertainty, abstentionReason, dataTimestamp, expiresAt]
+      properties:
+        schemaVersion: { type: string, enum: ["1.0.0"] }
+        opinionId: { type: string, format: uuid }
+        specialistId: { type: string }
+        specialistVersion: { type: string }
+        marketStateFingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}$' }
+        symbol: { type: string }
+        stance: { type: string, enum: [long, short, neutral, abstain] }
+        strength: { type: number, minimum: 0, maximum: 1 }
+        applicableRegimes:
+          type: array
+          minItems: 1
+          items: { type: string }
+        supportingEvidence:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/EvidenceReference" }
+        opposingEvidence:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/EvidenceReference" }
+        trigger: { type: ["string", "null"] }
+        invalidationConditions:
+          type: array
+          maxItems: 20
+          items: { type: string }
+        expectedDurationSeconds: { type: ["integer", "null"], minimum: 1 }
+        proposedRewardRisk: { type: ["number", "null"], exclusiveMinimum: 0 }
+        uncertainty: { type: number, minimum: 0, maximum: 1 }
+        abstentionReason: { type: ["string", "null"] }
+        dataTimestamp: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+
+    SpecialistOpinionView:
+      type: object
+      additionalProperties: false
+      required: [role, correlationGroup, correlationDiscount, effectiveStrength, operationalStatus, opinion]
+      properties:
+        role:
+          type: string
+          enum: [trend, breakout, mean_reversion, volatility, market_structure, execution_quality, portfolio_conflict]
+        correlationGroup: { type: string }
+        correlationDiscount: { type: number, minimum: 0, maximum: 1 }
+        effectiveStrength: { type: number, minimum: 0, maximum: 1 }
+        operationalStatus: { type: string, enum: [active, abstained] }
+        opinion: { $ref: "#/components/schemas/StrategyOpinion" }
+
+    SpecialistConsensus:
+      type: object
+      additionalProperties: false
+      required: [stance, longScore, shortScore, actionableOpinions, abstentions, disagreement, explanation]
+      properties:
+        stance: { type: string, enum: [long, short, mixed, abstain] }
+        longScore: { type: number, minimum: 0 }
+        shortScore: { type: number, minimum: 0 }
+        actionableOpinions: { type: integer, minimum: 0 }
+        abstentions: { type: integer, minimum: 0 }
+        disagreement: { type: boolean }
+        explanation: { type: string }
+
+    SpecialistCouncilSnapshot:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, councilVersion, mode, cannotExecute, symbol, marketStateFingerprint, dataTimestamp, generatedAt, consensus, opinions]
+      properties:
+        schemaVersion: { type: string, enum: ["1.0.0"] }
+        councilVersion: { type: string, enum: [specialist-council-v1] }
+        mode: { type: string, enum: [observational] }
+        cannotExecute: { type: boolean, const: true }
+        symbol: { type: string }
+        marketStateFingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}$' }
+        dataTimestamp: { type: string, format: date-time }
+        generatedAt: { type: string, format: date-time }
+        consensus: { $ref: "#/components/schemas/SpecialistConsensus" }
+        opinions:
+          type: array
+          items: { $ref: "#/components/schemas/SpecialistOpinionView" }
 
     StrategyInfo:
       type: object

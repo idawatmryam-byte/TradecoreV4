@@ -61,6 +61,17 @@ function DecisionCard({ entry }: { entry: StrategyDecisionEntry }) {
   const { report, plan } = unpack(entry);
   const isShort = entry.side === "short";
   const when = new Date(entry.lastSeenAt ?? entry.createdAt);
+  // Phase 1 compatibility vocabulary. Brain V0 does not yet author native
+  // BrainDecision records, so expiry and calibrated uncertainty remain
+  // explicitly unavailable rather than being fabricated.
+  const brainAction = entry.kind === "executed"
+    ? "ENTER_NOW"
+    : entry.kind === "rejected"
+      ? "REJECT"
+      : "OBSERVE";
+  const uncalibratedUncertainty = entry.confidence == null
+    ? null
+    : Math.max(0, Math.min(100, 100 - Number(entry.confidence)));
 
   return (
     <Card className="overflow-hidden">
@@ -72,6 +83,7 @@ function DecisionCard({ entry }: { entry: StrategyDecisionEntry }) {
         <span className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-mono font-semibold shrink-0", meta.className)}>
           <KindIcon className="h-3.5 w-3.5" /> {meta.label}
         </span>
+        <Badge variant="outline" className="hidden font-mono text-[9px] sm:inline-flex">{brainAction}</Badge>
         <span className="font-mono font-bold text-sm shrink-0">{entry.symbol}</span>
         {entry.side && (
           <span className={cn("inline-flex items-center gap-0.5 text-[11px] font-mono font-semibold shrink-0", isShort ? "text-destructive" : "text-success")}>
@@ -111,6 +123,30 @@ function DecisionCard({ entry }: { entry: StrategyDecisionEntry }) {
               <span className="font-mono">{entry.stage}</span>
             </p>
           )}
+          <div className="grid gap-2 rounded-md border border-border/70 bg-muted/20 p-3 text-[12px] sm:grid-cols-3">
+            <div>
+              <div className="text-muted-foreground">Unified action</div>
+              <div className="mt-1 font-mono font-semibold">{brainAction}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Uncertainty</div>
+              <div className="mt-1 font-mono">
+                {uncalibratedUncertainty == null ? "Not captured" : uncalibratedUncertainty.toFixed(0) + "% · uncalibrated"}
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Decision expiry</div>
+              <div className="mt-1 font-mono">Not captured by Brain V0</div>
+            </div>
+            {plan && (
+              <div className="sm:col-span-3">
+                <div className="text-muted-foreground">Price invalidation</div>
+                <div className="mt-1 font-mono">
+                  {isShort ? "Price at or above " : "Price at or below "}{Number(plan.slPrice).toPrecision(6)}
+                </div>
+              </div>
+            )}
+          </div>
           {report?.summary && report.summary !== entry.reason && (
             <p className="text-sm leading-relaxed">{report.summary}</p>
           )}
@@ -123,8 +159,8 @@ function DecisionCard({ entry }: { entry: StrategyDecisionEntry }) {
             </div>
           )}
           <div className="grid gap-4 sm:grid-cols-2">
-            <ReportSection title="Market view" icon={Eye} lines={report?.marketView} />
-            <ReportSection title="Entry logic" icon={LineChart} lines={report?.entryLogic} />
+            <ReportSection title="Supporting market evidence" icon={Eye} lines={report?.marketView} />
+            <ReportSection title="Supporting entry evidence" icon={LineChart} lines={report?.entryLogic} />
             <ReportSection title="Risk logic" icon={ShieldCheck} lines={report?.riskLogic} />
             <ReportSection title="Exit logic" icon={Clock} lines={report?.exitLogic} />
           </div>
