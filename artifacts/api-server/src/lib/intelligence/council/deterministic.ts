@@ -1,3 +1,4 @@
+
 import {
   INTELLIGENCE_SCHEMA_VERSION,
   brainDecisionFingerprint,
@@ -84,7 +85,13 @@ function inputFingerprint(input: EvaluateDecisionCouncilInput): string {
     opinionIds: input.specialistCouncil.opinions.map((item) => item.opinion.opinionId).sort(),
     plans: input.brainV0Plans,
     executionCosts: input.executionCosts,
-    portfolio: input.portfolio,
+    portfolio: {
+      status: input.portfolio.status,
+      currency: input.portfolio.currency,
+      availableBalance: input.portfolio.availableBalance,
+      openPositionCount: input.portfolio.openPositionCount,
+      limitations: input.portfolio.limitations,
+    },
     historicalEvidence: input.historicalEvidence,
   });
 }
