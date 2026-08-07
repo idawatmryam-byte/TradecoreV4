@@ -13,3 +13,4 @@ export * from "./capture";
 export * from "./recommendations";
 export * from "./memoryInfluence";
 export * from "./intelligence";
+export * from "./evidence";

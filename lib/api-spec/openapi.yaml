@@ -791,6 +791,123 @@ paths:
                 items:
                   $ref: "#/components/schemas/HourlyStat"
 
+  /memory/evidence:
+    get:
+      operationId: getEvidenceOverview
+      tags: [memory]
+      summary: Point-in-time learning evidence and version lifecycle
+      description: >-
+        Returns observational and Shadow evidence separately from the exact
+        validated rule version, if any, that a user explicitly activated.
+      responses:
+        "200":
+          description: Evidence overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceOverview"
+
+  /memory/evidence/validate:
+    post:
+      operationId: validateEvidence
+      tags: [memory]
+      summary: Validate a frozen tightening-only rule set
+      description: >-
+        Fits on an earlier chronological window, applies an embargo, and tests
+        on later outcomes. An improved result creates Shadow only and never
+        activates influence.
+      responses:
+        "200":
+          description: Completed Shadow validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceValidationResult"
+
+  /memory/evidence/{version}/promote:
+    post:
+      operationId: promoteEvidenceVersion
+      tags: [memory]
+      summary: Explicitly activate an exact validated evidence version
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvidenceConfirmation"
+      responses:
+        "200":
+          description: Exact version activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceLifecycleResult"
+        "409":
+          description: Promotion gate refused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /memory/evidence/{version}/suspend:
+    post:
+      operationId: suspendEvidenceVersion
+      tags: [memory]
+      summary: Suspend the active evidence version immediately
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvidenceSuspension"
+      responses:
+        "200":
+          description: Version suspended and influence disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceLifecycleResult"
+
+  /memory/evidence/{version}/rollback:
+    post:
+      operationId: rollbackEvidenceVersion
+      tags: [memory]
+      summary: Explicitly roll back to a previously validated version
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvidenceConfirmation"
+      responses:
+        "200":
+          description: Validated version reactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceLifecycleResult"
+        "409":
+          description: Rollback gate refused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /memory/blacklist:
     get:
       operationId: getBlacklist
@@ -1625,6 +1742,154 @@ components:
         — for scripts, curl, or a non-browser client. Same shared credentials
         as sessionCookie; this is just the non-cookie way to present them.
   schemas:
+    EvidenceOverview:
+      type: object
+      required: [executionTarget, snapshot, activeRuleVersion, ruleSets]
+      properties:
+        executionTarget: { type: string, enum: [demo, live] }
+        activeRuleVersion: { type: [string, "null"] }
+        snapshot: { $ref: "#/components/schemas/EvidenceSnapshot" }
+        ruleSets:
+          type: array
+          items: { $ref: "#/components/schemas/EvidenceRuleSet" }
+
+    EvidenceSnapshot:
+      type: object
+      required: [schemaVersion, snapshotVersion, fingerprint, executionTarget, generatedAt, dataCutoff, totalOutcomes, minimumSamples, falseDiscoveryRate, cellsTested, records, limitations]
+      properties:
+        schemaVersion: { type: string, const: evidence-v1 }
+        snapshotVersion: { type: string }
+        fingerprint: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
+        executionTarget: { type: string, enum: [demo, live] }
+        generatedAt: { type: string, format: date-time }
+        dataCutoff: { type: string, format: date-time }
+        totalOutcomes: { type: integer, minimum: 0 }
+        minimumSamples: { type: integer, minimum: 1 }
+        falseDiscoveryRate: { type: number, minimum: 0, maximum: 1 }
+        cellsTested: { type: integer, minimum: 0 }
+        records:
+          type: array
+          items: { $ref: "#/components/schemas/EvidenceRecord" }
+        limitations:
+          type: array
+          items: { type: string }
+
+    EvidenceRecord:
+      type: object
+      required: [evidenceId, fingerprint, lifecycle, scope, metrics, statistics, drift, permission, learnedStatement, permittedBehavior, dataCutoff, ageDays, halfLifeDays, decayWeight]
+      properties:
+        evidenceId: { type: string, format: uuid }
+        fingerprint: { type: string }
+        lifecycle: { type: string, enum: [observational, shadow] }
+        scope:
+          type: object
+          required: [dimension, key, label]
+          properties:
+            dimension: { type: string }
+            key: { type: string }
+            label: { type: string }
+          additionalProperties: true
+        metrics:
+          type: object
+          required: [samples, minimumSamples, gated, wins, losses, scratches, netPnlUsdt]
+          properties:
+            samples: { type: integer, minimum: 0 }
+            minimumSamples: { type: integer, minimum: 1 }
+            gated: { type: boolean }
+            wins: { type: integer, minimum: 0 }
+            losses: { type: integer, minimum: 0 }
+            scratches: { type: integer, minimum: 0 }
+            winRate: { type: [number, "null"] }
+            grossPnlUsdt: { type: [number, "null"] }
+            feesUsdt: { type: [number, "null"] }
+            slippageUsdt: { type: [number, "null"] }
+            netPnlUsdt: { type: number }
+            averageR: { type: [number, "null"] }
+            averageMaeUsdt: { type: [number, "null"] }
+            averageMfeUsdt: { type: [number, "null"] }
+          additionalProperties: true
+        statistics:
+          type: object
+          required: [falseDiscoveryRate, correction, significant, effectDirection]
+          properties:
+            pValue: { type: [number, "null"] }
+            qValue: { type: [number, "null"] }
+            falseDiscoveryRate: { type: number }
+            correction: { type: string, const: benjamini-hochberg }
+            significant: { type: boolean }
+            effectDirection: { type: string, enum: [better, worse, indistinguishable, unknown] }
+        drift:
+          type: object
+          required: [status, reason]
+          properties:
+            status: { type: string, enum: [stable, watch, degraded, insufficient_data] }
+            reason: { type: string }
+          additionalProperties: true
+        permission: { type: string, enum: [observe, withhold, reduce-risk] }
+        learnedStatement: { type: string }
+        permittedBehavior: { type: string }
+        dataCutoff: { type: string, format: date-time }
+        ageDays: { type: number, minimum: 0 }
+        halfLifeDays: { type: number, exclusiveMinimum: 0 }
+        decayWeight: { type: number, minimum: 0, maximum: 1 }
+
+    EvidenceRuleSet:
+      type: object
+      required: [ruleVersion, status, validationId, executionTarget, permits, dataCutoff, createdAt, validation, drift]
+      properties:
+        ruleVersion: { type: string }
+        status: { type: string, enum: [observational, shadow, approved, active, suspended, retired] }
+        validationId: { type: integer }
+        executionTarget: { type: string, enum: [demo, live] }
+        permits: { type: string, enum: [withhold, reduce-risk] }
+        dataCutoff: { type: string, format: date-time }
+        approvedAt: { type: [string, "null"], format: date-time }
+        activatedAt: { type: [string, "null"], format: date-time }
+        suspendedAt: { type: [string, "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+        validation: { type: object, additionalProperties: true }
+        drift: { type: object, additionalProperties: true }
+
+    EvidenceValidationResult:
+      type: object
+      required: [verdict, summary, stateVersion, trainTrades, validationTrades, embargoedTrades, embargoMs, dataCutoff, withheld, withheldPnlUsdt, expectancyDelta, baseline, withMemory, rules]
+      properties:
+        verdict: { type: string, enum: [improved, no_better, insufficient_data] }
+        summary: { type: string }
+        stateVersion: { type: string }
+        trainTrades: { type: integer }
+        validationTrades: { type: integer }
+        embargoedTrades: { type: integer }
+        embargoMs: { type: integer }
+        dataCutoff: { type: string, format: date-time }
+        withheld: { type: integer }
+        withheldPnlUsdt: { type: number }
+        expectancyDelta: { type: number }
+        baseline: { type: object, additionalProperties: true }
+        withMemory: { type: object, additionalProperties: true }
+        rules: { type: array, items: { type: object, additionalProperties: true } }
+
+    EvidenceConfirmation:
+      type: object
+      required: [confirmation]
+      additionalProperties: false
+      properties:
+        confirmation: { type: string }
+
+    EvidenceSuspension:
+      type: object
+      additionalProperties: false
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    EvidenceLifecycleResult:
+      type: object
+      required: [ruleVersion, status, reason]
+      properties:
+        ruleVersion: { type: string }
+        status: { type: string, enum: [active, suspended] }
+        reason: { type: string }
+
     HealthStatus:
       type: object
       required: [status]

@@ -77,6 +77,9 @@ export interface InfluenceRule {
   label: string;
   samples: number;
   winRate: number;
+  /** 95% Wilson interval retained so council replay never receives a bare estimate. */
+  winRateLow: number;
+  winRateHigh: number;
   baselineWinRate: number;
   qValue: number;
   /** Confidence points this cell adds to the bar. Always > 0. */
@@ -141,7 +144,7 @@ export function buildInfluenceState(report: KnowledgeReport, opts: BuildStateOpt
   const rules: InfluenceRule[] = [];
   if (baseline != null) {
     for (const cell of report.cells) {
-      if (cell.gated || cell.winRate == null) continue;
+      if (cell.gated || cell.winRate == null || cell.winRateLow == null || cell.winRateHigh == null) continue;
       if (!INFLUENCED_DIMENSIONS.includes(cell.dimension)) continue;
       // The correction is the whole point: without it, four dimensions across
       // a dozen symbols guarantee a handful of "significant" cells on noise.
@@ -156,6 +159,8 @@ export function buildInfluenceState(report: KnowledgeReport, opts: BuildStateOpt
         label: cell.label,
         samples: cell.samples,
         winRate: cell.winRate,
+        winRateLow: cell.winRateLow,
+        winRateHigh: cell.winRateHigh,
         baselineWinRate: baseline,
         qValue: cell.significance.qValue,
         delta,

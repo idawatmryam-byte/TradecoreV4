@@ -95,6 +95,7 @@ import type { MarketStateResult } from "./intelligence/market-state/types";
 import { buildSpecialistCouncilSnapshot, type SpecialistCouncilSnapshot } from "./intelligence/specialists";
 import { recordSpecialistOpinions } from "./intelligence/specialists/store";
 import { DecisionCouncil, type ShadowCouncilRun } from "./intelligence/council";
+import { approvedHistoricalEvidence } from "./intelligence/evidence";
 import { recordShadowCouncilRun } from "./intelligence/council/store";
 
 // ---------------------------------------------------------------------------
@@ -2045,14 +2046,7 @@ class BotEngine {
                 "Position-level exposure and reserved risk are not authoritative until Phase 6.",
               ],
             },
-            historicalEvidence: {
-              status: "unavailable",
-              ruleVersion: null,
-              items: [],
-              limitations: [
-                "No historical evidence may influence decisions until Phase 5 promotion controls exist.",
-              ],
-            },
+            historicalEvidence: approvedHistoricalEvidence(memoryPermission.state),
             generatedAt: now.toISOString(),
           }).then((run) => {
             const current = this.shadowCouncilRuns.get(symbol);
