@@ -1,3 +1,4 @@
+
 import { strict as assert } from "node:assert";
 import type { Strategy, StrategyConfig, TradePlan } from "../src/lib/strategies/base";
 import { parseMarketState } from "../src/lib/intelligence/market-state/types";
@@ -202,6 +203,7 @@ const validatingProvider: ReasoningProvider = {
     return {
       output: {
         summary: "Evidence review complete.",
+        summaryEvidenceIds: [knownEvidenceId],
         claims: [
           { claim: "Supported", evidenceIds: [knownEvidenceId] },
           { claim: "Invented", evidenceIds: ["unknown-evidence"] },
