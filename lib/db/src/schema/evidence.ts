@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { index, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -49,6 +50,9 @@ export const evidenceRuleSetsTable = pgTable("evidence_rule_sets", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   uniqueIndex("evidence_rule_sets_version_uq").on(table.userId, table.section, table.ruleVersion),
+  uniqueIndex("evidence_rule_sets_one_active_uq")
+    .on(table.userId, table.section)
+    .where(sql`${table.status} = 'active'`),
   index("evidence_rule_sets_status_idx").on(table.userId, table.section, table.status),
 ]);
 
