@@ -218,7 +218,7 @@ export function buildEvidenceSnapshot(view: PointInTimeView<TradeObservation>, o
     adjusted.item.significant = adjusted.significant;
   }
 
-  const records: EvidenceRecord[] = drafts.map((draft) => {
+  const records: EvidenceRecord[] = drafts.map((draft): EvidenceRecord => {
     const latest = draft.rows.at(-1)?.closedAt ?? null;
     const ageDays = latest == null ? 0 : Math.max(0, (generatedAt - latest) / DAY_MS);
     const decayWeight = Math.pow(0.5, ageDays / halfLifeDays);
