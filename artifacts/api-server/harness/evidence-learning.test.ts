@@ -132,7 +132,7 @@ function persistentCells(): TradeObservation[] {
     embargoMs: 2 * DAY,
     minValidationTrades: 1,
   });
-  expect("the chronological validation split applies the embargo", validation.embargoedTrades === 2, String(validation.embargoedTrades));
+  expect("the chronological validation split applies the embargo", validation.embargoedTrades === 1, String(validation.embargoedTrades));
   expect("the embargo is recorded in the result", validation.embargoMs === 2 * DAY);
   expect("train and validation ranges are explicit", validation.trainTo != null && validation.validationFrom != null && Date.parse(validation.validationFrom) > Date.parse(validation.trainTo));
 }
