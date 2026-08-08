@@ -235,10 +235,15 @@ function weightedScore(components: OpportunityScoreComponents): number {
 function requested(candidate: PortfolioOpportunityInput): { risk: number; notional: number } {
   if (
     candidate.entryPrice == null || candidate.stopPrice == null
-    || candidate.quantity == null || candidate.quantity <= 0
+    || candidate.quantity == null || candidate.quantity <= 0 || candidate.side == null
+    || (candidate.side === "long" && candidate.stopPrice >= candidate.entryPrice)
+    || (candidate.side === "short" && candidate.stopPrice <= candidate.entryPrice)
   ) return { risk: 0, notional: 0 };
+  const stopDistance = candidate.side === "long"
+    ? candidate.entryPrice - candidate.stopPrice
+    : candidate.stopPrice - candidate.entryPrice;
   return {
-    risk: Math.abs(candidate.entryPrice - candidate.stopPrice) * candidate.quantity,
+    risk: stopDistance * candidate.quantity,
     notional: candidate.entryPrice * candidate.quantity,
   };
 }
@@ -258,6 +263,7 @@ function baseAssessment(
 ): Omit<PortfolioOpportunityAssessment, "rank" | "allocatedRisk" | "allocatedNotional" | "allocatedQuantity" | "allocationFraction" | "disposition" | "reasonCodes" | "explanation" | "correlationUnknownWith" | "reinforcingClusterSymbols"> {
   return {
     decisionId: candidate.decisionId,
+    sourceFingerprint: candidate.sourceFingerprint,
     symbol: candidate.symbol,
     side: candidate.side,
     action: candidate.action,
