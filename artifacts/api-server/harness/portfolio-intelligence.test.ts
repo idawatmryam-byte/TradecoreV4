@@ -106,6 +106,20 @@ function fixture(overrides: Partial<BuildPortfolioIntelligenceInput> = {}): Buil
   const b = buildPortfolioIntelligence(fixture());
   expect("identical inputs produce an identical projection fingerprint", a.fingerprint === b.fingerprint);
   expect("identical inputs produce an identical projection id", a.projectionId === b.projectionId);
+  const changedSource = buildPortfolioIntelligence(fixture({
+    opportunities: [candidate(0, { sourceFingerprint: "b".repeat(64) })],
+  }));
+  expect("a changed council source fingerprint changes the portfolio audit fingerprint",
+    changedSource.fingerprint !== a.fingerprint
+      && changedSource.opportunities[0]?.sourceFingerprint === "b".repeat(64));
+}
+
+{
+  const invalidStop = candidate(0, { side: "long", entryPrice: 100, stopPrice: 101 });
+  const projection = buildPortfolioIntelligence(fixture({ opportunities: [invalidStop] }));
+  expect("an entry whose stop is on the profitable side is not treated as executable risk",
+    projection.opportunities[0]?.disposition === "REJECTED"
+      && projection.opportunities[0]?.reasonCodes.includes("NO_EXECUTABLE_PLAN"));
 }
 
 {
