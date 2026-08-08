@@ -941,6 +941,7 @@ class BotEngine {
         : null,
       runtimeLimitations: [
         "The current broker free-balance reading is used for both equity and available balance; unrealized equity is not yet authoritative.",
+        "Drawdown is approximated from current-day realized P&L relative to free balance, not peak-to-equity drawdown.",
         "Liquidity is a volume proxy, not order-book depth.",
       ],
     });
