@@ -32,6 +32,7 @@ export interface AssemblePortfolioProjectionInput {
   readonly correlations: readonly PairCorrelationInput[];
   readonly config: PortfolioRuntimeConfig;
   readonly correlationIssue?: string | null;
+  readonly positionIssue?: string | null;
 }
 
 function latestScan(runs: readonly ShadowCouncilRun[]): {
@@ -101,6 +102,10 @@ export function assemblePortfolioProjection(
   }
   if (scan.discarded > 0) {
     dataIssues.push(`${scan.discarded} older council projection(s) were excluded to preserve same-scan ranking.`);
+  }
+  if (input.positionIssue) {
+    dataStatus = "blocked";
+    dataIssues.push(input.positionIssue);
   }
   if (input.correlationIssue) {
     dataStatus = dataStatus === "blocked" ? "blocked" : "degraded";
