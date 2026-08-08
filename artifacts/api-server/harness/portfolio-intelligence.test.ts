@@ -228,11 +228,21 @@ function fixture(overrides: Partial<BuildPortfolioIntelligenceInput> = {}): Buil
 
 expectThrows("non-finite equity is refused", () =>
   buildPortfolioIntelligence(fixture({ equity: Number.NaN })));
-expectThrows("a stop on the wrong side is refused", () =>
-  buildPortfolioIntelligence(fixture({
+{
+  const protectedProfit = buildPortfolioIntelligence(fixture({
     positions: [{
       symbol: "ETHUSDT", side: "long", strategyId: null,
       entryPrice: 100, stopPrice: 105, quantity: 1,
+    }],
+  }));
+  expect("a favorable trailing stop contributes zero remaining loss risk",
+    protectedProfit.context.remainingStopRisk === 0);
+}
+expectThrows("an invalid negative stop is refused", () =>
+  buildPortfolioIntelligence(fixture({
+    positions: [{
+      symbol: "ETHUSDT", side: "long", strategyId: null,
+      entryPrice: 100, stopPrice: -1, quantity: 1,
     }],
   })));
 expectThrows("conflicting pair correlations are refused", () =>
