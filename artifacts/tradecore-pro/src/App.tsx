@@ -11,6 +11,7 @@ import { Settings } from '@/pages/settings';
 import { Backtest } from '@/pages/backtest';
 import { Strategies } from '@/pages/strategies';
 import { AiBrain } from '@/pages/ai-brain';
+import { PortfolioIntelligence } from '@/pages/portfolio-intelligence';
 import { StrategyBuilder } from '@/pages/strategy-builder';
 import { Account } from '@/pages/account';
 import { Decisions } from '@/pages/decisions';
@@ -38,6 +39,7 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/" component={Dashboard} />
+        <Route path="/portfolio" component={PortfolioIntelligence} />
         <Route path="/trades" component={Trades} />
         <Route path="/ai-brain" component={AiBrain} />
         <Route path="/copilot" component={CoPilot} />
