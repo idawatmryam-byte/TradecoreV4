@@ -1608,6 +1608,29 @@ paths:
                 items:
                   $ref: "#/components/schemas/ShadowCouncilRun"
 
+  /intelligence/portfolio:
+    get:
+      operationId: getPortfolioIntelligence
+      tags: [intelligence]
+      summary: Get the deterministic Shadow portfolio projection
+      description: >-
+        Ranks the latest complete Shadow decision scan, applies conservative
+        portfolio constraints, and reserves hypothetical risk budgets. This
+        projection is read-only and structurally cannot execute trades.
+      responses:
+        "200":
+          description: Current same-scan Shadow portfolio projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioIntelligenceProjection"
+        "500":
+          description: Projection could not be constructed from current state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /intelligence/shadow/{decisionId}/replay:
     get:
       operationId: getShadowDecisionReplay
@@ -4245,6 +4268,261 @@ components:
         slippageRatePerLeg: { type: number, minimum: 0 }
         source: { type: string, enum: [engine-market-cost-model] }
         version: { type: string }
+
+    PortfolioCorrelationCluster:
+      type: object
+      additionalProperties: false
+      required: [clusterId, symbols, exposure]
+      properties:
+        clusterId: { type: string, minLength: 1 }
+        symbols:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { type: string, minLength: 1 }
+        exposure: { type: number, minimum: 0 }
+
+    PortfolioContext:
+      type: object
+      additionalProperties: false
+      required:
+        - schemaVersion
+        - contextId
+        - asOf
+        - currency
+        - equity
+        - availableBalance
+        - openPositionCount
+        - remainingStopRisk
+        - grossExposure
+        - netExposure
+        - drawdownFraction
+        - reservedRisk
+        - correlationState
+        - correlationClusters
+        - riskPolicyVersion
+        - fingerprint
+      properties:
+        schemaVersion: { type: string, const: "1.0.0" }
+        contextId: { type: string, format: uuid }
+        asOf: { type: string, format: date-time }
+        currency: { type: string, minLength: 1 }
+        equity: { type: number, minimum: 0 }
+        availableBalance: { type: number, minimum: 0 }
+        openPositionCount: { type: integer, minimum: 0 }
+        remainingStopRisk: { type: number, minimum: 0 }
+        grossExposure: { type: number, minimum: 0 }
+        netExposure: { type: number }
+        drawdownFraction: { type: number, minimum: 0, maximum: 1 }
+        reservedRisk: { type: number, minimum: 0 }
+        correlationState: { type: string, enum: [known, partial, unknown] }
+        correlationClusters:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/PortfolioCorrelationCluster"
+        riskPolicyVersion: { type: string, minLength: 1 }
+        fingerprint: { type: string, pattern: "^[a-f0-9]{64}$" }
+
+    PortfolioPolicy:
+      type: object
+      additionalProperties: false
+      required:
+        - policyVersion
+        - riskPolicyVersion
+        - maxOpenPositions
+        - maxPortfolioRiskFraction
+        - maxSymbolNotionalFraction
+        - maxNetExposureFraction
+        - maxCorrelatedNotionalFraction
+        - maxStrategyRiskFraction
+        - correlationThreshold
+        - unknownCorrelationPolicy
+        - drawdownDeRiskStartFraction
+        - drawdownHardFraction
+        - minimumAllocationFraction
+      properties:
+        policyVersion: { type: string, const: shadow-portfolio-policy-v1 }
+        riskPolicyVersion: { type: string, minLength: 1 }
+        maxOpenPositions: { type: integer, minimum: 0 }
+        maxPortfolioRiskFraction: { type: number, minimum: 0, maximum: 1 }
+        maxSymbolNotionalFraction: { type: number, minimum: 0 }
+        maxNetExposureFraction: { type: number, minimum: 0 }
+        maxCorrelatedNotionalFraction: { type: number, minimum: 0 }
+        maxStrategyRiskFraction: { type: number, minimum: 0, maximum: 1 }
+        correlationThreshold: { type: number, minimum: 0, maximum: 1 }
+        unknownCorrelationPolicy: { type: string, enum: [allow, block] }
+        drawdownDeRiskStartFraction: { type: number, minimum: 0, maximum: 1 }
+        drawdownHardFraction: { type: number, minimum: 0, maximum: 1 }
+        minimumAllocationFraction: { type: number, minimum: 0, maximum: 1 }
+
+    OpportunityScoreComponents:
+      type: object
+      additionalProperties: false
+      required:
+        - rewardRiskQuality
+        - decisionSupport
+        - regimeSuitability
+        - liquidityQuality
+        - diversificationBenefit
+        - costQuality
+        - uncertaintyQuality
+      properties:
+        rewardRiskQuality: { type: number, minimum: 0, maximum: 1 }
+        decisionSupport: { type: number, minimum: 0, maximum: 1 }
+        regimeSuitability: { type: number, minimum: 0, maximum: 1 }
+        liquidityQuality: { type: number, minimum: 0, maximum: 1 }
+        diversificationBenefit: { type: number, minimum: 0, maximum: 1 }
+        costQuality: { type: number, minimum: 0, maximum: 1 }
+        uncertaintyQuality: { type: number, minimum: 0, maximum: 1 }
+
+    PortfolioOpportunityAssessment:
+      type: object
+      additionalProperties: false
+      required:
+        - rank
+        - decisionId
+        - sourceFingerprint
+        - symbol
+        - side
+        - action
+        - strategyId
+        - strategyName
+        - dataTimestamp
+        - expiresAt
+        - score
+        - scoreComponents
+        - estimatedNetR
+        - netRewardRisk
+        - uncertainty
+        - requestedRisk
+        - requestedNotional
+        - allocatedRisk
+        - allocatedNotional
+        - allocatedQuantity
+        - allocationFraction
+        - disposition
+        - reasonCodes
+        - explanation
+        - correlationUnknownWith
+        - reinforcingClusterSymbols
+      properties:
+        rank: { type: integer, minimum: 1 }
+        decisionId: { type: string, format: uuid }
+        sourceFingerprint: { type: string, pattern: "^[a-f0-9]{64}$" }
+        symbol: { type: string, minLength: 1 }
+        side: { type: ["string", "null"], enum: [long, short, null] }
+        action: { type: string, enum: [ENTER_NOW, WAIT_FOR_TRIGGER, OBSERVE, REJECT, REDUCE, EXIT] }
+        strategyId: { type: ["string", "null"] }
+        strategyName: { type: ["string", "null"] }
+        dataTimestamp: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        score: { type: number, minimum: 0, maximum: 1 }
+        scoreComponents:
+          $ref: "#/components/schemas/OpportunityScoreComponents"
+        estimatedNetR:
+          type: "null"
+          description: Unavailable until calibrated expectancy exists.
+        netRewardRisk: { type: [number, "null"], minimum: 0 }
+        uncertainty: { type: number, minimum: 0, maximum: 1 }
+        requestedRisk: { type: number, minimum: 0 }
+        requestedNotional: { type: number, minimum: 0 }
+        allocatedRisk: { type: number, minimum: 0 }
+        allocatedNotional: { type: number, minimum: 0 }
+        allocatedQuantity: { type: number, minimum: 0 }
+        allocationFraction: { type: number, minimum: 0, maximum: 1 }
+        disposition: { type: string, enum: [SHADOW_ALLOCATED, WAIT_FOR_TRIGGER, OBSERVE, REJECTED] }
+        reasonCodes:
+          type: array
+          items: { type: string }
+        explanation: { type: string }
+        correlationUnknownWith:
+          type: array
+          items: { type: string }
+        reinforcingClusterSymbols:
+          type: array
+          items: { type: string }
+
+    PortfolioRiskUsage:
+      type: object
+      additionalProperties: false
+      required:
+        - maximumStopRisk
+        - openStopRisk
+        - initiallyReservedRisk
+        - shadowReservedRisk
+        - remainingRisk
+        - drawdownScale
+        - openPositions
+        - shadowAllocatedPositions
+        - remainingPositionSlots
+      properties:
+        maximumStopRisk: { type: number, minimum: 0 }
+        openStopRisk: { type: number, minimum: 0 }
+        initiallyReservedRisk: { type: number, minimum: 0 }
+        shadowReservedRisk: { type: number, minimum: 0 }
+        remainingRisk: { type: number, minimum: 0 }
+        drawdownScale: { type: number, minimum: 0, maximum: 1 }
+        openPositions: { type: integer, minimum: 0 }
+        shadowAllocatedPositions: { type: integer, minimum: 0 }
+        remainingPositionSlots: { type: integer, minimum: 0 }
+
+    RetainedCash:
+      type: object
+      additionalProperties: false
+      required: [amount, fractionOfAvailableBalance, reasonCodes, explanation]
+      properties:
+        amount: { type: number, minimum: 0 }
+        fractionOfAvailableBalance: { type: number, minimum: 0, maximum: 1 }
+        reasonCodes:
+          type: array
+          items: { type: string }
+        explanation: { type: string }
+
+    PortfolioIntelligenceProjection:
+      type: object
+      additionalProperties: false
+      required:
+        - schemaVersion
+        - portfolioVersion
+        - mode
+        - cannotExecute
+        - projectionId
+        - fingerprint
+        - generatedAt
+        - sourceScanTimestamp
+        - dataStatus
+        - dataIssues
+        - policy
+        - context
+        - riskUsage
+        - opportunities
+        - retainedCash
+      properties:
+        schemaVersion: { type: string, const: "1.0.0" }
+        portfolioVersion: { type: string, const: shadow-portfolio-intelligence-v1 }
+        mode: { type: string, const: shadow }
+        cannotExecute: { type: boolean, const: true }
+        projectionId: { type: string, format: uuid }
+        fingerprint: { type: string, pattern: "^[a-f0-9]{64}$" }
+        generatedAt: { type: string, format: date-time }
+        sourceScanTimestamp: { type: ["string", "null"], format: date-time }
+        dataStatus: { type: string, enum: [healthy, degraded, blocked] }
+        dataIssues:
+          type: array
+          items: { type: string }
+        policy:
+          $ref: "#/components/schemas/PortfolioPolicy"
+        context:
+          $ref: "#/components/schemas/PortfolioContext"
+        riskUsage:
+          $ref: "#/components/schemas/PortfolioRiskUsage"
+        opportunities:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioOpportunityAssessment"
+        retainedCash:
+          $ref: "#/components/schemas/RetainedCash"
 
     PreliminaryPortfolioContext:
       type: object
