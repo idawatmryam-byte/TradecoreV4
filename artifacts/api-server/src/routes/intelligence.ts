@@ -16,6 +16,19 @@ router.get("/intelligence/shadow", (req, res) => {
   }
 });
 
+router.get("/intelligence/portfolio", async (req, res) => {
+  try {
+    const projection = await getOrCreateEngine(req.userId!, req.section!).getPortfolioIntelligence();
+    res.json(projection);
+  } catch (err) {
+    logger.error({ err, userId: req.userId, section: req.section }, "GET /intelligence/portfolio failed");
+    res.status(500).json({
+      error: "Portfolio Intelligence could not build a validated projection.",
+      code: "PORTFOLIO_PROJECTION_FAILED",
+    });
+  }
+});
+
 router.get("/intelligence/shadow/:decisionId/replay", (req, res) => {
   const parsed = DecisionIdSchema.safeParse(req.params.decisionId);
   if (!parsed.success) return res.status(400).json({ error: "Invalid decision identifier" });
