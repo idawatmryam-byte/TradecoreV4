@@ -95,6 +95,7 @@ export interface OpportunityScoreComponents {
 export interface PortfolioOpportunityAssessment {
   readonly rank: number;
   readonly decisionId: string;
+  readonly sourceFingerprint: string;
   readonly symbol: string;
   readonly side: "long" | "short" | null;
   readonly action: PortfolioOpportunityInput["action"];
