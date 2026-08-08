@@ -33,6 +33,7 @@ export interface AssemblePortfolioProjectionInput {
   readonly config: PortfolioRuntimeConfig;
   readonly correlationIssue?: string | null;
   readonly positionIssue?: string | null;
+  readonly runtimeLimitations?: readonly string[];
 }
 
 function latestScan(runs: readonly ShadowCouncilRun[]): {
@@ -102,6 +103,10 @@ export function assemblePortfolioProjection(
   }
   if (scan.discarded > 0) {
     dataIssues.push(`${scan.discarded} older council projection(s) were excluded to preserve same-scan ranking.`);
+  }
+  if (input.runtimeLimitations?.length) {
+    dataStatus = dataStatus === "blocked" ? "blocked" : "degraded";
+    dataIssues.push(...input.runtimeLimitations);
   }
   if (input.positionIssue) {
     dataStatus = "blocked";
