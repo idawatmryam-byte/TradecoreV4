@@ -76,16 +76,18 @@ function positionExposure(position: PortfolioPositionInput): Exposure {
   assertFinite(`${position.symbol}.entryPrice`, position.entryPrice, Number.MIN_VALUE);
   assertFinite(`${position.symbol}.stopPrice`, position.stopPrice, Number.MIN_VALUE);
   assertFinite(`${position.symbol}.quantity`, position.quantity, 0);
-  const stopCorrect = position.side === "long"
-    ? position.stopPrice < position.entryPrice
-    : position.stopPrice > position.entryPrice;
-  if (!stopCorrect) throw new Error(`${position.symbol} has a stop on the wrong side of entry`);
+  // A current stop may legitimately be at break-even or beyond entry after
+  // trailing. That position has zero remaining loss risk; using abs() would
+  // incorrectly turn locked profit into additional downside exposure.
+  const lossDistance = position.side === "long"
+    ? Math.max(0, position.entryPrice - position.stopPrice)
+    : Math.max(0, position.stopPrice - position.entryPrice);
   return {
     symbol: position.symbol,
     side: position.side,
     strategyId: position.strategyId,
     notional: position.entryPrice * position.quantity,
-    risk: Math.abs(position.entryPrice - position.stopPrice) * position.quantity,
+    risk: lossDistance * position.quantity,
   };
 }
 
