@@ -34,6 +34,11 @@ const round = (value: number, digits = 6): number => {
   const scale = 10 ** digits;
   return Math.round((value + Number.EPSILON) * scale) / scale;
 };
+/** Allocation limits must never round upward across a deterministic cap. */
+const floorTo = (value: number, digits = 6): number => {
+  const scale = 10 ** digits;
+  return Math.floor(value * scale) / scale;
+};
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
 const pairKey = (a: string, b: string): string => [a, b].sort().join("|");
 
@@ -442,7 +447,7 @@ export function buildPortfolioIntelligence(
       maxFraction = Math.min(maxFraction, clusterRemaining / item.notional);
       if (clusterRemaining <= 0) reasonCodes.push("CORRELATED_EXPOSURE_CAP");
 
-      allocationFraction = round(clamp01(maxFraction), 6);
+      allocationFraction = floorTo(clamp01(maxFraction), 6);
       if (allocationFraction < input.policy.minimumAllocationFraction) {
         reasonCodes.push("ALLOCATION_BELOW_MINIMUM");
         explanation = "The remaining bounded allocation is below the policy minimum, so the portfolio retains cash.";
