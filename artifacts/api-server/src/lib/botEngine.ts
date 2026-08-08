@@ -96,6 +96,12 @@ import { buildSpecialistCouncilSnapshot, type SpecialistCouncilSnapshot } from "
 import { recordSpecialistOpinions } from "./intelligence/specialists/store";
 import { DecisionCouncil, type ShadowCouncilRun } from "./intelligence/council";
 import { approvedHistoricalEvidence } from "./intelligence/evidence";
+import {
+  assemblePortfolioProjection,
+  type PairCorrelationInput,
+  type PortfolioIntelligenceProjection,
+  type PortfolioPositionInput,
+} from "./intelligence/portfolio";
 import { recordShadowCouncilRun } from "./intelligence/council/store";
 
 // ---------------------------------------------------------------------------
@@ -850,6 +856,94 @@ class BotEngine {
 
   getShadowCouncilRuns(): ShadowCouncilRun[] {
     return Array.from(this.shadowCouncilRuns.values());
+  }
+
+  /**
+   * Phase 6 Shadow portfolio projection.
+   *
+   * Read-only by construction: this gathers current account context and the
+   * latest same-scan Shadow Council outputs, then calls the pure portfolio
+   * planner. It has no executor reference and cannot alter Brain V0 ordering,
+   * position size, or any broker command.
+   */
+  async getPortfolioIntelligence(): Promise<PortfolioIntelligenceProjection> {
+    const now = new Date();
+    const config = await this.loadConfig();
+    const openTrades = await db
+      .select()
+      .from(tradesTable)
+      .where(and(
+        eq(tradesTable.userId, this.userId),
+        eq(tradesTable.section, this.section),
+        eq(tradesTable.status, "open"),
+      ));
+
+    const positions: PortfolioPositionInput[] = [];
+    let invalidPositions = 0;
+    for (const trade of openTrades) {
+      const entryPrice = Number(trade.entryPrice);
+      const stopPrice = Number(trade.stopLoss);
+      const quantity = Number(trade.remainingQuantity ?? trade.quantity);
+      if (
+        !Number.isFinite(entryPrice) || entryPrice <= 0
+        || !Number.isFinite(stopPrice) || stopPrice <= 0
+        || !Number.isFinite(quantity) || quantity < 0
+      ) {
+        invalidPositions++;
+        continue;
+      }
+      positions.push({
+        symbol: trade.symbol,
+        side: trade.side === "sell" ? "short" : "long",
+        strategyId: trade.strategyId ?? null,
+        entryPrice,
+        stopPrice,
+        quantity,
+      });
+    }
+
+    let correlations: PairCorrelationInput[] = [];
+    let correlationIssue: string | null = null;
+    try {
+      const heatMap = await this.correlationHeatMap();
+      correlations = heatMap.cells.map((cell) => ({
+        a: cell.a,
+        b: cell.b,
+        correlation: cell.correlation,
+      }));
+    } catch (err) {
+      correlationIssue = "Correlation history could not be refreshed; pair relationships remain unknown.";
+      logger.warn({ err, userId: this.userId, section: this.section }, "Phase 6 correlation context unavailable");
+    }
+
+    return assemblePortfolioProjection({
+      now,
+      engineRunning: this.state.running,
+      equity: this.state.balanceUsdt,
+      availableBalance: this.state.balanceUsdt,
+      dailyPnl: this.state.dailyPnl,
+      positions,
+      runs: this.getShadowCouncilRuns(),
+      expectedCouncilCount: this.specialistCouncils.size,
+      correlations,
+      config: {
+        maxOpenPositions: Number(config.maxOpenPositions),
+        maxPortfolioRiskPercent: Number(config.maxPortfolioRiskPercent),
+        maxSymbolConcentrationPercent: Number(config.maxSymbolConcentrationPercent),
+        maxNetExposurePercent: Number(config.maxNetExposurePercent),
+        maxCorrelatedExposurePercent: Number(config.maxCorrelatedExposurePercent),
+        correlationThreshold: Number(config.correlationThreshold),
+        correlationUnknownPolicy: config.correlationUnknownPolicy === "block" ? "block" : "allow",
+      },
+      correlationIssue,
+      positionIssue: invalidPositions > 0
+        ? `${invalidPositions} open position${invalidPositions === 1 ? "" : "s"} had invalid entry, stop, or quantity data; allocation failed closed.`
+        : null,
+      runtimeLimitations: [
+        "The current broker free-balance reading is used for both equity and available balance; unrealized equity is not yet authoritative.",
+        "Liquidity is a volume proxy, not order-book depth.",
+      ],
+    });
   }
 
   /**
