@@ -56,15 +56,17 @@ function validatePolicy(policy: PortfolioPolicy): void {
   if (!Number.isInteger(policy.maxOpenPositions)) throw new Error("maxOpenPositions must be an integer");
   for (const [name, value] of Object.entries({
     maxPortfolioRiskFraction: policy.maxPortfolioRiskFraction,
-    maxSymbolNotionalFraction: policy.maxSymbolNotionalFraction,
-    maxNetExposureFraction: policy.maxNetExposureFraction,
-    maxCorrelatedNotionalFraction: policy.maxCorrelatedNotionalFraction,
     maxStrategyRiskFraction: policy.maxStrategyRiskFraction,
     correlationThreshold: policy.correlationThreshold,
     drawdownDeRiskStartFraction: policy.drawdownDeRiskStartFraction,
     drawdownHardFraction: policy.drawdownHardFraction,
     minimumAllocationFraction: policy.minimumAllocationFraction,
-  })) assertFinite(name, value, 0, name === "correlationThreshold" || name.includes("Fraction") ? 1 : Infinity);
+  })) assertFinite(name, value, 0, 1);
+  for (const [name, value] of Object.entries({
+    maxSymbolNotionalFraction: policy.maxSymbolNotionalFraction,
+    maxNetExposureFraction: policy.maxNetExposureFraction,
+    maxCorrelatedNotionalFraction: policy.maxCorrelatedNotionalFraction,
+  })) assertFinite(name, value, 0);
   if (policy.drawdownHardFraction <= policy.drawdownDeRiskStartFraction) {
     throw new Error("drawdownHardFraction must exceed drawdownDeRiskStartFraction");
   }
@@ -285,6 +287,13 @@ export function buildPortfolioIntelligence(
 
   const openExposures = input.positions.map(positionExposure);
   const correlations = correlationMap(input.correlations);
+  const sourceTimes = [...new Set(input.opportunities.map((item) => item.generatedAt))].sort();
+  const mixedScans = sourceTimes.length > 1;
+  const effectiveStatus = mixedScans ? "blocked" : input.dataStatus;
+  const dataIssues = [...new Set([
+    ...input.dataIssues,
+    ...(mixedScans ? ["Opportunity set mixes scan timestamps; allocation is blocked until one complete scan settles."] : []),
+  ])];
   const candidateSymbols = input.opportunities.map((candidate) => candidate.symbol);
   const clusters = buildClusters(
     [...openExposures.map((item) => item.symbol), ...candidateSymbols],
@@ -368,7 +377,7 @@ export function buildPortfolioIntelligence(
       || expiryMs <= asOfMs
       || asOfMs - dataMs > input.maximumCandidateAgeMs;
 
-    if (input.dataStatus === "blocked") {
+    if (effectiveStatus === "blocked") {
       reasonCodes.push("PORTFOLIO_DATA_BLOCKED");
       explanation = "Portfolio inputs are blocked, so no allocation can be proposed.";
     } else if (stale) {
@@ -427,7 +436,7 @@ export function buildPortfolioIntelligence(
 
       allocationFraction = round(clamp01(maxFraction), 6);
       if (allocationFraction < input.policy.minimumAllocationFraction) {
-        reasonCodes.push(reasonCodes.length > 0 ? "ALLOCATION_BELOW_MINIMUM" : "ALLOCATION_BELOW_MINIMUM");
+        reasonCodes.push("ALLOCATION_BELOW_MINIMUM");
         explanation = "The remaining bounded allocation is below the policy minimum, so the portfolio retains cash.";
         allocationFraction = 0;
       } else {
@@ -484,13 +493,7 @@ export function buildPortfolioIntelligence(
       for (const code of assessment.reasonCodes) retainedReasons.add(code);
     }
   }
-  const sourceTimes = [...new Set(input.opportunities.map((item) => item.generatedAt))].sort();
   const sourceScanTimestamp = sourceTimes.length === 1 ? sourceTimes[0]! : null;
-  const dataIssues = [...new Set([
-    ...input.dataIssues,
-    ...(sourceTimes.length > 1 ? ["Opportunity set mixes scan timestamps; allocation is blocked until one complete scan settles."] : []),
-  ])];
-  const effectiveStatus = sourceTimes.length > 1 ? "blocked" : input.dataStatus;
   const riskUsage = {
     maximumStopRisk: round(maximumStopRisk),
     openStopRisk: round(remainingStopRisk),
