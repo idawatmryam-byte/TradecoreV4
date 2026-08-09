@@ -31,6 +31,7 @@ import type {
   BotConfig,
   BotConfigUpdate,
   BotStatus,
+  CancelResearchExperiment202,
   ConnectionTestResult,
   CorrelationHeatMap,
   CustomStrategy,
@@ -61,6 +62,7 @@ import type {
   HourlyStat,
   JournalEntry,
   KnowledgeOverview,
+  ListResearchReplayEventsParams,
   Login200,
   LoginBody,
   Logout200,
@@ -83,6 +85,10 @@ import type {
   Register201,
   RegisterBody,
   RejectRecommendationBody,
+  ResearchExperiment,
+  ResearchExperimentRequest,
+  ResearchExperimentStarted,
+  ResearchReplayEventPage,
   ResetRiskPause200,
   ScannerRow,
   SectionsResponse,
@@ -5803,4 +5809,388 @@ export function useExportBacktest<TData = Awaited<ReturnType<typeof exportBackte
 
 
 
+
+export const getListResearchExperimentsUrl = () => {
+
+
+
+
+  return `/api/research/experiments`
+}
+
+/**
+ * @summary List tenant-scoped Research experiments
+ */
+export const listResearchExperiments = async ( options?: RequestInit): Promise<ResearchExperiment[]> => {
+
+  return customFetch<ResearchExperiment[]>(getListResearchExperimentsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListResearchExperimentsQueryKey = () => {
+    return [
+    `/api/research/experiments`
+    ] as const;
+    }
+
+
+export const getListResearchExperimentsQueryOptions = <TData = Awaited<ReturnType<typeof listResearchExperiments>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listResearchExperiments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListResearchExperimentsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listResearchExperiments>>> = ({ signal }) => listResearchExperiments({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listResearchExperiments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListResearchExperimentsQueryResult = NonNullable<Awaited<ReturnType<typeof listResearchExperiments>>>
+export type ListResearchExperimentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List tenant-scoped Research experiments
+ */
+
+export function useListResearchExperiments<TData = Awaited<ReturnType<typeof listResearchExperiments>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listResearchExperiments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListResearchExperimentsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateResearchExperimentUrl = () => {
+
+
+
+
+  return `/api/research/experiments`
+}
+
+/**
+ * Creates an asynchronous Research job. The job can read recorded market data and produce replay evidence, but it cannot reach any Demo or Live executor. A successful promotion report still requires human approval.
+ * @summary Prepare and start a bounded Research-only experiment
+ */
+export const createResearchExperiment = async (researchExperimentRequest: ResearchExperimentRequest, options?: RequestInit): Promise<ResearchExperimentStarted> => {
+
+  return customFetch<ResearchExperimentStarted>(getCreateResearchExperimentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(researchExperimentRequest)
+  }
+);}
+
+
+
+
+export const getCreateResearchExperimentMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createResearchExperiment>>, TError,{data: BodyType<ResearchExperimentRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createResearchExperiment>>, TError,{data: BodyType<ResearchExperimentRequest>}, TContext> => {
+
+const mutationKey = ['createResearchExperiment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createResearchExperiment>>, {data: BodyType<ResearchExperimentRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createResearchExperiment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateResearchExperimentMutationResult = NonNullable<Awaited<ReturnType<typeof createResearchExperiment>>>
+    export type CreateResearchExperimentMutationBody = BodyType<ResearchExperimentRequest>
+    export type CreateResearchExperimentMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Prepare and start a bounded Research-only experiment
+ */
+export const useCreateResearchExperiment = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createResearchExperiment>>, TError,{data: BodyType<ResearchExperimentRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createResearchExperiment>>,
+        TError,
+        {data: BodyType<ResearchExperimentRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateResearchExperimentMutationOptions(options));
+    }
+
+export const getGetResearchExperimentUrl = (id: number,) => {
+
+
+
+
+  return `/api/research/experiments/${id}`
+}
+
+/**
+ * @summary Get a Research experiment and its terminal promotion report
+ */
+export const getResearchExperiment = async (id: number, options?: RequestInit): Promise<ResearchExperiment> => {
+
+  return customFetch<ResearchExperiment>(getGetResearchExperimentUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetResearchExperimentQueryKey = (id: number,) => {
+    return [
+    `/api/research/experiments/${id}`
+    ] as const;
+    }
+
+
+export const getGetResearchExperimentQueryOptions = <TData = Awaited<ReturnType<typeof getResearchExperiment>>, TError = ErrorType<ErrorResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getResearchExperiment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetResearchExperimentQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getResearchExperiment>>> = ({ signal }) => getResearchExperiment(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getResearchExperiment>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetResearchExperimentQueryResult = NonNullable<Awaited<ReturnType<typeof getResearchExperiment>>>
+export type GetResearchExperimentQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get a Research experiment and its terminal promotion report
+ */
+
+export function useGetResearchExperiment<TData = Awaited<ReturnType<typeof getResearchExperiment>>, TError = ErrorType<ErrorResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getResearchExperiment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetResearchExperimentQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListResearchReplayEventsUrl = (id: number,
+    params?: ListResearchReplayEventsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/research/experiments/${id}/events?${stringifiedParams}` : `/api/research/experiments/${id}/events`
+}
+
+/**
+ * @summary Page through the immutable full-brain replay stream
+ */
+export const listResearchReplayEvents = async (id: number,
+    params?: ListResearchReplayEventsParams, options?: RequestInit): Promise<ResearchReplayEventPage> => {
+
+  return customFetch<ResearchReplayEventPage>(getListResearchReplayEventsUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListResearchReplayEventsQueryKey = (id: number,
+    params?: ListResearchReplayEventsParams,) => {
+    return [
+    `/api/research/experiments/${id}/events`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListResearchReplayEventsQueryOptions = <TData = Awaited<ReturnType<typeof listResearchReplayEvents>>, TError = ErrorType<ErrorResponse>>(id: number,
+    params?: ListResearchReplayEventsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listResearchReplayEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListResearchReplayEventsQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listResearchReplayEvents>>> = ({ signal }) => listResearchReplayEvents(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listResearchReplayEvents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListResearchReplayEventsQueryResult = NonNullable<Awaited<ReturnType<typeof listResearchReplayEvents>>>
+export type ListResearchReplayEventsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Page through the immutable full-brain replay stream
+ */
+
+export function useListResearchReplayEvents<TData = Awaited<ReturnType<typeof listResearchReplayEvents>>, TError = ErrorType<ErrorResponse>>(
+ id: number,
+    params?: ListResearchReplayEventsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listResearchReplayEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListResearchReplayEventsQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCancelResearchExperimentUrl = (id: number,) => {
+
+
+
+
+  return `/api/research/experiments/${id}/cancel`
+}
+
+/**
+ * @summary Request cancellation of a preparing or running Research job
+ */
+export const cancelResearchExperiment = async (id: number, options?: RequestInit): Promise<CancelResearchExperiment202> => {
+
+  return customFetch<CancelResearchExperiment202>(getCancelResearchExperimentUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getCancelResearchExperimentMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelResearchExperiment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelResearchExperiment>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['cancelResearchExperiment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelResearchExperiment>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  cancelResearchExperiment(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CancelResearchExperimentMutationResult = NonNullable<Awaited<ReturnType<typeof cancelResearchExperiment>>>
+
+    export type CancelResearchExperimentMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Request cancellation of a preparing or running Research job
+ */
+export const useCancelResearchExperiment = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelResearchExperiment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof cancelResearchExperiment>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getCancelResearchExperimentMutationOptions(options));
+    }
 

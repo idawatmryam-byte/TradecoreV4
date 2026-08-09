@@ -40,6 +40,8 @@ SECURITY DEFINER
 SET search_path = pg_catalog, capture
 AS $$
 BEGIN
+  DELETE FROM capture.research_replay_events WHERE user_id = target_user_id;
+
   DELETE FROM capture.position_management_events WHERE user_id = target_user_id;
   DELETE FROM capture.position_theses WHERE user_id = target_user_id;
 

@@ -47,6 +47,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { PageHeader } from "@/components/patterns";
+import { ResearchExperimentLab } from "@/components/research-experiment-lab";
 
 // ---------------------------------------------------------------------------
 // Config form state
@@ -1287,6 +1288,11 @@ function RunDetail({ runId, onClose }: { runId: number; onClose: () => void }) {
 export function Backtest() {
   const queryClient = useQueryClient();
   const { section } = useSection();
+  const searchText = useSearch();
+  const search = new URLSearchParams(searchText);
+  const [labView, setLabView] = useState<"research" | "classic">(
+    search.has("autopsy") || search.has("strategy") ? "classic" : "research",
+  );
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(true);
 
@@ -1304,7 +1310,6 @@ export function Backtest() {
   const { mutate: deleteRun } = useDeleteBacktest();
 
   // Deep-link from the Strategies page's "Diagnose" button (/backtest?autopsy=<strategyId>).
-  const search = new URLSearchParams(useSearch());
   const autopsyStrategyId = search.get("autopsy") ?? undefined;
   // Deep-link from a custom strategy's "Backtest now" shortcut
   // (/backtest?strategy=<strategyId>) — pre-selects single-strategy mode.
@@ -1325,17 +1330,34 @@ export function Backtest() {
     queryClient.invalidateQueries({ queryKey: getListBacktestsQueryKey() });
   }
 
+  if (labView === "research") {
+    return (
+      <div className="mx-auto max-w-7xl space-y-6">
+        <PageHeader
+          icon={FlaskConical}
+          title="Experiment Lab"
+          description="Validate the complete decision brain under point-in-time, out-of-sample controls."
+          actions={<Button variant="outline" size="sm" onClick={() => setLabView("classic")}>Classic strategy backtests</Button>}
+        />
+        <ResearchExperimentLab />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <PageHeader
         icon={FlaskConical}
-        title="Backtesting"
-        description="Replay historical candles through the live strategy engine. Fees and slippage included."
+        title="Classic Backtesting"
+        description="Replay individual strategy entries and exits. Use Scientific validation for full-brain promotion evidence."
         actions={
-          <Button variant="outline" size="sm" onClick={() => setShowForm((v) => !v)} className="gap-1.5">
-            {showForm ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            {showForm ? "Hide form" : "New run"}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="default" size="sm" onClick={() => setLabView("research")}>Scientific validation</Button>
+            <Button variant="outline" size="sm" onClick={() => setShowForm((v) => !v)} className="gap-1.5">
+              {showForm ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              {showForm ? "Hide form" : "New run"}
+            </Button>
+          </div>
         }
       />
 
