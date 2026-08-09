@@ -1,4 +1,5 @@
-import { pgTable, serial, text, numeric, integer, timestamp, boolean, index, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, numeric, integer, timestamp, boolean, index, jsonb, check } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -34,6 +35,19 @@ export const tradesTable = pgTable("trades", {
    *  them — a demo win rate presented as a live one would be a lie. Existing
    *  rows backfill to "live", which is what they were. */
   executionTarget: text("execution_target").notNull().default("live"),
+  /** Exactly one component may mutate management state for this position.
+   * Existing rows backfill to fixed, preserving Brain V0 behavior. */
+  managementAuthority: text("management_authority").notNull().default("fixed"), // fixed | phase7
+  /** Effective mode pinned when the position opened. Configuration changes do
+   * not transfer ownership of an existing position. */
+  managementMode: text("management_mode").notNull().default("fixed"), // fixed | phase7_shadow | phase7_active
+  managementPolicyVersion: text("management_policy_version").notNull().default("brain-v0-fixed-sltp"),
+  /** UUID of the immutable capture.position_theses row, when Phase 7 observes
+   * or owns this position. Kept as text to avoid a cross-schema FK cycle. */
+  thesisId: text("thesis_id"),
+  /** Mutable operational projection used to enforce the one-time bounded
+   * Phase 7 reduction. The immutable action history lives in capture. */
+  phase7ReductionApplied: boolean("phase7_reduction_applied").notNull().default(false),
   /** Phase 2: which strategy generated this trade */
   strategyId: text("strategy_id"),
   strategyName: text("strategy_name"),
@@ -138,6 +152,19 @@ export const tradesTable = pgTable("trades", {
   index("trades_user_symbol_idx").on(t.userId, t.symbol),
   // Composite for the per-symbol "last 10 closed trades" query in updateBlacklist
   index("trades_user_symbol_status_exit_time_idx").on(t.userId, t.symbol, t.status, t.exitTime),
+  check("trades_management_authority_check", sql`${t.managementAuthority} IN ('fixed', 'phase7')`),
+  check("trades_management_mode_check", sql`${t.managementMode} IN ('fixed', 'phase7_shadow', 'phase7_active')`),
+  check(
+    "trades_management_owner_consistency_check",
+    sql`(
+      (${t.managementAuthority} = 'phase7' AND ${t.managementMode} = 'phase7_active' AND ${t.thesisId} IS NOT NULL)
+      OR
+      (${t.managementAuthority} = 'fixed' AND (
+        (${t.managementMode} = 'fixed' AND ${t.thesisId} IS NULL)
+        OR (${t.managementMode} = 'phase7_shadow' AND ${t.thesisId} IS NOT NULL)
+      ))
+    )`,
+  ),
 ]);
 
 export const insertTradeSchema = createInsertSchema(tradesTable).omit({

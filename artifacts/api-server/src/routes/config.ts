@@ -92,6 +92,7 @@ function mapConfig(c: typeof botConfigTable.$inferSelect) {
     pairs:                     c.pairs.split(",").map((p: string) => p.trim()).filter(Boolean),
     executionTarget:           c.executionTarget as "demo" | "live",
     mode:                      c.mode as "research" | "copilot" | "autopilot",
+    positionManagementMode:    c.positionManagementMode as "fixed" | "phase7_shadow" | "phase7_active",
     demoStartingBalanceUsdt:   Number(c.demoStartingBalanceUsdt),
     testnet:                   c.testnet,
     backtestMode:              c.backtestMode,
@@ -142,10 +143,19 @@ router.put("/config", async (req, res): Promise<void> => {
   const nextExecutionTarget = u.executionTarget ?? existing.executionTarget;
   const nextMarketType = u.marketType ?? existing.marketType;
   const nextTestnet = u.testnet ?? existing.testnet;
+  const nextPositionManagementMode = u.positionManagementMode ?? existing.positionManagementMode;
   const connectionChanged =
     nextExecutionTarget !== existing.executionTarget ||
     nextMarketType !== existing.marketType ||
     nextTestnet !== existing.testnet;
+
+  if (nextPositionManagementMode === "phase7_active" && nextExecutionTarget === "live" && !nextTestnet) {
+    res.status(400).json({
+      error: "Phase 7 active management is not promoted for real Live. Select fixed or Shadow management, or use Demo/Binance testnet/OANDA practice.",
+      code: "PHASE7_LIVE_AUTHORITY_DISABLED",
+    });
+    return;
+  }
 
   if (connectionChanged) {
     const [openTrade] = await db
@@ -239,6 +249,7 @@ router.put("/config", async (req, res): Promise<void> => {
       ...(u.pairs                     !== undefined && { pairs:                      u.pairs.join(",") }),
       ...(u.executionTarget           !== undefined && { executionTarget:            u.executionTarget }),
       ...(u.mode                      !== undefined && { mode:                       u.mode }),
+      ...(u.positionManagementMode    !== undefined && { positionManagementMode:     u.positionManagementMode }),
       ...(u.demoStartingBalanceUsdt   !== undefined && { demoStartingBalanceUsdt:    String(u.demoStartingBalanceUsdt) }),
       ...(u.testnet                   !== undefined && { testnet:                    u.testnet }),
       ...(u.backtestMode              !== undefined && { backtestMode:               u.backtestMode }),

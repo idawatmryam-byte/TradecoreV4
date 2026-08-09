@@ -24,6 +24,7 @@ import {
   tradePartialExitsTable,
   tradeAnalysesTable,
   notificationsTable,
+  positionThesesTable,
 } from "@workspace/db";
 import { analyzeTrade } from "./tradeAnalysis";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
@@ -50,7 +51,7 @@ import { loadStrategyConfigs } from "./strategyConfigLoader";
 import { loadCustomStrategies, liveEligible } from "./customStrategyLoader";
 import type { Strategy } from "./strategies";
 import { ExitManager, type OpenOrderIds } from "./exitManager";
-import type { ExecutionResult, TradeExecutor } from "./execution/executor";
+import type { ExecutionResult, PositionManagementContext, TradeExecutor } from "./execution/executor";
 import { LiveExecutor, ResearchExecutor } from "./execution/liveExecutor";
 import { DemoExecutor } from "./execution/demoExecutor";
 import { expireStaleRecommendations, RecommendExecutor } from "./execution/recommendExecutor";
@@ -104,6 +105,20 @@ import {
   type PortfolioPositionInput,
 } from "./intelligence/portfolio";
 import { recordShadowCouncilRun } from "./intelligence/council/store";
+import {
+  POSITION_POLICY_VERSION,
+  PositionManagementModeSchema,
+  buildPositionThesis,
+  evaluatePositionThesis,
+  proposePositionAction,
+  resolveManagementAuthority,
+  validatePositionAction,
+  type PositionActionValidation,
+  type PositionManagementAction,
+  type PositionThesis,
+  type PositionThesisEvaluation,
+} from "./intelligence/position";
+import { loadPositionThesis, positionThesisInsertValues, recordManagementEvent } from "./intelligence/position/store";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -111,6 +126,13 @@ import { recordShadowCouncilRun } from "./intelligence/council/store";
 
 // ccxt OHLCV candle: [timestamp, open, high, low, close, volume]
 type Candle = [number, number, number, number, number, number];
+
+interface Phase7ManagementDecision {
+  thesis: PositionThesis;
+  evaluation: PositionThesisEvaluation;
+  action: PositionManagementAction;
+  validation: PositionActionValidation;
+}
 
 // Keyless ccxt clients for PUBLIC market data (chart candles) — shared across
 // all engines, created lazily. Used when an engine has no live authenticated
@@ -341,7 +363,7 @@ class BotEngine {
   // DemoExecutor and RecommendExecutor slot in here without the intelligence
   // pipeline noticing.
   private readonly liveExecutor: TradeExecutor = new LiveExecutor((req) =>
-    this.enterTrade(req.symbol, req.row, req.plan, req.config, req.now, req.stratConfig),
+    this.enterTrade(req.symbol, req.row, req.plan, req.config, req.now, req.stratConfig, req.positionManagement),
   );
   private readonly researchExecutor: TradeExecutor = new ResearchExecutor();
   private readonly copilotExecutor: TradeExecutor = new RecommendExecutor({
@@ -376,6 +398,29 @@ class BotEngine {
     // is decided at approval time, from the config as it stands then.
     if (config.mode === "copilot") return this.copilotExecutor;
     return config.executionTarget === "demo" ? this.demoExecutor : this.liveExecutor;
+  }
+
+  private resolvePositionManagementContext(
+    plan: TradePlan,
+    config: Awaited<ReturnType<BotEngine["loadConfig"]>>,
+  ): { context?: PositionManagementContext; blockingReason?: string } {
+    const requestedMode = PositionManagementModeSchema.parse(config.positionManagementMode);
+    const assignment = resolveManagementAuthority({
+      requestedMode,
+      executionTarget: config.executionTarget === "demo" ? "demo" : "live",
+      testnet: config.testnet,
+      tradingMode: config.mode === "research" ? "research" : config.mode === "copilot" ? "copilot" : "autopilot",
+    });
+    if (!assignment.phase7Observes) return {};
+    const result = this.marketStates.get(plan.symbol);
+    if (!result || result.status !== "available" || result.state.freshness.status !== "fresh" || result.state.dataQuality.status !== "healthy") {
+      if (assignment.phase7MayMutate) {
+        return { blockingReason: "Phase 7 active management requires a fresh, healthy MarketState before entry" };
+      }
+      logger.warn({ symbol: plan.symbol }, "Phase 7 Shadow thesis unavailable — position will retain fixed management");
+      return {};
+    }
+    return { context: { assignment, marketState: result.state } };
   }
 
   /**
@@ -1559,8 +1604,13 @@ class BotEngine {
     // Co-Pilot's own executor must never be chosen here — that would record a
     // second recommendation instead of opening the position the user approved.
     const executor = this.executionTarget === "demo" ? this.demoExecutor : this.liveExecutor;
+    const positionManagementResolution = this.resolvePositionManagementContext(plan, config);
+    if (positionManagementResolution.blockingReason) {
+      return { entered: false, reason: positionManagementResolution.blockingReason };
+    }
     return executor.execute({
       symbol: plan.symbol, plan, row, config, now, ...(stratConfig && { stratConfig }),
+      ...(positionManagementResolution.context && { positionManagement: positionManagementResolution.context }),
     });
   }
 
@@ -2605,8 +2655,17 @@ class BotEngine {
           noteDecision(planToRecord(bestSignal, "approved_not_taken", { stage: "Order", reason }));
           continue;
         }
+        const positionManagementResolution = this.resolvePositionManagementContext(bestSignal, config);
+        if (positionManagementResolution.blockingReason) {
+          orderStage.status = "fail";
+          orderStage.detail = positionManagementResolution.blockingReason;
+          record("BLOCKED", "Order", positionManagementResolution.blockingReason, bestSignal.confidence);
+          noteDecision(planToRecord(bestSignal, "approved_not_taken", { stage: "Order", reason: positionManagementResolution.blockingReason }));
+          continue;
+        }
         const execResult = await executor.execute({
           symbol, plan: bestSignal, row, config, now, ...(stratConfig && { stratConfig }),
+          ...(positionManagementResolution.context && { positionManagement: positionManagementResolution.context }),
           // Snapshot, not a live reference: these four objects are still
           // owned by this scan-loop iteration and orderStage is mutated right
           // below — copy each so a recommendation's stored trace can never be
@@ -2789,6 +2848,7 @@ class BotEngine {
     config: Awaited<ReturnType<typeof this.loadConfig>>,
     now: Date,
     stratConfig?: StrategyConfig,
+    positionManagement?: PositionManagementContext,
   ): Promise<ExecutionResult> {
     const ex = this.exchange!;
     const market = this.toMarket(symbol);
@@ -3186,9 +3246,24 @@ class BotEngine {
       // mirroring the SL/TP risk-guard above — and surface it to the user.
       let trade: typeof tradesTable.$inferSelect | undefined;
       try {
-        [trade] = await db
-          .insert(tradesTable)
-          .values({
+        const positionThesis = positionManagement
+          ? buildPositionThesis({
+              plan: {
+                ...plan,
+                entryPrice: fillPrice,
+                slPrice,
+                tpPrice,
+                qty: filledQty,
+                leverage: effectiveLeverage,
+              },
+              marketState: positionManagement.marketState,
+              createdAt: now,
+            })
+          : null;
+        trade = await db.transaction(async (tx) => {
+          const [inserted] = await tx
+            .insert(tradesTable)
+            .values({
             userId: this.userId,
             section: this.section,
             symbol,
@@ -3232,8 +3307,22 @@ class BotEngine {
             plannedLeverage: plan.leverage,
             // The join key: plan → execution → this trade → its outcome.
             ...(intent && { correlationId: intent.correlationId }),
+            ...(positionManagement && {
+              managementAuthority: positionManagement.assignment.authority,
+              managementMode: positionManagement.assignment.effectiveMode,
+              managementPolicyVersion: POSITION_POLICY_VERSION,
+              thesisId: positionThesis!.thesisId,
+            }),
           })
-          .returning();
+            .returning();
+          if (!inserted) throw new Error("Trade insert returned no row");
+          if (positionThesis) {
+            await tx.insert(positionThesesTable).values(
+              positionThesisInsertValues(this.userId, this.section, inserted.id, positionThesis),
+            );
+          }
+          return inserted;
+        });
       } catch (dbErr) {
         logger.error({ err: dbErr, symbol, filledQty },
           "DB insert failed after fill — closing the untracked position to protect capital");
@@ -3512,6 +3601,140 @@ class BotEngine {
     }
   }
 
+  private async preparePhase7Management(
+    trade: typeof tradesTable.$inferSelect,
+    now: Date,
+  ): Promise<Phase7ManagementDecision | null> {
+    if (trade.managementMode === "fixed" || !trade.thesisId) return null;
+    const thesis = await loadPositionThesis(this.userId, this.section, trade.id);
+    if (!thesis || thesis.thesisId !== trade.thesisId || thesis.managementPolicyVersion !== trade.managementPolicyVersion) {
+      logger.error({ tradeId: trade.id }, "Phase 7 thesis or policy lineage is missing — adaptive management frozen");
+      return null;
+    }
+    const marketResult = this.marketStates.get(trade.symbol);
+    const marketState = marketResult?.status === "available" ? marketResult.state : null;
+    const position = {
+      tradeId: trade.id,
+      symbol: trade.symbol,
+      side: trade.side === "sell" ? "short" as const : "long" as const,
+      entryPrice: Number(trade.entryPrice),
+      currentStopPrice: Number(trade.stopLoss),
+      targetPrice: Number(trade.takeProfit),
+      remainingQuantity: Number(trade.remainingQuantity ?? trade.quantity),
+      openedAt: trade.entryTime,
+    };
+    const evaluation = evaluatePositionThesis({ thesis, position, marketState, evaluatedAt: now });
+    const action = proposePositionAction({
+      thesis,
+      evaluation,
+      position,
+      marketState,
+      reductionAlreadyApplied: trade.phase7ReductionApplied,
+      proposedAt: now,
+    });
+    const validation = validatePositionAction(action, thesis, position, marketState?.observations.lastPrice ?? Number.NaN, now);
+    return { thesis, evaluation, action, validation };
+  }
+
+  private async recordPhase7(
+    trade: typeof tradesTable.$inferSelect,
+    decision: Phase7ManagementDecision,
+    stage: "PROPOSED" | "SHADOW" | "APPLIED" | "FAILED" | "REFUSED",
+    now: Date,
+    result?: Record<string, unknown>,
+  ): Promise<boolean> {
+    return recordManagementEvent({
+      userId: this.userId,
+      section: this.section,
+      tradeId: trade.id,
+      thesisId: decision.thesis.thesisId,
+      stage,
+      evaluation: decision.evaluation,
+      action: decision.action,
+      validation: decision.validation,
+      result,
+      observedAt: now,
+    });
+  }
+
+  private async applyPhase7BrokerAction(
+    trade: typeof tradesTable.$inferSelect,
+    market: string,
+    orderIds: OpenOrderIds | undefined,
+    decision: Phase7ManagementDecision,
+    now: Date,
+    cooldownMinutes: number,
+  ): Promise<{ orderIds: OpenOrderIds | undefined; closed: boolean }> {
+    const ex = this.exchange!;
+    const sandboxAuthority = trade.executionTarget === "demo" || this.state.mode === "testnet";
+    if (trade.managementAuthority !== "phase7" || trade.managementMode !== "phase7_active" || !sandboxAuthority) {
+      await this.recordPhase7(trade, decision, "REFUSED", now, { reason: "Phase 7 mutation authority is not active for this environment" });
+      return { orderIds, closed: false };
+    }
+    if (trade.executionTarget === "live" && !this.state.newEntriesAllowed) {
+      await this.recordPhase7(trade, decision, "REFUSED", now, { reason: "Reconciliation is incomplete; adaptive changes frozen" });
+      return { orderIds, closed: false };
+    }
+    if (!decision.validation.valid) {
+      await this.recordPhase7(trade, decision, "REFUSED", now, { reason: "Deterministic validation refused the proposal" });
+      return { orderIds, closed: false };
+    }
+    if (["HOLD", "FREEZE"].includes(decision.action.type)) {
+      await this.recordPhase7(trade, decision, "APPLIED", now, { mutated: false, reason: decision.action.type });
+      return { orderIds, closed: false };
+    }
+    const claimed = await this.recordPhase7(trade, decision, "PROPOSED", now, { claimed: true });
+    if (!claimed) {
+      logger.warn({ tradeId: trade.id, actionFingerprint: decision.action.fingerprint }, "Phase 7 action already proposed — retry frozen pending audit/reconciliation");
+      return { orderIds, closed: false };
+    }
+    try {
+      if (decision.action.type === "EXIT") {
+        const outcome = await this.exitManager.closeManually(ex, trade, market, now, cooldownMinutes, "signal_exit", orderIds);
+        await this.recordPhase7(trade, decision, outcome.closed ? "APPLIED" : "FAILED", now, {
+          actualAction: "EXIT",
+          closed: outcome.closed,
+          exitPrice: outcome.exitPrice,
+          pnl: outcome.pnl,
+        });
+        return { orderIds: outcome.closed ? undefined : orderIds, closed: outcome.closed };
+      }
+      const result = decision.action.type === "REDUCE"
+        ? await this.tradeManager.reduceByPolicy(ex, trade, market, decision.action.reductionFraction!, orderIds)
+        : await this.tradeManager.tightenStopByPolicy(
+            ex,
+            trade,
+            market,
+            decision.action.proposedStopPrice!,
+            orderIds,
+            decision.action.type === "APPLY_TRAILING",
+          );
+      orderIds = result.orderIds;
+      if (!result.protectionHealthy) {
+        const [latestTrade] = await db.select().from(tradesTable).where(eq(tradesTable.id, trade.id)).limit(1);
+        const emergency = await this.exitManager.closeManually(ex, latestTrade ?? trade, market, now, cooldownMinutes, "emergency_stop", orderIds);
+        await this.recordPhase7(trade, decision, emergency.closed ? "FAILED" : "FAILED", now, {
+          actualAction: "EMERGENCY_EXIT_AFTER_PROTECTION_FAILURE",
+          originalActionApplied: result.applied,
+          closed: emergency.closed,
+          reason: result.reason,
+        });
+        return { orderIds: emergency.closed ? undefined : orderIds, closed: emergency.closed };
+      }
+      await this.recordPhase7(trade, decision, result.applied ? "APPLIED" : "FAILED", now, {
+        actualAction: decision.action.type,
+        applied: result.applied,
+        remainingQuantity: result.remainingQuantity,
+        fillPrice: result.fillPrice,
+        reason: result.reason,
+      });
+      return { orderIds, closed: false };
+    } catch (error) {
+      await this.recordPhase7(trade, decision, "FAILED", now, { error: error instanceof Error ? error.message : String(error) });
+      throw error;
+    }
+  }
+
   private async checkExitCondition(
     trade: typeof tradesTable.$inferSelect,
     candles1m: Candle[],
@@ -3523,6 +3746,7 @@ class BotEngine {
     const ex = this.exchange!;
     const market = this.toMarket(trade.symbol);
     let orderIds = this.openOrderIds.get(trade.id);
+    const phase7Decision = await this.preparePhase7Management(trade, now);
 
     // ── P2: track the excursion envelope while the position is open ─────────
     // How far the trade ran in our favour before the outcome, and how far
@@ -3537,10 +3761,41 @@ class BotEngine {
     // ExitManager path a live close runs then settles it. Returns before any
     // exchange call below, all of which would be meaningless here.
     if (trade.executionTarget === "demo") {
-      await simulateDemoExit({
-        trade, candles1m, now, cooldownMinutes,
-        stratConfig, costs: this.fillCosts(), exitManager: this.exitManager,
-      });
+      const phase7OwnsManagement = trade.managementAuthority === "phase7" && trade.managementMode === "phase7_active";
+      let phase7Action: PositionManagementAction | undefined;
+      if (phase7Decision && trade.managementMode === "phase7_shadow") {
+        await this.recordPhase7(trade, phase7Decision, "SHADOW", now, { mutated: false });
+      } else if (phase7OwnsManagement && phase7Decision) {
+        if (!phase7Decision.validation.valid) {
+          await this.recordPhase7(trade, phase7Decision, "REFUSED", now, { reason: "Deterministic validation refused the proposal" });
+        } else if (["HOLD", "FREEZE"].includes(phase7Decision.action.type)) {
+          phase7Action = phase7Decision.action;
+        } else {
+          const claimed = await this.recordPhase7(trade, phase7Decision, "PROPOSED", now, { claimed: true });
+          if (claimed) phase7Action = phase7Decision.action;
+        }
+      }
+      try {
+        await simulateDemoExit({
+          trade, candles1m, now, cooldownMinutes,
+          stratConfig, costs: this.fillCosts(), exitManager: this.exitManager,
+          phase7OwnsManagement,
+          ...(phase7Action && { phase7Action }),
+          ...(phase7Action && phase7Decision && {
+            onPhase7Result: async (result) => {
+              await this.recordPhase7(trade, phase7Decision, result.actionApplied ? "APPLIED" : "FAILED", now, {
+                actualAction: phase7Action.type,
+                ...result,
+              });
+            },
+          }),
+        });
+      } catch (error) {
+        if (phase7Action && phase7Decision) {
+          await this.recordPhase7(trade, phase7Decision, "FAILED", now, { error: error instanceof Error ? error.message : String(error) });
+        }
+        throw error;
+      }
       return;
     }
 
@@ -3591,10 +3846,25 @@ class BotEngine {
     // existed), a later successful re-protection here is the only place that
     // order id is ever recorded. Previously this was dropped on the floor,
     // leaving the bot treating the trade as unprotected on every later tick.
-    const updatedOrderIds = await this.tradeManager.manage(ex, trade, market, candles1m, stratConfig, orderIds);
-    if (updatedOrderIds) {
-      this.openOrderIds.set(trade.id, updatedOrderIds);
-      orderIds = updatedOrderIds;
+    if (trade.managementMode === "phase7_shadow" && phase7Decision) {
+      await this.recordPhase7(trade, phase7Decision, "SHADOW", now, { mutated: false });
+    }
+    if (trade.managementAuthority === "phase7" && trade.managementMode === "phase7_active") {
+      if (phase7Decision) {
+        const applied = await this.applyPhase7BrokerAction(trade, market, orderIds, phase7Decision, now, cooldownMinutes);
+        orderIds = applied.orderIds;
+        if (orderIds) this.openOrderIds.set(trade.id, orderIds);
+        if (applied.closed) {
+          this.openOrderIds.delete(trade.id);
+          return;
+        }
+      }
+    } else {
+      const updatedOrderIds = await this.tradeManager.manage(ex, trade, market, candles1m, stratConfig, orderIds);
+      if (updatedOrderIds) {
+        this.openOrderIds.set(trade.id, updatedOrderIds);
+        orderIds = updatedOrderIds;
+      }
     }
     const current = (await db.select().from(tradesTable).where(eq(tradesTable.id, trade.id)))[0];
     if (!current || current.status !== "open") return; // TradeManager can't fully close, but guard anyway

@@ -1,7 +1,9 @@
-import { serial, text, integer, timestamp, index, jsonb, unique, numeric } from "drizzle-orm/pg-core";
+import { serial, text, integer, timestamp, index, jsonb, unique, numeric, boolean, check } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { captureSchema } from "./capture";
+import { tradesTable } from "./trades";
 
 /**
  * Immutable unified-brain decisions. Identity is tenant-scoped because two
@@ -111,10 +113,68 @@ export const shadowCouncilRunsTable = captureSchema.table("shadow_council_runs",
   index("capture_shadow_council_run_fingerprint_idx").on(table.runFingerprint),
 ]);
 
+/** One immutable, versioned thesis for each Phase 7 observed or managed position. */
+export const positionThesesTable = captureSchema.table("position_theses", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  section: text("section").notNull(),
+  tradeId: integer("trade_id").notNull().references(() => tradesTable.id),
+  thesisId: text("thesis_id").notNull(),
+  schemaVersion: text("schema_version").notNull(),
+  policyVersion: text("policy_version").notNull(),
+  thesisFingerprint: text("thesis_fingerprint").notNull(),
+  thesis: jsonb("thesis").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  unique("capture_position_theses_trade_unique").on(table.tradeId),
+  unique("capture_position_theses_tenant_thesis_unique").on(table.userId, table.section, table.thesisId),
+  unique("capture_position_theses_tenant_fingerprint_unique").on(table.userId, table.section, table.thesisFingerprint),
+  index("capture_position_theses_user_time_idx").on(table.userId, table.section, table.createdAt),
+]);
+
+/**
+ * Append-only Phase 7 action ledger. A PROPOSED row is written before any
+ * mutation. APPLIED/FAILED/SHADOW rows then record the result without
+ * rewriting history. The stage uniqueness constraint makes retries
+ * idempotent and ambiguous pre-action crashes fail closed.
+ */
+export const positionManagementEventsTable = captureSchema.table("position_management_events", {
+  id: serial("id").primaryKey(),
+  eventId: text("event_id").notNull(),
+  userId: integer("user_id").notNull(),
+  section: text("section").notNull(),
+  tradeId: integer("trade_id").notNull().references(() => tradesTable.id),
+  thesisId: text("thesis_id").notNull(),
+  actionFingerprint: text("action_fingerprint").notNull(),
+  stage: text("stage").notNull(), // PROPOSED | SHADOW | APPLIED | FAILED | REFUSED
+  thesisState: text("thesis_state").notNull(),
+  actionType: text("action_type").notNull(),
+  policyVersion: text("policy_version").notNull(),
+  marketStateFingerprint: text("market_state_fingerprint"),
+  validationPassed: boolean("validation_passed").notNull(),
+  evaluation: jsonb("evaluation").notNull(),
+  action: jsonb("action").notNull(),
+  validation: jsonb("validation").notNull(),
+  result: jsonb("result"),
+  observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  unique("capture_position_management_event_id_unique").on(table.eventId),
+  unique("capture_position_management_action_stage_unique").on(table.tradeId, table.actionFingerprint, table.stage),
+  index("capture_position_management_trade_time_idx").on(table.tradeId, table.createdAt),
+  index("capture_position_management_user_time_idx").on(table.userId, table.section, table.createdAt),
+  index("capture_position_management_market_state_idx").on(table.marketStateFingerprint),
+  check("capture_position_management_stage_check", sql`${table.stage} IN ('PROPOSED', 'SHADOW', 'APPLIED', 'FAILED', 'REFUSED')`),
+  check("capture_position_management_state_check", sql`${table.thesisState} IN ('VALID', 'WEAKENING', 'INVALIDATED', 'TARGET_DEGRADED', 'DATA_UNCERTAIN')`),
+  check("capture_position_management_action_check", sql`${table.actionType} IN ('HOLD', 'REDUCE', 'TIGHTEN_STOP', 'APPLY_TRAILING', 'EXIT', 'FREEZE')`),
+]);
+
 export const insertStrategyOpinionSchema = createInsertSchema(strategyOpinionsTable).omit({ id: true, createdAt: true });
 export const insertBrainDecisionSchema = createInsertSchema(brainDecisionsTable).omit({ id: true, createdAt: true });
 export const insertBrainEvidenceReferenceSchema = createInsertSchema(brainEvidenceReferencesTable).omit({ id: true, createdAt: true });
 export const insertShadowCouncilRunSchema = createInsertSchema(shadowCouncilRunsTable).omit({ id: true, createdAt: true });
+export const insertPositionThesisSchema = createInsertSchema(positionThesesTable).omit({ id: true, createdAt: true });
+export const insertPositionManagementEventSchema = createInsertSchema(positionManagementEventsTable).omit({ id: true, createdAt: true });
 
 export type InsertStrategyOpinion = z.infer<typeof insertStrategyOpinionSchema>;
 export type StrategyOpinionRecord = typeof strategyOpinionsTable.$inferSelect;
@@ -124,4 +184,8 @@ export type InsertBrainEvidenceReference = z.infer<typeof insertBrainEvidenceRef
 export type BrainEvidenceReferenceRecord = typeof brainEvidenceReferencesTable.$inferSelect;
 export type InsertShadowCouncilRun = z.infer<typeof insertShadowCouncilRunSchema>;
 export type ShadowCouncilRunRecord = typeof shadowCouncilRunsTable.$inferSelect;
+export type InsertPositionThesis = z.infer<typeof insertPositionThesisSchema>;
+export type PositionThesisRecord = typeof positionThesesTable.$inferSelect;
+export type InsertPositionManagementEvent = z.infer<typeof insertPositionManagementEventSchema>;
+export type PositionManagementEventRecord = typeof positionManagementEventsTable.$inferSelect;
 

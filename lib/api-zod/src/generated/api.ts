@@ -817,7 +817,12 @@ export const GetTradesResponseItem = zod.object({
   "tp2FillPrice": zod.number().nullish(),
   "breakEvenActive": zod.boolean().optional(),
   "trailingStopActive": zod.boolean().optional(),
-  "trailingStopMode": zod.string().nullish()
+  "trailingStopMode": zod.string().nullish(),
+  "managementAuthority": zod.enum(['fixed', 'phase7']),
+  "managementMode": zod.enum(['fixed', 'phase7_shadow', 'phase7_active']),
+  "managementPolicyVersion": zod.string(),
+  "thesisId": zod.string().uuid().nullable(),
+  "phase7ReductionApplied": zod.boolean()
 })
 export const GetTradesResponse = zod.array(GetTradesResponseItem)
 
@@ -863,7 +868,103 @@ export const GetTradeResponse = zod.object({
   "tp2FillPrice": zod.number().nullish(),
   "breakEvenActive": zod.boolean().optional(),
   "trailingStopActive": zod.boolean().optional(),
-  "trailingStopMode": zod.string().nullish()
+  "trailingStopMode": zod.string().nullish(),
+  "managementAuthority": zod.enum(['fixed', 'phase7']),
+  "managementMode": zod.enum(['fixed', 'phase7_shadow', 'phase7_active']),
+  "managementPolicyVersion": zod.string(),
+  "thesisId": zod.string().uuid().nullable(),
+  "phase7ReductionApplied": zod.boolean()
+})
+
+
+/**
+ * Returns the versioned thesis and append-only management events for one owned trade. A 404 means the position uses fixed management and has no Phase 7 thesis. This endpoint is read-only and cannot change authority.
+ * @summary Get the immutable Phase 7 position thesis and management timeline
+ */
+export const GetTradeThesisParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetTradeThesisResponse = zod.object({
+  "thesis": zod.object({
+  "schemaVersion": zod.literal("position-thesis-v1"),
+  "thesisId": zod.string().uuid(),
+  "symbol": zod.string(),
+  "side": zod.enum(['long', 'short']),
+  "context": zod.string(),
+  "trigger": zod.string(),
+  "invalidationConditions": zod.array(zod.string()),
+  "targetRationale": zod.string(),
+  "expectedPath": zod.array(zod.string()),
+  "expectedDurationSeconds": zod.number(),
+  "maximumDurationSeconds": zod.number(),
+  "managementPolicyVersion": zod.literal("phase7-bounded-management-v1"),
+  "permittedActions": zod.array(zod.enum(['HOLD', 'REDUCE', 'TIGHTEN_STOP', 'APPLY_TRAILING', 'EXIT', 'FREEZE'])),
+  "entry": zod.object({
+  "price": zod.number(),
+  "initialStopPrice": zod.number(),
+  "targetPrice": zod.number(),
+  "regime": zod.enum(['strong_trend', 'weak_trend', 'range', 'high_volatility', 'low_volatility']),
+  "dominantDirection": zod.enum(['bullish', 'bearish', 'neutral']),
+  "marketStateFingerprint": zod.string(),
+  "marketStateVersion": zod.string(),
+  "dataTimestamp": zod.coerce.date()
+}),
+  "createdAt": zod.coerce.date(),
+  "fingerprint": zod.string()
+}),
+  "events": zod.array(zod.object({
+  "eventId": zod.string().uuid(),
+  "stage": zod.enum(['PROPOSED', 'SHADOW', 'APPLIED', 'FAILED', 'REFUSED']),
+  "thesisState": zod.enum(['VALID', 'WEAKENING', 'INVALIDATED', 'TARGET_DEGRADED', 'DATA_UNCERTAIN']),
+  "actionType": zod.enum(['HOLD', 'REDUCE', 'TIGHTEN_STOP', 'APPLY_TRAILING', 'EXIT', 'FREEZE']),
+  "policyVersion": zod.string(),
+  "marketStateFingerprint": zod.string().nullable(),
+  "validationPassed": zod.boolean(),
+  "evaluation": zod.object({
+  "schemaVersion": zod.literal("position-thesis-evaluation-v1"),
+  "thesisId": zod.string().uuid(),
+  "tradeId": zod.number(),
+  "state": zod.enum(['VALID', 'WEAKENING', 'INVALIDATED', 'TARGET_DEGRADED', 'DATA_UNCERTAIN']),
+  "marketStateFingerprint": zod.string().nullable(),
+  "evaluatedAt": zod.coerce.date(),
+  "progressR": zod.number(),
+  "elapsedFraction": zod.number(),
+  "supportingEvidence": zod.array(zod.string()),
+  "contraryEvidence": zod.array(zod.string()),
+  "reasonCodes": zod.array(zod.string()),
+  "fingerprint": zod.string()
+}),
+  "action": zod.object({
+  "schemaVersion": zod.literal("position-management-action-v1"),
+  "actionId": zod.string().uuid(),
+  "thesisId": zod.string().uuid(),
+  "tradeId": zod.number(),
+  "type": zod.enum(['HOLD', 'REDUCE', 'TIGHTEN_STOP', 'APPLY_TRAILING', 'EXIT', 'FREEZE']),
+  "state": zod.enum(['VALID', 'WEAKENING', 'INVALIDATED', 'TARGET_DEGRADED', 'DATA_UNCERTAIN']),
+  "policyVersion": zod.literal("phase7-bounded-management-v1"),
+  "proposedStopPrice": zod.number().nullable(),
+  "reductionFraction": zod.number().nullable(),
+  "trailingMode": zod.union([zod.literal('atr'),zod.literal(null)]).nullable(),
+  "reasonCodes": zod.array(zod.string()),
+  "marketStateFingerprint": zod.string().nullable(),
+  "proposedAt": zod.coerce.date(),
+  "fingerprint": zod.string()
+}),
+  "validation": zod.object({
+  "schemaVersion": zod.literal("position-action-validation-v1"),
+  "actionFingerprint": zod.string(),
+  "valid": zod.boolean(),
+  "currentMaximumLoss": zod.number(),
+  "proposedMaximumLoss": zod.number(),
+  "reasonCodes": zod.array(zod.string()),
+  "validatedAt": zod.coerce.date(),
+  "fingerprint": zod.string()
+}),
+  "result": zod.record(zod.string(), zod.unknown()).nullable(),
+  "observedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+}))
 })
 
 
@@ -1425,6 +1526,7 @@ export const GetConfigResponse = zod.object({
   "pairs": zod.array(zod.string()),
   "executionTarget": zod.enum(['demo', 'live']).describe('Where approved TradePlans execute. \'demo\' = TradeCore\'s internal simulation on live market data (no broker, no API keys, no real money); \'live\' = real orders through the connected broker.'),
   "mode": zod.enum(['research', 'copilot', 'autopilot']).describe('What happens once a TradePlan exists. \'autopilot\' executes it; \'copilot\' records it for the user to approve; \'research\' never executes. The intelligence pipeline is identical in all three.'),
+  "positionManagementMode": zod.enum(['fixed', 'phase7_shadow', 'phase7_active']).describe('Pinned per position at entry. phase7_active is accepted only for Demo, Binance testnet, or OANDA practice; real Live remains fixed until a later promotion gate.'),
   "demoStartingBalanceUsdt": zod.number().describe('Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades.'),
   "testnet": zod.boolean(),
   "backtestMode": zod.boolean(),
@@ -1507,6 +1609,7 @@ export const UpdateConfigBody = zod.object({
   "pairs": zod.array(zod.string()).optional(),
   "executionTarget": zod.enum(['demo', 'live']).optional().describe('Where approved TradePlans execute. \'demo\' = TradeCore\'s internal simulation on live market data (no broker, no API keys, no real money); \'live\' = real orders through the connected broker.'),
   "mode": zod.enum(['research', 'copilot', 'autopilot']).optional().describe('What happens once a TradePlan exists. \'autopilot\' executes it; \'copilot\' records it for the user to approve; \'research\' never executes. The intelligence pipeline is identical in all three.'),
+  "positionManagementMode": zod.enum(['fixed', 'phase7_shadow', 'phase7_active']).optional().describe('Selects the manager for positions opened after this change. Existing positions retain their pinned owner. phase7_active is refused for real Live.'),
   "demoStartingBalanceUsdt": zod.number().optional().describe('Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades.'),
   "testnet": zod.boolean().optional(),
   "backtestMode": zod.boolean().optional(),
@@ -1541,6 +1644,7 @@ export const UpdateConfigResponse = zod.object({
   "pairs": zod.array(zod.string()),
   "executionTarget": zod.enum(['demo', 'live']).describe('Where approved TradePlans execute. \'demo\' = TradeCore\'s internal simulation on live market data (no broker, no API keys, no real money); \'live\' = real orders through the connected broker.'),
   "mode": zod.enum(['research', 'copilot', 'autopilot']).describe('What happens once a TradePlan exists. \'autopilot\' executes it; \'copilot\' records it for the user to approve; \'research\' never executes. The intelligence pipeline is identical in all three.'),
+  "positionManagementMode": zod.enum(['fixed', 'phase7_shadow', 'phase7_active']).describe('Pinned per position at entry. phase7_active is accepted only for Demo, Binance testnet, or OANDA practice; real Live remains fixed until a later promotion gate.'),
   "demoStartingBalanceUsdt": zod.number().describe('Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades.'),
   "testnet": zod.boolean(),
   "backtestMode": zod.boolean(),

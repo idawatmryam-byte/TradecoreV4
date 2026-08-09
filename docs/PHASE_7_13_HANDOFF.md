@@ -4,7 +4,7 @@ Status: source of truth for the next Codex workspace
 Prepared: 2026-08-09  
 Repository: `idawatmryam-byte/TradecoreV4`  
 Default and development branch: `main`  
-Scope: repository state after the Phase 0–6 implementation and engineering audit; no Phase 7 code is included
+Scope: original Phase 0–6 baseline plus the owner-approved Phase 7 authority amendment and implementation record
 
 ## 1. Purpose and authority
 
@@ -137,6 +137,7 @@ that phase. It does not mean promoted to autonomous Demo or Live execution.
 | 4 — Shadow Decision Council  | Complete as Shadow                                                  | Deterministic-first council, explicit abstention and uncertainty, evidence-reference validation, optional provider-neutral narrative adapter, replay/capture, AI Brain UI, and tests       | Structurally `cannotExecute: true`; deterministic output only; no broker/executor import                                                  |
 | 5 — Evidence learning        | Complete for Research/Shadow and approved tightening-only influence | Point-in-time evidence records, conditional cells, uncertainty, BH correction, chronological validation and embargo, lifecycle approval/rollback, audit events, UI, API, schema, and tests | Cannot originate trades, increase conviction, lower risk gates, or self-tune; activation requires exact human confirmation                |
 | 6 — Portfolio intelligence   | Complete as a Shadow candidate; not promoted                        | Same-scan opportunity collection, deterministic ranking then bounded allocation, correlation/strategy/symbol/risk reservations, cash outcome, read-only API/UI, and deterministic harness  | Process-local Shadow projection only; `cannotExecute: true`; no real reservation or change to Brain V0, Demo, Co-Pilot, or Live selection |
+| 7 — Thesis-aware management  | Implemented; repository validation complete, operational soak pending | Persistent thesis, deterministic state/policy, explicit single owner, append-only action audit, API/UI, Demo/testnet/practice active seam, and browser coverage                       | Active authority is opt-in and sandbox-only; real Live remains disabled and all Phase 8/11/12 promotion gates remain                      |
 
 ### 4.1 Principal completed modules
 
@@ -308,6 +309,12 @@ are either completed with evidence or explicitly accepted by the owner with a
 documented scope and expiry. Do not weaken risk or strategy thresholds to make a
 smoke test trade.
 
+**2026-08-09 disposition:** the owner explicitly accepted deferral of the
+operational items below for repository implementation and bounded
+Demo/testnet/practice validation only. The deferral does not expire into or
+authorize real Live. The outstanding items remain hard Live-promotion blockers
+and are tracked in `docs/phase-7-promotion-report.md`.
+
 - [ ] Clone fresh remote `main`; verify this handoff commit, clean working tree,
       Node 20+, pnpm 9+, and the expected environment template.
 - [ ] On the VPS, capture `git rev-parse HEAD`, `git status`, PM2 process state and
@@ -364,6 +371,26 @@ before Phase 12. Phase 13 follows edge validation and safety hardening; it must
 not be used to scale an unverified money path.
 
 ## 8. Phase 7 — Professional Trade Thesis and Adaptive Management
+
+### Owner-approved authority amendment (2026-08-09)
+
+The owner explicitly approved Phase 7 implementation with active authority in
+Demo, Binance testnet, and OANDA practice environments. This supersedes the
+Research/Shadow-only recommendation in Sections 6, 8, and 16 for Phase 7 only.
+It does not close or waive any real-Live prerequisite.
+
+- `fixed` keeps the existing fixed manager as the sole mutating owner.
+- `phase7_shadow` keeps the fixed manager as the sole mutating owner and records
+  the Phase 7 decision without changing the position.
+- `phase7_active` assigns Phase 7 as the sole adaptive-management owner only in
+  Demo/testnet/practice. The fixed adaptive manager does not run for that
+  position; baseline stop/target/time/emergency settlement remains enforced.
+- Real Live defensively resolves `phase7_active` to fixed ownership plus Shadow
+  observation. Live activation remains gated by the unresolved VPS, provider,
+  reconciliation, deployment, concurrency, and production-safety evidence.
+
+The accepted architecture and rollback contract are recorded in
+`docs/adr/ADR-007-phase-7-position-management-authority.md`.
 
 ### Objective
 
@@ -457,7 +484,9 @@ recommend but may not widen risk or act outside deterministic policy.
 - Existing fixed management remains available as control and rollback.
 - Recommendation, deterministic verdict, and broker/DB action are separately
   visible and auditable.
-- No Demo or Live adaptive authority is granted by Phase 7 implementation alone.
+- Demo/testnet/practice authority is available only through the explicit,
+  position-pinned `phase7_active` mode approved above. Real Live adaptive
+  authority is not granted by Phase 7 implementation.
 
 ### Required tests and validation
 

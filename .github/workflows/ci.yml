@@ -20,7 +20,7 @@ env:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     # The live-engine integration test drives the real BotEngine against a
     # scripted mock exchange, but needs a real database for its assertions.
@@ -81,6 +81,12 @@ jobs:
         run: pnpm --filter @workspace/api-server run test:integration
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/tradecore
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Test (Phase 7 browser regression)
+        run: pnpm run test:e2e
 
       # Catches a broken build before deploy, and is the same command the VPS
       # runs (docs/HANDOFF.md §4). Frontend FIRST — the backend build copies

@@ -217,6 +217,7 @@ export function Settings() {
     pairs: "BTCUSDT,ETHUSDT",
     executionTarget: "demo" as "demo" | "live",
     mode: "copilot" as "research" | "copilot" | "autopilot",
+    positionManagementMode: "fixed" as "fixed" | "phase7_shadow" | "phase7_active",
     testnet: true,
     backtestMode: false,
     highFrequencyTestMode: false,
@@ -238,6 +239,7 @@ export function Settings() {
         pairs: config.pairs.join(", "),
         executionTarget: config.executionTarget,
         mode: config.mode,
+        positionManagementMode: config.positionManagementMode,
         testnet: config.testnet,
         backtestMode: config.backtestMode,
         highFrequencyTestMode: config.highFrequencyTestMode,
@@ -294,6 +296,7 @@ export function Settings() {
         mode,
         marketType: formData.marketType,
         testnet: formData.testnet,
+        positionManagementMode: formData.positionManagementMode,
       },
     }, {
       onSuccess: () => {
@@ -451,6 +454,47 @@ export function Settings() {
             <p className="text-[13px] text-muted-foreground font-mono mt-2 pt-2 border-t border-border/60">
               Demo fills use the same model the backtester uses, so paper results and
               backtest results mean the same thing.
+            </p>
+          )}
+        </div>
+
+        <div className="p-3 border rounded-md bg-muted/30 space-y-3" data-testid="position-management-authority">
+          <div className="space-y-0.5">
+            <Label className="text-sm font-bold flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" /> Position management authority
+            </Label>
+            <p className="text-[13px] text-muted-foreground">
+              The selected owner is pinned when a position opens. Existing positions never switch managers because this setting changes.
+            </p>
+          </div>
+          <Select
+            value={formData.positionManagementMode}
+            onValueChange={(value) => handleChange("positionManagementMode", value)}
+          >
+            <SelectTrigger aria-label="Position management authority">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="fixed">Fixed management — control</SelectItem>
+              <SelectItem value="phase7_shadow">Phase 7 Shadow — observe only</SelectItem>
+              <SelectItem
+                value="phase7_active"
+                disabled={formData.executionTarget === "live" && !formData.testnet}
+              >
+                Phase 7 Active — Demo/Testnet/Practice
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-[13px] font-mono text-muted-foreground">
+            {formData.positionManagementMode === "fixed"
+              ? "FIXED owns stop changes, partial exits and trailing."
+              : formData.positionManagementMode === "phase7_shadow"
+                ? "FIXED owns changes; Phase 7 records what it would do."
+                : "PHASE 7 exclusively owns adaptive changes for new sandbox positions."}
+          </p>
+          {formData.positionManagementMode === "phase7_active" && formData.executionTarget === "live" && !formData.testnet && (
+            <p className="rounded border border-destructive/40 bg-destructive/5 px-2.5 py-2 text-[13px] text-destructive" role="alert">
+              Active Phase 7 is disabled for real Live. Select Testnet/Practice, Demo, Fixed, or Shadow before saving.
             </p>
           )}
         </div>

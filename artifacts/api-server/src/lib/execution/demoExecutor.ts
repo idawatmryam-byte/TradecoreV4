@@ -21,7 +21,7 @@
  * Exits are NOT handled here. A position closes when the market reaches a
  * level, which is a per-tick question — see demoExit.ts.
  */
-import { db, tradesTable } from "@workspace/db";
+import { db, positionThesesTable, tradesTable } from "@workspace/db";
 import { computeTp1Tp2Ladder } from "../strategies";
 import { logger } from "../logger";
 import { openIntent, advanceIntent, attachTrade } from "./intentLog";
@@ -29,6 +29,8 @@ import { planFingerprint } from "../plan/fingerprint";
 import type { ExecutionRequest, ExecutionResult, TradeExecutor } from "./executor";
 import type { FillCosts } from "./fillModel";
 import type { Section } from "../engineRegistry";
+import { POSITION_POLICY_VERSION, buildPositionThesis } from "../intelligence/position";
+import { positionThesisInsertValues } from "../intelligence/position/store";
 
 /**
  * Accessors rather than values: BotEngine constructs this as a field
@@ -123,9 +125,17 @@ export class DemoExecutor implements TradeExecutor {
       : { tp1Price: 0, tp1Qty: 0, tp2Price: 0, tp2Qty: 0 };
 
     try {
-      const [trade] = await db
-        .insert(tradesTable)
-        .values({
+      const positionThesis = req.positionManagement
+        ? buildPositionThesis({
+            plan: { ...plan, entryPrice: fillPrice, slPrice: realSl, tpPrice: realTp, qty: filledQty },
+            marketState: req.positionManagement.marketState,
+            createdAt: now,
+          })
+        : null;
+      const trade = await db.transaction(async (tx) => {
+        const [inserted] = await tx
+          .insert(tradesTable)
+          .values({
           userId: this.host.userId(),
           section: this.host.section(),
           executionTarget: "demo",
@@ -161,11 +171,25 @@ export class DemoExecutor implements TradeExecutor {
           maxHoldSeconds: Math.round(plan.maxHoldSeconds),
           plannedLeverage: plan.leverage,
           ...(intent && { correlationId: intent.correlationId }),
+          ...(req.positionManagement && {
+            managementAuthority: req.positionManagement.assignment.authority,
+            managementMode: req.positionManagement.assignment.effectiveMode,
+            managementPolicyVersion: POSITION_POLICY_VERSION,
+            thesisId: positionThesis!.thesisId,
+          }),
         })
-        .returning();
+          .returning();
+        if (!inserted) throw new Error("Demo trade insert returned no row");
+        if (positionThesis) {
+          await tx.insert(positionThesesTable).values(
+            positionThesisInsertValues(this.host.userId(), this.host.section(), inserted.id, positionThesis),
+          );
+        }
+        return inserted;
+      });
 
-      await attachTrade(intent, trade!.id);
-      await advanceIntent(intent, "RECORDED", "demo trade row written", { tradeId: trade!.id });
+      await attachTrade(intent, trade.id);
+      await advanceIntent(intent, "RECORDED", "demo trade row written", { tradeId: trade.id });
       // A simulated position needs no exchange-side protection: its stop and
       // target are enforced by the fill model on every tick, which cannot fail
       // to place. This is terminal-good for a demo intent.
@@ -173,7 +197,7 @@ export class DemoExecutor implements TradeExecutor {
 
       logger.info(
         {
-          tradeId: trade!.id, symbol: req.symbol, side: plan.side,
+          tradeId: trade.id, symbol: req.symbol, side: plan.side,
           fillPrice: fillPrice.toFixed(6), sl: realSl.toFixed(6), tp: realTp.toFixed(6),
           qty: filledQty, strategy: plan.strategyName,
         },
@@ -184,7 +208,7 @@ export class DemoExecutor implements TradeExecutor {
         entered: true,
         reason: `simulated ${openSide.toUpperCase()} filled at ${fillPrice.toFixed(6)} — demo account, no real order placed`,
         ...(intent && { correlationId: intent.correlationId }),
-        tradeId: trade!.id,
+        tradeId: trade.id,
       };
     } catch (err) {
       await advanceIntent(intent, "FAILED", String((err as Error)?.message ?? err));
