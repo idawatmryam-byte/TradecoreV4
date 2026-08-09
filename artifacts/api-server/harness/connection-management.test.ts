@@ -102,9 +102,10 @@ async function exerciseCrypto() {
   expect("Crypto Demo client has no user API key", !realDemoClient.apiKey);
 
   const built = installProviderFakes(engine);
-  await engine.start();
+  await Promise.all([engine.start(), engine.start()]);
   const demo1 = (engine as any).exchange;
   expect("Crypto starts on Demo", built.at(-1)?.target === "demo");
+  expect("concurrent Crypto Start requests build only one provider client", built.length === 1, String(built.length));
 
   await setBinanceCredentials(CRYPTO_USER, "crypto-key-one", "crypto-secret-one");
   const [encrypted] = await db.select().from(userBinanceCredentialsTable)
@@ -116,6 +117,16 @@ async function exerciseCrypto() {
   const live1 = (engine as any).exchange;
   expect("Crypto reconnects on Live", built.at(-1)?.target === "live");
   expect("Crypto Live does not reuse Demo client", live1 !== demo1);
+  expect("successful Live reconciliation opens the entry gate", engine.getState().newEntriesAllowed);
+
+  e.reconcileOnStartup = async () => { throw new Error("scripted provider ambiguity"); };
+  await engine.refreshConnection({ restartIfDesired: true, reason: "test: fail-closed reconciliation" });
+  expect("reconciliation failure keeps the Live engine running for exits", engine.isRunning());
+  expect("reconciliation failure blocks only new entries",
+    !engine.getState().newEntriesAllowed && engine.getState().entryBlockReason?.startsWith("Exit-only:"));
+  e.reconcileOnStartup = async () => {};
+  await e.attemptLiveReconciliation("integration recovery");
+  expect("a later successful reconciliation re-opens the entry gate", engine.getState().newEntriesAllowed);
 
   await setBinanceCredentials(CRYPTO_USER, "crypto-key-two", "crypto-secret-two");
   await engine.refreshConnection({ restartIfDesired: true, reason: "test: replace Binance credentials" });
@@ -161,9 +172,10 @@ async function exerciseForex() {
   expect("Forex Demo ignores the section's Live environment flag", realDemoAdapter.client.baseUrl.includes("fxpractice"));
 
   const built = installProviderFakes(engine);
-  await engine.start();
+  await Promise.all([engine.start(), engine.start()]);
   const demo1 = (engine as any).exchange;
   expect("Forex starts on Demo", built.at(-1)?.target === "demo");
+  expect("concurrent Forex Start requests build only one provider client", built.length === 1, String(built.length));
 
   await setOandaCredentials(FOREX_USER, "oanda-token-one", "001-000-1111111-111");
   const [encrypted] = await db.select().from(userOandaCredentialsTable)
@@ -209,8 +221,10 @@ async function main() {
   const oldPlatformAccount = process.env.OANDA_PLATFORM_ACCOUNT_ID;
   await cleanup();
   try {
-    await exerciseCrypto();
-    await exerciseForex();
+    // Both sections operate independently and must survive a simultaneous
+    // start/transition workload without one registry or provider state
+    // suppressing the other.
+    await Promise.all([exerciseCrypto(), exerciseForex()]);
   } finally {
     await cleanup();
     if (oldPlatformToken === undefined) delete process.env.OANDA_PLATFORM_TOKEN;

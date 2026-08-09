@@ -117,13 +117,13 @@ for (const [what, patch, code] of cases) {
   expect("...and is fine when the stop is wide", revalidate(wide).ok);
 }
 
-// An unavailable price must not fail the approval — a transient data problem
-// is not a risk signal.
+// An unavailable price is not proof of safety. Approval must fail closed
+// because the plan's defining entry geometry cannot be re-checked.
 {
   const r = revalidate(healthy({ currentPrice: undefined }));
-  expect("an unobtainable price does not block approval", r.ok, r.reason);
+  expect("an unobtainable price blocks approval", !r.ok && r.code === "PRICE_UNAVAILABLE", r.reason);
   const check = r.checks.find((c) => c.name === "Price still near the plan");
-  expect("...and says drift was not checked", /not checked/.test(check?.detail ?? ""), check?.detail ?? "");
+  expect("...and reports the unavailable price as failed", check?.passed === false && /unavailable/.test(check.detail), check?.detail ?? "");
 }
 
 // ── Reporting: the user sees the whole picture ──────────────────────────────

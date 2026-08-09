@@ -76,6 +76,16 @@ export function touchActivity(userId: number, section: Section): void {
   lastActivity.set(key(userId, section), Date.now());
 }
 
+/** Remove stopped engine objects and activity metadata after account erasure. */
+export function evictUserEngines(userId: number): void {
+  for (const section of SECTIONS) {
+    const k = key(userId, section);
+    engines.delete(k);
+    lastActivity.delete(k);
+    resuming.delete(k);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Session-scoped demo engines
 //

@@ -37,6 +37,7 @@ import {
 } from "../src/lib/copilot/copilotService";
 import { loadStrategyConfigs } from "../src/lib/strategyConfigLoader";
 import type { StrategyConfig } from "../src/lib/strategies";
+import { getOrCreateEngine } from "../src/lib/engineRegistry";
 
 const USER = 990046;
 
@@ -252,6 +253,41 @@ async function main() {
   expect("the user's note is kept", rec3After!.resolutionReason === "not convinced by the volume");
   const rejectAgain = await rejectRecommendation(USER, "crypto", rec3!.id);
   expect("a rejected plan cannot be rejected twice", !rejectAgain.ok);
+
+  // ── 7. Concurrent approval is single-use ────────────────────────────────
+  console.log("\n— concurrent approval can claim the plan only once —");
+  const p4 = plan({ symbol: "XRPUSDT" });
+  await e.resolveExecutor(copilotConfig).execute({
+    symbol: "XRPUSDT", plan: p4, row: { confidence: 70 }, config: copilotConfig, now: T0, stratConfig: pure,
+  });
+  const [rec4] = await db.select().from(recommendationsTable)
+    .where(and(eq(recommendationsTable.userId, USER), eq(recommendationsTable.symbol, "XRPUSDT")));
+
+  const registryEngine = getOrCreateEngine(USER, "crypto") as any;
+  const originalGather = registryEngine.gatherRevalidationState.bind(registryEngine);
+  let releaseGather!: () => void;
+  let markGatherEntered!: () => void;
+  const gatherEntered = new Promise<void>((resolve) => { markGatherEntered = resolve; });
+  const gatherHold = new Promise<void>((resolve) => { releaseGather = resolve; });
+  registryEngine.gatherRevalidationState = async (candidate: unknown) => {
+    markGatherEntered();
+    await gatherHold;
+    return originalGather(candidate);
+  };
+
+  const firstApproval = executeRecommendation(USER, "crypto", rec4!.id);
+  await gatherEntered; // first request has already won the `created → executing` CAS
+  const secondApproval = await executeRecommendation(USER, "crypto", rec4!.id);
+  releaseGather();
+  const firstOutcome = await firstApproval;
+  registryEngine.gatherRevalidationState = originalGather;
+
+  expect("the concurrent request is refused while the first owns the claim",
+    !secondApproval.ok && secondApproval.status === "executing", `${secondApproval.status}: ${secondApproval.reason}`);
+  expect("the owning request resolves through normal re-validation", !firstOutcome.ok && firstOutcome.status === "blocked", firstOutcome.reason);
+  const [rec4After] = await db.select().from(recommendationsTable).where(eq(recommendationsTable.id, rec4!.id));
+  expect("the claimed recommendation ends in one terminal state", rec4After!.status === "blocked", rec4After!.status);
+  expect("concurrent approval opened no duplicate trade", (await db.select().from(tradesTable).where(eq(tradesTable.userId, USER))).length === 0);
 
   const finalInbox = await listInbox(USER, "crypto");
   expect("the inbox shows only actionable plans", finalInbox.length === 0, String(finalInbox.length));

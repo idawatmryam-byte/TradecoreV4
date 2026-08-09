@@ -61,6 +61,8 @@ export async function buildDemoStatus(userId: number, section: Section): Promise
     winRateToday: winRateOrZero(winsToday, tradesToday),
     circuitBreakerActive: false,
     riskPaused: false,
+    newEntriesAllowed: false,
+    entryBlockReason: "Read-only demo account cannot submit entries",
     mode: "testnet",
     startedAt: new Date(Date.now() - 3 * 3600_000).toISOString(),
     lastScanAt: new Date().toISOString(),

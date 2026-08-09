@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { getShadowDecisionCouncil } from "@workspace/api-client-react";
 import {
   AlertTriangle,
   BrainCircuit,
@@ -15,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState, PageHeader } from "@/components/patterns";
-import { sectionHeaders, useSection } from "@/lib/section";
+import { useSection } from "@/lib/section";
 import { cn } from "@/lib/utils";
 
 interface EvidenceReference {
@@ -312,14 +313,7 @@ export function AiBrain() {
   const { section } = useSection();
   const query = useQuery<ShadowRun[]>({
     queryKey: ["shadow-decision-council", section],
-    queryFn: async () => {
-      const response = await fetch("/api/intelligence/shadow", {
-        credentials: "same-origin",
-        headers: sectionHeaders(),
-      });
-      if (!response.ok) throw new Error(`Shadow Council request failed (${response.status})`);
-      return response.json() as Promise<ShadowRun[]>;
-    },
+    queryFn: async () => (await getShadowDecisionCouncil()) as ShadowRun[],
     refetchInterval: 10_000,
   });
 

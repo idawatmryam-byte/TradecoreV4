@@ -20,6 +20,7 @@
 export type BlockCode =
   | "EXPIRED"
   | "NOT_ACTIONABLE"
+  | "PRICE_UNAVAILABLE"
   | "PRICE_DRIFT"
   | "CIRCUIT_BREAKER"
   | "RISK_PAUSED"
@@ -69,7 +70,7 @@ export interface RevalidationInputs {
   expiresAt: Date;
   status: string;
   now: Date;
-  /** Live price, or undefined when unobtainable (then drift cannot be checked). */
+  /** Live price, or undefined when unobtainable (approval then fails closed). */
   currentPrice?: number;
   engineRunning: boolean;
   circuitBreakerActive: boolean;
@@ -189,11 +190,12 @@ export function revalidate(input: RevalidationInputs): RevalidationResult {
       `The market has moved ${driftR.toFixed(2)}R away from the planned entry — this is no longer the trade that was analysed`,
     );
   } else {
-    checks.push({
-      name: "Price still near the plan",
-      passed: true,
-      detail: "Live price unavailable — drift not checked",
-    });
+    check(
+      "Price still near the plan", false,
+      "Live price unavailable — approval cannot verify entry drift",
+      "PRICE_UNAVAILABLE",
+      "A current live price could not be obtained, so the approved entry cannot be verified safely",
+    );
   }
 
   const failure = firstFailure as { code: BlockCode; reason: string } | null;

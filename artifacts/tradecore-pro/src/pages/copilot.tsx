@@ -45,7 +45,7 @@ const STATUS_META: Record<string, { label: string; className: string; icon: type
 
 const FILTERS = [
   { key: "created", label: "Awaiting you" },
-  { key: "executed,rejected,expired,superseded,blocked", label: "History" },
+  { key: "executing,executed,rejected,expired,superseded,blocked", label: "History" },
 ] as const;
 
 function timeLeft(expiresAt: string): { text: string; urgent: boolean; gone: boolean } {

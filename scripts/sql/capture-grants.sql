@@ -28,6 +28,36 @@
 
 BEGIN;
 
+-- Account erasure is the one deliberate exception to append-only retention.
+-- Keep DELETE away from the application role and expose only a parameterized,
+-- owner-defined purge of rows belonging to one user. The API invokes this
+-- inside the same transaction as deletion of the account's public-schema
+-- rows, so erasure is complete or rolled back as a unit.
+CREATE OR REPLACE FUNCTION capture.purge_user_data(target_user_id integer)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, capture
+AS $$
+BEGIN
+  DELETE FROM capture.brain_evidence_references AS evidence
+  USING capture.brain_decisions AS decision
+  WHERE evidence.brain_decision_id = decision.id
+    AND decision.user_id = target_user_id;
+
+  DELETE FROM capture.shadow_council_runs WHERE user_id = target_user_id;
+  DELETE FROM capture.brain_decisions WHERE user_id = target_user_id;
+  DELETE FROM capture.strategy_opinions WHERE user_id = target_user_id;
+  DELETE FROM capture.evidence_rule_events WHERE user_id = target_user_id;
+  DELETE FROM capture.evidence_snapshots WHERE user_id = target_user_id;
+  DELETE FROM capture.memory_influences WHERE user_id = target_user_id;
+  DELETE FROM capture.decisions WHERE user_id = target_user_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION capture.purge_user_data(integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION capture.purge_user_data(integer) TO :"app_role";
+
 -- The role must be able to see and write the schema, and nothing more.
 GRANT USAGE ON SCHEMA capture TO :"app_role";
 

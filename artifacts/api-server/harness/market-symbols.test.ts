@@ -13,6 +13,7 @@ import {
   buildSymbolMarketMaps,
   unifiedFromPlainFallback,
   plainFromUnifiedFallback,
+  supportsShortEntries,
 } from "../src/lib/marketSymbols";
 
 let failures = 0;
@@ -59,6 +60,13 @@ expect("fallback plain→unified (spot)", unifiedFromPlainFallback("BTCUSDT", "s
 expect("fallback plain→unified (futures)", unifiedFromPlainFallback("BTCUSDT", "futures"), "BTC/USDT:USDT");
 expect("fallback unified→plain (spot)", plainFromUnifiedFallback("BTC/USDT"), "BTCUSDT");
 expect("fallback unified→plain (futures)", plainFromUnifiedFallback("BTC/USDT:USDT"), "BTCUSDT");
+
+// Spot is the only venue without a short-entry mechanism. OANDA Forex was
+// previously grouped with spot by an `!== futures` check, silently dropping
+// every valid Forex short in both live scans and backtests.
+expect("spot: short entries unsupported", supportsShortEntries("spot"), false);
+expect("futures: short entries supported", supportsShortEntries("futures"), true);
+expect("forex: short entries supported", supportsShortEntries("forex"), true);
 
 console.log(failures === 0 ? "\nAll assertions passed." : `\n${failures} assertion(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

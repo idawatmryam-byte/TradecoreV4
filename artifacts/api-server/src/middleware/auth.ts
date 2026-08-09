@@ -20,12 +20,10 @@
  *      scripts, curl, or a future mobile/Expo client — verified against the
  *      DB on every request (no session-cookie shortcut for this path).
  *
- * The cookie is intentionally stateless (HMAC-signed expiry + userId, no
- * server-side session store/table) — simpler, and survives a server restart
- * without logging everyone out. Rotating SESSION_SECRET invalidates every
- * outstanding cookie for every user at once (e.g. if it's ever suspected to
- * be exposed); an individual user's password only protects their own
- * session (rotate that to log just them out everywhere).
+ * The cookie is HMAC-signed and carries a per-user session version. Auth reads
+ * the user row on each cookie request, so deleting an account invalidates its
+ * cookie immediately and incrementing sessionVersion revokes that account's
+ * outstanding sessions without rotating the global SESSION_SECRET.
  */
 import type { NextFunction, Request, Response } from "express";
 import { createHmac, timingSafeEqual } from "crypto";
@@ -50,6 +48,19 @@ declare global {
 export const SESSION_COOKIE_NAME = "tc_session";
 const SESSION_DURATION_MS = 12 * 60 * 60 * 1000; // 12 hours
 
+export interface SessionUser { id: number; sessionVersion: number }
+
+export function setSessionCookie(res: Response, user: SessionUser): void {
+  const { nodeEnv } = validateEnv();
+  res.cookie(SESSION_COOKIE_NAME, createSessionToken(user.id, user.sessionVersion), {
+    httpOnly: true,
+    secure: nodeEnv === "production",
+    sameSite: "strict",
+    path: "/",
+    maxAge: SESSION_DURATION_MS,
+  });
+}
+
 export function timingSafeStringEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
   const bufB = Buffer.from(b);
@@ -68,28 +79,43 @@ function sign(payload: string, secret: string): string {
   return createHmac("sha256", secret).update(payload).digest("hex");
 }
 
-/** Build a signed session cookie value: `<userId>.<expiryEpochMs>.<hmacHex>` */
-export function createSessionToken(userId: number): string {
+/** Build `<userId>.<expiryEpochMs>.<sessionVersion>.<hmacHex>`. */
+export function createSessionToken(userId: number, sessionVersion: number): string {
   const { sessionSecret } = validateEnv();
   const expiry = String(Date.now() + SESSION_DURATION_MS);
-  const payload = `${userId}.${expiry}`;
+  const payload = `${userId}.${expiry}.${sessionVersion}`;
   return `${payload}.${sign(payload, sessionSecret)}`;
 }
 
-function verifySessionToken(token: string | undefined): number | null {
+interface SessionIdentity { userId: number; sessionVersion: number }
+
+function verifySessionToken(token: string | undefined): SessionIdentity | null {
   if (!token) return null;
   const parts = token.split(".");
-  if (parts.length !== 3) return null;
-  const [userIdStr, expiryStr, signature] = parts as [string, string, string];
+  if (parts.length !== 4) return null;
+  const [userIdStr, expiryStr, sessionVersionStr, signature] = parts as [string, string, string, string];
   const userId = Number(userIdStr);
   const expiry = Number(expiryStr);
-  if (!Number.isFinite(userId) || !Number.isFinite(expiry)) return null;
+  const sessionVersion = Number(sessionVersionStr);
+  if (!Number.isSafeInteger(userId) || userId <= 0 || !Number.isFinite(expiry) || !Number.isSafeInteger(sessionVersion) || sessionVersion < 0) return null;
   if (Date.now() > expiry) return null; // expired
 
   const { sessionSecret } = validateEnv();
-  const payload = `${userIdStr}.${expiryStr}`;
+  const payload = `${userIdStr}.${expiryStr}.${sessionVersionStr}`;
   const expected = sign(payload, sessionSecret);
-  return timingSafeStringEqual(signature, expected) ? userId : null;
+  return timingSafeStringEqual(signature, expected) ? { userId, sessionVersion } : null;
+}
+
+async function verifyCookieAuth(token: string | undefined): Promise<number | null> {
+  const identity = verifySessionToken(token);
+  if (!identity) return null;
+  const [user] = await db
+    .select({ id: usersTable.id, sessionVersion: usersTable.sessionVersion })
+    .from(usersTable)
+    .where(eq(usersTable.id, identity.userId))
+    .limit(1);
+  if (!user || user.sessionVersion !== identity.sessionVersion) return null;
+  return user.id;
 }
 
 async function verifyBasicAuth(header: string | undefined): Promise<number | null> {
@@ -125,7 +151,7 @@ async function verifyBasicAuth(header: string | undefined): Promise<number | nul
  * an oracle). Mount this on every route except /health and /auth/*.
  */
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const cookieUserId = verifySessionToken(req.cookies?.[SESSION_COOKIE_NAME]);
+  const cookieUserId = await verifyCookieAuth(req.cookies?.[SESSION_COOKIE_NAME]);
   const userId = cookieUserId ?? (await verifyBasicAuth(req.headers.authorization));
 
   if (userId !== null) {
@@ -139,7 +165,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 }
 
 export async function getAuthenticatedUserId(req: Request): Promise<number | null> {
-  const cookieUserId = verifySessionToken(req.cookies?.[SESSION_COOKIE_NAME]);
+  const cookieUserId = await verifyCookieAuth(req.cookies?.[SESSION_COOKIE_NAME]);
   if (cookieUserId !== null) return cookieUserId;
   return verifyBasicAuth(req.headers.authorization);
 }

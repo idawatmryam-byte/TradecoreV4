@@ -11,6 +11,7 @@ import { rateLimit } from "./middleware/rateLimit";
 import { requireAuth } from "./middleware/auth";
 import { resolveSection } from "./middleware/section";
 import { demoGuard } from "./middleware/demoGuard";
+import { ZodError } from "zod/v4";
 
 // Fail fast and loud on a misconfigured deploy rather than discovering it
 // later — see lib/env.ts for the full rationale and the list of everything
@@ -187,13 +188,28 @@ if (appBase) {
 // exactly 4 arguments so Express recognises it as an error handler.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  const message = err instanceof Error ? err.message : "Internal server error";
+  if (err instanceof ZodError) {
+    logger.warn(
+      { req: { method: req.method, url: req.url }, issues: err.issues },
+      "Request validation failed",
+    );
+    if (!res.headersSent) {
+      res.status(400).json({
+        error: "Invalid request",
+        details: err.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message })),
+      });
+    }
+    return;
+  }
   logger.error(
     { err, req: { method: req.method, url: req.url } },
     "Unhandled route error",
   );
   if (!res.headersSent) {
-    res.status(500).json({ error: message });
+    // Raw exception messages can contain provider paths, account identifiers,
+    // SQL details, or implementation internals. They stay in structured logs;
+    // an unhandled 500 returns only the stable public contract.
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
