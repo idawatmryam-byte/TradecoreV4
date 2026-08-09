@@ -9,6 +9,7 @@ if (!process.env.DATABASE_URL) {
   process.exit(0);
 }
 process.env.SESSION_SECRET ??= "auth-session-integration-secret-123";
+process.env.CREDENTIALS_ENCRYPTION_KEY ??= "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 process.env.PORT ??= "8080";
 
 import type { Request } from "express";
