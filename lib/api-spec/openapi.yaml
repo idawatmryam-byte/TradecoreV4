@@ -40,6 +40,11 @@ tags:
       Read-only market knowledge: gated performance cells, multiple-comparison
       control, and confidence calibration. Never reachable from the scan loop —
       nothing here can influence a trading decision.
+  - name: research
+    description: >-
+      Research-only full-brain experiments, deterministic replay evidence,
+      stress tests, and human-reviewed promotion reports. These endpoints
+      cannot execute trades or change Live authority.
 
 # Every operation requires ONE of these by default (either is sufficient —
 # see components.securitySchemes below). /healthz and /auth/* override this
@@ -1777,7 +1782,134 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /research/experiments:
+    get:
+      operationId: listResearchExperiments
+      tags: [research]
+      summary: List tenant-scoped Research experiments
+      responses:
+        "200":
+          description: Research experiment summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResearchExperiment"
+    post:
+      operationId: createResearchExperiment
+      tags: [research]
+      summary: Prepare and start a bounded Research-only experiment
+      description: >-
+        Creates an asynchronous Research job. The job can read recorded market
+        data and produce replay evidence, but it cannot reach any Demo or Live
+        executor. A successful promotion report still requires human approval.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResearchExperimentRequest"
+      responses:
+        "202":
+          description: Research preparation accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchExperimentStarted"
+        "400":
+          description: Invalid or unbounded research request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Another Research experiment is already active for this tenant and section
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /research/experiments/{id}:
+    get:
+      operationId: getResearchExperiment
+      tags: [research]
+      summary: Get a Research experiment and its terminal promotion report
+      parameters:
+        - $ref: "#/components/parameters/ResearchExperimentId"
+      responses:
+        "200":
+          description: Research experiment detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchExperiment"
+        "404":
+          description: Experiment not found in this tenant and section
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /research/experiments/{id}/events:
+    get:
+      operationId: listResearchReplayEvents
+      tags: [research]
+      summary: Page through the immutable full-brain replay stream
+      parameters:
+        - $ref: "#/components/parameters/ResearchExperimentId"
+        - name: afterSequence
+          in: query
+          schema: { type: integer, minimum: -1, default: -1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+      responses:
+        "200":
+          description: Ordered replay events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchReplayEventPage"
+        "404":
+          description: Experiment not found in this tenant and section
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /research/experiments/{id}/cancel:
+    post:
+      operationId: cancelResearchExperiment
+      tags: [research]
+      summary: Request cancellation of a preparing or running Research job
+      parameters:
+        - $ref: "#/components/parameters/ResearchExperimentId"
+      responses:
+        "202":
+          description: Cancellation requested
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [cancelRequested]
+                properties:
+                  cancelRequested: { type: boolean }
+        "409":
+          description: Experiment is already terminal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
+  parameters:
+    ResearchExperimentId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
   securitySchemes:
     sessionCookie:
       type: apiKey
@@ -2016,6 +2148,185 @@ components:
       properties:
         error:
           type: string
+
+    ResearchExperimentRequest:
+      type: object
+      additionalProperties: false
+      required: [name, symbols, timeframe, startDate, endDate, marketType]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        symbols:
+          type: array
+          minItems: 1
+          maxItems: 10
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 80 }
+        timeframe: { type: string, enum: [1m] }
+        startDate: { type: string, format: date-time }
+        endDate: { type: string, format: date-time }
+        marketType: { type: string, enum: [spot, futures, forex] }
+        startingBalance: { type: number, exclusiveMinimum: 0, maximum: 1000000000, default: 10000 }
+        positionSizeUsdt: { type: number, exclusiveMinimum: 0, maximum: 100000000, default: 100 }
+        maxOpenPositions: { type: integer, minimum: 1, maximum: 100, default: 5 }
+        dailyLossLimitUsdt: { type: number, exclusiveMinimum: 0, maximum: 100000000, default: 500 }
+        leverage: { type: integer, minimum: 1, maximum: 125, default: 1 }
+        folds: { type: integer, minimum: 1, maximum: 10, default: 3 }
+        holdoutFraction: { type: number, minimum: 0.1, maximum: 0.5, default: 0.2 }
+        purgeMinutes: { type: integer, minimum: 0, maximum: 10080, default: 60 }
+        embargoMinutes: { type: integer, minimum: 0, maximum: 10080, default: 60 }
+        deterministicSeed: { type: integer, minimum: 0, maximum: 2147483647, default: 42 }
+        falseDiscoveryRate: { type: number, exclusiveMinimum: 0, exclusiveMaximum: 1, default: 0.05 }
+        candidateBrainVersion: { type: string, minLength: 1, maxLength: 120, default: phase8-full-brain-v1 }
+        maxPortfolioRiskPercent: { type: number, exclusiveMinimum: 0, maximum: 100, default: 10 }
+        maxSymbolConcentrationPercent: { type: number, exclusiveMinimum: 0, maximum: 1000, default: 100 }
+        maxNetExposurePercent: { type: number, exclusiveMinimum: 0, maximum: 2000, default: 200 }
+        maxCorrelatedExposurePercent: { type: number, exclusiveMinimum: 0, maximum: 2000, default: 200 }
+        correlationThreshold: { type: number, minimum: 0, maximum: 1, default: 0.7 }
+        correlationUnknownPolicy: { type: string, enum: [allow, block], default: allow }
+
+    ResearchExperimentStarted:
+      type: object
+      additionalProperties: false
+      required: [id, status, mode, cannotExecute]
+      properties:
+        id: { type: integer }
+        status: { type: string, enum: [preparing] }
+        mode: { type: string, enum: [research] }
+        cannotExecute: { type: boolean, enum: [true] }
+
+    ResearchMetrics:
+      type: object
+      additionalProperties: false
+      required: [eligibleDecisions, closedTrades, calendarDays, grossPnl, costs, netPnl, netExpectancyR, profitFactor, maxDrawdown, expectedShortfallR, abstentionRate, regimeMix, uncertainty]
+      properties:
+        eligibleDecisions: { type: integer, minimum: 0 }
+        closedTrades: { type: integer, minimum: 0 }
+        calendarDays: { type: number, minimum: 0 }
+        grossPnl: { type: number }
+        costs: { type: number, minimum: 0 }
+        netPnl: { type: number }
+        netExpectancyR: { type: [number, "null"] }
+        profitFactor: { type: [number, "null"] }
+        maxDrawdown: { type: number, minimum: 0, maximum: 1 }
+        expectedShortfallR: { type: [number, "null"] }
+        abstentionRate: { type: number, minimum: 0, maximum: 1 }
+        regimeMix:
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+        uncertainty:
+          type: object
+          required: [method, confidenceLevel, lowerNetExpectancyR, upperNetExpectancyR, samples]
+          properties:
+            method: { type: string, enum: [bootstrap-percentile] }
+            confidenceLevel: { type: number }
+            lowerNetExpectancyR: { type: [number, "null"] }
+            upperNetExpectancyR: { type: [number, "null"] }
+            samples: { type: integer, minimum: 0 }
+
+    ResearchPromotionReport:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, experimentId, manifestFingerprint, generatedAt, control, candidate, attribution, goldenStream, leakageChecks, multipleTesting, gateChecks, recommendation, humanApprovalRequired, limitations, fingerprint]
+      properties:
+        schemaVersion: { type: string }
+        experimentId: { type: string, format: uuid }
+        manifestFingerprint: { type: string }
+        generatedAt: { type: string, format: date-time }
+        control: { $ref: "#/components/schemas/ResearchMetrics" }
+        candidate: { $ref: "#/components/schemas/ResearchMetrics" }
+        attribution:
+          type: object
+          additionalProperties: true
+        goldenStream:
+          type: object
+          required: [expectedFingerprint, actualFingerprint, reproducible]
+          properties:
+            expectedFingerprint: { type: string }
+            actualFingerprint: { type: string }
+            reproducible: { type: boolean }
+        leakageChecks:
+          type: array
+          items:
+            type: object
+            required: [check, passed, detail]
+            properties:
+              check: { type: string }
+              passed: { type: boolean }
+              detail: { type: string }
+        multipleTesting:
+          type: object
+          additionalProperties: true
+        gateChecks:
+          type: array
+          items:
+            type: object
+            required: [key, passed, actual, required]
+            properties:
+              key: { type: string }
+              passed: { type: boolean }
+              actual: { type: string }
+              required: { type: string }
+        recommendation: { type: string, enum: [REJECT, REMAIN_RESEARCH, ELIGIBLE_FOR_HUMAN_REVIEW] }
+        humanApprovalRequired: { type: boolean, enum: [true] }
+        limitations:
+          type: array
+          items: { type: string }
+        fingerprint: { type: string }
+
+    ResearchExperiment:
+      type: object
+      additionalProperties: false
+      required: [id, section, name, status, stage, progress, cancelRequested, decisionEventCount, managementEventCount, mode, cannotExecute, request, createdAt]
+      properties:
+        id: { type: integer }
+        section: { type: string, enum: [crypto, forex] }
+        experimentId: { type: [string, "null"], format: uuid }
+        name: { type: string }
+        status: { type: string, enum: [preparing, pending, running, completed, failed, cancelled] }
+        stage: { type: string }
+        progress: { type: integer, minimum: 0, maximum: 100 }
+        cancelRequested: { type: boolean }
+        decisionEventCount: { type: integer, minimum: 0 }
+        managementEventCount: { type: integer, minimum: 0 }
+        manifestFingerprint: { type: [string, "null"] }
+        goldenStreamFingerprint: { type: [string, "null"] }
+        mode: { type: string, enum: [research] }
+        cannotExecute: { type: boolean, enum: [true] }
+        request: { type: object, additionalProperties: true }
+        manifest: { type: [object, "null"], additionalProperties: true }
+        report:
+          oneOf:
+            - $ref: "#/components/schemas/ResearchPromotionReport"
+            - type: "null"
+        error: { type: [string, "null"] }
+        createdAt: { type: string, format: date-time }
+        startedAt: { type: [string, "null"], format: date-time }
+        completedAt: { type: [string, "null"], format: date-time }
+
+    ResearchReplayEvent:
+      type: object
+      additionalProperties: false
+      required: [sequence, kind, partitionId, observedAt, symbol, tradeId, eventFingerprint, event]
+      properties:
+        sequence: { type: integer, minimum: 0 }
+        kind: { type: string, enum: [decision, management] }
+        partitionId: { type: string }
+        observedAt: { type: string, format: date-time }
+        symbol: { type: [string, "null"] }
+        tradeId: { type: [integer, "null"] }
+        eventFingerprint: { type: string }
+        event: { type: object, additionalProperties: true }
+
+    ResearchReplayEventPage:
+      type: object
+      additionalProperties: false
+      required: [events, nextAfterSequence, hasMore]
+      properties:
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/ResearchReplayEvent" }
+        nextAfterSequence: { type: integer, minimum: -1 }
+        hasMore: { type: boolean }
 
     BotStatus:
       type: object

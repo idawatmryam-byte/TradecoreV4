@@ -14,3 +14,4 @@ export * from "./recommendations";
 export * from "./memoryInfluence";
 export * from "./intelligence";
 export * from "./evidence";
+export * from "./research";
