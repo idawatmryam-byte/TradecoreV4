@@ -353,4 +353,3245 @@ export const GetRecommendationWorkspaceResponse = zod.object({
   "authoredBy": zod.enum(['engine', 'user']).describe('\"user\" marks a plan the trader modified â€” outcome attribution depends on it.'),
   "derivedFromId": zod.number().nullish(),
   "symbol": zod.string(),
-  "strategyId": zod.striçüâÚ$z{-®éÜj×æ÷vâ‚’’À¢&ÆVFW'6†—#¢¦öBç&V6÷&B‡¦öBç7G&–ær‚’Â¦öBçVæ¶æ÷vâ‚’’À¢&6÷'&VÆF–öâ#¢¦öBç&V6÷&B‡¦öBç7G&–ær‚’Â¦öBçVæ¶æ÷vâ‚’§Ò§Ò’À¢'7V6–Æ—7D6÷Væ6–Â#¢¦öBæö&¦V7B‡°¢'66†VÖfW'6–öâ#¢¦öBæVçVÒ…²sããuÒ’À¢&6÷Væ6–ÅfW'6–öâ#¢¦öBæVçVÒ…²w7V6–Æ—7BÖ6÷Væ6–Â×cuÒ’À¢&ÖöFR#¢¦öBæVçVÒ…²vö'6W'fF–öæÂuÒ’À¢&6ææ÷DW†V7WFR#¢¦öBæ&ööÆVâ‚’À¢'7–Ö&öÂ#¢¦öBç7G&–ær‚’À¢&Ö&¶WE7FFTf–ævW'&–çB#¢¦öBç7G&–ær‚’ç&VvW‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–ÄÖ&¶WE7FFTf–ævW'&–çE&VtW‡’À¢&FFF–ÖW7F×#¢¦öBæ6öW&6RæFFR‚’À¢&vVæW&FVDB#¢¦öBæ6öW&6RæFFR‚’À¢&6öç6Vç7W2#¢¦öBæö&¦V7B‡°¢'7Fæ6R#¢¦öBæVçVÒ…²vÆöærrÂw6†÷'BrÂvÖ—†VBrÂv'7F–âuÒ’À¢&Æöæu66÷&R#¢¦öBæçVÖ&W"‚’æÖ–â†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä6öç6Vç7W4Æöæu66÷&TÖ–â’À¢'6†÷'E66÷&R#¢¦öBæçVÖ&W"‚’æÖ–â†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä6öç6Vç7W56†÷'E66÷&TÖ–â’À¢&7F–öæ&ÆT÷–æ–öç2#¢¦öBæçVÖ&W"‚’æÖ–â†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä6öç6Vç7W47F–öæ&ÆT÷–æ–öç4Ö–â’À¢&'7FVçF–öç2#¢¦öBæçVÖ&W"‚’æÖ–â†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä6öç6Vç7W4'7FVçF–öç4Ö–â’À¢&F—6w&VVÖVçB#¢¦öBæ&ööÆVâ‚’À¢&W‡ÆæF–öâ#¢¦öBç7G&–ær‚§Ò’À¢&÷–æ–öç2#¢¦öBæ'&’‡¦öBæö&¦V7B‡°¢'&öÆR#¢¦öBæVçVÒ…²wG&VæBrÂv'&V¶÷WBrÂvÖVå÷&WfW'6–öârÂwföÆF–Æ—G’rÂvÖ&¶WE÷7G'V7GW&RrÂvW†V7WF–öå÷VÆ—G’rÂw÷'FföÆ–õö6öæfÆ–7BuÒ’À¢&6÷'&VÆF–öäw&÷W#¢¦öBç7G&–ær‚’À¢&6÷'&VÆF–öäF—66÷VçB#¢¦öBæçVÖ&W"‚’æÖ–â†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ6÷'&VÆF–öäF—66÷VçDÖ–â’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ6÷'&VÆF–öäF—66÷VçDÖ‚’À¢&VffV7F—fU7G&VæwF‚#¢¦öBæçVÖ&W"‚’æÖ–â†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔVffV7F—fU7G&VæwF„Ö–â’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔVffV7F—fU7G&VæwF„Ö‚’À¢&÷W&F–öæÅ7FGW2#¢¦öBæVçVÒ…²v7F—fRrÂv'7F–æVBuÒ’À¢&÷–æ–öâ#¢¦öBæö&¦V7B‡°¢'66†VÖfW'6–öâ#¢¦öBæVçVÒ…²sããuÒ’À¢&÷–æ–öä–B#¢¦öBç7G&–ær‚’çWV–B‚’À¢'7V6–Æ—7D–B#¢¦öBç7G&–ær‚’À¢'7V6–Æ—7EfW'6–öâ#¢¦öBç7G&–ær‚’À¢&Ö&¶WE7FFTf–ævW'&–çB#¢¦öBç7G&–ær‚’ç&VvW‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öäÖ&¶WE7FFTf–ævW'&–çE&VtW‡’À¢'7–Ö&öÂ#¢¦öBç7G&–ær‚’À¢'7Fæ6R#¢¦öBæVçVÒ…²vÆöærrÂw6†÷'BrÂvæWWG&ÂrÂv'7F–âuÒ’À¢'7G&VæwF‚#¢¦öBæçVÖ&W"‚’æÖ–â†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öå7G&VæwF„Ö–â’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öå7G&VæwF„Ö‚’À¢&Æ–6&ÆU&Vv–ÖW2#¢¦öBæ'&’‡¦öBç7G&–ær‚’’æÖ–âƒ’À¢'7W÷'F–ætWf–FVæ6R#¢¦öBæ'&’‡¦öBæö&¦V7B‡°¢&Wf–FVæ6T–B#¢¦öBç7G&–ær‚’æÖ–âƒ’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öå7W÷'F–ætWf–FVæ6T—FVÔWf–FVæ6T–DÖ‚’À¢&¶–æB#¢¦öBæVçVÒ…²vö'6W'fF–öârÂw7V6–Æ—7BrÂw7FF—7F–6ÂrÂvÖVÖ÷'’rÂw÷'FföÆ–òrÂvW†V7WF–öâuÒ’À¢'6÷W&6R#¢¦öBç7G&–ær‚’æÖ–âƒ’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öå7W÷'F–ætWf–FVæ6T—FVÕ6÷W&6TÖ‚’À¢'7VÖÖ'’#¢¦öBç7G&–ær‚’æÖ–âƒ’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öå7W÷'F–ætWf–FVæ6T—FVÕ7VÖÖ'”Ö‚’À¢'&VfW&Væ6R#¢¦öBç7G&–ær‚’æÖ–âƒ’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öå7W÷'F–ætWf–FVæ6T—FVÕ&VfW&Væ6TÖ‚’À¢&f–ævW'&–çB#¢¦öBç7G&–ær‚’ç&VvW‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öå7W÷'F–ætWf–FVæ6T—FVÔf–ævW'&–çE&VtW‡’æ÷F–öæÂ‚’À¢&FFF–ÖW7F×#¢¦öBæ6öW&6RæFFR‚’À¢'7G&VæwF‚#¢¦öBæçVÖ&W"‚’æÖ–â†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öå7W÷'F–ætWf–FVæ6T—FVÕ7G&VæwF„Ö–â’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öå7W÷'F–ætWf–FVæ6T—FVÕ7G&VæwF„Ö‚§Ò’’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öå7W÷'F–ætWf–FVæ6TÖ‚’À¢&÷÷6–ætWf–FVæ6R#¢¦öBæ'&’‡¦öBæö&¦V7B‡°¢&Wf–FVæ6T–B#¢¦öBç7G&–ær‚’æÖ–âƒ’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öä÷÷6–ætWf–FVæ6T—FVÔWf–FVæ6T–DÖ‚’À¢&¶–æB#¢¦öBæVçVÒ…²vö'6W'fF–öârÂw7V6–Æ—7BrÂw7FF—7F–6ÂrÂvÖVÖ÷'’rÂw÷'FföÆ–òrÂvW†V7WF–öâuÒ’À¢'6÷W&6R#¢¦öBç7G&–ær‚’æÖ–âƒ’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öä÷÷6–ætWf–FVæ6T—FVÕ6÷W&6TÖ‚’À¢'7VÖÖ'’#¢¦öBç7G&–ær‚’æÖ–âƒ’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öä÷÷6–ætWf–FVæ6T—FVÕ7VÖÖ'”Ö‚’À¢'&VfW&Væ6R#¢¦öBç7G&–ær‚’æÖ–âƒ’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öä÷÷6–ætWf–FVæ6T—FVÕ&VfW&Væ6TÖ‚’À¢&f–ævW'&–çB#¢¦öBç7G&–ær‚’ç&VvW‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öä÷÷6–ætWf–FVæ6T—FVÔf–ævW'&–çE&VtW‡’æ÷F–öæÂ‚’À¢&FFF–ÖW7F×#¢¦öBæ6öW&6RæFFR‚’À¢'7G&VæwF‚#¢¦öBæçVÖ&W"‚’æÖ–â†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öä÷÷6–ætWf–FVæ6T—FVÕ7G&VæwF„Ö–â’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öä÷÷6–ætWf–FVæ6T—FVÕ7G&VæwF„Ö‚§Ò’’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öä÷÷6–ætWf–FVæ6TÖ‚’À¢'G&–vvW"#¢¦öBç7G&–ær‚’æçVÆÆ&ÆR‚’À¢&–çfÆ–FF–öä6öæF—F–öç2#¢¦öBæ'&’‡¦öBç7G&–ær‚’’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öä–çfÆ–FF–öä6öæF—F–öç4Ö‚’À¢&W‡V7FVDGW&F–öå6V6öæG2#¢¦öBæçVÖ&W"‚’æÖ–âƒ’æçVÆÆ&ÆR‚’À¢'&÷÷6VE&Wv&E&—6²#¢¦öBæçVÖ&W"‚’æwB†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öå&÷÷6VE&Wv&E&—6´W†6ÇW6—fTÖ–â’æçVÆÆ&ÆR‚’À¢'Væ6W'F–çG’#¢¦öBæçVÖ&W"‚’æÖ–â†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öåVæ6W'F–çG”Ö–â’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U7V6–Æ—7D6÷Væ6–Ä÷–æ–öç4—FVÔ÷–æ–öåVæ6W'F–çG”Ö‚’À¢&'7FVçF–öå&V6öâ#¢¦öBç7G&–ær‚’æçVÆÆ&ÆR‚’À¢&FFF–ÖW7F×#¢¦öBæ6öW&6RæFFR‚’À¢&W‡—&W4B#¢¦öBæ6öW&6RæFFR‚§Ò§Ò’§Ò’À¢&W†V7WF–öä6÷7G2#¢¦öBæö&¦V7B‡°¢&fVU&FUW$ÆVr#¢¦öBæçVÖ&W"‚’æÖ–â†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6TW†V7WF–öä6÷7G4fVU&FUW$ÆVtÖ–â’À¢'6Æ—vU&FUW$ÆVr#¢¦öBæçVÖ&W"‚’æÖ–â†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6TW†V7WF–öä6÷7G56Æ—vU&FUW$ÆVtÖ–â’À¢'6÷W&6R#¢¦öBæVçVÒ…²vVæv–æRÖÖ&¶WBÖ6÷7BÖÖöFVÂuÒ’À¢'fW'6–öâ#¢¦öBç7G&–ær‚§Ò’À¢'÷'FföÆ–ò#¢¦öBæö&¦V7B‡°¢'7FGW2#¢¦öBæVçVÒ…²w'F–ÂrÂwVæf–Æ&ÆRuÒ’À¢&7W'&Væ7’#¢¦öBç7G&–ær‚’À¢&f–Æ&ÆT&Ææ6R#¢¦öBæçVÖ&W"‚’æÖ–â†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U÷'FföÆ–ôf–Æ&ÆT&Ææ6TÖ–â’æçVÆÆ&ÆR‚’À¢&÷Vå÷6—F–öä6÷VçB#¢¦öBæçVÖ&W"‚’æÖ–â†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6U÷'FföÆ–ô÷Vå÷6—F–öä6÷VçDÖ–â’æçVÆÆ&ÆR‚’À¢&ö'6W'fVDB#¢¦öBæ6öW&6RæFFR‚’À¢&Æ–Ö—FF–öç2#¢¦öBæ'&’‡¦öBç7G&–ær‚’§Ò’À¢&†—7F÷&–6ÄWf–FVæ6R#¢¦öBæö&¦V7B‡°¢'7FGW2#¢¦öBæVçVÒ…²wVæf–Æ&ÆRrÂvö'6W'fF–öæÂrÂv&÷fVBuÒ’À¢''VÆUfW'6–öâ#¢¦öBç7G&–ær‚’æçVÆÆ&ÆR‚’À¢&—FV×2#¢¦öBæ'&’‡¦öBç&V6÷&B‡¦öBç7G&–ær‚’Â¦öBçVæ¶æ÷vâ‚’’’À¢&Æ–Ö—FF–öç2#¢¦öBæ'&’‡¦öBç7G&–ær‚’§Ò’À¢&'&–åc#¢¦öBæö&¦V7B‡°¢&ÖöFR#¢¦öBæVçVÒ…²v6öçG&öÂuÒ’À¢&6æF–FFT6÷VçB#¢¦öBæçVÖ&W"‚’æÖ–â†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6T'&–åc6æF–FFT6÷VçDÖ–â’À¢&F—7÷6—F–öâ#¢¦öBæVçVÒ…²t4äD”DDUõ$ôET4TBrÂtäõô4äD”DDRuÒ’À¢'F÷6æF–FFR#¢¦öBçVæ–öâ…·¦öBæö&¦V7B‡°¢'7G&FVw”–B#¢¦öBç7G&–ær‚’À¢'7G&FVw”æÖR#¢¦öBç7G&–ær‚’À¢'6–FR#¢¦öBæVçVÒ…²vÆöærrÂw6†÷'BuÒ’À¢&6öæf–FVæ6R#¢¦öBæçVÖ&W"‚’æÖ–â†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6T'&–åcF÷6æF–FFTöæT6öæf–FVæ6TÖ–â’æÖ‚†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6T'&–åcF÷6æF–FFTöæT6öæf–FVæ6TÖ‚’À¢&æWE&Wv&E&—6²#¢¦öBæçVÖ&W"‚’æwB†vWE6†F÷tFV6—6–öå&WÆ•&W7öç6T'&–åcF÷6æF–FFTöæTæWE&Wv&E&—6´W†6ÇW6—fTÖ–â’æçVÆÆ&ÆR‚§Ò’Ç¦öBæçVÆÂ‚•Ò§Ò§Ò  ¢ò¢ ¢¢&WGW&ç2F†RÖ÷7B&V6VçB66ææW"&W7VÇG2Vç&–6†VBv—F‚F†R7G&FVw’F†Bf—&V@¢¢7VÖÖ'’Æ—fR&æ¶VB÷÷'GVæ—G’6–væÇ0¢¢ğ¦W‡÷'B6öç7BvWE7G&FVw•6–væÇ5&W7öç6T—FVÒÒ¦öBæö&¦V7B‡°¢'7–Ö&öÂ#¢¦öBç7G&–ær‚’À¢'7G&FVw”–B#¢¦öBç7G&–ær‚’æ÷F–öæÂ‚’À¢'7G&FVw”æÖR#¢¦öBç7G&–ær‚’æ÷F–öæÂ‚’À¢&6öæf–FVæ6R#¢¦öBæçVÖ&W"‚’À¢'&Vv–ÖR#¢¦öBç7G&–ær‚’À¢&Æ7E&–6R#¢¦öBæçVÖ&W"‚’À¢&G‚#¢¦öBæçVÖ&W"‚’æ÷F–öæÂ‚’À¢''6’#¢¦öBæçVÖ&W"‚’æ÷F–öæÂ‚’À¢'föÇVÖU&F–ò#¢¦öBæçVÖ&W"‚’æ÷F–öæÂ‚’À¢'7FGW2#¢¦öBç7G&–ær‚’À¢&VçG'•&V6öâ#¢¦öBç7G&–ær‚’æ÷F–öæÂ‚§Ò¦W‡÷'B6öç7BvWE7G&FVw•6–væÇ5&W7öç6RÒ¦öBæ'&’„vWE7G&FVw•6–væÇ5&W7öç6T—FVÒ  ¢ò¢ ¢¢7VÖÖ'’WFFR7G&FVw’6öæf–wW&F–öà¢¢ğ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–u&×2Ò¦öBæö&¦V7B‡°¢&–B#¢¦öBæ6öW&6Rç7G&–ær‚§Ò ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•G&FTÖ÷VçEW6GDÖ‚Ò° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG”Ö„Æ÷75W6GDÖ–âÒã°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG”Ö„Æ÷75W6GDÖ‚Ò° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•F&vWE&öf—EW6GDÖ–âÒã°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•F&vWE&öf—EW6GDÖ‚Ò° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•&—6µW&6VçDÖ–âÒã°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•&—6µW&6VçDÖ‚Ò° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG”6öæf–FVæ6UF‡&W6†öÆDÖ–âÒ°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG”6öæf–FVæ6UF‡&W6†öÆDÖ‚Ò° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•7F÷Æ÷75W&6VçDÖ–âÒã°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•7F÷Æ÷75W&6VçDÖ‚Ò#° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•F¶U&öf—EW&6VçDÖ–âÒã3°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•F¶U&öf—EW&6VçDÖ‚Ò° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG”Ö„†öÆF–æu6V6öæG4Ö‚Ò#S“#° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG”Ö„6öæ7W'&VçE÷6—F–öç4Ö‚Ò#° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG”6ööÆF÷väÖ–çWFW4Ö–âÒ°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG”6ööÆF÷väÖ–çWFW4Ö‚ÒCC° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG”'&V´WfVå$×VÇF—ÆTÖ–âÒ°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG”'&V´WfVå$×VÇF—ÆTÖ‚Ò#° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•G$×VÇF—ÆTÖ–âÒ°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•G$×VÇF—ÆTÖ‚Ò#° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•G6Æ÷6UW&6VçDÖ–âÒ°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•G6Æ÷6UW&6VçDÖ‚Ò° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•G%$×VÇF—ÆTÖ–âÒã°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•G%$×VÇF—ÆTÖ‚Ò#° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•G$6Æ÷6UW&6VçDÖ–âÒ°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•G$6Æ÷6UW&6VçDÖ‚Ò° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•G5$×VÇF—ÆTÖ–âÒã°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•G5$×VÇF—ÆTÖ‚Ò#° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•G&–Æ–æu7F÷G$×VÇF—Æ–W$Ö–âÒã°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•G&–Æ–æu7F÷G$×VÇF—Æ–W$Ö‚Ò#° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•G&–Æ–æu7F÷W&6VçDÖ–âÒã°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG•G&–Æ–æu7F÷W&6VçDÖ‚Ò#° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG”VÖW&vVæ7•G&–Æ–æu$×VÇF—ÆTÖ–âÒ°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG”VÖW&vVæ7•G&–Æ–æu$×VÇF—ÆTÖ‚Ò#° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG”VÖW&vVæ7•G&–Æ–æuW&6VçDÖ–âÒã°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG”VÖW&vVæ7•G&–Æ–æuW&6VçDÖ‚Ò#° ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG”W†—E&–÷&—G”Ö–âÒ3°¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG”W†—E&–÷&—G”Ö‚ÒC°   ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–t&öG’Ò¦öBæö&¦V7B‡°¢&Væ&ÆVB#¢¦öBæ&ööÆVâ‚’æ÷F–öæÂ‚’À¢'G&FTÖ÷VçEW6GB#¢¦öBæçVÖ&W"‚’æÖ–âƒ’æÖ‚‡WFFU7G&FVw”6öæf–t&öG•G&FTÖ÷VçEW6GDÖ‚’æçVÆÆ—6‚‚’æFW67&–&R‚vçVÆÂ6ÆV'2F†Rf–VÆB†fÆÂ&6²FòvÆö&Â÷6—F–öå6—¦UW6GB’âr’À¢&Ö„Æ÷75W6GB#¢¦öBæçVÖ&W"‚’æÖ–â‡WFFU7G&FVw”6öæf–t&öG”Ö„Æ÷75W6GDÖ–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG”Ö„Æ÷75W6GDÖ‚’æçVÆÆ—6‚‚’æFW67&–&R‚vçVÆÂ6ÆV'2F†RFöÆÆ"Æâ‡7G&FVw’&WfW'G2FòRÖ&6VB4ÅÂõE’âr’À¢'F&vWE&öf—EW6GB#¢¦öBæçVÖ&W"‚’æÖ–â‡WFFU7G&FVw”6öæf–t&öG•F&vWE&öf—EW6GDÖ–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG•F&vWE&öf—EW6GDÖ‚’æçVÆÆ—6‚‚’æFW67&–&R‚vçVÆÂ6ÆV'2F†RFöÆÆ"Æâ‡7G&FVw’&WfW'G2FòRÖ&6VB4ÅÂõE’âr’À¢'&—6µW&6VçB#¢¦öBæçVÖ&W"‚’æÖ–â‡WFFU7G&FVw”6öæf–t&öG•&—6µW&6VçDÖ–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG•&—6µW&6VçDÖ‚’æ÷F–öæÂ‚’À¢&6öæf–FVæ6UF‡&W6†öÆB#¢¦öBæçVÖ&W"‚’æÖ–â‡WFFU7G&FVw”6öæf–t&öG”6öæf–FVæ6UF‡&W6†öÆDÖ–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG”6öæf–FVæ6UF‡&W6†öÆDÖ‚’æ÷F–öæÂ‚’À¢'7F÷Æ÷75W&6VçB#¢¦öBæçVÖ&W"‚’æÖ–â‡WFFU7G&FVw”6öæf–t&öG•7F÷Æ÷75W&6VçDÖ–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG•7F÷Æ÷75W&6VçDÖ‚’æ÷F–öæÂ‚’À¢'F¶U&öf—EW&6VçB#¢¦öBæçVÖ&W"‚’æÖ–â‡WFFU7G&FVw”6öæf–t&öG•F¶U&öf—EW&6VçDÖ–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG•F¶U&öf—EW&6VçDÖ‚’æ÷F–öæÂ‚’À¢&Ö„†öÆF–æu6V6öæG2#¢¦öBæçVÖ&W"‚’æÖ–âƒ’æÖ‚‡WFFU7G&FVw”6öæf–t&öG”Ö„†öÆF–æu6V6öæG4Ö‚’æ÷F–öæÂ‚’À¢&Ö„6öæ7W'&VçE÷6—F–öç2#¢¦öBæçVÖ&W"‚’æÖ–âƒ’æÖ‚‡WFFU7G&FVw”6öæf–t&öG”Ö„6öæ7W'&VçE÷6—F–öç4Ö‚’æ÷F–öæÂ‚’À¢&6ööÆF÷väÖ–çWFW2#¢¦öBæçVÖ&W"‚’æÖ–â‡WFFU7G&FVw”6öæf–t&öG”6ööÆF÷väÖ–çWFW4Ö–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG”6ööÆF÷väÖ–çWFW4Ö‚’æ÷F–öæÂ‚’À¢&'&V´WfVå$×VÇF—ÆR#¢¦öBæçVÖ&W"‚’æÖ–â‡WFFU7G&FVw”6öæf–t&öG”'&V´WfVå$×VÇF—ÆTÖ–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG”'&V´WfVå$×VÇF—ÆTÖ‚’æ÷F–öæÂ‚’æFW67&–&R‚u&RÕE'&V²ÖWfVâ&Ó¢BF†—2Öç’"öbVç&VÆ—¦VB&öf—BF†R7F÷Ö÷fW2FòVçG'’(	BF†RG&FR6âæòÆöævW"Æ÷6RâF—6&ÆW2âr’À¢'G$×VÇF—ÆR#¢¦öBæçVÖ&W"‚’æÖ–â‡WFFU7G&FVw”6öæf–t&öG•G$×VÇF—ÆTÖ–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG•G$×VÇF—ÆTÖ‚’æ÷F–öæÂ‚’æFW67&–&R‚u"Ö×VÇF—ÆRBv†–6‚E&æ·2'F–ÂæBÖ÷fW2F†R7F÷Fò'&V²ÖWfVââÒ6–ævÆREâr’À¢'G6Æ÷6UW&6VçB#¢¦öBæçVÖ&W"‚’æÖ–â‡WFFU7G&FVw”6öæf–t&öG•G6Æ÷6UW&6VçDÖ–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG•G6Æ÷6UW&6VçDÖ‚’æ÷F–öæÂ‚’À¢'G4Væ&ÆVB#¢¦öBæ&ööÆVâ‚’æ÷F–öæÂ‚’À¢'G%$×VÇF—ÆR#¢¦öBæçVÖ&W"‚’æÖ–â‡WFFU7G&FVw”6öæf–t&öG•G%$×VÇF—ÆTÖ–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG•G%$×VÇF—ÆTÖ‚’æ÷F–öæÂ‚’À¢'G$6Æ÷6UW&6VçB#¢¦öBæçVÖ&W"‚’æÖ–â‡WFFU7G&FVw”6öæf–t&öG•G$6Æ÷6UW&6VçDÖ–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG•G$6Æ÷6UW&6VçDÖ‚’æ÷F–öæÂ‚’À¢'G5$×VÇF—ÆR#¢¦öBæçVÖ&W"‚’æÖ–â‡WFFU7G&FVw”6öæf–t&öG•G5$×VÇF—ÆTÖ–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG•G5$×VÇF—ÆTÖ‚’æ÷F–öæÂ‚’À¢'G&–Æ–æu7F÷ÖöFR#¢¦öBæVçVÒ…²væöæRrÂvG"rÂwW&6VçBrÂvG–æÖ–2uÒ’æ÷F–öæÂ‚’À¢'G&–Æ–æu7F÷G$×VÇF—Æ–W"#¢¦öBæçVÖ&W"‚’æÖ–â‡WFFU7G&FVw”6öæf–t&öG•G&–Æ–æu7F÷G$×VÇF—Æ–W$Ö–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG•G&–Æ–æu7F÷G$×VÇF—Æ–W$Ö‚’æ÷F–öæÂ‚’À¢'G&–Æ–æu7F÷W&6VçB#¢¦öBæçVÖ&W"‚’æÖ–â‡WFFU7G&FVw”6öæf–t&öG•G&–Æ–æu7F÷W&6VçDÖ–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG•G&–Æ–æu7F÷W&6VçDÖ‚’æ÷F–öæÂ‚’À¢'G&–Æ–ætgFW%GöæÇ’#¢¦öBæ&ööÆVâ‚’æ÷F–öæÂ‚’À¢&VÖW&vVæ7•G&–Æ–æu$×VÇF—ÆR#¢¦öBæçVÖ&W"‚’æÖ–â‡WFFU7G&FVw”6öæf–t&öG”VÖW&vVæ7•G&–Æ–æu$×VÇF—ÆTÖ–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG”VÖW&vVæ7•G&–Æ–æu$×VÇF—ÆTÖ‚’æ÷F–öæÂ‚’À¢&VÖW&vVæ7•G&–Æ–æuW&6VçB#¢¦öBæçVÖ&W"‚’æÖ–â‡WFFU7G&FVw”6öæf–t&öG”VÖW&vVæ7•G&–Æ–æuW&6VçDÖ–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG”VÖW&vVæ7•G&–Æ–æuW&6VçDÖ‚’æ÷F–öæÂ‚’À¢&W†—E&–÷&—G’#¢¦öBæ'&’‡¦öBæVçVÒ…²w7F÷öÆ÷72rÂwF¶U÷&öf—BrÂwG&–Æ–æu÷7F÷rÂwF–ÖV÷WBuÒ’’æÖ–â‡WFFU7G&FVw”6öæf–t&öG”W†—E&–÷&—G”Ö–â’æÖ‚‡WFFU7G&FVw”6öæf–t&öG”W†—E&–÷&—G”Ö‚’æ÷F–öæÂ‚§Ò ¦W‡÷'B6öç7BWFFU7G&FVw”6öæf–u&W7öç6RÒ¦öBæö&¦V7B‡°¢'7V66W72#¢¦öBæ&ööÆVâ‚’À¢'7G&FVw”–B#¢¦öBç7G&–ær‚§Ò  ¢ò¢ ¢¢7VÖÖ'’W‡÷'B&6·FW7BG&FW2255b÷"¥4ôà¢¢ğ¦W‡÷'B6öç7BW‡÷'D&6·FW7E&×2Ò¦öBæö&¦V7B‡°¢&–B#¢¦öBæ6öW&6RæçVÖ&W"‚§Ò ¦W‡÷'B6öç7BW‡÷'D&6·FW7EVW'”f÷&ÖDFVfVÇBÒ§6öæ° ¦W‡÷'B6öç7BW‡÷'D&6·FW7EVW'•&×2Ò¦öBæö&¦V7B‡°¢&f÷&ÖB#¢¦öBæVçVÒ…²v§6öârÂv77buÒ’æFVfVÇB†W‡÷'D&6·FW7EVW'”f÷&ÖDFVfVÇB§Ò ¦W‡÷'B6öç7BW‡÷'D&6·FW7E&W7öç6RÒ¦öBæö&¦V7B‡° §Ò’ç77F‡&÷Vv‚‚   
+  "strategyId": zod.string(),
+  "strategyName": zod.string().nullish(),
+  "side": zod.enum(['long', 'short']),
+  "confidence": zod.number(),
+  "entryPrice": zod.number(),
+  "slPrice": zod.number(),
+  "tpPrice": zod.number(),
+  "qty": zod.number(),
+  "leverage": zod.number(),
+  "planFingerprint": zod.string().describe('SHA-256 of the decision content. Identical to the plan AutoPilot would have executed for the same scan.'),
+  "entryReason": zod.string().nullish(),
+  "expiresAt": zod.string(),
+  "createdAt": zod.string(),
+  "actedAt": zod.string().nullish(),
+  "tradeId": zod.number().nullish(),
+  "resolutionReason": zod.string().nullish()
+}),
+  "decisionTrace": zod.array(zod.object({
+  "name": zod.string(),
+  "status": zod.enum(['pass', 'fail', 'skip']),
+  "detail": zod.string(),
+  "data": zod.record(zod.string(), zod.unknown()).optional()
+})),
+  "portfolioImpact": zod.object({
+  "currentOpenPositions": zod.number(),
+  "maxOpenPositions": zod.number(),
+  "candidateRiskUsdt": zod.number().describe('This plan\'s own worst-case dollar risk: |entry âˆ’ stop| Ã— qty.'),
+  "currentPortfolioRiskUsdt": zod.number(),
+  "afterPortfolioRiskUsdt": zod.number().describe('currentPortfolioRiskUsdt + candidateRiskUsdt â€” what the cap would read if this trade executes.'),
+  "maxPortfolioRiskUsdt": zod.number()
+}),
+  "similarTrades": zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string(),
+  "poolSize": zod.number().describe('Closed trades carrying recorded indicator readings.'),
+  "minPoolSize": zod.number().describe('Pool needed before z-scores are trustworthy enough to normalise with.'),
+  "similarityFloor": zod.number(),
+  "matches": zod.array(zod.object({
+  "tradeId": zod.number(),
+  "symbol": zod.string(),
+  "strategyId": zod.string().nullable(),
+  "closedAt": zod.number().describe('Epoch milliseconds the outcome was settled.'),
+  "similarity": zod.number().describe('Cosine similarity on z-score-normalised feature vectors, in [-1, 1].'),
+  "pnl": zod.number(),
+  "rMultiple": zod.number().nullable(),
+  "outcome": zod.enum(['win', 'loss', 'scratch'])
+})),
+  "stats": zod.union([zod.object({
+  "samples": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "scratches": zod.number().describe('Break-even washes â€” excluded from the win-rate denominator, not counted as losses.'),
+  "gated": zod.boolean().describe('samples < minSamples. Every rate below is null.'),
+  "minSamples": zod.number(),
+  "winRate": zod.number().nullable().describe('Scratch-adjusted: wins \/ (wins + losses).'),
+  "winRateLow": zod.number().nullable().describe('Lower bound of the 95% Wilson interval on winRate.'),
+  "winRateHigh": zod.number().nullable(),
+  "expectancyUsdt": zod.number().nullable(),
+  "profitFactor": zod.number().nullable(),
+  "avgR": zod.number().nullable(),
+  "netPnlUsdt": zod.number()
+}).describe('Outcome summary for one bucket of closed trades. Counts and net P&L are facts and are always present; every rate is null while `gated` is true.'),zod.null()]).describe('Aggregate outcome of the matches, gated separately â€” individual trades are facts, their win rate is an estimate.'),
+  "featuresUsed": zod.array(zod.string())
+}).describe('Closed trades whose entry conditions resembled the candidate. Cosine similarity over z-scored vectors â€” raw cosine would be dominated by whichever features have the largest magnitude. A similarity FLOOR comes before any top-N cap, so a sparse account gets \"nothing comparable\" rather than its N least-dissimilar trades. `reason` is always populated.')
+})
+
+
+/**
+ * Re-validates before placing anything: expiry, price drift measured in the plan's own R units, and every account-level risk gate. Approval means "is this still a good idea?", not "place this order". A plan that fails becomes `blocked`, which is terminal and read-only.
+ * @summary Approve and execute a recommendation
+ */
+export const ExecuteRecommendationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ExecuteRecommendationResponse = zod.object({
+  "ok": zod.boolean(),
+  "status": zod.enum(['created', 'executing', 'executed', 'rejected', 'expired', 'superseded', 'blocked']),
+  "reason": zod.string(),
+  "checks": zod.array(zod.object({
+  "name": zod.string(),
+  "passed": zod.boolean(),
+  "detail": zod.string()
+})).optional().describe('Every re-validation check that ran, pass or fail â€” not just the first failure.'),
+  "tradeId": zod.number().optional(),
+  "newRecommendationId": zod.number().optional().describe('Set by modify(): the new user-authored plan.')
+})
+
+
+/**
+ * @summary Decline a recommendation
+ */
+export const RejectRecommendationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RejectRecommendationBody = zod.object({
+  "note": zod.string().optional()
+})
+
+export const RejectRecommendationResponse = zod.object({
+  "ok": zod.boolean(),
+  "status": zod.enum(['created', 'executing', 'executed', 'rejected', 'expired', 'superseded', 'blocked']),
+  "reason": zod.string(),
+  "checks": zod.array(zod.object({
+  "name": zod.string(),
+  "passed": zod.boolean(),
+  "detail": zod.string()
+})).optional().describe('Every re-validation check that ran, pass or fail â€” not just the first failure.'),
+  "tradeId": zod.number().optional(),
+  "newRecommendationId": zod.number().optional().describe('Set by modify(): the new user-authored plan.')
+})
+
+
+/**
+ * Does NOT edit the plan. Creates a NEW plan referencing the original, authored by you and re-validated from scratch; the original is marked `superseded` and keeps its numbers forever. That is what lets a later post-mortem say whether a loss was the engine's decision or yours.
+ * @summary Create a user-authored variant of a recommendation
+ */
+export const ModifyRecommendationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ModifyRecommendationBody = zod.object({
+  "slPrice": zod.number().optional(),
+  "tpPrice": zod.number().optional(),
+  "qty": zod.number().optional()
+})
+
+export const ModifyRecommendationResponse = zod.object({
+  "ok": zod.boolean(),
+  "status": zod.enum(['created', 'executing', 'executed', 'rejected', 'expired', 'superseded', 'blocked']),
+  "reason": zod.string(),
+  "checks": zod.array(zod.object({
+  "name": zod.string(),
+  "passed": zod.boolean(),
+  "detail": zod.string()
+})).optional().describe('Every re-validation check that ran, pass or fail â€” not just the first failure.'),
+  "tradeId": zod.number().optional(),
+  "newRecommendationId": zod.number().optional().describe('Set by modify(): the new user-authored plan.')
+})
+
+
+/**
+ * The in-app channel for the same alerts that fire the risk-alert webhook (circuit breaker, risk pause, untracked-position detection, startup reconciliation failures) â€” visible even if no webhook is configured. Unread-first (newest first within that), cursor paginated via ?before=<id>.
+ * @summary Get in-app notifications
+ */
+export const getNotificationsQueryLimitDefault = 50;
+export const getNotificationsQueryLimitMax = 200;
+
+
+
+export const GetNotificationsQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(getNotificationsQueryLimitMax).default(getNotificationsQueryLimitDefault),
+  "before": zod.coerce.number().optional().describe('Return rows with id lower than this (cursor pagination)'),
+  "unreadOnly": zod.coerce.boolean().optional()
+})
+
+export const GetNotificationsResponse = zod.object({
+  "unreadCount": zod.number(),
+  "notifications": zod.array(zod.object({
+  "id": zod.number(),
+  "type": zod.string(),
+  "message": zod.string(),
+  "severity": zod.enum(['info', 'warning', 'critical']),
+  "createdAt": zod.string(),
+  "readAt": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Mark one notification as read
+ */
+export const MarkNotificationReadParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const MarkNotificationReadResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+/**
+ * @summary Mark all of this section's notifications as read
+ */
+export const MarkAllNotificationsReadResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+/**
+ * Aggregated explanation of why trades are or are not being executed
+ * @summary Get blocking summary
+ */
+export const GetBlockingSummaryResponse = zod.object({
+  "tradingActive": zod.boolean(),
+  "running": zod.boolean(),
+  "globalBlock": zod.string().nullable(),
+  "entered": zod.number(),
+  "totalEvaluated": zod.number(),
+  "reasons": zod.array(zod.object({
+  "stage": zod.string(),
+  "reason": zod.string(),
+  "count": zod.number(),
+  "symbols": zod.array(zod.string())
+})),
+  "lastScanAt": zod.string().nullable()
+})
+
+
+/**
+ * Returns real-time ticker snapshots and exchange connection health
+ * @summary Get live market monitor
+ */
+export const GetMarketLiveResponse = zod.object({
+  "connection": zod.object({
+  "connected": zod.boolean(),
+  "mode": zod.enum(['live', 'testnet', 'backtest']),
+  "exchange": zod.string(),
+  "marketsLoaded": zod.number(),
+  "credentialsVerified": zod.boolean(),
+  "lastTickerFetchAt": zod.string().nullable(),
+  "lastTickerLatencyMs": zod.number().nullable(),
+  "lastError": zod.string().nullable()
+}),
+  "tickers": zod.array(zod.object({
+  "symbol": zod.string(),
+  "last": zod.number(),
+  "bid": zod.number(),
+  "ask": zod.number(),
+  "spread": zod.number(),
+  "spreadPercent": zod.number(),
+  "baseVolume": zod.number(),
+  "quoteVolume": zod.number(),
+  "changePercent": zod.number(),
+  "timestamp": zod.number()
+}))
+})
+
+
+/**
+ * Read-only Phase 2 perception built exclusively from validated closed candles. Blocked entries name stale, incomplete, contradictory, or non-finite inputs. This endpoint cannot influence risk or execution.
+ * @summary Get observational point-in-time market state
+ */
+export const getMarketStateResponseOneStateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getMarketStateResponseOneStateSymbolMax = 80;
+
+export const getMarketStateResponseOneStateFreshnessAgeMsMin = 0;
+
+
+
+export const getMarketStateResponseOneStateDataQualityIssuesMax = 50;
+
+export const getMarketStateResponseOneStateObservationsLastPriceExclusiveMin = 0;
+
+
+
+export const getMarketStateResponseOneStateObservationsTimeframesItemLastCloseExclusiveMin = 0;
+
+export const getMarketStateResponseOneStateObservationsTimeframesItemExcludedOpenCandlesMin = 0;
+
+export const getMarketStateResponseOneStateObservationsTimeframesMin = 5;
+export const getMarketStateResponseOneStateObservationsTimeframesMax = 5;
+
+export const getMarketStateResponseOneStateInferencesRegimeConfidenceMin = 0;
+export const getMarketStateResponseOneStateInferencesRegimeConfidenceMax = 1;
+
+
+
+
+export const GetMarketStateResponseItem = zod.union([zod.object({
+  "status": zod.enum(['available']),
+  "state": zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "marketStateVersion": zod.enum(['market-state-v1']),
+  "fingerprint": zod.string().regex(getMarketStateResponseOneStateFingerprintRegExp),
+  "symbol": zod.string().min(1).max(getMarketStateResponseOneStateSymbolMax),
+  "venue": zod.enum(['spot', 'futures', 'forex']),
+  "provider": zod.enum(['binance', 'oanda', 'fixture']),
+  "dataTimestamp": zod.coerce.date(),
+  "observedAt": zod.coerce.date(),
+  "freshness": zod.object({
+  "status": zod.enum(['fresh', 'stale']),
+  "ageMs": zod.number().min(getMarketStateResponseOneStateFreshnessAgeMsMin),
+  "maximumAgeMs": zod.number().min(1)
+}),
+  "dataQuality": zod.object({
+  "status": zod.enum(['healthy', 'degraded']),
+  "issues": zod.array(zod.string().min(1)).max(getMarketStateResponseOneStateDataQualityIssuesMax)
+}),
+  "observations": zod.object({
+  "lastPrice": zod.number().gt(getMarketStateResponseOneStateObservationsLastPriceExclusiveMin),
+  "timeframes": zod.array(zod.object({
+  "timeframe": zod.enum(['1m', '3m', '5m', '15m', '1h']),
+  "intervalMs": zod.number().min(1),
+  "candleCount": zod.number().min(1),
+  "lastClosedAt": zod.coerce.date(),
+  "lastClose": zod.number().gt(getMarketStateResponseOneStateObservationsTimeframesItemLastCloseExclusiveMin),
+  "excludedOpenCandles": zod.number().min(getMarketStateResponseOneStateObservationsTimeframesItemExcludedOpenCandlesMin)
+})).min(getMarketStateResponseOneStateObservationsTimeframesMin).max(getMarketStateResponseOneStateObservationsTimeframesMax),
+  "trend": zod.record(zod.string(), zod.unknown()),
+  "volatility": zod.record(zod.string(), zod.unknown()),
+  "momentum": zod.record(zod.string(), zod.unknown()),
+  "liquidity": zod.record(zod.string(), zod.unknown()),
+  "structure": zod.record(zod.string(), zod.unknown())
+}),
+  "inferences": zod.object({
+  "regime": zod.enum(['strong_trend', 'weak_trend', 'range', 'high_volatility', 'low_volatility']),
+  "regimeConfidence": zod.number().min(getMarketStateResponseOneStateInferencesRegimeConfidenceMin).max(getMarketStateResponseOneStateInferencesRegimeConfidenceMax),
+  "dominantDirection": zod.enum(['bullish', 'bearish', 'neutral']),
+  "session": zod.enum(['asia', 'europe', 'us', 'europe_us_overlap', 'off_hours']),
+  "anomaly": zod.record(zod.string(), zod.unknown())
+}),
+  "context": zod.object({
+  "breadth": zod.record(zod.string(), zod.unknown()),
+  "leadership": zod.record(zod.string(), zod.unknown()),
+  "correlation": zod.record(zod.string(), zod.unknown())
+})
+})
+}),zod.object({
+  "status": zod.enum(['blocked']),
+  "symbol": zod.string(),
+  "observedAt": zod.coerce.date(),
+  "issues": zod.array(zod.object({
+  "code": zod.string(),
+  "detail": zod.string(),
+  "timeframe": zod.string().optional()
+})).min(1)
+})])
+export const GetMarketStateResponse = zod.array(GetMarketStateResponseItem)
+
+
+/**
+ * Pairwise Pearson correlation of daily log returns over a 30-day lookback, plus which symbols currently hold a position. A cell is null when the two symbols share fewer than `minObservations` days of history â€” never 0, which would read as "measured, and unrelated".
+ * @summary Correlation heat map across the configured pairs
+ */
+export const GetPortfolioCorrelationResponse = zod.object({
+  "symbols": zod.array(zod.string()),
+  "cells": zod.array(zod.object({
+  "a": zod.string(),
+  "b": zod.string(),
+  "correlation": zod.number().nullable().describe('Pearson r over the days both symbols share. Null means too little shared history to measure â€” render \"insufficient history\", not a number.')
+})).describe('Upper triangle only â€” correlation is symmetric and the diagonal is trivially 1.'),
+  "openSymbols": zod.array(zod.string()).describe('Symbols currently carrying a position.'),
+  "threshold": zod.number().describe('Reinforcement level at which two symbols count as the same bet.'),
+  "minObservations": zod.number().describe('Shared days required before a correlation is reported at all.')
+})
+
+
+/**
+ * What this account's own closed trades support saying, as of now. Cells below `minSamples` report their counts and null for every rate â€” never a provisional figure. Cells above it are tested against the account baseline with an exact binomial test and a Benjaminiâ€“Hochberg correction across the whole family, so `significant` accounts for the fact that slicing a history finely enough always produces a winner. Demo and live records are never pooled; `executionTarget` says which one this is.
+ * @summary Market knowledge cells and confidence calibration
+ */
+export const GetKnowledgeResponse = zod.object({
+  "executionTarget": zod.enum(['demo', 'live']).describe('Which record these numbers describe. Demo and live are never pooled.'),
+  "asOf": zod.string().describe('The point-in-time cut. Every claim is \'given only what was knowable at this moment\'.'),
+  "totalTrades": zod.number(),
+  "baselineWinRate": zod.number().nullable().describe('The account\'s own scratch-adjusted win rate â€” the null hypothesis each cell is tested against. Null below the gate.'),
+  "minSamples": zod.number(),
+  "fdr": zod.number().describe('False-discovery-rate budget for the significance family.'),
+  "cellsTested": zod.number().describe('How many cells entered the multiple-comparison family.'),
+  "cells": zod.array(zod.object({
+  "samples": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "scratches": zod.number().describe('Break-even washes â€” excluded from the win-rate denominator, not counted as losses.'),
+  "gated": zod.boolean().describe('samples < minSamples. Every rate below is null.'),
+  "minSamples": zod.number(),
+  "winRate": zod.number().nullable().describe('Scratch-adjusted: wins \/ (wins + losses).'),
+  "winRateLow": zod.number().nullable().describe('Lower bound of the 95% Wilson interval on winRate.'),
+  "winRateHigh": zod.number().nullable(),
+  "expectancyUsdt": zod.number().nullable(),
+  "profitFactor": zod.number().nullable(),
+  "avgR": zod.number().nullable(),
+  "netPnlUsdt": zod.number()
+}).describe('Outcome summary for one bucket of closed trades. Counts and net P&L are facts and are always present; every rate is null while `gated` is true.').and(zod.object({
+  "dimension": zod.enum(['strategy_regime', 'symbol_strategy', 'session', 'volatility']),
+  "key": zod.string(),
+  "label": zod.string(),
+  "significance": zod.union([zod.object({
+  "pValue": zod.number().describe('Exact two-sided binomial test against the account baseline win rate.'),
+  "qValue": zod.number().describe('Benjaminiâ€“Hochberg adjusted p-value: the false-discovery rate incurred by treating this cell as a real edge.'),
+  "significant": zod.boolean().describe('qValue is within the family\'s FDR budget.')
+}),zod.null()]).describe('Null when the cell is gated, or when there is no trustworthy baseline to test against.')
+}))),
+  "calibration": zod.object({
+  "gated": zod.boolean(),
+  "minSamples": zod.number(),
+  "totalSamples": zod.number(),
+  "trainSamples": zod.number(),
+  "validationSamples": zod.number(),
+  "samplesNeeded": zod.number().describe('Further validation-set trades needed to open the gate; 0 once open.'),
+  "raw": zod.object({
+  "brier": zod.number().nullable(),
+  "logLoss": zod.number().nullable(),
+  "ece": zod.number().nullable().describe('Expected Calibration Error â€” sample-weighted average gap between promised and observed frequency.')
+}),
+  "calibrated": zod.object({
+  "brier": zod.number().nullable(),
+  "logLoss": zod.number().nullable(),
+  "ece": zod.number().nullable().describe('Expected Calibration Error â€” sample-weighted average gap between promised and observed frequency.')
+}),
+  "climatologyBrier": zod.number().nullable().describe('Brier score of predicting the base rate for every trade â€” the bar any calibration must clear to be worth anything.'),
+  "beatsClimatology": zod.boolean().describe('calibrated.brier < climatologyBrier. False means confidence carries no usable information on this record.'),
+  "bins": zod.array(zod.object({
+  "low": zod.number(),
+  "high": zod.number(),
+  "count": zod.number(),
+  "meanPredicted": zod.number().nullable(),
+  "observedRate": zod.number().nullable().describe('Observed win frequency in the bin. Perfect calibration puts this on the diagonal.')
+}))
+}).describe('Whether strategy confidence behaves like a probability on this account\'s record. Fitted on an earlier chronological slice and scored on a later one â€” never on its own training data. Gated on the VALIDATION set, since that is where every published number is measured.')
+})
+
+
+/**
+ * Returns trade log with optional status and source filter
+ * @summary List all trades
+ */
+export const getTradesQueryLimitDefault = 50;
+export const getTradesQueryLimitMax = 500;
+
+
+
+export const GetTradesQueryParams = zod.object({
+  "status": zod.enum(['open', 'closed', 'stopped']).optional(),
+  "source": zod.enum(['live', 'backtest']).optional(),
+  "limit": zod.coerce.number().min(1).max(getTradesQueryLimitMax).default(getTradesQueryLimitDefault)
+})
+
+export const GetTradesResponseItem = zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "side": zod.enum(['buy', 'sell']),
+  "entryPrice": zod.number(),
+  "exitPrice": zod.number().nullish(),
+  "quantity": zod.number(),
+  "pnl": zod.number().nullish(),
+  "status": zod.enum(['open', 'closed', 'stopped']),
+  "confidence": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "entryTime": zod.coerce.date(),
+  "exitTime": zod.coerce.date().nullish(),
+  "exitReason": zod.union([zod.literal('take_profit'),zod.literal('stop_loss'),zod.literal('signal_exit'),zod.literal('timeout'),zod.literal('break_even'),zod.literal('trailing_stop'),zod.literal('manual'),zod.literal('emergency_stop'),zod.literal('circuit_breaker'),zod.literal('reconciled_missing'),zod.literal(null)]).nullish(),
+  "isBacktest": zod.boolean().optional(),
+  "plannedStopLoss": zod.number().nullish(),
+  "plannedTakeProfit": zod.number().nullish(),
+  "plannedQuantity": zod.number().nullish(),
+  "feesUsdt": zod.number().nullish(),
+  "slippageUsdt": zod.number().nullish(),
+  "holdingSeconds": zod.number().nullish(),
+  "grossPnl": zod.number().nullish(),
+  "remainingQuantity": zod.number().nullish(),
+  "tp1Price": zod.number().nullish(),
+  "tp1Quantity": zod.number().nullish(),
+  "tp1Filled": zod.boolean().optional(),
+  "tp1FillPrice": zod.number().nullish(),
+  "tp2Price": zod.number().nullish(),
+  "tp2Quantity": zod.number().nullish(),
+  "tp2Filled": zod.boolean().optional(),
+  "tp2FillPrice": zod.number().nullish(),
+  "breakEvenActive": zod.boolean().optional(),
+  "trailingStopActive": zod.boolean().optional(),
+  "trailingStopMode": zod.string().nullish()
+})
+export const GetTradesResponse = zod.array(GetTradesResponseItem)
+
+
+/**
+ * @summary Get trade by ID
+ */
+export const GetTradeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetTradeResponse = zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "side": zod.enum(['buy', 'sell']),
+  "entryPrice": zod.number(),
+  "exitPrice": zod.number().nullish(),
+  "quantity": zod.number(),
+  "pnl": zod.number().nullish(),
+  "status": zod.enum(['open', 'closed', 'stopped']),
+  "confidence": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "entryTime": zod.coerce.date(),
+  "exitTime": zod.coerce.date().nullish(),
+  "exitReason": zod.union([zod.literal('take_profit'),zod.literal('stop_loss'),zod.literal('signal_exit'),zod.literal('timeout'),zod.literal('break_even'),zod.literal('trailing_stop'),zod.literal('manual'),zod.literal('emergency_stop'),zod.literal('circuit_breaker'),zod.literal('reconciled_missing'),zod.literal(null)]).nullish(),
+  "isBacktest": zod.boolean().optional(),
+  "plannedStopLoss": zod.number().nullish(),
+  "plannedTakeProfit": zod.number().nullish(),
+  "plannedQuantity": zod.number().nullish(),
+  "feesUsdt": zod.number().nullish(),
+  "slippageUsdt": zod.number().nullish(),
+  "holdingSeconds": zod.number().nullish(),
+  "grossPnl": zod.number().nullish(),
+  "remainingQuantity": zod.number().nullish(),
+  "tp1Price": zod.number().nullish(),
+  "tp1Quantity": zod.number().nullish(),
+  "tp1Filled": zod.boolean().optional(),
+  "tp1FillPrice": zod.number().nullish(),
+  "tp2Price": zod.number().nullish(),
+  "tp2Quantity": zod.number().nullish(),
+  "tp2Filled": zod.boolean().optional(),
+  "tp2FillPrice": zod.number().nullish(),
+  "breakEvenActive": zod.boolean().optional(),
+  "trailingStopActive": zod.boolean().optional(),
+  "trailingStopMode": zod.string().nullish()
+})
+
+
+/**
+ * Returns aggregate stats including win rate and total PnL
+ * @summary Get performance summary
+ */
+export const GetStatsSummaryResponse = zod.object({
+  "totalTrades": zod.number(),
+  "winRate": zod.number(),
+  "totalPnl": zod.number(),
+  "maxDrawdown": zod.number(),
+  "avgConfidence": zod.number(),
+  "bestTrade": zod.number(),
+  "worstTrade": zod.number(),
+  "streakCurrent": zod.number(),
+  "streakType": zod.enum(['win', 'loss', 'none'])
+})
+
+
+/**
+ * Returns today's hourly trading breakdown
+ * @summary Get daily statistics
+ */
+export const GetDailyStatsResponse = zod.object({
+  "date": zod.string(),
+  "tradesCount": zod.number(),
+  "winRate": zod.number(),
+  "totalPnl": zod.number(),
+  "openPositions": zod.number(),
+  "circuitBreakerHit": zod.boolean(),
+  "hourlyBreakdown": zod.array(zod.object({
+  "hour": zod.number(),
+  "pnl": zod.number(),
+  "tradeCount": zod.number(),
+  "winRate": zod.number(),
+  "isToxic": zod.boolean()
+})).optional()
+})
+
+
+/**
+ * Full report for one UTC calendar day â€” summary, per-strategy and per-symbol breakdowns, exit reasons, and every closed trade. The same report is pushed to the alert webhook automatically at UTC midnight for the day that just ended.
+ * @summary Get the daily trade report
+ */
+export const getDailyReportQueryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const GetDailyReportQueryParams = zod.object({
+  "date": zod.coerce.string().regex(getDailyReportQueryDateRegExp).optional().describe('UTC day, YYYY-MM-DD. Defaults to today.')
+})
+
+export const GetDailyReportResponse = zod.object({
+  "date": zod.string(),
+  "generatedAt": zod.coerce.date(),
+  "summary": zod.object({
+  "totalTrades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number(),
+  "totalPnl": zod.number(),
+  "totalFeesUsdt": zod.number(),
+  "bestTrade": zod.number(),
+  "worstTrade": zod.number(),
+  "openPositions": zod.number()
+}),
+  "byStrategy": zod.array(zod.object({
+  "strategyName": zod.string(),
+  "trades": zod.number(),
+  "wins": zod.number(),
+  "pnl": zod.number()
+})),
+  "bySymbol": zod.array(zod.object({
+  "symbol": zod.string(),
+  "trades": zod.number(),
+  "wins": zod.number(),
+  "pnl": zod.number()
+})),
+  "exitReasons": zod.record(zod.string(), zod.number()),
+  "trades": zod.array(zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "side": zod.string(),
+  "strategyName": zod.string().nullish(),
+  "entryTime": zod.coerce.date(),
+  "exitTime": zod.coerce.date().nullish(),
+  "entryPrice": zod.number(),
+  "exitPrice": zod.number().nullish(),
+  "quantity": zod.number(),
+  "pnl": zod.number().nullish(),
+  "exitReason": zod.string().nullish()
+}))
+})
+
+
+/**
+ * Returns per-hour performance data used for toxic hour detection
+ * @summary Get hourly PnL breakdown
+ */
+export const GetHourlyStatsResponseItem = zod.object({
+  "hour": zod.number(),
+  "pnl": zod.number(),
+  "tradeCount": zod.number(),
+  "winRate": zod.number(),
+  "isToxic": zod.boolean()
+})
+export const GetHourlyStatsResponse = zod.array(GetHourlyStatsResponseItem)
+
+
+/**
+ * Returns observational and Shadow evidence separately from the exact validated rule version, if any, that a user explicitly activated.
+ * @summary Point-in-time learning evidence and version lifecycle
+ */
+export const getEvidenceOverviewResponseSnapshotFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getEvidenceOverviewResponseSnapshotTotalOutcomesMin = 0;
+
+
+export const getEvidenceOverviewResponseSnapshotFalseDiscoveryRateMin = 0;
+export const getEvidenceOverviewResponseSnapshotFalseDiscoveryRateMax = 1;
+
+export const getEvidenceOverviewResponseSnapshotCellsTestedMin = 0;
+
+export const getEvidenceOverviewResponseSnapshotRecordsItemMetricsSamplesMin = 0;
+
+
+export const getEvidenceOverviewResponseSnapshotRecordsItemMetricsWinsMin = 0;
+
+export const getEvidenceOverviewResponseSnapshotRecordsItemMetricsLossesMin = 0;
+
+export const getEvidenceOverviewResponseSnapshotRecordsItemMetricsScratchesMin = 0;
+
+export const getEvidenceOverviewResponseSnapshotRecordsItemMetricsGrossPnlCoverageMin = 0;
+export const getEvidenceOverviewResponseSnapshotRecordsItemMetricsGrossPnlCoverageMax = 1;
+
+export const getEvidenceOverviewResponseSnapshotRecordsItemMetricsCostCoverageMin = 0;
+export const getEvidenceOverviewResponseSnapshotRecordsItemMetricsCostCoverageMax = 1;
+
+export const getEvidenceOverviewResponseSnapshotRecordsItemMetricsProfitFactorMin = 0;
+
+export const getEvidenceOverviewResponseSnapshotRecordsItemMetricsExcursionCoverageMin = 0;
+export const getEvidenceOverviewResponseSnapshotRecordsItemMetricsExcursionCoverageMax = 1;
+
+export const getEvidenceOverviewResponseSnapshotRecordsItemMetricsAverageTimeToMaeSecondsMin = 0;
+
+export const getEvidenceOverviewResponseSnapshotRecordsItemMetricsAverageTimeToMfeSecondsMin = 0;
+
+export const getEvidenceOverviewResponseSnapshotRecordsItemMetricsExcursionTimingCoverageMin = 0;
+export const getEvidenceOverviewResponseSnapshotRecordsItemMetricsExcursionTimingCoverageMax = 1;
+
+export const getEvidenceOverviewResponseSnapshotRecordsItemDriftReferenceSamplesMin = 0;
+
+export const getEvidenceOverviewResponseSnapshotRecordsItemDriftRecentSamplesMin = 0;
+
+export const getEvidenceOverviewResponseSnapshotRecordsItemDriftAbsoluteShiftMin = 0;
+
+export const getEvidenceOverviewResponseSnapshotRecordsItemAgeDaysMin = 0;
+
+export const getEvidenceOverviewResponseSnapshotRecordsItemHalfLifeDaysExclusiveMin = 0;
+
+export const getEvidenceOverviewResponseSnapshotRecordsItemDecayWeightMin = 0;
+export const getEvidenceOverviewResponseSnapshotRecordsItemDecayWeightMax = 1;
+
+export const getEvidenceOverviewResponseRuleSetsItemValidationValidationTradesMin = 0;
+
+export const getEvidenceOverviewResponseRuleSetsItemValidationEmbargoedTradesMin = 0;
+
+
+
+export const GetEvidenceOverviewResponse = zod.object({
+  "executionTarget": zod.enum(['demo', 'live']),
+  "activeRuleVersion": zod.string().nullable(),
+  "snapshot": zod.object({
+  "schemaVersion": zod.literal("evidence-v1"),
+  "snapshotVersion": zod.string(),
+  "fingerprint": zod.string().regex(getEvidenceOverviewResponseSnapshotFingerprintRegExp),
+  "executionTarget": zod.enum(['demo', 'live']),
+  "generatedAt": zod.coerce.date(),
+  "dataCutoff": zod.coerce.date(),
+  "totalOutcomes": zod.number().min(getEvidenceOverviewResponseSnapshotTotalOutcomesMin),
+  "minimumSamples": zod.number().min(1),
+  "falseDiscoveryRate": zod.number().min(getEvidenceOverviewResponseSnapshotFalseDiscoveryRateMin).max(getEvidenceOverviewResponseSnapshotFalseDiscoveryRateMax),
+  "cellsTested": zod.number().min(getEvidenceOverviewResponseSnapshotCellsTestedMin),
+  "records": zod.array(zod.object({
+  "schemaVersion": zod.literal("evidence-v1"),
+  "evidenceId": zod.string().uuid(),
+  "fingerprint": zod.string(),
+  "lifecycle": zod.enum(['observational', 'shadow']),
+  "scope": zod.object({
+  "dimension": zod.enum(['strategy_regime', 'symbol_strategy', 'symbol_class', 'direction', 'volatility', 'session', 'confidence_bucket', 'management_policy']),
+  "key": zod.string(),
+  "label": zod.string(),
+  "strategyId": zod.string().nullable(),
+  "regime": zod.string().nullable(),
+  "symbol": zod.string().nullable(),
+  "symbolClass": zod.string().nullable(),
+  "direction": zod.union([zod.literal('long'),zod.literal('short'),zod.literal(null)]).nullable(),
+  "volatility": zod.string().nullable(),
+  "session": zod.string().nullable(),
+  "confidenceBucket": zod.string().nullable(),
+  "managementPolicy": zod.string().nullable()
+}),
+  "metrics": zod.object({
+  "samples": zod.number().min(getEvidenceOverviewResponseSnapshotRecordsItemMetricsSamplesMin),
+  "minimumSamples": zod.number().min(1),
+  "gated": zod.boolean(),
+  "wins": zod.number().min(getEvidenceOverviewResponseSnapshotRecordsItemMetricsWinsMin),
+  "losses": zod.number().min(getEvidenceOverviewResponseSnapshotRecordsItemMetricsLossesMin),
+  "scratches": zod.number().min(getEvidenceOverviewResponseSnapshotRecordsItemMetricsScratchesMin),
+  "winRate": zod.number().nullable(),
+  "winRateInterval": zod.union([zod.object({
+  "lower": zod.number(),
+  "upper": zod.number(),
+  "confidenceLevel": zod.number()
+}),zod.null()]),
+  "grossPnlUsdt": zod.number().nullable(),
+  "grossPnlCoverage": zod.number().min(getEvidenceOverviewResponseSnapshotRecordsItemMetricsGrossPnlCoverageMin).max(getEvidenceOverviewResponseSnapshotRecordsItemMetricsGrossPnlCoverageMax),
+  "feesUsdt": zod.number().nullable(),
+  "slippageUsdt": zod.number().nullable(),
+  "costCoverage": zod.number().min(getEvidenceOverviewResponseSnapshotRecordsItemMetricsCostCoverageMin).max(getEvidenceOverviewResponseSnapshotRecordsItemMetricsCostCoverageMax),
+  "netPnlUsdt": zod.number(),
+  "expectancyUsdt": zod.number().nullable(),
+  "expectancyInterval": zod.union([zod.object({
+  "lower": zod.number(),
+  "upper": zod.number(),
+  "confidenceLevel": zod.number()
+}),zod.null()]),
+  "profitFactor": zod.number().min(getEvidenceOverviewResponseSnapshotRecordsItemMetricsProfitFactorMin).nullable(),
+  "averageR": zod.number().nullable(),
+  "averageRInterval": zod.union([zod.object({
+  "lower": zod.number(),
+  "upper": zod.number(),
+  "confidenceLevel": zod.number()
+}),zod.null()]),
+  "averageMaeUsdt": zod.number().nullable(),
+  "averageMfeUsdt": zod.number().nullable(),
+  "excursionCoverage": zod.number().min(getEvidenceOverviewResponseSnapshotRecordsItemMetricsExcursionCoverageMin).max(getEvidenceOverviewResponseSnapshotRecordsItemMetricsExcursionCoverageMax),
+  "averageTimeToMaeSeconds": zod.number().min(getEvidenceOverviewResponseSnapshotRecordsItemMetricsAverageTimeToMaeSecondsMin).nullable(),
+  "averageTimeToMfeSeconds": zod.number().min(getEvidenceOverviewResponseSnapshotRecordsItemMetricsAverageTimeToMfeSecondsMin).nullable(),
+  "excursionTimingCoverage": zod.number().min(getEvidenceOverviewResponseSnapshotRecordsItemMetricsExcursionTimingCoverageMin).max(getEvidenceOverviewResponseSnapshotRecordsItemMetricsExcursionTimingCoverageMax)
+}),
+  "statistics": zod.object({
+  "baselineWinRate": zod.number().nullable(),
+  "pValue": zod.number().nullable(),
+  "qValue": zod.number().nullable(),
+  "falseDiscoveryRate": zod.number(),
+  "correction": zod.literal("benjamini-hochberg"),
+  "significant": zod.boolean(),
+  "effectDirection": zod.enum(['better', 'worse', 'indistinguishable', 'unknown'])
+}),
+  "drift": zod.object({
+  "status": zod.enum(['stable', 'watch', 'degraded', 'insufficient_data']),
+  "referenceSamples": zod.number().min(getEvidenceOverviewResponseSnapshotRecordsItemDriftReferenceSamplesMin),
+  "recentSamples": zod.number().min(getEvidenceOverviewResponseSnapshotRecordsItemDriftRecentSamplesMin),
+  "referenceWinRate": zod.number().nullable(),
+  "recentWinRate": zod.number().nullable(),
+  "absoluteShift": zod.number().min(getEvidenceOverviewResponseSnapshotRecordsItemDriftAbsoluteShiftMin).nullable(),
+  "intervalsOverlap": zod.boolean().nullable(),
+  "reason": zod.string()
+}),
+  "permission": zod.enum(['observe', 'withhold', 'reduce-risk']),
+  "learnedStatement": zod.string(),
+  "permittedBehavior": zod.string(),
+  "dataCutoff": zod.coerce.date(),
+  "latestOutcomeAt": zod.coerce.date().nullable(),
+  "ageDays": zod.number().min(getEvidenceOverviewResponseSnapshotRecordsItemAgeDaysMin),
+  "halfLifeDays": zod.number().gt(getEvidenceOverviewResponseSnapshotRecordsItemHalfLifeDaysExclusiveMin),
+  "decayWeight": zod.number().min(getEvidenceOverviewResponseSnapshotRecordsItemDecayWeightMin).max(getEvidenceOverviewResponseSnapshotRecordsItemDecayWeightMax)
+})),
+  "limitations": zod.array(zod.string())
+}),
+  "ruleSets": zod.array(zod.object({
+  "ruleVersion": zod.string(),
+  "status": zod.enum(['observational', 'shadow', 'approved', 'active', 'suspended', 'retired']),
+  "validationId": zod.number(),
+  "executionTarget": zod.enum(['demo', 'live']),
+  "permits": zod.enum(['withhold', 'reduce-risk']),
+  "dataCutoff": zod.coerce.date(),
+  "approvedAt": zod.coerce.date().nullish(),
+  "activatedAt": zod.coerce.date().nullish(),
+  "suspendedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "validation": zod.object({
+  "verdict": zod.enum(['improved', 'no_better', 'insufficient_data']),
+  "summary": zod.string(),
+  "validationTrades": zod.number().min(getEvidenceOverviewResponseRuleSetsItemValidationValidationTradesMin),
+  "embargoedTrades": zod.number().min(getEvidenceOverviewResponseRuleSetsItemValidationEmbargoedTradesMin),
+  "expectancyDelta": zod.number()
+}),
+  "drift": zod.object({
+  "status": zod.enum(['stable', 'watch', 'degraded', 'insufficient_data'])
+})
+}))
+})
+
+
+/**
+ * Fits on an earlier chronological window, applies an embargo, and tests on later outcomes. An improved result creates Shadow only and never activates influence.
+ * @summary Validate a frozen tightening-only rule set
+ */
+export const ValidateEvidenceResponse = zod.object({
+  "verdict": zod.enum(['improved', 'no_better', 'insufficient_data']),
+  "summary": zod.string(),
+  "stateVersion": zod.string(),
+  "trainTrades": zod.number(),
+  "validationTrades": zod.number(),
+  "embargoedTrades": zod.number(),
+  "embargoMs": zod.number(),
+  "dataCutoff": zod.coerce.date(),
+  "withheld": zod.number(),
+  "withheldPnlUsdt": zod.number(),
+  "expectancyDelta": zod.number(),
+  "baseline": zod.record(zod.string(), zod.unknown()),
+  "withMemory": zod.record(zod.string(), zod.unknown()),
+  "rules": zod.array(zod.record(zod.string(), zod.unknown()))
+})
+
+
+/**
+ * @summary Explicitly activate an exact validated evidence version
+ */
+export const PromoteEvidenceVersionParams = zod.object({
+  "version": zod.coerce.string()
+})
+
+export const PromoteEvidenceVersionBody = zod.object({
+  "confirmation": zod.string()
+})
+
+export const PromoteEvidenceVersionResponse = zod.object({
+  "ruleVersion": zod.string(),
+  "status": zod.enum(['active', 'suspended']),
+  "reason": zod.string()
+})
+
+
+/**
+ * @summary Suspend the active evidence version immediately
+ */
+export const SuspendEvidenceVersionParams = zod.object({
+  "version": zod.coerce.string()
+})
+
+export const suspendEvidenceVersionBodyReasonMin = 3;
+export const suspendEvidenceVersionBodyReasonMax = 500;
+
+
+
+export const SuspendEvidenceVersionBody = zod.object({
+  "reason": zod.string().min(suspendEvidenceVersionBodyReasonMin).max(suspendEvidenceVersionBodyReasonMax).optional()
+})
+
+export const SuspendEvidenceVersionResponse = zod.object({
+  "ruleVersion": zod.string(),
+  "status": zod.enum(['active', 'suspended']),
+  "reason": zod.string()
+})
+
+
+/**
+ * @summary Explicitly roll back to a previously validated version
+ */
+export const RollbackEvidenceVersionParams = zod.object({
+  "version": zod.coerce.string()
+})
+
+export const RollbackEvidenceVersionBody = zod.object({
+  "confirmation": zod.string()
+})
+
+export const RollbackEvidenceVersionResponse = zod.object({
+  "ruleVersion": zod.string(),
+  "status": zod.enum(['active', 'suspended']),
+  "reason": zod.string()
+})
+
+
+/**
+ * Returns symbols currently blacklisted by the adaptive learning engine
+ * @summary Get blacklisted symbols
+ */
+export const GetBlacklistResponseItem = zod.object({
+  "symbol": zod.string(),
+  "winRate": zod.number(),
+  "tradeCount": zod.number(),
+  "blacklistedAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date()
+})
+export const GetBlacklistResponse = zod.array(GetBlacklistResponseItem)
+
+
+/**
+ * Returns UTC hours blocked by the adaptive learning engine
+ * @summary Get toxic hours
+ */
+export const GetToxicHoursResponseItem = zod.object({
+  "hour": zod.number(),
+  "cumulativePnl": zod.number(),
+  "tradeCount": zod.number(),
+  "blockedAt": zod.coerce.date()
+})
+export const GetToxicHoursResponse = zod.array(GetToxicHoursResponseItem)
+
+
+/**
+ * The only mechanism by which the account's own history changes what the engine does. Memory can raise the confidence bar a plan must clear; it can never lower one and never originate a plan, so the worst case of a bad rule is a trade not taken. `active` is true only when the user enabled it, qualifying cells exist, and â€” on live â€” a walk-forward validation approved this exact rule-set version.
+ * @summary Gated memory influence â€” status, rules, and audit trail
+ */
+export const GetMemoryInfluenceResponse = zod.object({
+  "enabled": zod.boolean().describe('What the user asked for. Not the same as `active`.'),
+  "maxDelta": zod.number().describe('Hard cap in confidence points, applied after summing every matching cell.'),
+  "approvedVersion": zod.string().nullable(),
+  "active": zod.boolean().describe('Whether the engine is actually acting on memory right now.'),
+  "needsValidation": zod.boolean().describe('Live influence is requested but blocked for want of a matching passing validation.'),
+  "executionTarget": zod.string(),
+  "reason": zod.string(),
+  "summary": zod.string(),
+  "version": zod.string().describe('\"memory-0\" when inert; \"memory-1:<hash>\" when it carries rules.'),
+  "rules": zod.array(zod.object({
+  "dimension": zod.enum(['strategy_regime', 'symbol_strategy', 'session', 'volatility']),
+  "key": zod.string(),
+  "label": zod.string(),
+  "samples": zod.number(),
+  "winRate": zod.number(),
+  "baselineWinRate": zod.number(),
+  "qValue": zod.number(),
+  "delta": zod.number().describe('Confidence points this cell adds to the bar. Always positive â€” memory only tightens.')
+}).describe('One knowledge cell memory is acting on. Present only for cells that cleared the sample gate AND whose q-value survived the multiple-comparison correction.')),
+  "latestValidation": zod.union([zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['pending', 'running', 'completed', 'failed']),
+  "verdict": zod.union([zod.literal('improved'),zod.literal('no_better'),zod.literal('insufficient_data'),zod.literal(null)]).nullable(),
+  "summary": zod.string().nullable(),
+  "stateVersion": zod.string().nullable().describe('The rule-set version this run approved. Permission is version-scoped â€” a refit revokes it.'),
+  "executionTarget": zod.string(),
+  "trainTrades": zod.number(),
+  "validationTrades": zod.number(),
+  "withheld": zod.number(),
+  "withheldPnlUsdt": zod.number().nullable(),
+  "expectancyDelta": zod.number().nullable(),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "recent": zod.array(zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "strategyId": zod.string(),
+  "admitted": zod.boolean().describe('True when the plan cleared the raised bar anyway.'),
+  "confidence": zod.number(),
+  "requiredConfidence": zod.number(),
+  "delta": zod.number(),
+  "memoryVersion": zod.string(),
+  "executionTarget": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.string()
+}).describe('One time memory raised a plan\'s bar. Both outcomes are recorded â€” logging only the withheld trades would read as a list of saves and hide every time a rule fired harmlessly.'))
+})
+
+
+/**
+ * Disabling is the kill switch: it clears the flag, the approved version and the cached state together, and the next scan is already inert. Enabling here never grants LIVE permission on its own â€” only a passing walk-forward validation does that.
+ * @summary Enable, disable, or bound memory influence
+ */
+export const updateMemoryInfluenceBodyMaxDeltaMin = 0;
+export const updateMemoryInfluenceBodyMaxDeltaMax = 25;
+
+
+
+export const UpdateMemoryInfluenceBody = zod.object({
+  "enabled": zod.boolean().optional(),
+  "maxDelta": zod.number().min(updateMemoryInfluenceBodyMaxDeltaMin).max(updateMemoryInfluenceBodyMaxDeltaMax).optional().describe('Hard cap in confidence points. Bounded server-side; memory is not permitted an unlimited reach.')
+})
+
+export const UpdateMemoryInfluenceResponse = zod.object({
+  "enabled": zod.boolean(),
+  "active": zod.boolean(),
+  "needsValidation": zod.boolean(),
+  "version": zod.string(),
+  "reason": zod.string()
+})
+
+
+/**
+ * Fits cells on an earlier window and tests them on a later one the fit never saw, against the same window with memory off. `no_better` is a first-class verdict and the expected one on most accounts. Only `improved` writes the approval that unlocks live influence, and only for that exact rule-set version.
+ * @summary Walk-forward validation of memory influence
+ */
+export const RunMemoryValidationResponse = zod.object({
+  "verdict": zod.enum(['improved', 'no_better', 'insufficient_data']),
+  "summary": zod.string(),
+  "stateVersion": zod.string(),
+  "trainTrades": zod.number(),
+  "validationTrades": zod.number(),
+  "withheld": zod.number().describe('Out-of-sample trades memory would have withheld.'),
+  "withheldPnlUsdt": zod.number().describe('P&L of the withheld trades. Negative is the point.'),
+  "expectancyDelta": zod.number(),
+  "baseline": zod.object({
+  "trades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number().nullable(),
+  "netPnlUsdt": zod.number(),
+  "expectancyUsdt": zod.number()
+}),
+  "withMemory": zod.object({
+  "trades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number().nullable(),
+  "netPnlUsdt": zod.number(),
+  "expectancyUsdt": zod.number()
+}),
+  "rules": zod.array(zod.object({
+  "dimension": zod.enum(['strategy_regime', 'symbol_strategy', 'session', 'volatility']),
+  "key": zod.string(),
+  "label": zod.string(),
+  "samples": zod.number(),
+  "winRate": zod.number(),
+  "baselineWinRate": zod.number(),
+  "qValue": zod.number(),
+  "delta": zod.number().describe('Confidence points this cell adds to the bar. Always positive â€” memory only tightens.')
+}).describe('One knowledge cell memory is acting on. Present only for cells that cleared the sample gate AND whose q-value survived the multiple-comparison correction.'))
+})
+
+
+/**
+ * A bot_config row is created lazily by the first read of a section's config, so row existence does NOT mean the user chose that market â€” merely opening the Add Market flow and backing out creates one. This returns the sections deliberately set up (config written, or engine started), which is what navigation should be driven by. Not section-scoped: it answers a question ABOUT the sections.
+ * @summary Which trading sections this user has actually set up
+ */
+export const GetSectionsResponse = zod.object({
+  "activated": zod.array(zod.enum(['crypto', 'forex'])).describe('Sections the user has deliberately set up. May be empty for a brand new account that skipped onboarding â€” callers should fall back to showing the currently selected section rather than nothing.')
+})
+
+
+/**
+ * @summary Get bot configuration
+ */
+export const GetConfigResponse = zod.object({
+  "demoDataAvailable": zod.boolean().describe('Whether this section can actually run in Demo on this deployment. Crypto is always true (Binance\'s public endpoints need no credentials). Forex is false unless the platform supplies its own OANDA practice token, because OANDA publishes no public market data â€” so a keyless forex demo is impossible, not merely unconfigured. Read-only; a property of the deployment, not the user.'),
+  "broker": zod.enum(['binance', 'oanda']).describe('Which broker this section\'s engine connects to â€” binance (crypto section) or oanda (forex section). Fixed per section, not user-editable.'),
+  "marketType": zod.enum(['spot', 'futures', 'forex']).describe('Spot (no leverage, long-only), USDâ“ˆ-M Futures (leveraged, long+short), or forex (OANDA, margin-based)'),
+  "leverage": zod.number().describe('Futures leverage multiplier. Ignored in spot mode (always 1).'),
+  "marginMode": zod.enum(['isolated', 'cross']).describe('Futures margin mode. Ignored in spot mode.'),
+  "positionSizeUsdt": zod.number(),
+  "riskPercent": zod.number().describe('% of account balance to risk per trade (0 = fixed positionSizeUsdt)'),
+  "maxOpenPositions": zod.number(),
+  "maxPortfolioRiskPercent": zod.number().describe('Maximum % of total balance across all open positions'),
+  "dailyLossLimitUsdt": zod.number(),
+  "maxSymbolConcentrationPercent": zod.number().describe('Max notional (entry price Ã— qty) allowed in a single symbol, as % of balance. Default 100 (permissive â€” no effective limit) until tightened.'),
+  "maxNetExposurePercent": zod.number().describe('Max net long-short notional exposure across all open positions, as % of balance. Default 200 (permissive â€” no effective limit) until tightened.'),
+  "maxCorrelatedExposurePercent": zod.number().describe('Max notional across one correlated cluster (the candidate plus every open position measured to be the same directional bet), as % of balance. Default 200 (permissive) until tightened.'),
+  "correlationThreshold": zod.number().describe('Reinforcement level (r adjusted for trade direction) at which two symbols count as the same bet.'),
+  "correlationUnknownPolicy": zod.enum(['allow', 'block']).describe('What to do when a pair has too little shared history to measure. Never silently treated as uncorrelated.'),
+  "confidenceThreshold": zod.number(),
+  "riskModel": zod.enum(['percent', 'dollar']).describe('How SL\/TP are decided. \'percent\': SL\/TP are a % of price (stopLossPercent\/takeProfitPercent) and size comes from riskPercent\/positionSizeUsdt. \'dollar\': SL\/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt\/targetProfitUsdt).'),
+  "stopLossPercent": zod.number().describe('Stop-loss distance as a % below entry price (used when riskModel = percent)'),
+  "takeProfitPercent": zod.number().describe('Take-profit distance as a % above entry price (used when riskModel = percent)'),
+  "maxLossUsdt": zod.number().describe('Dollar mode: max dollars to lose on one trade (net of fees)'),
+  "targetProfitUsdt": zod.number().describe('Dollar mode: desired dollar profit on one trade (net of fees)'),
+  "cooldownMinutes": zod.number(),
+  "scanIntervalSeconds": zod.number(),
+  "pairs": zod.array(zod.string()),
+  "executionTarget": zod.enum(['demo', 'live']).describe('Where approved TradePlans execute. \'demo\' = TradeCore\'s internal simulation on live market data (no broker, no API keys, no real money); \'live\' = real orders through the connected broker.'),
+  "mode": zod.enum(['research', 'copilot', 'autopilot']).describe('What happens once a TradePlan exists. \'autopilot\' executes it; \'copilot\' records it for the user to approve; \'research\' never executes. The intelligence pipeline is identical in all three.'),
+  "demoStartingBalanceUsdt": zod.number().describe('Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades.'),
+  "testnet": zod.boolean(),
+  "backtestMode": zod.boolean(),
+  "highFrequencyTestMode": zod.boolean().describe('Testnet\/demo only: when on, the live engine overrides its turnover-limiting gates (cooldown, confidence floor, toxic hours, max positions, daily-loss breaker, max holding time) to generate a high volume of trades for end-to-end testing. Ignored on real-money keys. Not a profitable configuration.'),
+  "alertWebhookUrl": zod.string().nullish().describe('Discord \/ Telegram \/ Slack incoming-webhook URL for risk alerts')
+})
+
+
+/**
+ * @summary Update bot configuration
+ */
+export const updateConfigBodyLeverageMax = 125;
+
+export const updateConfigBodyPositionSizeUsdtMax = 1000000;
+
+export const updateConfigBodyRiskPercentMin = 0;
+export const updateConfigBodyRiskPercentMax = 10;
+
+export const updateConfigBodyMaxOpenPositionsMax = 50;
+
+export const updateConfigBodyMaxPortfolioRiskPercentMin = 0.1;
+export const updateConfigBodyMaxPortfolioRiskPercentMax = 100;
+
+export const updateConfigBodyDailyLossLimitUsdtMin = 0;
+
+export const updateConfigBodyMaxSymbolConcentrationPercentMax = 100;
+
+export const updateConfigBodyMaxNetExposurePercentMax = 200;
+
+export const updateConfigBodyMaxCorrelatedExposurePercentMax = 200;
+
+export const updateConfigBodyCorrelationThresholdMin = 0;
+export const updateConfigBodyCorrelationThresholdMax = 1;
+
+export const updateConfigBodyConfidenceThresholdMin = 0;
+export const updateConfigBodyConfidenceThresholdMax = 100;
+
+export const updateConfigBodyStopLossPercentMin = 0.01;
+export const updateConfigBodyStopLossPercentMax = 20;
+
+export const updateConfigBodyTakeProfitPercentMin = 0.3;
+export const updateConfigBodyTakeProfitPercentMax = 100;
+
+export const updateConfigBodyMaxLossUsdtMin = 0.01;
+export const updateConfigBodyMaxLossUsdtMax = 1000000;
+
+export const updateConfigBodyTargetProfitUsdtMin = 0.01;
+export const updateConfigBodyTargetProfitUsdtMax = 1000000;
+
+export const updateConfigBodyCooldownMinutesMin = 0;
+export const updateConfigBodyCooldownMinutesMax = 1440;
+
+export const updateConfigBodyScanIntervalSecondsMin = 5;
+export const updateConfigBodyScanIntervalSecondsMax = 3600;
+
+
+
+export const UpdateConfigBody = zod.object({
+  "marketType": zod.enum(['spot', 'futures', 'forex']).optional(),
+  "leverage": zod.number().min(1).max(updateConfigBodyLeverageMax).optional().describe('Futures leverage multiplier (1 = no leverage). Ignored in spot mode.'),
+  "marginMode": zod.enum(['isolated', 'cross']).optional(),
+  "positionSizeUsdt": zod.number().min(1).max(updateConfigBodyPositionSizeUsdtMax).optional(),
+  "riskPercent": zod.number().min(updateConfigBodyRiskPercentMin).max(updateConfigBodyRiskPercentMax).optional().describe('0 = fixed positionSizeUsdt instead of risk-based sizing. Capped at 10% per trade.'),
+  "maxOpenPositions": zod.number().min(1).max(updateConfigBodyMaxOpenPositionsMax).optional(),
+  "maxPortfolioRiskPercent": zod.number().min(updateConfigBodyMaxPortfolioRiskPercentMin).max(updateConfigBodyMaxPortfolioRiskPercentMax).optional(),
+  "dailyLossLimitUsdt": zod.number().min(updateConfigBodyDailyLossLimitUsdtMin).optional().describe('Stored as a positive magnitude; the circuit breaker trips when dailyPnl <= -this value.'),
+  "maxSymbolConcentrationPercent": zod.number().min(1).max(updateConfigBodyMaxSymbolConcentrationPercentMax).optional().describe('Max notional allowed in a single symbol, as % of balance.'),
+  "maxNetExposurePercent": zod.number().min(1).max(updateConfigBodyMaxNetExposurePercentMax).optional().describe('Max net long-short notional exposure across all open positions, as % of balance.'),
+  "maxCorrelatedExposurePercent": zod.number().min(1).max(updateConfigBodyMaxCorrelatedExposurePercentMax).optional().describe('Max notional across one correlated cluster, as % of balance.'),
+  "correlationThreshold": zod.number().min(updateConfigBodyCorrelationThresholdMin).max(updateConfigBodyCorrelationThresholdMax).optional().describe('Reinforcement level at which two symbols count as the same bet.'),
+  "correlationUnknownPolicy": zod.enum(['allow', 'block']).optional().describe('Policy for pairs with too little shared history to measure.'),
+  "confidenceThreshold": zod.number().min(updateConfigBodyConfidenceThresholdMin).max(updateConfigBodyConfidenceThresholdMax).optional(),
+  "riskModel": zod.enum(['percent', 'dollar']).optional().describe('percent = %-based SL\/TP + riskPercent sizing; dollar = fixed max-loss\/target-profit sizing (maxLossUsdt\/targetProfitUsdt).'),
+  "stopLossPercent": zod.number().min(updateConfigBodyStopLossPercentMin).max(updateConfigBodyStopLossPercentMax).optional(),
+  "takeProfitPercent": zod.number().min(updateConfigBodyTakeProfitPercentMin).max(updateConfigBodyTakeProfitPercentMax).optional().describe('Must clear round-trip trading costs (~0.3% at default fee\/slippage assumptions) â€” see lib\/tradingCosts.ts. A lower value is a guaranteed net loss on every winning trade, confirmed empirically in the Phase 6 audit.'),
+  "maxLossUsdt": zod.number().min(updateConfigBodyMaxLossUsdtMin).max(updateConfigBodyMaxLossUsdtMax).optional().describe('Dollar mode: max dollars to lose on one trade (net of fees).'),
+  "targetProfitUsdt": zod.number().min(updateConfigBodyTargetProfitUsdtMin).max(updateConfigBodyTargetProfitUsdtMax).optional().describe('Dollar mode: desired dollar profit on one trade (net of fees).'),
+  "cooldownMinutes": zod.number().min(updateConfigBodyCooldownMinutesMin).max(updateConfigBodyCooldownMinutesMax).optional(),
+  "scanIntervalSeconds": zod.number().min(updateConfigBodyScanIntervalSecondsMin).max(updateConfigBodyScanIntervalSecondsMax).optional(),
+  "pairs": zod.array(zod.string()).optional(),
+  "executionTarget": zod.enum(['demo', 'live']).optional().describe('Where approved TradePlans execute. \'demo\' = TradeCore\'s internal simulation on live market data (no broker, no API keys, no real money); \'live\' = real orders through the connected broker.'),
+  "mode": zod.enum(['research', 'copilot', 'autopilot']).optional().describe('What happens once a TradePlan exists. \'autopilot\' executes it; \'copilot\' records it for the user to approve; \'research\' never executes. The intelligence pipeline is identical in all three.'),
+  "demoStartingBalanceUsdt": zod.number().optional().describe('Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades.'),
+  "testnet": zod.boolean().optional(),
+  "backtestMode": zod.boolean().optional(),
+  "highFrequencyTestMode": zod.boolean().optional().describe('Testnet\/demo only: when on, the live engine overrides its turnover-limiting gates to generate a high volume of trades for end-to-end testing. Ignored on real-money keys.'),
+  "alertWebhookUrl": zod.string().nullish().describe('Discord \/ Telegram \/ Slack incoming-webhook URL for risk alerts')
+})
+
+export const UpdateConfigResponse = zod.object({
+  "demoDataAvailable": zod.boolean().describe('Whether this section can actually run in Demo on this deployment. Crypto is always true (Binance\'s public endpoints need no credentials). Forex is false unless the platform supplies its own OANDA practice token, because OANDA publishes no public market data â€” so a keyless forex demo is impossible, not merely unconfigured. Read-only; a property of the deployment, not the user.'),
+  "broker": zod.enum(['binance', 'oanda']).describe('Which broker this section\'s engine connects to â€” binance (crypto section) or oanda (forex section). Fixed per section, not user-editable.'),
+  "marketType": zod.enum(['spot', 'futures', 'forex']).describe('Spot (no leverage, long-only), USDâ“ˆ-M Futures (leveraged, long+short), or forex (OANDA, margin-based)'),
+  "leverage": zod.number().describe('Futures leverage multiplier. Ignored in spot mode (always 1).'),
+  "marginMode": zod.enum(['isolated', 'cross']).describe('Futures margin mode. Ignored in spot mode.'),
+  "positionSizeUsdt": zod.number(),
+  "riskPercent": zod.number().describe('% of account balance to risk per trade (0 = fixed positionSizeUsdt)'),
+  "maxOpenPositions": zod.number(),
+  "maxPortfolioRiskPercent": zod.number().describe('Maximum % of total balance across all open positions'),
+  "dailyLossLimitUsdt": zod.number(),
+  "maxSymbolConcentrationPercent": zod.number().describe('Max notional (entry price Ã— qty) allowed in a single symbol, as % of balance. Default 100 (permissive â€” no effective limit) until tightened.'),
+  "maxNetExposurePercent": zod.number().describe('Max net long-short notional exposure across all open positions, as % of balance. Default 200 (permissive â€” no effective limit) until tightened.'),
+  "maxCorrelatedExposurePercent": zod.number().describe('Max notional across one correlated cluster (the candidate plus every open position measured to be the same directional bet), as % of balance. Default 200 (permissive) until tightened.'),
+  "correlationThreshold": zod.number().describe('Reinforcement level (r adjusted for trade direction) at which two symbols count as the same bet.'),
+  "correlationUnknownPolicy": zod.enum(['allow', 'block']).describe('What to do when a pair has too little shared history to measure. Never silently treated as uncorrelated.'),
+  "confidenceThreshold": zod.number(),
+  "riskModel": zod.enum(['percent', 'dollar']).describe('How SL\/TP are decided. \'percent\': SL\/TP are a % of price (stopLossPercent\/takeProfitPercent) and size comes from riskPercent\/positionSizeUsdt. \'dollar\': SL\/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt\/targetProfitUsdt).'),
+  "stopLossPercent": zod.number().describe('Stop-loss distance as a % below entry price (used when riskModel = percent)'),
+  "takeProfitPercent": zod.number().describe('Take-profit distance as a % above entry price (used when riskModel = percent)'),
+  "maxLossUsdt": zod.number().describe('Dollar mode: max dollars to lose on one trade (net of fees)'),
+  "targetProfitUsdt": zod.number().describe('Dollar mode: desired dollar profit on one trade (net of fees)'),
+  "cooldownMinutes": zod.number(),
+  "scanIntervalSeconds": zod.number(),
+  "pairs": zod.array(zod.string()),
+  "executionTarget": zod.enum(['demo', 'live']).describe('Where approved TradePlans execute. \'demo\' = TradeCore\'s internal simulation on live market data (no broker, no API keys, no real money); \'live\' = real orders through the connected broker.'),
+  "mode": zod.enum(['research', 'copilot', 'autopilot']).describe('What happens once a TradePlan exists. \'autopilot\' executes it; \'copilot\' records it for the user to approve; \'research\' never executes. The intelligence pipeline is identical in all three.'),
+  "demoStartingBalanceUsdt": zod.number().describe('Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades.'),
+  "testnet": zod.boolean(),
+  "backtestMode": zod.boolean(),
+  "highFrequencyTestMode": zod.boolean().describe('Testnet\/demo only: when on, the live engine overrides its turnover-limiting gates (cooldown, confidence floor, toxic hours, max positions, daily-loss breaker, max holding time) to generate a high volume of trades for end-to-end testing. Ignored on real-money keys. Not a profitable configuration.'),
+  "alertWebhookUrl": zod.string().nullish().describe('Discord \/ Telegram \/ Slack incoming-webhook URL for risk alerts')
+})
+
+
+/**
+ * Never returns the plaintext API key/secret â€” only whether one is configured and a masked preview (last 4 chars of the key).
+ * @summary Get the logged-in user's Binance credential status
+ */
+export const GetBinanceCredentialsResponse = zod.object({
+  "configured": zod.boolean(),
+  "apiKeyPreview": zod.string().nullable().describe('Last 4 chars of the stored API key, e.g. \"...ab12\" â€” never the full key.'),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * Encrypted at rest (AES-256-GCM) and linked only to the logged-in user's account. Any cached Crypto provider client is invalidated and a desired-running engine reconnects before this operation completes.
+ * @summary Set the logged-in user's Binance API key/secret
+ */
+export const SetBinanceCredentialsBody = zod.object({
+  "apiKey": zod.string(),
+  "apiSecret": zod.string()
+})
+
+export const SetBinanceCredentialsResponse = zod.object({
+  "configured": zod.boolean(),
+  "apiKeyPreview": zod.string().nullable().describe('Last 4 chars of the stored API key, e.g. \"...ab12\" â€” never the full key.'),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary Remove the logged-in user's stored Binance credentials
+ */
+export const DeleteBinanceCredentialsResponse = zod.object({
+  "configured": zod.boolean(),
+  "apiKeyPreview": zod.string().nullable().describe('Last 4 chars of the stored API key, e.g. \"...ab12\" â€” never the full key.'),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * A read-only check against the Crypto section's selected Spot/Futures and Testnet/Live environment. Uses the supplied key pair, or the stored encrypted pair when both fields are omitted. Never places an order and never requires withdrawal permission.
+ * @summary Test Binance authentication, endpoint, account and trading access
+ */
+export const TestBinanceConnectionBody = zod.object({
+  "apiKey": zod.string().optional(),
+  "apiSecret": zod.string().optional()
+})
+
+export const TestBinanceConnectionResponse = zod.object({
+  "ok": zod.literal(true),
+  "provider": zod.enum(['binance', 'oanda']),
+  "environment": zod.string(),
+  "marketType": zod.enum(['spot', 'futures', 'forex']),
+  "accountAccessible": zod.boolean(),
+  "tradingEnabled": zod.boolean().nullable().describe('Null when the provider offers no safe, non-mutating permission probe.'),
+  "serverTimeOffsetMs": zod.number().nullable().describe('Provider time minus this server\'s midpoint time; Binance only.'),
+  "ipRestrictionEnabled": zod.boolean().nullable().describe('Null when the selected provider\/environment does not expose it.'),
+  "permissions": zod.array(zod.string()),
+  "warnings": zod.array(zod.string()),
+  "message": zod.string()
+})
+
+
+/**
+ * Never returns the plaintext token/account id â€” only whether one is configured and a masked preview (last 4 chars of the account id).
+ * @summary Get the logged-in user's OANDA credential status (forex section)
+ */
+export const GetOandaCredentialsResponse = zod.object({
+  "configured": zod.boolean(),
+  "accountIdPreview": zod.string().nullable().describe('Last 4 chars of the stored account id, e.g. \"...4567\" â€” never the full id or token.'),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * Encrypted at rest (AES-256-GCM), same scheme as the Binance keys. Practice vs live is decided by the forex section's paper-trading toggle â€” each OANDA environment only accepts its own tokens. Any cached Forex provider client is invalidated and a desired-running engine reconnects before this operation completes.
+ * @summary Set the logged-in user's OANDA API token + account id
+ */
+export const SetOandaCredentialsBody = zod.object({
+  "apiToken": zod.string(),
+  "accountId": zod.string()
+})
+
+export const SetOandaCredentialsResponse = zod.object({
+  "configured": zod.boolean(),
+  "accountIdPreview": zod.string().nullable().describe('Last 4 chars of the stored account id, e.g. \"...4567\" â€” never the full id or token.'),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary Remove the logged-in user's stored OANDA credentials
+ */
+export const DeleteOandaCredentialsResponse = zod.object({
+  "configured": zod.boolean(),
+  "accountIdPreview": zod.string().nullable().describe('Last 4 chars of the stored account id, e.g. \"...4567\" â€” never the full id or token.'),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * A read-only check against the Forex section's selected Practice/Live environment. Uses the supplied token/account id, or the stored encrypted pair when both fields are omitted. Never places an order.
+ * @summary Test OANDA authentication, environment and account access
+ */
+export const TestOandaConnectionBody = zod.object({
+  "apiToken": zod.string().optional(),
+  "accountId": zod.string().optional()
+})
+
+export const TestOandaConnectionResponse = zod.object({
+  "ok": zod.literal(true),
+  "provider": zod.enum(['binance', 'oanda']),
+  "environment": zod.string(),
+  "marketType": zod.enum(['spot', 'futures', 'forex']),
+  "accountAccessible": zod.boolean(),
+  "tradingEnabled": zod.boolean().nullable().describe('Null when the provider offers no safe, non-mutating permission probe.'),
+  "serverTimeOffsetMs": zod.number().nullable().describe('Provider time minus this server\'s midpoint time; Binance only.'),
+  "ipRestrictionEnabled": zod.boolean().nullable().describe('Null when the selected provider\/environment does not expose it.'),
+  "permissions": zod.array(zod.string()),
+  "warnings": zod.array(zod.string()),
+  "message": zod.string()
+})
+
+
+/**
+ * Sweeps the strategy's real tunable knobs (dollar risk/target, confidence, hold time) with the live-parity backtest engine and walk-forward validates candidates on a held-out window before any suggestion is made. Crypto section only. Poll GET /backtests/autopsy/{id} for progress and the final diagnosis.
+ * @summary Start an Optimization Autopsy for one strategy (async)
+ */
+export const StartAutopsyBody = zod.object({
+  "strategyId": zod.string(),
+  "symbols": zod.array(zod.string()).optional().describe('Defaults to your configured crypto pairs (max 4).'),
+  "timeframe": zod.string().optional().describe('Default 5m.'),
+  "days": zod.number().optional().describe('Total window length (train = first â…”, validation = last â…“). Default 45, range 14-120.')
+})
+
+export const StartAutopsyResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.string()
+})
+
+
+/**
+ * @summary Recent Optimization Autopsies for the logged-in user
+ */
+export const ListAutopsiesResponseItem = zod.object({
+  "id": zod.number().describe('Global DB id â€” for links\/API only, never shown as the run number.'),
+  "displayNo": zod.number().describe('Per-section run number (1..N) shown in the UI.'),
+  "strategyId": zod.string(),
+  "strategyName": zod.string().nullish(),
+  "symbols": zod.array(zod.string()),
+  "timeframe": zod.string(),
+  "trainStart": zod.coerce.date(),
+  "trainEnd": zod.coerce.date(),
+  "valStart": zod.coerce.date(),
+  "valEnd": zod.coerce.date(),
+  "status": zod.enum(['pending', 'running', 'completed', 'failed']),
+  "progress": zod.number(),
+  "stage": zod.string().nullish(),
+  "totalBacktests": zod.number(),
+  "truncated": zod.boolean(),
+  "currentParams": zod.object({
+  "maxLossUsdt": zod.number().nullish(),
+  "targetProfitUsdt": zod.number().nullish(),
+  "confidenceThreshold": zod.number(),
+  "maxHoldingSeconds": zod.number()
+}),
+  "bestParams": zod.union([zod.object({
+  "maxLossUsdt": zod.number().nullish(),
+  "targetProfitUsdt": zod.number().nullish(),
+  "confidenceThreshold": zod.number(),
+  "maxHoldingSeconds": zod.number()
+}),zod.null()]).optional(),
+  "currentTrain": zod.union([zod.object({
+  "totalTrades": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "sharpeRatio": zod.number(),
+  "maxDrawdown": zod.number(),
+  "totalPnl": zod.number(),
+  "exitReasons": zod.record(zod.string(), zod.number())
+}),zod.null()]).optional(),
+  "currentVal": zod.union([zod.object({
+  "totalTrades": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "sharpeRatio": zod.number(),
+  "maxDrawdown": zod.number(),
+  "totalPnl": zod.number(),
+  "exitReasons": zod.record(zod.string(), zod.number())
+}),zod.null()]).optional(),
+  "bestTrain": zod.union([zod.object({
+  "totalTrades": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "sharpeRatio": zod.number(),
+  "maxDrawdown": zod.number(),
+  "totalPnl": zod.number(),
+  "exitReasons": zod.record(zod.string(), zod.number())
+}),zod.null()]).optional(),
+  "bestVal": zod.union([zod.object({
+  "totalTrades": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "sharpeRatio": zod.number(),
+  "maxDrawdown": zod.number(),
+  "totalPnl": zod.number(),
+  "exitReasons": zod.record(zod.string(), zod.number())
+}),zod.null()]).optional(),
+  "verdict": zod.string().nullish(),
+  "diagnosis": zod.union([zod.object({
+  "verdict": zod.enum(['improved', 'no_better', 'insufficient_data']),
+  "summary": zod.string(),
+  "findings": zod.array(zod.object({
+  "param": zod.string(),
+  "label": zod.string(),
+  "current": zod.number().nullish(),
+  "suggested": zod.number().nullish(),
+  "evidence": zod.string(),
+  "action": zod.string()
+}))
+}),zod.null()]).optional(),
+  "error": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.string().nullish()
+})
+export const ListAutopsiesResponse = zod.array(ListAutopsiesResponseItem)
+
+
+/**
+ * @summary One Optimization Autopsy (poll while running)
+ */
+export const GetAutopsyParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetAutopsyResponse = zod.object({
+  "id": zod.number().describe('Global DB id â€” for links\/API only, never shown as the run number.'),
+  "displayNo": zod.number().describe('Per-section run number (1..N) shown in the UI.'),
+  "strategyId": zod.string(),
+  "strategyName": zod.string().nullish(),
+  "symbols": zod.array(zod.string()),
+  "timeframe": zod.string(),
+  "trainStart": zod.coerce.date(),
+  "trainEnd": zod.coerce.date(),
+  "valStart": zod.coerce.date(),
+  "valEnd": zod.coerce.date(),
+  "status": zod.enum(['pending', 'running', 'completed', 'failed']),
+  "progress": zod.number(),
+  "stage": zod.string().nullish(),
+  "totalBacktests": zod.number(),
+  "truncated": zod.boolean(),
+  "currentParams": zod.object({
+  "maxLossUsdt": zod.number().nullish(),
+  "targetProfitUsdt": zod.number().nullish(),
+  "confidenceThreshold": zod.number(),
+  "maxHoldingSeconds": zod.number()
+}),
+  "bestParams": zod.union([zod.object({
+  "maxLossUsdt": zod.number().nullish(),
+  "targetProfitUsdt": zod.number().nullish(),
+  "confidenceThreshold": zod.number(),
+  "maxHoldingSeconds": zod.number()
+}),zod.null()]).optional(),
+  "currentTrain": zod.union([zod.object({
+  "totalTrades": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "sharpeRatio": zod.number(),
+  "maxDrawdown": zod.number(),
+  "totalPnl": zod.number(),
+  "exitReasons": zod.record(zod.string(), zod.number())
+}),zod.null()]).optional(),
+  "currentVal": zod.union([zod.object({
+  "totalTrades": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "sharpeRatio": zod.number(),
+  "maxDrawdown": zod.number(),
+  "totalPnl": zod.number(),
+  "exitReasons": zod.record(zod.string(), zod.number())
+}),zod.null()]).optional(),
+  "bestTrain": zod.union([zod.object({
+  "totalTrades": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "sharpeRatio": zod.number(),
+  "maxDrawdown": zod.number(),
+  "totalPnl": zod.number(),
+  "exitReasons": zod.record(zod.string(), zod.number())
+}),zod.null()]).optional(),
+  "bestVal": zod.union([zod.object({
+  "totalTrades": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "sharpeRatio": zod.number(),
+  "maxDrawdown": zod.number(),
+  "totalPnl": zod.number(),
+  "exitReasons": zod.record(zod.string(), zod.number())
+}),zod.null()]).optional(),
+  "verdict": zod.string().nullish(),
+  "diagnosis": zod.union([zod.object({
+  "verdict": zod.enum(['improved', 'no_better', 'insufficient_data']),
+  "summary": zod.string(),
+  "findings": zod.array(zod.object({
+  "param": zod.string(),
+  "label": zod.string(),
+  "current": zod.number().nullish(),
+  "suggested": zod.number().nullish(),
+  "evidence": zod.string(),
+  "action": zod.string()
+}))
+}),zod.null()]).optional(),
+  "error": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary List all backtest runs
+ */
+export const ListBacktestsResponseItem = zod.object({
+  "id": zod.number().describe('Global DB id â€” for links\/API\/export only, never shown as the run number.'),
+  "displayNo": zod.number().describe('Per-section run number (1..N) shown in the UI.'),
+  "strategyVersion": zod.string(),
+  "strategyName": zod.string(),
+  "symbols": zod.array(zod.string()),
+  "timeframe": zod.string(),
+  "startDate": zod.coerce.date(),
+  "endDate": zod.coerce.date(),
+  "startingBalance": zod.number(),
+  "endingBalance": zod.number().nullish(),
+  "totalReturn": zod.number().nullish(),
+  "totalPnl": zod.number().nullish(),
+  "totalTrades": zod.number().nullish(),
+  "winningTrades": zod.number().nullish(),
+  "losingTrades": zod.number().nullish(),
+  "winRate": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "sharpeRatio": zod.number().nullish(),
+  "sortinoRatio": zod.number().nullish(),
+  "maxDrawdown": zod.number().nullish(),
+  "averageWin": zod.number().nullish(),
+  "averageLoss": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "largestWin": zod.number().nullish(),
+  "largestLoss": zod.number().nullish(),
+  "dailyReturns": zod.unknown().nullish(),
+  "monthlyReturns": zod.unknown().nullish(),
+  "strategyComparison": zod.unknown().nullish(),
+  "effectiveConfig": zod.unknown().nullish().describe('Diagnostic: the actual per-strategy stopLossPercent\/takeProfitPercent, confidenceThreshold, and riskPercent used for this run â€” shape `{ summary: [...per-strategy], runLevelOverrides: {...} }` â€” computed before the simulation started (Phase 5A). See lib\/backtestConfig.ts.'),
+  "params": zod.unknown().nullish(),
+  "status": zod.enum(['pending', 'running', 'completed', 'failed', 'cancelled']),
+  "progress": zod.number(),
+  "error": zod.string().nullish(),
+  "aiAnalysis": zod.unknown().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const ListBacktestsResponse = zod.array(ListBacktestsResponseItem)
+
+
+/**
+ * @summary Start a new backtest (async)
+ */
+export const runBacktestBodyStartingBalanceDefault = 1000;
+export const runBacktestBodyConfidenceThresholdDefault = 65;
+export const runBacktestBodyStopLossPercentDefault = 1.5;
+export const runBacktestBodyTakeProfitPercentDefault = 2.5;
+export const runBacktestBodyTakeProfitPercentMin = 0.3;
+
+export const runBacktestBodyPositionSizeUsdtDefault = 10;
+export const runBacktestBodyMaxOpenPositionsDefault = 5;
+export const runBacktestBodyDailyLossLimitUsdtDefault = 50;
+export const runBacktestBodyRiskPercentDefault = 0;
+export const runBacktestBodyFeeRateDefault = 0.001;
+export const runBacktestBodySlippageRateDefault = 0.0005;
+export const runBacktestBodyMarketTypeDefault = `spot`;
+export const runBacktestBodyLeverageDefault = 1;
+export const runBacktestBodyLeverageMax = 125;
+
+export const runBacktestBodyMarginModeDefault = `isolated`;
+export const runBacktestBodyRiskModelDefault = `percent`;
+export const runBacktestBodyMaxLossUsdtMin = 0.01;
+
+export const runBacktestBodyTargetProfitUsdtMin = 0.01;
+
+export const runBacktestBodyPerStrategyConfigsDefault = true;
+export const runBacktestBodyRrRatioDefault = 0;
+export const runBacktestBodyRrRatioMin = 0;
+export const runBacktestBodyRrRatioMax = 10;
+
+export const runBacktestBodyPureExitsDefault = false;
+export const runBacktestBodyHoldMultiplierDefault = 1;
+export const runBacktestBodyHoldMultiplierMin = 0.1;
+export const runBacktestBodyHoldMultiplierMax = 100;
+
+export const runBacktestBodyMakerEntryDefault = false;
+export const runBacktestBodyMakerEntryFillWindowMinutesDefault = 30;
+export const runBacktestBodyMakerEntryFillWindowMinutesMax = 1440;
+
+
+
+export const RunBacktestBody = zod.object({
+  "symbols": zod.array(zod.string()),
+  "timeframe": zod.enum(['1m', '3m', '5m', '15m', '30m', '1h', '4h', '1d']),
+  "startDate": zod.coerce.date(),
+  "endDate": zod.coerce.date(),
+  "startingBalance": zod.number().default(runBacktestBodyStartingBalanceDefault),
+  "confidenceThreshold": zod.number().default(runBacktestBodyConfidenceThresholdDefault),
+  "stopLossPercent": zod.number().default(runBacktestBodyStopLossPercentDefault).describe('Stop-loss distance as a % below entry (Phase 5A â€” replaces atrMultiplierSl)'),
+  "takeProfitPercent": zod.number().min(runBacktestBodyTakeProfitPercentMin).default(runBacktestBodyTakeProfitPercentDefault).describe('Take-profit distance as a % above entry (Phase 5A â€” replaces atrMultiplierTp). Minimum clears round-trip trading costs â€” see lib\/tradingCosts.ts.'),
+  "positionSizeUsdt": zod.number().default(runBacktestBodyPositionSizeUsdtDefault),
+  "maxOpenPositions": zod.number().default(runBacktestBodyMaxOpenPositionsDefault),
+  "dailyLossLimitUsdt": zod.number().default(runBacktestBodyDailyLossLimitUsdtDefault),
+  "riskPercent": zod.number().default(runBacktestBodyRiskPercentDefault).describe('0 = use each strategy\'s own configured risk% (no override). Any other value overrides risk% for every strategy in this run. (Bug fix: this field was already read by the backend but was missing from this schema and had no UI field â€” see CHANGES.md.)'),
+  "feeRate": zod.number().default(runBacktestBodyFeeRateDefault),
+  "slippageRate": zod.number().default(runBacktestBodySlippageRateDefault),
+  "marketType": zod.enum(['spot', 'futures']).default(runBacktestBodyMarketTypeDefault).describe('futures models isolated-margin liquidation (leverage affects liquidation risk only, not position size â€” matches live sizing).'),
+  "leverage": zod.number().min(1).max(runBacktestBodyLeverageMax).default(runBacktestBodyLeverageDefault).describe('Futures leverage. Only affects liquidation risk in the backtest, not position size.'),
+  "marginMode": zod.enum(['isolated', 'cross']).default(runBacktestBodyMarginModeDefault),
+  "riskModel": zod.enum(['percent', 'dollar']).default(runBacktestBodyRiskModelDefault).describe('dollar = size each trade from a fixed max-loss\/target-profit (maxLossUsdt\/targetProfitUsdt) using the SAME planner as the live engine, so the backtest reflects live dollar-model trading. percent (default) = %-based SL\/TP as before.'),
+  "maxLossUsdt": zod.number().min(runBacktestBodyMaxLossUsdtMin).optional().describe('Dollar mode only: max dollars to lose per trade (net of fees).'),
+  "targetProfitUsdt": zod.number().min(runBacktestBodyTargetProfitUsdtMin).optional().describe('Dollar mode only: desired dollar profit per trade (net of fees).'),
+  "onlyStrategyId": zod.string().optional().describe('Test ONE strategy in isolation: it is force-enabled (even if disabled for live) and all others disabled for this run, using its own saved config (SL\/TP or dollar plan). Omit to run every enabled strategy.'),
+  "perStrategyConfigs": zod.boolean().default(runBacktestBodyPerStrategyConfigsDefault).describe('true (default): each strategy uses its own SL\/TP\/confidence, matching live. false: flatten every strategy to the run-level stopLossPercent\/takeProfitPercent\/confidenceThreshold (a single-config sweep). Ignored (forced true) when onlyStrategyId is set.'),
+  "rrRatio": zod.number().min(runBacktestBodyRrRatioMin).max(runBacktestBodyRrRatioMax).default(runBacktestBodyRrRatioDefault).describe('Faithful mode only: reshape every strategy to TP = its own SL Ã— this ratio (e.g. 3 â†’ 1:3 reward:risk), keeping everything else per-strategy. 0 = off. The volatility-adaptive cap preserves the ratio when it shrinks targets.'),
+  "pureExits": zod.boolean().default(runBacktestBodyPureExitsDefault).describe('Faithful mode only: disable TP1 partials, break-even, and trailing stops so trades resolve only at the full SL or TP. Required to evaluate asymmetric-R:R styles, which the management layer otherwise clips at ~1R.'),
+  "holdMultiplier": zod.number().min(runBacktestBodyHoldMultiplierMin).max(runBacktestBodyHoldMultiplierMax).default(runBacktestBodyHoldMultiplierDefault).describe('Faithful mode only: multiply every strategy\'s maxHoldingSeconds (swing-profile test). Adaptive targets grow ~âˆšhold, so per-trade moves get larger while the roughly-fixed per-trade fee shrinks in proportion. 1 = off.'),
+  "makerEntry": zod.boolean().default(runBacktestBodyMakerEntryDefault).describe('Model entries as post-only MAKER limit orders instead of taker markets. The limit rests at the signal price and only becomes a position if a later candle trades through it within makerEntryFillWindowMinutes; otherwise the entry is MISSED. On fill there is no adverse entry slippage and the maker fee applies; take-profit exits (resting limits) are also charged the maker rate. Trades cheaper\/better fills against missed trades â€” the honest way to test whether an edge survives real fees.'),
+  "makerFeeRate": zod.number().optional().describe('Maker fee for passive fills (default when makerEntry is on: 0.0002 futures \/ 0.001 spot). Ignored unless makerEntry is on. Defaults to feeRate otherwise, so non-maker runs are unchanged.'),
+  "makerEntryFillWindowMinutes": zod.number().min(1).max(runBacktestBodyMakerEntryFillWindowMinutesMax).default(runBacktestBodyMakerEntryFillWindowMinutesDefault).describe('How long a maker-entry limit rests before it\'s cancelled unfilled. Only used when makerEntry is on.')
+})
+
+export const RunBacktestResponse = zod.object({
+  "runId": zod.number(),
+  "status": zod.string()
+})
+
+
+/**
+ * @summary Start parameter optimization (async)
+ */
+export const optimizeBacktestBodyStartingBalanceDefault = 1000;
+export const optimizeBacktestBodyRankByDefault = `profitFactor`;
+
+export const OptimizeBacktestBody = zod.object({
+  "symbols": zod.array(zod.string()),
+  "timeframe": zod.enum(['1m', '3m', '5m', '15m', '30m', '1h', '4h', '1d']),
+  "startDate": zod.coerce.date(),
+  "endDate": zod.coerce.date(),
+  "startingBalance": zod.number().default(optimizeBacktestBodyStartingBalanceDefault),
+  "confidenceThresholds": zod.array(zod.number()).optional(),
+  "stopLossPercents": zod.array(zod.number()).optional().describe('Stop-loss % values to grid-search (Phase 5A â€” replaces atrMultiplierSls)'),
+  "takeProfitPercents": zod.array(zod.number()).optional().describe('Take-profit % values to grid-search (Phase 5A â€” replaces atrMultiplierTps)'),
+  "positionSizeUsdts": zod.array(zod.number()).optional(),
+  "rankBy": zod.enum(['pnl', 'profitFactor', 'sharpeRatio', 'winRate', 'maxDrawdown']).default(optimizeBacktestBodyRankByDefault)
+})
+
+export const OptimizeBacktestResponse = zod.object({
+  "runId": zod.number(),
+  "status": zod.string()
+})
+
+
+/**
+ * @summary Get backtest run detail (run + trades + equity curve)
+ */
+export const GetBacktestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetBacktestResponse = zod.object({
+  "run": zod.object({
+  "id": zod.number().describe('Global DB id â€” for links\/API\/export only, never shown as the run number.'),
+  "displayNo": zod.number().describe('Per-section run number (1..N) shown in the UI.'),
+  "strategyVersion": zod.string(),
+  "strategyName": zod.string(),
+  "symbols": zod.array(zod.string()),
+  "timeframe": zod.string(),
+  "startDate": zod.coerce.date(),
+  "endDate": zod.coerce.date(),
+  "startingBalance": zod.number(),
+  "endingBalance": zod.number().nullish(),
+  "totalReturn": zod.number().nullish(),
+  "totalPnl": zod.number().nullish(),
+  "totalTrades": zod.number().nullish(),
+  "winningTrades": zod.number().nullish(),
+  "losingTrades": zod.number().nullish(),
+  "winRate": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "sharpeRatio": zod.number().nullish(),
+  "sortinoRatio": zod.number().nullish(),
+  "maxDrawdown": zod.number().nullish(),
+  "averageWin": zod.number().nullish(),
+  "averageLoss": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "largestWin": zod.number().nullish(),
+  "largestLoss": zod.number().nullish(),
+  "dailyReturns": zod.unknown().nullish(),
+  "monthlyReturns": zod.unknown().nullish(),
+  "strategyComparison": zod.unknown().nullish(),
+  "effectiveConfig": zod.unknown().nullish().describe('Diagnostic: the actual per-strategy stopLossPercent\/takeProfitPercent, confidenceThreshold, and riskPercent used for this run â€” shape `{ summary: [...per-strategy], runLevelOverrides: {...} }` â€” computed before the simulation started (Phase 5A). See lib\/backtestConfig.ts.'),
+  "params": zod.unknown().nullish(),
+  "status": zod.enum(['pending', 'running', 'completed', 'failed', 'cancelled']),
+  "progress": zod.number(),
+  "error": zod.string().nullish(),
+  "aiAnalysis": zod.unknown().nullish(),
+  "createdAt": zod.coerce.date()
+}),
+  "trades": zod.array(zod.object({
+  "id": zod.number(),
+  "runId": zod.number(),
+  "symbol": zod.string(),
+  "side": zod.string(),
+  "strategyId": zod.string().nullish(),
+  "strategyName": zod.string().nullish(),
+  "entryTime": zod.coerce.date(),
+  "exitTime": zod.coerce.date().nullish(),
+  "entryPrice": zod.number(),
+  "exitPrice": zod.number().nullish(),
+  "quantity": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "slPercent": zod.number().nullish(),
+  "tpPercent": zod.number().nullish(),
+  "fees": zod.number().nullish(),
+  "slippage": zod.number().nullish(),
+  "pnl": zod.number().nullish(),
+  "grossPnl": zod.number().nullish(),
+  "pnlPercent": zod.number().nullish(),
+  "confidence": zod.number().nullish(),
+  "exitReason": zod.string().nullish(),
+  "durationSeconds": zod.number().nullish(),
+  "mfe": zod.number().nullish(),
+  "mae": zod.number().nullish(),
+  "riskReward": zod.number().nullish(),
+  "tp1Price": zod.number().nullish(),
+  "tp1Filled": zod.boolean().optional(),
+  "tp1FillPrice": zod.number().nullish(),
+  "tp2Price": zod.number().nullish(),
+  "tp2Filled": zod.boolean().optional(),
+  "tp2FillPrice": zod.number().nullish(),
+  "breakEvenActive": zod.boolean().optional(),
+  "trailingStopActive": zod.boolean().optional(),
+  "trailingStopMode": zod.string().nullish()
+})),
+  "equityCurve": zod.array(zod.object({
+  "timestamp": zod.coerce.date(),
+  "balance": zod.number(),
+  "drawdown": zod.number()
+})),
+  "optimizationResults": zod.array(zod.object({
+  "id": zod.number(),
+  "parameterSet": zod.object({
+
+}).passthrough(),
+  "score": zod.number(),
+  "winRate": zod.number(),
+  "pnl": zod.number(),
+  "drawdown": zod.number(),
+  "profitFactor": zod.number(),
+  "totalTrades": zod.number()
+}))
+})
+
+
+/**
+ * @summary Delete a backtest run and all its data
+ */
+export const DeleteBacktestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteBacktestResponse = zod.object({
+  "deleted": zod.boolean()
+})
+
+
+/**
+ * Returns all 6 built-in strategies with their current configuration and lifetime performance metrics
+ * @summary List all strategies with config and performance
+ */
+export const GetStrategiesResponseItem = zod.object({
+  "strategyId": zod.string(),
+  "strategyName": zod.string(),
+  "supportedRegimes": zod.array(zod.string()),
+  "indicators": zod.array(zod.string()).describe('The indicators this strategy reads, human-readable with timeframe.'),
+  "decisionMaker": zod.boolean().describe('True when the strategy is a native decision-maker owning its full TradePlan (leverage, structural stop, duration, written reasoning).'),
+  "config": zod.object({
+  "strategyId": zod.string(),
+  "enabled": zod.boolean(),
+  "tradeAmountUsdt": zod.number().nullish().describe('Dollar trade plan: spot notional \/ futures margin per trade. null â†’ global positionSizeUsdt.'),
+  "maxLossUsdt": zod.number().nullish().describe('Dollar trade plan: max dollars to lose on one trade (net of fees). With targetProfitUsdt set, this strategy trades the dollar risk model.'),
+  "targetProfitUsdt": zod.number().nullish().describe('Dollar trade plan: desired dollar profit for one trade (net of fees).'),
+  "riskPercent": zod.number().describe('% of account balance to risk per trade'),
+  "confidenceThreshold": zod.number().describe('Minimum confidence score 0â€“100 required to enter'),
+  "stopLossPercent": zod.number().describe('Stop-loss distance as a % below entry price (Phase 5A â€” replaces atrMultiplierSl)'),
+  "takeProfitPercent": zod.number().describe('Take-profit distance as a % above entry price (Phase 5A â€” replaces atrMultiplierTp)'),
+  "maxHoldingSeconds": zod.number(),
+  "maxConcurrentPositions": zod.number(),
+  "cooldownMinutes": zod.number(),
+  "breakEvenRMultiple": zod.number().optional().describe('Pre-TP1 break-even arm: at this many R of unrealized profit the stop moves to entry â€” the trade can no longer lose. 0 disables.'),
+  "tp1RMultiple": zod.number().optional().describe('R-multiple at which TP1 banks a partial and moves the stop to break-even. 0 = single TP.')
+}),
+  "performance": zod.object({
+  "totalTrades": zod.number(),
+  "winningTrades": zod.number(),
+  "losingTrades": zod.number(),
+  "winRate": zod.number().nullish(),
+  "totalPnl": zod.number(),
+  "avgWin": zod.number(),
+  "avgLoss": zod.number(),
+  "avgDurationSeconds": zod.number()
+}),
+  "custom": zod.boolean().optional().describe('True when this is a user-built custom strategy (no-code builder), not a built-in.'),
+  "customId": zod.number().optional().describe('The custom strategy\'s numeric id (for \/custom-strategies\/{id} CRUD). Present only when custom.'),
+  "backtested": zod.boolean().optional().describe('Custom strategies only â€” true once a single-strategy backtest of the CURRENT rules has completed (required before live enable).')
+})
+export const GetStrategiesResponse = zod.array(GetStrategiesResponseItem)
+
+
+/**
+ * @summary List this user's custom strategies (section-scoped)
+ */
+export const GetCustomStrategiesResponseItem = zod.object({
+  "id": zod.number(),
+  "strategyId": zod.string().describe('Engine-facing id, custom_<id> â€” the key used on \/strategies, backtests and autopsies.'),
+  "section": zod.enum(['crypto', 'forex']),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "rules": zod.object({
+  "long": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison â€” gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.'),
+  "short": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison â€” gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.'),
+  "stop": zod.object({
+  "mode": zod.enum(['atr', 'percent', 'swing']),
+  "atrMult": zod.number().optional().describe('atr mode â€” stop at N Ã— ATR from entry (0.5â€“10).'),
+  "pct": zod.number().optional().describe('percent mode â€” fixed % distance from entry (0.05â€“20).'),
+  "lookback": zod.number().optional().describe('swing mode â€” lowest low \/ highest high of the last N 15m bars (3â€“50).')
+}),
+  "confidence": zod.number().describe('Static plan confidence (50â€“95); the per-strategy confidence threshold still applies on top.')
+}),
+  "indicators": zod.array(zod.string()).describe('Human-readable rendering of the rules (\"LONG when RSI < 30 â€¦\").'),
+  "rulesValid": zod.boolean(),
+  "backtested": zod.boolean().describe('True once a single-strategy backtest of the CURRENT rules completed. Editing rules resets this â€” and live enablement requires it.'),
+  "lastBacktestAt": zod.coerce.date().nullish(),
+  "rulesUpdatedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const GetCustomStrategiesResponse = zod.array(GetCustomStrategiesResponseItem)
+
+
+/**
+ * Rules are validated server-side against the builder's bounded indicator vocabulary. The new strategy starts DISABLED with no dollar plan, and must complete a single-strategy backtest before it can be enabled for live trading.
+ * @summary Create a custom strategy (no-code builder)
+ */
+export const createCustomStrategyBodyNameMax = 60;
+
+export const createCustomStrategyBodyDescriptionMax = 500;
+
+
+
+export const CreateCustomStrategyBody = zod.object({
+  "name": zod.string().min(1).max(createCustomStrategyBodyNameMax),
+  "description": zod.string().max(createCustomStrategyBodyDescriptionMax).optional(),
+  "rules": zod.object({
+  "long": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison â€” gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.'),
+  "short": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison â€” gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.'),
+  "stop": zod.object({
+  "mode": zod.enum(['atr', 'percent', 'swing']),
+  "atrMult": zod.number().optional().describe('atr mode â€” stop at N Ã— ATR from entry (0.5â€“10).'),
+  "pct": zod.number().optional().describe('percent mode â€” fixed % distance from entry (0.05â€“20).'),
+  "lookback": zod.number().optional().describe('swing mode â€” lowest low \/ highest high of the last N 15m bars (3â€“50).')
+}),
+  "confidence": zod.number().describe('Static plan confidence (50â€“95); the per-strategy confidence threshold still applies on top.')
+})
+})
+
+export const CreateCustomStrategyResponse = zod.object({
+  "id": zod.number(),
+  "strategyId": zod.string().describe('Engine-facing id, custom_<id> â€” the key used on \/strategies, backtests and autopsies.'),
+  "section": zod.enum(['crypto', 'forex']),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "rules": zod.object({
+  "long": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison â€” gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.'),
+  "short": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison â€” gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.'),
+  "stop": zod.object({
+  "mode": zod.enum(['atr', 'percent', 'swing']),
+  "atrMult": zod.number().optional().describe('atr mode â€” stop at N Ã— ATR from entry (0.5â€“10).'),
+  "pct": zod.number().optional().describe('percent mode â€” fixed % distance from entry (0.05â€“20).'),
+  "lookback": zod.number().optional().describe('swing mode â€” lowest low \/ highest high of the last N 15m bars (3â€“50).')
+}),
+  "confidence": zod.number().describe('Static plan confidence (50â€“95); the per-strategy confidence threshold still applies on top.')
+}),
+  "indicators": zod.array(zod.string()).describe('Human-readable rendering of the rules (\"LONG when RSI < 30 â€¦\").'),
+  "rulesValid": zod.boolean(),
+  "backtested": zod.boolean().describe('True once a single-strategy backtest of the CURRENT rules completed. Editing rules resets this â€” and live enablement requires it.'),
+  "lastBacktestAt": zod.coerce.date().nullish(),
+  "rulesUpdatedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * Editing the rules resets the backtest stamp â€” the strategy must be re-backtested before it can be (re-)enabled for live trading.
+ * @summary Update a custom strategy
+ */
+export const UpdateCustomStrategyParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const updateCustomStrategyBodyNameMax = 60;
+
+export const updateCustomStrategyBodyDescriptionMax = 500;
+
+
+
+export const UpdateCustomStrategyBody = zod.object({
+  "name": zod.string().min(1).max(updateCustomStrategyBodyNameMax).optional(),
+  "description": zod.string().max(updateCustomStrategyBodyDescriptionMax).nullish(),
+  "rules": zod.object({
+  "long": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison â€” gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.'),
+  "short": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison â€” gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.'),
+  "stop": zod.object({
+  "mode": zod.enum(['atr', 'percent', 'swing']),
+  "atrMult": zod.number().optional().describe('atr mode â€” stop at N Ã— ATR from entry (0.5â€“10).'),
+  "pct": zod.number().optional().describe('percent mode â€” fixed % distance from entry (0.05â€“20).'),
+  "lookback": zod.number().optional().describe('swing mode â€” lowest low \/ highest high of the last N 15m bars (3â€“50).')
+}),
+  "confidence": zod.number().describe('Static plan confidence (50â€“95); the per-strategy confidence threshold still applies on top.')
+}).optional()
+})
+
+export const UpdateCustomStrategyResponse = zod.object({
+  "id": zod.number(),
+  "strategyId": zod.string().describe('Engine-facing id, custom_<id> â€” the key used on \/strategies, backtests and autopsies.'),
+  "section": zod.enum(['crypto', 'forex']),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "rules": zod.object({
+  "long": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison â€” gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a long. Omit to disable longs.'),
+  "short": zod.array(zod.object({
+  "indicator": zod.string().describe('One of the builder\'s indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50).'),
+  "op": zod.enum(['gt', 'gte', 'lt', 'lte', 'eq']).describe('Comparison â€” gt\/gte\/lt\/lte for numeric indicators, eq for enum\/boolean ones.'),
+  "value": zod.union([zod.number(),zod.string()]).describe('Number for numeric indicators; string for enum\/boolean ones (\"true\"\/\"false\" or a regime name).')
+})).optional().describe('AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts.'),
+  "stop": zod.object({
+  "mode": zod.enum(['atr', 'percent', 'swing']),
+  "atrMult": zod.number().optional().describe('atr mode â€” stop at N Ã— ATR from entry (0.5â€“10).'),
+  "pct": zod.number().optional().describe('percent mode â€” fixed % distance from entry (0.05â€“20).'),
+  "lookback": zod.number().optional().describe('swing mode â€” lowest low \/ highest high of the last N 15m bars (3â€“50).')
+}),
+  "confidence": zod.number().describe('Static plan confidence (50â€“95); the per-strategy confidence threshold still applies on top.')
+}),
+  "indicators": zod.array(zod.string()).describe('Human-readable rendering of the rules (\"LONG when RSI < 30 â€¦\").'),
+  "rulesValid": zod.boolean(),
+  "backtested": zod.boolean().describe('True once a single-strategy backtest of the CURRENT rules completed. Editing rules resets this â€” and live enablement requires it.'),
+  "lastBacktestAt": zod.coerce.date().nullish(),
+  "rulesUpdatedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a custom strategy (and its risk/exit config)
+ */
+export const DeleteCustomStrategyParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteCustomStrategyResponse = zod.object({
+  "success": zod.boolean(),
+  "strategyId": zod.string()
+})
+
+
+/**
+ * Translates the unchanged Brain V0 strategy results into evidence-linked specialist opinions. Correlation discounts are informational and this endpoint has no execution authority.
+ * @summary Get observational specialist opinions
+ */
+export const getSpecialistCouncilResponseMarketStateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getSpecialistCouncilResponseConsensusLongScoreMin = 0;
+
+export const getSpecialistCouncilResponseConsensusShortScoreMin = 0;
+
+export const getSpecialistCouncilResponseConsensusActionableOpinionsMin = 0;
+
+export const getSpecialistCouncilResponseConsensusAbstentionsMin = 0;
+
+export const getSpecialistCouncilResponseOpinionsItemCorrelationDiscountMin = 0;
+export const getSpecialistCouncilResponseOpinionsItemCorrelationDiscountMax = 1;
+
+export const getSpecialistCouncilResponseOpinionsItemEffectiveStrengthMin = 0;
+export const getSpecialistCouncilResponseOpinionsItemEffectiveStrengthMax = 1;
+
+export const getSpecialistCouncilResponseOpinionsItemOpinionMarketStateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getSpecialistCouncilResponseOpinionsItemOpinionStrengthMin = 0;
+export const getSpecialistCouncilResponseOpinionsItemOpinionStrengthMax = 1;
+
+
+export const getSpecialistCouncilResponseOpinionsItemOpinionSupportingEvidenceItemEvidenceIdMax = 160;
+
+export const getSpecialistCouncilResponseOpinionsItemOpinionSupportingEvidenceItemSourceMax = 120;
+
+export const getSpecialistCouncilResponseOpinionsItemOpinionSupportingEvidenceItemSummaryMax = 1000;
+
+export const getSpecialistCouncilResponseOpinionsItemOpinionSupportingEvidenceItemReferenceMax = 500;
+
+export const getSpecialistCouncilResponseOpinionsItemOpinionSupportingEvidenceItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getSpecialistCouncilResponseOpinionsItemOpinionSupportingEvidenceItemStrengthMin = 0;
+export const getSpecialistCouncilResponseOpinionsItemOpinionSupportingEvidenceItemStrengthMax = 1;
+
+export const getSpecialistCouncilResponseOpinionsItemOpinionSupportingEvidenceMax = 50;
+
+export const getSpecialistCouncilResponseOpinionsItemOpinionOpposingEvidenceItemEvidenceIdMax = 160;
+
+export const getSpecialistCouncilResponseOpinionsItemOpinionOpposingEvidenceItemSourceMax = 120;
+
+export const getSpecialistCouncilResponseOpinionsItemOpinionOpposingEvidenceItemSummaryMax = 1000;
+
+export const getSpecialistCouncilResponseOpinionsItemOpinionOpposingEvidenceItemReferenceMax = 500;
+
+export const getSpecialistCouncilResponseOpinionsItemOpinionOpposingEvidenceItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getSpecialistCouncilResponseOpinionsItemOpinionOpposingEvidenceItemStrengthMin = 0;
+export const getSpecialistCouncilResponseOpinionsItemOpinionOpposingEvidenceItemStrengthMax = 1;
+
+export const getSpecialistCouncilResponseOpinionsItemOpinionOpposingEvidenceMax = 50;
+
+export const getSpecialistCouncilResponseOpinionsItemOpinionInvalidationConditionsMax = 20;
+
+
+export const getSpecialistCouncilResponseOpinionsItemOpinionProposedRewardRiskExclusiveMin = 0;
+
+export const getSpecialistCouncilResponseOpinionsItemOpinionUncertaintyMin = 0;
+export const getSpecialistCouncilResponseOpinionsItemOpinionUncertaintyMax = 1;
+
+
+
+export const GetSpecialistCouncilResponseItem = zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "councilVersion": zod.enum(['specialist-council-v1']),
+  "mode": zod.enum(['observational']),
+  "cannotExecute": zod.boolean(),
+  "symbol": zod.string(),
+  "marketStateFingerprint": zod.string().regex(getSpecialistCouncilResponseMarketStateFingerprintRegExp),
+  "dataTimestamp": zod.coerce.date(),
+  "generatedAt": zod.coerce.date(),
+  "consensus": zod.object({
+  "stance": zod.enum(['long', 'short', 'mixed', 'abstain']),
+  "longScore": zod.number().min(getSpecialistCouncilResponseConsensusLongScoreMin),
+  "shortScore": zod.number().min(getSpecialistCouncilResponseConsensusShortScoreMin),
+  "actionableOpinions": zod.number().min(getSpecialistCouncilResponseConsensusActionableOpinionsMin),
+  "abstentions": zod.number().min(getSpecialistCouncilResponseConsensusAbstentionsMin),
+  "disagreement": zod.boolean(),
+  "explanation": zod.string()
+}),
+  "opinions": zod.array(zod.object({
+  "role": zod.enum(['trend', 'breakout', 'mean_reversion', 'volatility', 'market_structure', 'execution_quality', 'portfolio_conflict']),
+  "correlationGroup": zod.string(),
+  "correlationDiscount": zod.number().min(getSpecialistCouncilResponseOpinionsItemCorrelationDiscountMin).max(getSpecialistCouncilResponseOpinionsItemCorrelationDiscountMax),
+  "effectiveStrength": zod.number().min(getSpecialistCouncilResponseOpinionsItemEffectiveStrengthMin).max(getSpecialistCouncilResponseOpinionsItemEffectiveStrengthMax),
+  "operationalStatus": zod.enum(['active', 'abstained']),
+  "opinion": zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "opinionId": zod.string().uuid(),
+  "specialistId": zod.string(),
+  "specialistVersion": zod.string(),
+  "marketStateFingerprint": zod.string().regex(getSpecialistCouncilResponseOpinionsItemOpinionMarketStateFingerprintRegExp),
+  "symbol": zod.string(),
+  "stance": zod.enum(['long', 'short', 'neutral', 'abstain']),
+  "strength": zod.number().min(getSpecialistCouncilResponseOpinionsItemOpinionStrengthMin).max(getSpecialistCouncilResponseOpinionsItemOpinionStrengthMax),
+  "applicableRegimes": zod.array(zod.string()).min(1),
+  "supportingEvidence": zod.array(zod.object({
+  "evidenceId": zod.string().min(1).max(getSpecialistCouncilResponseOpinionsItemOpinionSupportingEvidenceItemEvidenceIdMax),
+  "kind": zod.enum(['observation', 'specialist', 'statistical', 'memory', 'portfolio', 'execution']),
+  "source": zod.string().min(1).max(getSpecialistCouncilResponseOpinionsItemOpinionSupportingEvidenceItemSourceMax),
+  "summary": zod.string().min(1).max(getSpecialistCouncilResponseOpinionsItemOpinionSupportingEvidenceItemSummaryMax),
+  "reference": zod.string().min(1).max(getSpecialistCouncilResponseOpinionsItemOpinionSupportingEvidenceItemReferenceMax),
+  "fingerprint": zod.string().regex(getSpecialistCouncilResponseOpinionsItemOpinionSupportingEvidenceItemFingerprintRegExp).optional(),
+  "dataTimestamp": zod.coerce.date(),
+  "strength": zod.number().min(getSpecialistCouncilResponseOpinionsItemOpinionSupportingEvidenceItemStrengthMin).max(getSpecialistCouncilResponseOpinionsItemOpinionSupportingEvidenceItemStrengthMax)
+})).max(getSpecialistCouncilResponseOpinionsItemOpinionSupportingEvidenceMax),
+  "opposingEvidence": zod.array(zod.object({
+  "evidenceId": zod.string().min(1).max(getSpecialistCouncilResponseOpinionsItemOpinionOpposingEvidenceItemEvidenceIdMax),
+  "kind": zod.enum(['observation', 'specialist', 'statistical', 'memory', 'portfolio', 'execution']),
+  "source": zod.string().min(1).max(getSpecialistCouncilResponseOpinionsItemOpinionOpposingEvidenceItemSourceMax),
+  "summary": zod.string().min(1).max(getSpecialistCouncilResponseOpinionsItemOpinionOpposingEvidenceItemSummaryMax),
+  "reference": zod.string().min(1).max(getSpecialistCouncilResponseOpinionsItemOpinionOpposingEvidenceItemReferenceMax),
+  "fingerprint": zod.string().regex(getSpecialistCouncilResponseOpinionsItemOpinionOpposingEvidenceItemFingerprintRegExp).optional(),
+  "dataTimestamp": zod.coerce.date(),
+  "strength": zod.number().min(getSpecialistCouncilResponseOpinionsItemOpinionOpposingEvidenceItemStrengthMin).max(getSpecialistCouncilResponseOpinionsItemOpinionOpposingEvidenceItemStrengthMax)
+})).max(getSpecialistCouncilResponseOpinionsItemOpinionOpposingEvidenceMax),
+  "trigger": zod.string().nullable(),
+  "invalidationConditions": zod.array(zod.string()).max(getSpecialistCouncilResponseOpinionsItemOpinionInvalidationConditionsMax),
+  "expectedDurationSeconds": zod.number().min(1).nullable(),
+  "proposedRewardRisk": zod.number().gt(getSpecialistCouncilResponseOpinionsItemOpinionProposedRewardRiskExclusiveMin).nullable(),
+  "uncertainty": zod.number().min(getSpecialistCouncilResponseOpinionsItemOpinionUncertaintyMin).max(getSpecialistCouncilResponseOpinionsItemOpinionUncertaintyMax),
+  "abstentionReason": zod.string().nullable(),
+  "dataTimestamp": zod.coerce.date(),
+  "expiresAt": zod.coerce.date()
+})
+}))
+})
+export const GetSpecialistCouncilResponse = zod.array(GetSpecialistCouncilResponseItem)
+
+
+/**
+ * Returns the append-only current engine projection for the unified Decision Council. Every result is Shadow-only and structurally cannot execute or alter Brain V0.
+ * @summary Get current Shadow Decision Council runs
+ */
+export const getShadowDecisionCouncilResponseInputFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getShadowDecisionCouncilResponseRunFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getShadowDecisionCouncilResponseDecisionSymbolMax = 80;
+
+export const getShadowDecisionCouncilResponseDecisionMarketStateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getShadowDecisionCouncilResponseDecisionSupportingEvidenceItemEvidenceIdMax = 160;
+
+export const getShadowDecisionCouncilResponseDecisionSupportingEvidenceItemSourceMax = 120;
+
+export const getShadowDecisionCouncilResponseDecisionSupportingEvidenceItemSummaryMax = 1000;
+
+export const getShadowDecisionCouncilResponseDecisionSupportingEvidenceItemReferenceMax = 500;
+
+export const getShadowDecisionCouncilResponseDecisionSupportingEvidenceItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getShadowDecisionCouncilResponseDecisionSupportingEvidenceItemStrengthMin = 0;
+export const getShadowDecisionCouncilResponseDecisionSupportingEvidenceItemStrengthMax = 1;
+
+export const getShadowDecisionCouncilResponseDecisionSupportingEvidenceMax = 100;
+
+export const getShadowDecisionCouncilResponseDecisionOpposingEvidenceItemEvidenceIdMax = 160;
+
+export const getShadowDecisionCouncilResponseDecisionOpposingEvidenceItemSourceMax = 120;
+
+export const getShadowDecisionCouncilResponseDecisionOpposingEvidenceItemSummaryMax = 1000;
+
+export const getShadowDecisionCouncilResponseDecisionOpposingEvidenceItemReferenceMax = 500;
+
+export const getShadowDecisionCouncilResponseDecisionOpposingEvidenceItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getShadowDecisionCouncilResponseDecisionOpposingEvidenceItemStrengthMin = 0;
+export const getShadowDecisionCouncilResponseDecisionOpposingEvidenceItemStrengthMax = 1;
+
+export const getShadowDecisionCouncilResponseDecisionOpposingEvidenceMax = 100;
+
+export const getShadowDecisionCouncilResponseDecisionUncertaintyScoreMin = 0;
+export const getShadowDecisionCouncilResponseDecisionUncertaintyScoreMax = 1;
+
+export const getShadowDecisionCouncilResponseDecisionUncertaintyReasonsItemMax = 500;
+
+export const getShadowDecisionCouncilResponseDecisionUncertaintyReasonsMax = 20;
+
+export const getShadowDecisionCouncilResponseDecisionInvalidationConditionsItemMax = 500;
+
+export const getShadowDecisionCouncilResponseDecisionInvalidationConditionsMax = 20;
+
+export const getShadowDecisionCouncilResponseDecisionReasonCodeRegExp = new RegExp('^[A-Z0-9_]{3,120}$');
+export const getShadowDecisionCouncilResponseDecisionProposedTradeOneStrategyIdMax = 120;
+
+export const getShadowDecisionCouncilResponseDecisionProposedTradeOneStrategyNameMax = 200;
+
+export const getShadowDecisionCouncilResponseDecisionProposedTradeOneSymbolMax = 80;
+
+export const getShadowDecisionCouncilResponseDecisionProposedTradeOneConfidenceMin = 0;
+export const getShadowDecisionCouncilResponseDecisionProposedTradeOneConfidenceMax = 100;
+
+export const getShadowDecisionCouncilResponseDecisionProposedTradeOneEntryPriceExclusiveMin = 0;
+
+export const getShadowDecisionCouncilResponseDecisionProposedTradeOneStopPriceExclusiveMin = 0;
+
+export const getShadowDecisionCouncilResponseDecisionProposedTradeOneTargetPriceExclusiveMin = 0;
+
+export const getShadowDecisionCouncilResponseDecisionProposedTradeOneQuantityExclusiveMin = 0;
+
+
+
+
+export const getShadowDecisionCouncilResponseDecisionProposedTradeOneRegimeMax = 120;
+
+export const getShadowDecisionCouncilResponseDecisionProposedTradeOneNetRewardRiskExclusiveMin = 0;
+
+
+export const getShadowDecisionCouncilResponseDecisionFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getShadowDecisionCouncilResponseDeterministicAssessmentLongScoreMin = 0;
+
+export const getShadowDecisionCouncilResponseDeterministicAssessmentShortScoreMin = 0;
+
+export const getShadowDecisionCouncilResponseDeterministicAssessmentDominantShareMin = 0;
+export const getShadowDecisionCouncilResponseDeterministicAssessmentDominantShareMax = 1;
+
+export const getShadowDecisionCouncilResponseDeterministicAssessmentAverageEffectiveStrengthMin = 0;
+export const getShadowDecisionCouncilResponseDeterministicAssessmentAverageEffectiveStrengthMax = 1;
+
+export const getShadowDecisionCouncilResponseDeterministicAssessmentRegimeSuitabilityMin = 0;
+export const getShadowDecisionCouncilResponseDeterministicAssessmentRegimeSuitabilityMax = 1;
+
+export const getShadowDecisionCouncilResponseDeterministicAssessmentCostPenaltyMin = 0;
+export const getShadowDecisionCouncilResponseDeterministicAssessmentCostPenaltyMax = 1;
+
+export const getShadowDecisionCouncilResponseDeterministicAssessmentDecisionStrengthMin = 0;
+export const getShadowDecisionCouncilResponseDeterministicAssessmentDecisionStrengthMax = 1;
+
+export const getShadowDecisionCouncilResponseDeterministicAssessmentThresholdsEnterNowMin = 0;
+export const getShadowDecisionCouncilResponseDeterministicAssessmentThresholdsEnterNowMax = 1;
+
+export const getShadowDecisionCouncilResponseDeterministicAssessmentThresholdsWaitForTriggerMin = 0;
+export const getShadowDecisionCouncilResponseDeterministicAssessmentThresholdsWaitForTriggerMax = 1;
+
+export const getShadowDecisionCouncilResponseReasoningAttemptsMin = 0;
+
+export const getShadowDecisionCouncilResponseReasoningLatencyMsMin = 0;
+
+export const getShadowDecisionCouncilResponseReasoningUsageInputTokensMin = 0;
+
+export const getShadowDecisionCouncilResponseReasoningUsageOutputTokensMin = 0;
+
+export const getShadowDecisionCouncilResponseReasoningUsageCostUsdMin = 0;
+
+export const getShadowDecisionCouncilResponseReplayMarketStateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getShadowDecisionCouncilResponseReplayMarketStateSymbolMax = 80;
+
+export const getShadowDecisionCouncilResponseReplayMarketStateFreshnessAgeMsMin = 0;
+
+
+
+export const getShadowDecisionCouncilResponseReplayMarketStateDataQualityIssuesMax = 50;
+
+export const getShadowDecisionCouncilResponseReplayMarketStateObservationsLastPriceExclusiveMin = 0;
+
+
+
+export const getShadowDecisionCouncilResponseReplayMarketStateObservationsTimeframesItemLastCloseExclusiveMin = 0;
+
+export const getShadowDecisionCouncilResponseReplayMarketStateObservationsTimeframesItemExcludedOpenCandlesMin = 0;
+
+export const getShadowDecisionCouncilResponseReplayMarketStateObservationsTimeframesMin = 5;
+export const getShadowDecisionCouncilResponseReplayMarketStateObservationsTimeframesMax = 5;
+
+export const getShadowDecisionCouncilResponseReplayMarketStateInferencesRegimeConfidenceMin = 0;
+export const getShadowDecisionCouncilResponseReplayMarketStateInferencesRegimeConfidenceMax = 1;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilMarketStateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilConsensusLongScoreMin = 0;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilConsensusShortScoreMin = 0;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilConsensusActionableOpinionsMin = 0;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilConsensusAbstentionsMin = 0;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemCorrelationDiscountMin = 0;
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemCorrelationDiscountMax = 1;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemEffectiveStrengthMin = 0;
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemEffectiveStrengthMax = 1;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionMarketStateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionStrengthMin = 0;
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionStrengthMax = 1;
+
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemEvidenceIdMax = 160;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemSourceMax = 120;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemSummaryMax = 1000;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemReferenceMax = 500;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemStrengthMin = 0;
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemStrengthMax = 1;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceMax = 50;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemEvidenceIdMax = 160;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemSourceMax = 120;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemSummaryMax = 1000;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemReferenceMax = 500;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemStrengthMin = 0;
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemStrengthMax = 1;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceMax = 50;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionInvalidationConditionsMax = 20;
+
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionProposedRewardRiskExclusiveMin = 0;
+
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionUncertaintyMin = 0;
+export const getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionUncertaintyMax = 1;
+
+export const getShadowDecisionCouncilResponseReplayExecutionCostsFeeRatePerLegMin = 0;
+
+export const getShadowDecisionCouncilResponseReplayExecutionCostsSlippageRatePerLegMin = 0;
+
+export const getShadowDecisionCouncilResponseReplayPortfolioAvailableBalanceMin = 0;
+
+export const getShadowDecisionCouncilResponseReplayPortfolioOpenPositionCountMin = 0;
+
+export const getShadowDecisionCouncilResponseReplayBrainV0CandidateCountMin = 0;
+
+export const getShadowDecisionCouncilResponseReplayBrainV0TopCandidateOneConfidenceMin = 0;
+export const getShadowDecisionCouncilResponseReplayBrainV0TopCandidateOneConfidenceMax = 100;
+
+export const getShadowDecisionCouncilResponseReplayBrainV0TopCandidateOneNetRewardRiskExclusiveMin = 0;
+
+
+
+export const GetShadowDecisionCouncilResponseItem = zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "councilVersion": zod.enum(['shadow-decision-council-v1']),
+  "runId": zod.string().uuid(),
+  "inputFingerprint": zod.string().regex(getShadowDecisionCouncilResponseInputFingerprintRegExp),
+  "runFingerprint": zod.string().regex(getShadowDecisionCouncilResponseRunFingerprintRegExp),
+  "mode": zod.enum(['shadow']),
+  "cannotExecute": zod.boolean(),
+  "generatedAt": zod.coerce.date(),
+  "decision": zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "decisionId": zod.string().uuid(),
+  "action": zod.enum(['ENTER_NOW', 'WAIT_FOR_TRIGGER', 'OBSERVE', 'REJECT', 'REDUCE', 'EXIT']),
+  "symbol": zod.string().min(1).max(getShadowDecisionCouncilResponseDecisionSymbolMax),
+  "marketStateFingerprint": zod.string().regex(getShadowDecisionCouncilResponseDecisionMarketStateFingerprintRegExp),
+  "supportingEvidence": zod.array(zod.object({
+  "evidenceId": zod.string().min(1).max(getShadowDecisionCouncilResponseDecisionSupportingEvidenceItemEvidenceIdMax),
+  "kind": zod.enum(['observation', 'specialist', 'statistical', 'memory', 'portfolio', 'execution']),
+  "source": zod.string().min(1).max(getShadowDecisionCouncilResponseDecisionSupportingEvidenceItemSourceMax),
+  "summary": zod.string().min(1).max(getShadowDecisionCouncilResponseDecisionSupportingEvidenceItemSummaryMax),
+  "reference": zod.string().min(1).max(getShadowDecisionCouncilResponseDecisionSupportingEvidenceItemReferenceMax),
+  "fingerprint": zod.string().regex(getShadowDecisionCouncilResponseDecisionSupportingEvidenceItemFingerprintRegExp).optional(),
+  "dataTimestamp": zod.coerce.date(),
+  "strength": zod.number().min(getShadowDecisionCouncilResponseDecisionSupportingEvidenceItemStrengthMin).max(getShadowDecisionCouncilResponseDecisionSupportingEvidenceItemStrengthMax)
+})).max(getShadowDecisionCouncilResponseDecisionSupportingEvidenceMax),
+  "opposingEvidence": zod.array(zod.object({
+  "evidenceId": zod.string().min(1).max(getShadowDecisionCouncilResponseDecisionOpposingEvidenceItemEvidenceIdMax),
+  "kind": zod.enum(['observation', 'specialist', 'statistical', 'memory', 'portfolio', 'execution']),
+  "source": zod.string().min(1).max(getShadowDecisionCouncilResponseDecisionOpposingEvidenceItemSourceMax),
+  "summary": zod.string().min(1).max(getShadowDecisionCouncilResponseDecisionOpposingEvidenceItemSummaryMax),
+  "reference": zod.string().min(1).max(getShadowDecisionCouncilResponseDecisionOpposingEvidenceItemReferenceMax),
+  "fingerprint": zod.string().regex(getShadowDecisionCouncilResponseDecisionOpposingEvidenceItemFingerprintRegExp).optional(),
+  "dataTimestamp": zod.coerce.date(),
+  "strength": zod.number().min(getShadowDecisionCouncilResponseDecisionOpposingEvidenceItemStrengthMin).max(getShadowDecisionCouncilResponseDecisionOpposingEvidenceItemStrengthMax)
+})).max(getShadowDecisionCouncilResponseDecisionOpposingEvidenceMax),
+  "uncertainty": zod.object({
+  "score": zod.number().min(getShadowDecisionCouncilResponseDecisionUncertaintyScoreMin).max(getShadowDecisionCouncilResponseDecisionUncertaintyScoreMax),
+  "reasons": zod.array(zod.string().min(1).max(getShadowDecisionCouncilResponseDecisionUncertaintyReasonsItemMax)).min(1).max(getShadowDecisionCouncilResponseDecisionUncertaintyReasonsMax),
+  "calibrated": zod.boolean()
+}),
+  "dataTimestamp": zod.coerce.date(),
+  "expiresAt": zod.coerce.date(),
+  "invalidationConditions": zod.array(zod.string().min(1).max(getShadowDecisionCouncilResponseDecisionInvalidationConditionsItemMax)).min(1).max(getShadowDecisionCouncilResponseDecisionInvalidationConditionsMax),
+  "versions": zod.object({
+  "brain": zod.string(),
+  "strategy": zod.string(),
+  "model": zod.string(),
+  "config": zod.string(),
+  "marketState": zod.string()
+}),
+  "reasonCode": zod.string().regex(getShadowDecisionCouncilResponseDecisionReasonCodeRegExp),
+  "thesis": zod.record(zod.string(), zod.unknown()).nullable(),
+  "proposedTrade": zod.union([zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "strategyId": zod.string().min(1).max(getShadowDecisionCouncilResponseDecisionProposedTradeOneStrategyIdMax),
+  "strategyName": zod.string().min(1).max(getShadowDecisionCouncilResponseDecisionProposedTradeOneStrategyNameMax),
+  "symbol": zod.string().min(1).max(getShadowDecisionCouncilResponseDecisionProposedTradeOneSymbolMax),
+  "side": zod.enum(['long', 'short']),
+  "confidence": zod.number().min(getShadowDecisionCouncilResponseDecisionProposedTradeOneConfidenceMin).max(getShadowDecisionCouncilResponseDecisionProposedTradeOneConfidenceMax),
+  "entryPrice": zod.number().gt(getShadowDecisionCouncilResponseDecisionProposedTradeOneEntryPriceExclusiveMin),
+  "stopPrice": zod.number().gt(getShadowDecisionCouncilResponseDecisionProposedTradeOneStopPriceExclusiveMin),
+  "targetPrice": zod.number().gt(getShadowDecisionCouncilResponseDecisionProposedTradeOneTargetPriceExclusiveMin),
+  "quantity": zod.number().gt(getShadowDecisionCouncilResponseDecisionProposedTradeOneQuantityExclusiveMin),
+  "leverage": zod.number().min(1),
+  "expectedHoldSeconds": zod.number().min(1),
+  "maxHoldSeconds": zod.number().min(1),
+  "regime": zod.string().min(1).max(getShadowDecisionCouncilResponseDecisionProposedTradeOneRegimeMax),
+  "netRewardRisk": zod.number().gt(getShadowDecisionCouncilResponseDecisionProposedTradeOneNetRewardRiskExclusiveMin).nullable(),
+  "report": zod.object({
+  "summary": zod.string().min(1),
+  "marketView": zod.array(zod.string()),
+  "entryLogic": zod.array(zod.string()),
+  "riskLogic": zod.array(zod.string()),
+  "exitLogic": zod.array(zod.string()),
+  "checks": zod.array(zod.object({
+  "name": zod.string(),
+  "passed": zod.boolean(),
+  "detail": zod.string()
+})),
+  "data": zod.record(zod.string(), zod.unknown()).optional()
+})
+}),zod.null()])
+}),
+  "decisionFingerprint": zod.string().regex(getShadowDecisionCouncilResponseDecisionFingerprintRegExp),
+  "deterministicAssessment": zod.object({
+  "version": zod.enum(['deterministic-council-v1']),
+  "longScore": zod.number().min(getShadowDecisionCouncilResponseDeterministicAssessmentLongScoreMin),
+  "shortScore": zod.number().min(getShadowDecisionCouncilResponseDeterministicAssessmentShortScoreMin),
+  "dominantShare": zod.number().min(getShadowDecisionCouncilResponseDeterministicAssessmentDominantShareMin).max(getShadowDecisionCouncilResponseDeterministicAssessmentDominantShareMax),
+  "averageEffectiveStrength": zod.number().min(getShadowDecisionCouncilResponseDeterministicAssessmentAverageEffectiveStrengthMin).max(getShadowDecisionCouncilResponseDeterministicAssessmentAverageEffectiveStrengthMax),
+  "regimeSuitability": zod.number().min(getShadowDecisionCouncilResponseDeterministicAssessmentRegimeSuitabilityMin).max(getShadowDecisionCouncilResponseDeterministicAssessmentRegimeSuitabilityMax),
+  "costPenalty": zod.number().min(getShadowDecisionCouncilResponseDeterministicAssessmentCostPenaltyMin).max(getShadowDecisionCouncilResponseDeterministicAssessmentCostPenaltyMax),
+  "decisionStrength": zod.number().min(getShadowDecisionCouncilResponseDeterministicAssessmentDecisionStrengthMin).max(getShadowDecisionCouncilResponseDeterministicAssessmentDecisionStrengthMax),
+  "thresholds": zod.object({
+  "enterNow": zod.number().min(getShadowDecisionCouncilResponseDeterministicAssessmentThresholdsEnterNowMin).max(getShadowDecisionCouncilResponseDeterministicAssessmentThresholdsEnterNowMax),
+  "waitForTrigger": zod.number().min(getShadowDecisionCouncilResponseDeterministicAssessmentThresholdsWaitForTriggerMin).max(getShadowDecisionCouncilResponseDeterministicAssessmentThresholdsWaitForTriggerMax)
+}),
+  "ruleTrace": zod.array(zod.string())
+}),
+  "reasoning": zod.object({
+  "status": zod.enum(['not_configured', 'validated', 'degraded', 'circuit_open', 'provider_error']),
+  "providerId": zod.string().nullable(),
+  "modelVersion": zod.string().nullable(),
+  "summary": zod.string(),
+  "claims": zod.array(zod.object({
+  "claim": zod.string(),
+  "evidenceIds": zod.array(zod.string())
+})),
+  "challenges": zod.array(zod.object({
+  "claim": zod.string(),
+  "evidenceIds": zod.array(zod.string())
+})),
+  "uncertaintyNotes": zod.array(zod.string()),
+  "validationFailures": zod.array(zod.string()),
+  "attempts": zod.number().min(getShadowDecisionCouncilResponseReasoningAttemptsMin),
+  "latencyMs": zod.number().min(getShadowDecisionCouncilResponseReasoningLatencyMsMin),
+  "usage": zod.object({
+  "inputTokens": zod.number().min(getShadowDecisionCouncilResponseReasoningUsageInputTokensMin).nullable(),
+  "outputTokens": zod.number().min(getShadowDecisionCouncilResponseReasoningUsageOutputTokensMin).nullable(),
+  "costUsd": zod.number().min(getShadowDecisionCouncilResponseReasoningUsageCostUsdMin).nullable()
+})
+}),
+  "replay": zod.object({
+  "marketState": zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "marketStateVersion": zod.enum(['market-state-v1']),
+  "fingerprint": zod.string().regex(getShadowDecisionCouncilResponseReplayMarketStateFingerprintRegExp),
+  "symbol": zod.string().min(1).max(getShadowDecisionCouncilResponseReplayMarketStateSymbolMax),
+  "venue": zod.enum(['spot', 'futures', 'forex']),
+  "provider": zod.enum(['binance', 'oanda', 'fixture']),
+  "dataTimestamp": zod.coerce.date(),
+  "observedAt": zod.coerce.date(),
+  "freshness": zod.object({
+  "status": zod.enum(['fresh', 'stale']),
+  "ageMs": zod.number().min(getShadowDecisionCouncilResponseReplayMarketStateFreshnessAgeMsMin),
+  "maximumAgeMs": zod.number().min(1)
+}),
+  "dataQuality": zod.object({
+  "status": zod.enum(['healthy', 'degraded']),
+  "issues": zod.array(zod.string().min(1)).max(getShadowDecisionCouncilResponseReplayMarketStateDataQualityIssuesMax)
+}),
+  "observations": zod.object({
+  "lastPrice": zod.number().gt(getShadowDecisionCouncilResponseReplayMarketStateObservationsLastPriceExclusiveMin),
+  "timeframes": zod.array(zod.object({
+  "timeframe": zod.enum(['1m', '3m', '5m', '15m', '1h']),
+  "intervalMs": zod.number().min(1),
+  "candleCount": zod.number().min(1),
+  "lastClosedAt": zod.coerce.date(),
+  "lastClose": zod.number().gt(getShadowDecisionCouncilResponseReplayMarketStateObservationsTimeframesItemLastCloseExclusiveMin),
+  "excludedOpenCandles": zod.number().min(getShadowDecisionCouncilResponseReplayMarketStateObservationsTimeframesItemExcludedOpenCandlesMin)
+})).min(getShadowDecisionCouncilResponseReplayMarketStateObservationsTimeframesMin).max(getShadowDecisionCouncilResponseReplayMarketStateObservationsTimeframesMax),
+  "trend": zod.record(zod.string(), zod.unknown()),
+  "volatility": zod.record(zod.string(), zod.unknown()),
+  "momentum": zod.record(zod.string(), zod.unknown()),
+  "liquidity": zod.record(zod.string(), zod.unknown()),
+  "structure": zod.record(zod.string(), zod.unknown())
+}),
+  "inferences": zod.object({
+  "regime": zod.enum(['strong_trend', 'weak_trend', 'range', 'high_volatility', 'low_volatility']),
+  "regimeConfidence": zod.number().min(getShadowDecisionCouncilResponseReplayMarketStateInferencesRegimeConfidenceMin).max(getShadowDecisionCouncilResponseReplayMarketStateInferencesRegimeConfidenceMax),
+  "dominantDirection": zod.enum(['bullish', 'bearish', 'neutral']),
+  "session": zod.enum(['asia', 'europe', 'us', 'europe_us_overlap', 'off_hours']),
+  "anomaly": zod.record(zod.string(), zod.unknown())
+}),
+  "context": zod.object({
+  "breadth": zod.record(zod.string(), zod.unknown()),
+  "leadership": zod.record(zod.string(), zod.unknown()),
+  "correlation": zod.record(zod.string(), zod.unknown())
+})
+}),
+  "specialistCouncil": zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "councilVersion": zod.enum(['specialist-council-v1']),
+  "mode": zod.enum(['observational']),
+  "cannotExecute": zod.boolean(),
+  "symbol": zod.string(),
+  "marketStateFingerprint": zod.string().regex(getShadowDecisionCouncilResponseReplaySpecialistCouncilMarketStateFingerprintRegExp),
+  "dataTimestamp": zod.coerce.date(),
+  "generatedAt": zod.coerce.date(),
+  "consensus": zod.object({
+  "stance": zod.enum(['long', 'short', 'mixed', 'abstain']),
+  "longScore": zod.number().min(getShadowDecisionCouncilResponseReplaySpecialistCouncilConsensusLongScoreMin),
+  "shortScore": zod.number().min(getShadowDecisionCouncilResponseReplaySpecialistCouncilConsensusShortScoreMin),
+  "actionableOpinions": zod.number().min(getShadowDecisionCouncilResponseReplaySpecialistCouncilConsensusActionableOpinionsMin),
+  "abstentions": zod.number().min(getShadowDecisionCouncilResponseReplaySpecialistCouncilConsensusAbstentionsMin),
+  "disagreement": zod.boolean(),
+  "explanation": zod.string()
+}),
+  "opinions": zod.array(zod.object({
+  "role": zod.enum(['trend', 'breakout', 'mean_reversion', 'volatility', 'market_structure', 'execution_quality', 'portfolio_conflict']),
+  "correlationGroup": zod.string(),
+  "correlationDiscount": zod.number().min(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemCorrelationDiscountMin).max(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemCorrelationDiscountMax),
+  "effectiveStrength": zod.number().min(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemEffectiveStrengthMin).max(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemEffectiveStrengthMax),
+  "operationalStatus": zod.enum(['active', 'abstained']),
+  "opinion": zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "opinionId": zod.string().uuid(),
+  "specialistId": zod.string(),
+  "specialistVersion": zod.string(),
+  "marketStateFingerprint": zod.string().regex(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionMarketStateFingerprintRegExp),
+  "symbol": zod.string(),
+  "stance": zod.enum(['long', 'short', 'neutral', 'abstain']),
+  "strength": zod.number().min(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionStrengthMin).max(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionStrengthMax),
+  "applicableRegimes": zod.array(zod.string()).min(1),
+  "supportingEvidence": zod.array(zod.object({
+  "evidenceId": zod.string().min(1).max(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemEvidenceIdMax),
+  "kind": zod.enum(['observation', 'specialist', 'statistical', 'memory', 'portfolio', 'execution']),
+  "source": zod.string().min(1).max(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemSourceMax),
+  "summary": zod.string().min(1).max(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemSummaryMax),
+  "reference": zod.string().min(1).max(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemReferenceMax),
+  "fingerprint": zod.string().regex(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemFingerprintRegExp).optional(),
+  "dataTimestamp": zod.coerce.date(),
+  "strength": zod.number().min(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemStrengthMin).max(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemStrengthMax)
+})).max(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceMax),
+  "opposingEvidence": zod.array(zod.object({
+  "evidenceId": zod.string().min(1).max(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemEvidenceIdMax),
+  "kind": zod.enum(['observation', 'specialist', 'statistical', 'memory', 'portfolio', 'execution']),
+  "source": zod.string().min(1).max(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemSourceMax),
+  "summary": zod.string().min(1).max(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemSummaryMax),
+  "reference": zod.string().min(1).max(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemReferenceMax),
+  "fingerprint": zod.string().regex(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemFingerprintRegExp).optional(),
+  "dataTimestamp": zod.coerce.date(),
+  "strength": zod.number().min(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemStrengthMin).max(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemStrengthMax)
+})).max(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceMax),
+  "trigger": zod.string().nullable(),
+  "invalidationConditions": zod.array(zod.string()).max(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionInvalidationConditionsMax),
+  "expectedDurationSeconds": zod.number().min(1).nullable(),
+  "proposedRewardRisk": zod.number().gt(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionProposedRewardRiskExclusiveMin).nullable(),
+  "uncertainty": zod.number().min(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionUncertaintyMin).max(getShadowDecisionCouncilResponseReplaySpecialistCouncilOpinionsItemOpinionUncertaintyMax),
+  "abstentionReason": zod.string().nullable(),
+  "dataTimestamp": zod.coerce.date(),
+  "expiresAt": zod.coerce.date()
+})
+}))
+}),
+  "executionCosts": zod.object({
+  "feeRatePerLeg": zod.number().min(getShadowDecisionCouncilResponseReplayExecutionCostsFeeRatePerLegMin),
+  "slippageRatePerLeg": zod.number().min(getShadowDecisionCouncilResponseReplayExecutionCostsSlippageRatePerLegMin),
+  "source": zod.enum(['engine-market-cost-model']),
+  "version": zod.string()
+}),
+  "portfolio": zod.object({
+  "status": zod.enum(['partial', 'unavailable']),
+  "currency": zod.string(),
+  "availableBalance": zod.number().min(getShadowDecisionCouncilResponseReplayPortfolioAvailableBalanceMin).nullable(),
+  "openPositionCount": zod.number().min(getShadowDecisionCouncilResponseReplayPortfolioOpenPositionCountMin).nullable(),
+  "observedAt": zod.coerce.date(),
+  "limitations": zod.array(zod.string())
+}),
+  "historicalEvidence": zod.object({
+  "status": zod.enum(['unavailable', 'observational', 'approved']),
+  "ruleVersion": zod.string().nullable(),
+  "items": zod.array(zod.record(zod.string(), zod.unknown())),
+  "limitations": zod.array(zod.string())
+}),
+  "brainV0": zod.object({
+  "mode": zod.enum(['control']),
+  "candidateCount": zod.number().min(getShadowDecisionCouncilResponseReplayBrainV0CandidateCountMin),
+  "disposition": zod.enum(['CANDIDATE_PRODUCED', 'NO_CANDIDATE']),
+  "topCandidate": zod.union([zod.object({
+  "strategyId": zod.string(),
+  "strategyName": zod.string(),
+  "side": zod.enum(['long', 'short']),
+  "confidence": zod.number().min(getShadowDecisionCouncilResponseReplayBrainV0TopCandidateOneConfidenceMin).max(getShadowDecisionCouncilResponseReplayBrainV0TopCandidateOneConfidenceMax),
+  "netRewardRisk": zod.number().gt(getShadowDecisionCouncilResponseReplayBrainV0TopCandidateOneNetRewardRiskExclusiveMin).nullable()
+}),zod.null()])
+})
+})
+})
+export const GetShadowDecisionCouncilResponse = zod.array(GetShadowDecisionCouncilResponseItem)
+
+
+/**
+ * Ranks the latest complete Shadow decision scan, applies conservative portfolio constraints, and reserves hypothetical risk budgets. This projection is read-only and structurally cannot execute trades.
+ * @summary Get the deterministic Shadow portfolio projection
+ */
+export const getPortfolioIntelligenceResponseFingerprintRegExp = new RegExp('^[a-f0-9]{64}$');
+
+export const getPortfolioIntelligenceResponsePolicyMaxOpenPositionsMin = 0;
+
+export const getPortfolioIntelligenceResponsePolicyMaxPortfolioRiskFractionMin = 0;
+export const getPortfolioIntelligenceResponsePolicyMaxPortfolioRiskFractionMax = 1;
+
+export const getPortfolioIntelligenceResponsePolicyMaxSymbolNotionalFractionMin = 0;
+
+export const getPortfolioIntelligenceResponsePolicyMaxNetExposureFractionMin = 0;
+
+export const getPortfolioIntelligenceResponsePolicyMaxCorrelatedNotionalFractionMin = 0;
+
+export const getPortfolioIntelligenceResponsePolicyMaxStrategyRiskFractionMin = 0;
+export const getPortfolioIntelligenceResponsePolicyMaxStrategyRiskFractionMax = 1;
+
+export const getPortfolioIntelligenceResponsePolicyCorrelationThresholdMin = 0;
+export const getPortfolioIntelligenceResponsePolicyCorrelationThresholdMax = 1;
+
+export const getPortfolioIntelligenceResponsePolicyDrawdownDeRiskStartFractionMin = 0;
+export const getPortfolioIntelligenceResponsePolicyDrawdownDeRiskStartFractionMax = 1;
+
+export const getPortfolioIntelligenceResponsePolicyDrawdownHardFractionMin = 0;
+export const getPortfolioIntelligenceResponsePolicyDrawdownHardFractionMax = 1;
+
+export const getPortfolioIntelligenceResponsePolicyMinimumAllocationFractionMin = 0;
+export const getPortfolioIntelligenceResponsePolicyMinimumAllocationFractionMax = 1;
+
+
+export const getPortfolioIntelligenceResponseContextEquityMin = 0;
+
+export const getPortfolioIntelligenceResponseContextAvailableBalanceMin = 0;
+
+export const getPortfolioIntelligenceResponseContextOpenPositionCountMin = 0;
+
+export const getPortfolioIntelligenceResponseContextRemainingStopRiskMin = 0;
+
+export const getPortfolioIntelligenceResponseContextGrossExposureMin = 0;
+
+export const getPortfolioIntelligenceResponseContextDrawdownFractionMin = 0;
+export const getPortfolioIntelligenceResponseContextDrawdownFractionMax = 1;
+
+export const getPortfolioIntelligenceResponseContextReservedRiskMin = 0;
+
+
+
+export const getPortfolioIntelligenceResponseContextCorrelationClustersItemSymbolsMax = 100;
+
+export const getPortfolioIntelligenceResponseContextCorrelationClustersItemExposureMin = 0;
+
+export const getPortfolioIntelligenceResponseContextCorrelationClustersMax = 100;
+
+
+export const getPortfolioIntelligenceResponseContextFingerprintRegExp = new RegExp('^[a-f0-9]{64}$');
+export const getPortfolioIntelligenceResponseRiskUsageMaximumStopRiskMin = 0;
+
+export const getPortfolioIntelligenceResponseRiskUsageOpenStopRiskMin = 0;
+
+export const getPortfolioIntelligenceResponseRiskUsageInitiallyReservedRiskMin = 0;
+
+export const getPortfolioIntelligenceResponseRiskUsageShadowReservedRiskMin = 0;
+
+export const getPortfolioIntelligenceResponseRiskUsageRemainingRiskMin = 0;
+
+export const getPortfolioIntelligenceResponseRiskUsageDrawdownScaleMin = 0;
+export const getPortfolioIntelligenceResponseRiskUsageDrawdownScaleMax = 1;
+
+export const getPortfolioIntelligenceResponseRiskUsageOpenPositionsMin = 0;
+
+export const getPortfolioIntelligenceResponseRiskUsageShadowAllocatedPositionsMin = 0;
+
+export const getPortfolioIntelligenceResponseRiskUsageRemainingPositionSlotsMin = 0;
+
+
+export const getPortfolioIntelligenceResponseOpportunitiesItemSourceFingerprintRegExp = new RegExp('^[a-f0-9]{64}$');
+
+export const getPortfolioIntelligenceResponseOpportunitiesItemScoreMin = 0;
+export const getPortfolioIntelligenceResponseOpportunitiesItemScoreMax = 1;
+
+export const getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsRewardRiskQualityMin = 0;
+export const getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsRewardRiskQualityMax = 1;
+
+export const getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsDecisionSupportMin = 0;
+export const getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsDecisionSupportMax = 1;
+
+export const getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsRegimeSuitabilityMin = 0;
+export const getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsRegimeSuitabilityMax = 1;
+
+export const getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsLiquidityQualityMin = 0;
+export const getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsLiquidityQualityMax = 1;
+
+export const getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsDiversificationBenefitMin = 0;
+export const getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsDiversificationBenefitMax = 1;
+
+export const getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsCostQualityMin = 0;
+export const getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsCostQualityMax = 1;
+
+export const getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsUncertaintyQualityMin = 0;
+export const getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsUncertaintyQualityMax = 1;
+
+export const getPortfolioIntelligenceResponseOpportunitiesItemNetRewardRiskMin = 0;
+
+export const getPortfolioIntelligenceResponseOpportunitiesItemUncertaintyMin = 0;
+export const getPortfolioIntelligenceResponseOpportunitiesItemUncertaintyMax = 1;
+
+export const getPortfolioIntelligenceResponseOpportunitiesItemRequestedRiskMin = 0;
+
+export const getPortfolioIntelligenceResponseOpportunitiesItemRequestedNotionalMin = 0;
+
+export const getPortfolioIntelligenceResponseOpportunitiesItemAllocatedRiskMin = 0;
+
+export const getPortfolioIntelligenceResponseOpportunitiesItemAllocatedNotionalMin = 0;
+
+export const getPortfolioIntelligenceResponseOpportunitiesItemAllocatedQuantityMin = 0;
+
+export const getPortfolioIntelligenceResponseOpportunitiesItemAllocationFractionMin = 0;
+export const getPortfolioIntelligenceResponseOpportunitiesItemAllocationFractionMax = 1;
+
+export const getPortfolioIntelligenceResponseRetainedCashAmountMin = 0;
+
+export const getPortfolioIntelligenceResponseRetainedCashFractionOfAvailableBalanceMin = 0;
+export const getPortfolioIntelligenceResponseRetainedCashFractionOfAvailableBalanceMax = 1;
+
+
+
+export const GetPortfolioIntelligenceResponse = zod.object({
+  "schemaVersion": zod.literal("1.0.0"),
+  "portfolioVersion": zod.literal("shadow-portfolio-intelligence-v1"),
+  "mode": zod.literal("shadow"),
+  "cannotExecute": zod.boolean(),
+  "projectionId": zod.string().uuid(),
+  "fingerprint": zod.string().regex(getPortfolioIntelligenceResponseFingerprintRegExp),
+  "generatedAt": zod.coerce.date(),
+  "sourceScanTimestamp": zod.coerce.date().nullable(),
+  "dataStatus": zod.enum(['healthy', 'degraded', 'blocked']),
+  "dataIssues": zod.array(zod.string()),
+  "policy": zod.object({
+  "policyVersion": zod.literal("shadow-portfolio-policy-v1"),
+  "riskPolicyVersion": zod.string().min(1),
+  "maxOpenPositions": zod.number().min(getPortfolioIntelligenceResponsePolicyMaxOpenPositionsMin),
+  "maxPortfolioRiskFraction": zod.number().min(getPortfolioIntelligenceResponsePolicyMaxPortfolioRiskFractionMin).max(getPortfolioIntelligenceResponsePolicyMaxPortfolioRiskFractionMax),
+  "maxSymbolNotionalFraction": zod.number().min(getPortfolioIntelligenceResponsePolicyMaxSymbolNotionalFractionMin),
+  "maxNetExposureFraction": zod.number().min(getPortfolioIntelligenceResponsePolicyMaxNetExposureFractionMin),
+  "maxCorrelatedNotionalFraction": zod.number().min(getPortfolioIntelligenceResponsePolicyMaxCorrelatedNotionalFractionMin),
+  "maxStrategyRiskFraction": zod.number().min(getPortfolioIntelligenceResponsePolicyMaxStrategyRiskFractionMin).max(getPortfolioIntelligenceResponsePolicyMaxStrategyRiskFractionMax),
+  "correlationThreshold": zod.number().min(getPortfolioIntelligenceResponsePolicyCorrelationThresholdMin).max(getPortfolioIntelligenceResponsePolicyCorrelationThresholdMax),
+  "unknownCorrelationPolicy": zod.enum(['allow', 'block']),
+  "drawdownDeRiskStartFraction": zod.number().min(getPortfolioIntelligenceResponsePolicyDrawdownDeRiskStartFractionMin).max(getPortfolioIntelligenceResponsePolicyDrawdownDeRiskStartFractionMax),
+  "drawdownHardFraction": zod.number().min(getPortfolioIntelligenceResponsePolicyDrawdownHardFractionMin).max(getPortfolioIntelligenceResponsePolicyDrawdownHardFractionMax),
+  "minimumAllocationFraction": zod.number().min(getPortfolioIntelligenceResponsePolicyMinimumAllocationFractionMin).max(getPortfolioIntelligenceResponsePolicyMinimumAllocationFractionMax)
+}),
+  "context": zod.object({
+  "schemaVersion": zod.literal("1.0.0"),
+  "contextId": zod.string().uuid(),
+  "asOf": zod.coerce.date(),
+  "currency": zod.string().min(1),
+  "equity": zod.number().min(getPortfolioIntelligenceResponseContextEquityMin),
+  "availableBalance": zod.number().min(getPortfolioIntelligenceResponseContextAvailableBalanceMin),
+  "openPositionCount": zod.number().min(getPortfolioIntelligenceResponseContextOpenPositionCountMin),
+  "remainingStopRisk": zod.number().min(getPortfolioIntelligenceResponseContextRemainingStopRiskMin),
+  "grossExposure": zod.number().min(getPortfolioIntelligenceResponseContextGrossExposureMin),
+  "netExposure": zod.number(),
+  "drawdownFraction": zod.number().min(getPortfolioIntelligenceResponseContextDrawdownFractionMin).max(getPortfolioIntelligenceResponseContextDrawdownFractionMax),
+  "reservedRisk": zod.number().min(getPortfolioIntelligenceResponseContextReservedRiskMin),
+  "correlationState": zod.enum(['known', 'partial', 'unknown']),
+  "correlationClusters": zod.array(zod.object({
+  "clusterId": zod.string().min(1),
+  "symbols": zod.array(zod.string().min(1)).min(1).max(getPortfolioIntelligenceResponseContextCorrelationClustersItemSymbolsMax),
+  "exposure": zod.number().min(getPortfolioIntelligenceResponseContextCorrelationClustersItemExposureMin)
+})).max(getPortfolioIntelligenceResponseContextCorrelationClustersMax),
+  "riskPolicyVersion": zod.string().min(1),
+  "fingerprint": zod.string().regex(getPortfolioIntelligenceResponseContextFingerprintRegExp)
+}),
+  "riskUsage": zod.object({
+  "maximumStopRisk": zod.number().min(getPortfolioIntelligenceResponseRiskUsageMaximumStopRiskMin),
+  "openStopRisk": zod.number().min(getPortfolioIntelligenceResponseRiskUsageOpenStopRiskMin),
+  "initiallyReservedRisk": zod.number().min(getPortfolioIntelligenceResponseRiskUsageInitiallyReservedRiskMin),
+  "shadowReservedRisk": zod.number().min(getPortfolioIntelligenceResponseRiskUsageShadowReservedRiskMin),
+  "remainingRisk": zod.number().min(getPortfolioIntelligenceResponseRiskUsageRemainingRiskMin),
+  "drawdownScale": zod.number().min(getPortfolioIntelligenceResponseRiskUsageDrawdownScaleMin).max(getPortfolioIntelligenceResponseRiskUsageDrawdownScaleMax),
+  "openPositions": zod.number().min(getPortfolioIntelligenceResponseRiskUsageOpenPositionsMin),
+  "shadowAllocatedPositions": zod.number().min(getPortfolioIntelligenceResponseRiskUsageShadowAllocatedPositionsMin),
+  "remainingPositionSlots": zod.number().min(getPortfolioIntelligenceResponseRiskUsageRemainingPositionSlotsMin)
+}),
+  "opportunities": zod.array(zod.object({
+  "rank": zod.number().min(1),
+  "decisionId": zod.string().uuid(),
+  "sourceFingerprint": zod.string().regex(getPortfolioIntelligenceResponseOpportunitiesItemSourceFingerprintRegExp),
+  "symbol": zod.string().min(1),
+  "side": zod.union([zod.literal('long'),zod.literal('short'),zod.literal(null)]).nullable(),
+  "action": zod.enum(['ENTER_NOW', 'WAIT_FOR_TRIGGER', 'OBSERVE', 'REJECT', 'REDUCE', 'EXIT']),
+  "strategyId": zod.string().nullable(),
+  "strategyName": zod.string().nullable(),
+  "dataTimestamp": zod.coerce.date(),
+  "expiresAt": zod.coerce.date(),
+  "score": zod.number().min(getPortfolioIntelligenceResponseOpportunitiesItemScoreMin).max(getPortfolioIntelligenceResponseOpportunitiesItemScoreMax),
+  "scoreComponents": zod.object({
+  "rewardRiskQuality": zod.number().min(getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsRewardRiskQualityMin).max(getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsRewardRiskQualityMax),
+  "decisionSupport": zod.number().min(getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsDecisionSupportMin).max(getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsDecisionSupportMax),
+  "regimeSuitability": zod.number().min(getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsRegimeSuitabilityMin).max(getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsRegimeSuitabilityMax),
+  "liquidityQuality": zod.number().min(getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsLiquidityQualityMin).max(getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsLiquidityQualityMax),
+  "diversificationBenefit": zod.number().min(getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsDiversificationBenefitMin).max(getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsDiversificationBenefitMax),
+  "costQuality": zod.number().min(getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsCostQualityMin).max(getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsCostQualityMax),
+  "uncertaintyQuality": zod.number().min(getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsUncertaintyQualityMin).max(getPortfolioIntelligenceResponseOpportunitiesItemScoreComponentsUncertaintyQualityMax)
+}),
+  "estimatedNetR": zod.null().describe('Unavailable until calibrated expectancy exists.'),
+  "netRewardRisk": zod.number().min(getPortfolioIntelligenceResponseOpportunitiesItemNetRewardRiskMin).nullable(),
+  "uncertainty": zod.number().min(getPortfolioIntelligenceResponseOpportunitiesItemUncertaintyMin).max(getPortfolioIntelligenceResponseOpportunitiesItemUncertaintyMax),
+  "requestedRisk": zod.number().min(getPortfolioIntelligenceResponseOpportunitiesItemRequestedRiskMin),
+  "requestedNotional": zod.number().min(getPortfolioIntelligenceResponseOpportunitiesItemRequestedNotionalMin),
+  "allocatedRisk": zod.number().min(getPortfolioIntelligenceResponseOpportunitiesItemAllocatedRiskMin),
+  "allocatedNotional": zod.number().min(getPortfolioIntelligenceResponseOpportunitiesItemAllocatedNotionalMin),
+  "allocatedQuantity": zod.number().min(getPortfolioIntelligenceResponseOpportunitiesItemAllocatedQuantityMin),
+  "allocationFraction": zod.number().min(getPortfolioIntelligenceResponseOpportunitiesItemAllocationFractionMin).max(getPortfolioIntelligenceResponseOpportunitiesItemAllocationFractionMax),
+  "disposition": zod.enum(['SHADOW_ALLOCATED', 'WAIT_FOR_TRIGGER', 'OBSERVE', 'REJECTED']),
+  "reasonCodes": zod.array(zod.string()),
+  "explanation": zod.string(),
+  "correlationUnknownWith": zod.array(zod.string()),
+  "reinforcingClusterSymbols": zod.array(zod.string())
+})),
+  "retainedCash": zod.object({
+  "amount": zod.number().min(getPortfolioIntelligenceResponseRetainedCashAmountMin),
+  "fractionOfAvailableBalance": zod.number().min(getPortfolioIntelligenceResponseRetainedCashFractionOfAvailableBalanceMin).max(getPortfolioIntelligenceResponseRetainedCashFractionOfAvailableBalanceMax),
+  "reasonCodes": zod.array(zod.string()),
+  "explanation": zod.string()
+})
+})
+
+
+/**
+ * @summary Reconstruct one current Shadow decision
+ */
+export const GetShadowDecisionReplayParams = zod.object({
+  "decisionId": zod.coerce.string().uuid()
+})
+
+export const getShadowDecisionReplayResponseMarketStateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getShadowDecisionReplayResponseMarketStateSymbolMax = 80;
+
+export const getShadowDecisionReplayResponseMarketStateFreshnessAgeMsMin = 0;
+
+
+
+export const getShadowDecisionReplayResponseMarketStateDataQualityIssuesMax = 50;
+
+export const getShadowDecisionReplayResponseMarketStateObservationsLastPriceExclusiveMin = 0;
+
+
+
+export const getShadowDecisionReplayResponseMarketStateObservationsTimeframesItemLastCloseExclusiveMin = 0;
+
+export const getShadowDecisionReplayResponseMarketStateObservationsTimeframesItemExcludedOpenCandlesMin = 0;
+
+export const getShadowDecisionReplayResponseMarketStateObservationsTimeframesMin = 5;
+export const getShadowDecisionReplayResponseMarketStateObservationsTimeframesMax = 5;
+
+export const getShadowDecisionReplayResponseMarketStateInferencesRegimeConfidenceMin = 0;
+export const getShadowDecisionReplayResponseMarketStateInferencesRegimeConfidenceMax = 1;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilMarketStateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getShadowDecisionReplayResponseSpecialistCouncilConsensusLongScoreMin = 0;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilConsensusShortScoreMin = 0;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilConsensusActionableOpinionsMin = 0;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilConsensusAbstentionsMin = 0;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemCorrelationDiscountMin = 0;
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemCorrelationDiscountMax = 1;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemEffectiveStrengthMin = 0;
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemEffectiveStrengthMax = 1;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionMarketStateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionStrengthMin = 0;
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionStrengthMax = 1;
+
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemEvidenceIdMax = 160;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemSourceMax = 120;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemSummaryMax = 1000;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemReferenceMax = 500;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemStrengthMin = 0;
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemStrengthMax = 1;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionSupportingEvidenceMax = 50;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemEvidenceIdMax = 160;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemSourceMax = 120;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemSummaryMax = 1000;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemReferenceMax = 500;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemStrengthMin = 0;
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemStrengthMax = 1;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionOpposingEvidenceMax = 50;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionInvalidationConditionsMax = 20;
+
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionProposedRewardRiskExclusiveMin = 0;
+
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionUncertaintyMin = 0;
+export const getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionUncertaintyMax = 1;
+
+export const getShadowDecisionReplayResponseExecutionCostsFeeRatePerLegMin = 0;
+
+export const getShadowDecisionReplayResponseExecutionCostsSlippageRatePerLegMin = 0;
+
+export const getShadowDecisionReplayResponsePortfolioAvailableBalanceMin = 0;
+
+export const getShadowDecisionReplayResponsePortfolioOpenPositionCountMin = 0;
+
+export const getShadowDecisionReplayResponseBrainV0CandidateCountMin = 0;
+
+export const getShadowDecisionReplayResponseBrainV0TopCandidateOneConfidenceMin = 0;
+export const getShadowDecisionReplayResponseBrainV0TopCandidateOneConfidenceMax = 100;
+
+export const getShadowDecisionReplayResponseBrainV0TopCandidateOneNetRewardRiskExclusiveMin = 0;
+
+
+
+export const GetShadowDecisionReplayResponse = zod.object({
+  "marketState": zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "marketStateVersion": zod.enum(['market-state-v1']),
+  "fingerprint": zod.string().regex(getShadowDecisionReplayResponseMarketStateFingerprintRegExp),
+  "symbol": zod.string().min(1).max(getShadowDecisionReplayResponseMarketStateSymbolMax),
+  "venue": zod.enum(['spot', 'futures', 'forex']),
+  "provider": zod.enum(['binance', 'oanda', 'fixture']),
+  "dataTimestamp": zod.coerce.date(),
+  "observedAt": zod.coerce.date(),
+  "freshness": zod.object({
+  "status": zod.enum(['fresh', 'stale']),
+  "ageMs": zod.number().min(getShadowDecisionReplayResponseMarketStateFreshnessAgeMsMin),
+  "maximumAgeMs": zod.number().min(1)
+}),
+  "dataQuality": zod.object({
+  "status": zod.enum(['healthy', 'degraded']),
+  "issues": zod.array(zod.string().min(1)).max(getShadowDecisionReplayResponseMarketStateDataQualityIssuesMax)
+}),
+  "observations": zod.object({
+  "lastPrice": zod.number().gt(getShadowDecisionReplayResponseMarketStateObservationsLastPriceExclusiveMin),
+  "timeframes": zod.array(zod.object({
+  "timeframe": zod.enum(['1m', '3m', '5m', '15m', '1h']),
+  "intervalMs": zod.number().min(1),
+  "candleCount": zod.number().min(1),
+  "lastClosedAt": zod.coerce.date(),
+  "lastClose": zod.number().gt(getShadowDecisionReplayResponseMarketStateObservationsTimeframesItemLastCloseExclusiveMin),
+  "excludedOpenCandles": zod.number().min(getShadowDecisionReplayResponseMarketStateObservationsTimeframesItemExcludedOpenCandlesMin)
+})).min(getShadowDecisionReplayResponseMarketStateObservationsTimeframesMin).max(getShadowDecisionReplayResponseMarketStateObservationsTimeframesMax),
+  "trend": zod.record(zod.string(), zod.unknown()),
+  "volatility": zod.record(zod.string(), zod.unknown()),
+  "momentum": zod.record(zod.string(), zod.unknown()),
+  "liquidity": zod.record(zod.string(), zod.unknown()),
+  "structure": zod.record(zod.string(), zod.unknown())
+}),
+  "inferences": zod.object({
+  "regime": zod.enum(['strong_trend', 'weak_trend', 'range', 'high_volatility', 'low_volatility']),
+  "regimeConfidence": zod.number().min(getShadowDecisionReplayResponseMarketStateInferencesRegimeConfidenceMin).max(getShadowDecisionReplayResponseMarketStateInferencesRegimeConfidenceMax),
+  "dominantDirection": zod.enum(['bullish', 'bearish', 'neutral']),
+  "session": zod.enum(['asia', 'europe', 'us', 'europe_us_overlap', 'off_hours']),
+  "anomaly": zod.record(zod.string(), zod.unknown())
+}),
+  "context": zod.object({
+  "breadth": zod.record(zod.string(), zod.unknown()),
+  "leadership": zod.record(zod.string(), zod.unknown()),
+  "correlation": zod.record(zod.string(), zod.unknown())
+})
+}),
+  "specialistCouncil": zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "councilVersion": zod.enum(['specialist-council-v1']),
+  "mode": zod.enum(['observational']),
+  "cannotExecute": zod.boolean(),
+  "symbol": zod.string(),
+  "marketStateFingerprint": zod.string().regex(getShadowDecisionReplayResponseSpecialistCouncilMarketStateFingerprintRegExp),
+  "dataTimestamp": zod.coerce.date(),
+  "generatedAt": zod.coerce.date(),
+  "consensus": zod.object({
+  "stance": zod.enum(['long', 'short', 'mixed', 'abstain']),
+  "longScore": zod.number().min(getShadowDecisionReplayResponseSpecialistCouncilConsensusLongScoreMin),
+  "shortScore": zod.number().min(getShadowDecisionReplayResponseSpecialistCouncilConsensusShortScoreMin),
+  "actionableOpinions": zod.number().min(getShadowDecisionReplayResponseSpecialistCouncilConsensusActionableOpinionsMin),
+  "abstentions": zod.number().min(getShadowDecisionReplayResponseSpecialistCouncilConsensusAbstentionsMin),
+  "disagreement": zod.boolean(),
+  "explanation": zod.string()
+}),
+  "opinions": zod.array(zod.object({
+  "role": zod.enum(['trend', 'breakout', 'mean_reversion', 'volatility', 'market_structure', 'execution_quality', 'portfolio_conflict']),
+  "correlationGroup": zod.string(),
+  "correlationDiscount": zod.number().min(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemCorrelationDiscountMin).max(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemCorrelationDiscountMax),
+  "effectiveStrength": zod.number().min(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemEffectiveStrengthMin).max(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemEffectiveStrengthMax),
+  "operationalStatus": zod.enum(['active', 'abstained']),
+  "opinion": zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "opinionId": zod.string().uuid(),
+  "specialistId": zod.string(),
+  "specialistVersion": zod.string(),
+  "marketStateFingerprint": zod.string().regex(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionMarketStateFingerprintRegExp),
+  "symbol": zod.string(),
+  "stance": zod.enum(['long', 'short', 'neutral', 'abstain']),
+  "strength": zod.number().min(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionStrengthMin).max(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionStrengthMax),
+  "applicableRegimes": zod.array(zod.string()).min(1),
+  "supportingEvidence": zod.array(zod.object({
+  "evidenceId": zod.string().min(1).max(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemEvidenceIdMax),
+  "kind": zod.enum(['observation', 'specialist', 'statistical', 'memory', 'portfolio', 'execution']),
+  "source": zod.string().min(1).max(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemSourceMax),
+  "summary": zod.string().min(1).max(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemSummaryMax),
+  "reference": zod.string().min(1).max(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemReferenceMax),
+  "fingerprint": zod.string().regex(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemFingerprintRegExp).optional(),
+  "dataTimestamp": zod.coerce.date(),
+  "strength": zod.number().min(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemStrengthMin).max(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemStrengthMax)
+})).max(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionSupportingEvidenceMax),
+  "opposingEvidence": zod.array(zod.object({
+  "evidenceId": zod.string().min(1).max(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemEvidenceIdMax),
+  "kind": zod.enum(['observation', 'specialist', 'statistical', 'memory', 'portfolio', 'execution']),
+  "source": zod.string().min(1).max(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemSourceMax),
+  "summary": zod.string().min(1).max(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemSummaryMax),
+  "reference": zod.string().min(1).max(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemReferenceMax),
+  "fingerprint": zod.string().regex(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemFingerprintRegExp).optional(),
+  "dataTimestamp": zod.coerce.date(),
+  "strength": zod.number().min(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemStrengthMin).max(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemStrengthMax)
+})).max(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionOpposingEvidenceMax),
+  "trigger": zod.string().nullable(),
+  "invalidationConditions": zod.array(zod.string()).max(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionInvalidationConditionsMax),
+  "expectedDurationSeconds": zod.number().min(1).nullable(),
+  "proposedRewardRisk": zod.number().gt(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionProposedRewardRiskExclusiveMin).nullable(),
+  "uncertainty": zod.number().min(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionUncertaintyMin).max(getShadowDecisionReplayResponseSpecialistCouncilOpinionsItemOpinionUncertaintyMax),
+  "abstentionReason": zod.string().nullable(),
+  "dataTimestamp": zod.coerce.date(),
+  "expiresAt": zod.coerce.date()
+})
+}))
+}),
+  "executionCosts": zod.object({
+  "feeRatePerLeg": zod.number().min(getShadowDecisionReplayResponseExecutionCostsFeeRatePerLegMin),
+  "slippageRatePerLeg": zod.number().min(getShadowDecisionReplayResponseExecutionCostsSlippageRatePerLegMin),
+  "source": zod.enum(['engine-market-cost-model']),
+  "version": zod.string()
+}),
+  "portfolio": zod.object({
+  "status": zod.enum(['partial', 'unavailable']),
+  "currency": zod.string(),
+  "availableBalance": zod.number().min(getShadowDecisionReplayResponsePortfolioAvailableBalanceMin).nullable(),
+  "openPositionCount": zod.number().min(getShadowDecisionReplayResponsePortfolioOpenPositionCountMin).nullable(),
+  "observedAt": zod.coerce.date(),
+  "limitations": zod.array(zod.string())
+}),
+  "historicalEvidence": zod.object({
+  "status": zod.enum(['unavailable', 'observational', 'approved']),
+  "ruleVersion": zod.string().nullable(),
+  "items": zod.array(zod.record(zod.string(), zod.unknown())),
+  "limitations": zod.array(zod.string())
+}),
+  "brainV0": zod.object({
+  "mode": zod.enum(['control']),
+  "candidateCount": zod.number().min(getShadowDecisionReplayResponseBrainV0CandidateCountMin),
+  "disposition": zod.enum(['CANDIDATE_PRODUCED', 'NO_CANDIDATE']),
+  "topCandidate": zod.union([zod.object({
+  "strategyId": zod.string(),
+  "strategyName": zod.string(),
+  "side": zod.enum(['long', 'short']),
+  "confidence": zod.number().min(getShadowDecisionReplayResponseBrainV0TopCandidateOneConfidenceMin).max(getShadowDecisionReplayResponseBrainV0TopCandidateOneConfidenceMax),
+  "netRewardRisk": zod.number().gt(getShadowDecisionReplayResponseBrainV0TopCandidateOneNetRewardRiskExclusiveMin).nullable()
+}),zod.null()])
+})
+})
+
+
+/**
+ * Returns the most recent scanner results enriched with the strategy that fired
+ * @summary Live ranked opportunity signals
+ */
+export const GetStrategySignalsResponseItem = zod.object({
+  "symbol": zod.string(),
+  "strategyId": zod.string().optional(),
+  "strategyName": zod.string().optional(),
+  "confidence": zod.number(),
+  "regime": zod.string(),
+  "lastPrice": zod.number(),
+  "adx": zod.number().optional(),
+  "rsi": zod.number().optional(),
+  "volumeRatio": zod.number().optional(),
+  "status": zod.string(),
+  "entryReason": zod.string().optional()
+})
+export const GetStrategySignalsResponse = zod.array(GetStrategySignalsResponseItem)
+
+
+/**
+ * @summary Update strategy configuration
+ */
+export const UpdateStrategyConfigParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const updateStrategyConfigBodyTradeAmountUsdtMax = 1000000;
+
+export const updateStrategyConfigBodyMaxLossUsdtMin = 0.01;
+export const updateStrategyConfigBodyMaxLossUsdtMax = 1000000;
+
+export const updateStrategyConfigBodyTargetProfitUsdtMin = 0.01;
+export const updateStrategyConfigBodyTargetProfitUsdtMax = 1000000;
+
+export const updateStrategyConfigBodyRiskPercentMin = 0.01;
+export const updateStrategyConfigBodyRiskPercentMax = 10;
+
+export const updateStrategyConfigBodyConfidenceThresholdMin = 0;
+export const updateStrategyConfigBodyConfidenceThresholdMax = 100;
+
+export const updateStrategyConfigBodyStopLossPercentMin = 0.01;
+export const updateStrategyConfigBodyStopLossPercentMax = 20;
+
+export const updateStrategyConfigBodyTakeProfitPercentMin = 0.3;
+export const updateStrategyConfigBodyTakeProfitPercentMax = 100;
+
+export const updateStrategyConfigBodyMaxHoldingSecondsMax = 2592000;
+
+export const updateStrategyConfigBodyMaxConcurrentPositionsMax = 20;
+
+export const updateStrategyConfigBodyCooldownMinutesMin = 0;
+export const updateStrategyConfigBodyCooldownMinutesMax = 1440;
+
+export const updateStrategyConfigBodyBreakEvenRMultipleMin = 0;
+export const updateStrategyConfigBodyBreakEvenRMultipleMax = 20;
+
+export const updateStrategyConfigBodyTp1RMultipleMin = 0;
+export const updateStrategyConfigBodyTp1RMultipleMax = 20;
+
+export const updateStrategyConfigBodyTp1ClosePercentMin = 0;
+export const updateStrategyConfigBodyTp1ClosePercentMax = 100;
+
+export const updateStrategyConfigBodyTp2RMultipleMin = 0.01;
+export const updateStrategyConfigBodyTp2RMultipleMax = 20;
+
+export const updateStrategyConfigBodyTp2ClosePercentMin = 0;
+export const updateStrategyConfigBodyTp2ClosePercentMax = 100;
+
+export const updateStrategyConfigBodyTp3RMultipleMin = 0.01;
+export const updateStrategyConfigBodyTp3RMultipleMax = 20;
+
+export const updateStrategyConfigBodyTrailingStopAtrMultiplierMin = 0.01;
+export const updateStrategyConfigBodyTrailingStopAtrMultiplierMax = 20;
+
+export const updateStrategyConfigBodyTrailingStopPercentMin = 0.01;
+export const updateStrategyConfigBodyTrailingStopPercentMax = 20;
+
+export const updateStrategyConfigBodyEmergencyTrailingRMultipleMin = 0;
+export const updateStrategyConfigBodyEmergencyTrailingRMultipleMax = 20;
+
+export const updateStrategyConfigBodyEmergencyTrailingPercentMin = 0.01;
+export const updateStrategyConfigBodyEmergencyTrailingPercentMax = 20;
+
+export const updateStrategyConfigBodyExitPriorityMin = 3;
+export const updateStrategyConfigBodyExitPriorityMax = 4;
+
+
+
+export const UpdateStrategyConfigBody = zod.object({
+  "enabled": zod.boolean().optional(),
+  "tradeAmountUsdt": zod.number().min(1).max(updateStrategyConfigBodyTradeAmountUsdtMax).nullish().describe('null clears the field (fall back to global positionSizeUsdt).'),
+  "maxLossUsdt": zod.number().min(updateStrategyConfigBodyMaxLossUsdtMin).max(updateStrategyConfigBodyMaxLossUsdtMax).nullish().describe('null clears the dollar plan (strategy reverts to %-based SL\/TP).'),
+  "targetProfitUsdt": zod.number().min(updateStrategyConfigBodyTargetProfitUsdtMin).max(updateStrategyConfigBodyTargetProfitUsdtMax).nullish().describe('null clears the dollar plan (strategy reverts to %-based SL\/TP).'),
+  "riskPercent": zod.number().min(updateStrategyConfigBodyRiskPercentMin).max(updateStrategyConfigBodyRiskPercentMax).optional(),
+  "confidenceThreshold": zod.number().min(updateStrategyConfigBodyConfidenceThresholdMin).max(updateStrategyConfigBodyConfidenceThresholdMax).optional(),
+  "stopLossPercent": zod.number().min(updateStrategyConfigBodyStopLossPercentMin).max(updateStrategyConfigBodyStopLossPercentMax).optional(),
+  "takeProfitPercent": zod.number().min(updateStrategyConfigBodyTakeProfitPercentMin).max(updateStrategyConfigBodyTakeProfitPercentMax).optional(),
+  "maxHoldingSeconds": zod.number().min(1).max(updateStrategyConfigBodyMaxHoldingSecondsMax).optional(),
+  "maxConcurrentPositions": zod.number().min(1).max(updateStrategyConfigBodyMaxConcurrentPositionsMax).optional(),
+  "cooldownMinutes": zod.number().min(updateStrategyConfigBodyCooldownMinutesMin).max(updateStrategyConfigBodyCooldownMinutesMax).optional(),
+  "breakEvenRMultiple": zod.number().min(updateStrategyConfigBodyBreakEvenRMultipleMin).max(updateStrategyConfigBodyBreakEvenRMultipleMax).optional().describe('Pre-TP1 break-even arm: at this many R of unrealized profit the stop moves to entry â€” the trade can no longer lose. 0 disables.'),
+  "tp1RMultiple": zod.number().min(updateStrategyConfigBodyTp1RMultipleMin).max(updateStrategyConfigBodyTp1RMultipleMax).optional().describe('R-multiple at which TP1 banks a partial and moves the stop to break-even. 0 = single TP.'),
+  "tp1ClosePercent": zod.number().min(updateStrategyConfigBodyTp1ClosePercentMin).max(updateStrategyConfigBodyTp1ClosePercentMax).optional(),
+  "tp3Enabled": zod.boolean().optional(),
+  "tp2RMultiple": zod.number().min(updateStrategyConfigBodyTp2RMultipleMin).max(updateStrategyConfigBodyTp2RMultipleMax).optional(),
+  "tp2ClosePercent": zod.number().min(updateStrategyConfigBodyTp2ClosePercentMin).max(updateStrategyConfigBodyTp2ClosePercentMax).optional(),
+  "tp3RMultiple": zod.number().min(updateStrategyConfigBodyTp3RMultipleMin).max(updateStrategyConfigBodyTp3RMultipleMax).optional(),
+  "trailingStopMode": zod.enum(['none', 'atr', 'percent', 'dynamic']).optional(),
+  "trailingStopAtrMultiplier": zod.number().min(updateStrategyConfigBodyTrailingStopAtrMultiplierMin).max(updateStrategyConfigBodyTrailingStopAtrMultiplierMax).optional(),
+  "trailingStopPercent": zod.number().min(updateStrategyConfigBodyTrailingStopPercentMin).max(updateStrategyConfigBodyTrailingStopPercentMax).optional(),
+  "trailingAfterTp1Only": zod.boolean().optional(),
+  "emergencyTrailingRMultiple": zod.number().min(updateStrategyConfigBodyEmergencyTrailingRMultipleMin).max(updateStrategyConfigBodyEmergencyTrailingRMultipleMax).optional(),
+  "emergencyTrailingPercent": zod.number().min(updateStrategyConfigBodyEmergencyTrailingPercentMin).max(updateStrategyConfigBodyEmergencyTrailingPercentMax).optional(),
+  "exitPriority": zod.array(zod.enum(['stop_loss', 'take_profit', 'trailing_stop', 'timeout'])).min(updateStrategyConfigBodyExitPriorityMin).max(updateStrategyConfigBodyExitPriorityMax).optional()
+})
+
+export const UpdateStrategyConfigResponse = zod.object({
+  "success": zod.boolean(),
+  "strategyId": zod.string()
+})
+
+
+/**
+ * @summary Export backtest trades as CSV or JSON
+ */
+export const ExportBacktestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const exportBacktestQueryFormatDefault = `json`;
+
+export const ExportBacktestQueryParams = zod.object({
+  "format": zod.enum(['json', 'csv']).default(exportBacktestQueryFormatDefault)
+})
+
+export const ExportBacktestResponse = zod.object({
+
+}).passthrough()
+
+

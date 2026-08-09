@@ -607,5 +607,3324 @@ export type RecommendationStatus = typeof RecommendationStatus[keyof typeof Reco
 
 export const RecommendationStatus = {
   created: 'created',
-  executing: Û9âÚ$z{-®éÜj×2Ò°¢†VÇF‡“¢v†VÇF‡’rÀ¢FVw&FVC¢vFVw&FVBrÀ¢&Æö6¶VC¢v&Æö6¶VBrÀ§Ò26öç7C° ¦W‡÷'B–çFW&f6R÷'FföÆ–ô–çFVÆÆ–vVæ6U&ö¦V7F–öâ°¢66†VÖfW'6–öã¢sããs°¢÷'FföÆ–õfW'6–öã¢w6†F÷r×÷'FföÆ–òÖ–çFVÆÆ–vVæ6R×cs°¢ÖöFS¢w6†F÷rs°¢6ææ÷DW†V7WFS¢G'VS°¢&ö¦V7F–öä–C¢7G&–æs°¢ò¢¢GFW&âå¶ÖcÓ•×³cGÒB¢ğ¢f–ævW'&–çC¢7G&–æs°¢vVæW&FVDC¢7G&–æs°¢ò¢¢çVÆÆ&ÆR¢ğ¢6÷W&6U66åF–ÖW7F×¢7G&–ærÂçVÆÃ°¢FF7FGW3¢÷'FföÆ–ô–çFVÆÆ–vVæ6U&ö¦V7F–öäFF7FGW3°¢FF—77VW3¢7G&–æuµÓ°¢öÆ–7“¢÷'FföÆ–õöÆ–7“°¢6öçFW‡C¢÷'FföÆ–ô6öçFW‡C°¢&—6µW6vS¢÷'FföÆ–õ&—6µW6vS°¢÷÷'GVæ—F–W3¢÷'FföÆ–ô÷÷'GVæ—G”76W76ÖVçEµÓ°¢&WF–æVD66ƒ¢&WF–æVD66ƒ°§Ğ ¦W‡÷'BG—R&VÆ–Ö–æ'•÷'FföÆ–ô6öçFW‡E7FGW2ÒG—Vöb&VÆ–Ö–æ'•÷'FföÆ–ô6öçFW‡E7FGW5¶¶W–öbG—Vöb&VÆ–Ö–æ'•÷'FföÆ–ô6öçFW‡E7FGW5Ó°  ¦W‡÷'B6öç7B&VÆ–Ö–æ'•÷'FföÆ–ô6öçFW‡E7FGW2Ò°¢'F–Ã¢w'F–ÂrÀ¢Væf–Æ&ÆS¢wVæf–Æ&ÆRrÀ§Ò26öç7C° ¦W‡÷'B–çFW&f6R&VÆ–Ö–æ'•÷'FföÆ–ô6öçFW‡B°¢7FGW3¢&VÆ–Ö–æ'•÷'FföÆ–ô6öçFW‡E7FGW3°¢7W'&Væ7“¢7G&–æs°¢ò¢ ¢¢Ö–æ–×VÒ ¢¢çVÆÆ&ÆP¢¢ğ¢f–Æ&ÆT&Ææ6S¢çVÖ&W"ÂçVÆÃ°¢ò¢ ¢¢Ö–æ–×VÒ ¢¢çVÆÆ&ÆP¢¢ğ¢÷Vå÷6—F–öä6÷VçC¢çVÖ&W"ÂçVÆÃ°¢ö'6W'fVDC¢7G&–æs°¢Æ–Ö—FF–öç3¢7G&–æuµÓ°§Ğ ¦W‡÷'BG—R†—7F÷&–6ÄWf–FVæ6T6öçFW‡E7FGW2ÒG—Vöb†—7F÷&–6ÄWf–FVæ6T6öçFW‡E7FGW5¶¶W–öbG—Vöb†—7F÷&–6ÄWf–FVæ6T6öçFW‡E7FGW5Ó°  ¦W‡÷'B6öç7B†—7F÷&–6ÄWf–FVæ6T6öçFW‡E7FGW2Ò°¢Væf–Æ&ÆS¢wVæf–Æ&ÆRrÀ¢ö'6W'fF–öæÃ¢vö'6W'fF–öæÂrÀ¢&÷fVC¢v&÷fVBrÀ§Ò26öç7C° ¦W‡÷'BG—R†—7F÷&–6ÄWf–FVæ6T6öçFW‡D—FV×4—FVÒÒ²¶¶W“¢7G&–æuÓ¢Væ¶æ÷vâÓ° ¦W‡÷'B–çFW&f6R†—7F÷&–6ÄWf–FVæ6T6öçFW‡B°¢7FGW3¢†—7F÷&–6ÄWf–FVæ6T6öçFW‡E7FGW3°¢ò¢¢çVÆÆ&ÆR¢ğ¢'VÆUfW'6–öã¢7G&–ærÂçVÆÃ°¢—FV×3¢†—7F÷&–6ÄWf–FVæ6T6öçFW‡D—FV×4—FVÕµÓ°¢Æ–Ö—FF–öç3¢7G&–æuµÓ°§Ğ ¦W‡÷'BG—R'&–åc6æF–FFU6–FRÒG—Vöb'&–åc6æF–FFU6–FU¶¶W–öbG—Vöb'&–åc6æF–FFU6–FUÓ°  ¦W‡÷'B6öç7B'&–åc6æF–FFU6–FRÒ°¢Æöæs¢vÆöærrÀ¢6†÷'C¢w6†÷'BrÀ§Ò26öç7C° ¦W‡÷'B–çFW&f6R'&–åc6æF–FFR°¢7G&FVw”–C¢7G&–æs°¢7G&FVw”æÖS¢7G&–æs°¢6–FS¢'&–åc6æF–FFU6–FS°¢ò¢ ¢¢Ö–æ–×VÒ ¢¢Ö†–×VÒ ¢¢ğ¢6öæf–FVæ6S¢çVÖ&W#°¢ò¢ ¢¢W†6ÇW6—fTÖ–æ–×VÒ ¢¢çVÆÆ&ÆP¢¢ğ¢æWE&Wv&E&—6³¢çVÖ&W"ÂçVÆÃ°§Ğ ¦W‡÷'BG—R'&–åc6ö×&—6öäÖöFRÒG—Vöb'&–åc6ö×&—6öäÖöFU¶¶W–öbG—Vöb'&–åc6ö×&—6öäÖöFUÓ°  ¦W‡÷'B6öç7B'&–åc6ö×&—6öäÖöFRÒ°¢6öçG&öÃ¢v6öçG&öÂrÀ§Ò26öç7C° ¦W‡÷'BG—R'&–åc6ö×&—6öäF—7÷6—F–öâÒG—Vöb'&–åc6ö×&—6öäF—7÷6—F–öå¶¶W–öbG—Vöb'&–åc6ö×&—6öäF—7÷6—F–öåÓ°  ¦W‡÷'B6öç7B'&–åc6ö×&—6öäF—7÷6—F–öâÒ°¢4äD”DDUõ$ôET4TC¢t4äD”DDUõ$ôET4TBrÀ¢äõô4äD”DDS¢täõô4äD”DDRrÀ§Ò26öç7C° ¦W‡÷'B–çFW&f6R'&–åc6ö×&—6öâ°¢ÖöFS¢'&–åc6ö×&—6öäÖöFS°¢ò¢¢Ö–æ–×VÒ¢ğ¢6æF–FFT6÷VçC¢çVÖ&W#°¢F—7÷6—F–öã¢'&–åc6ö×&—6öäF—7÷6—F–öã°¢F÷6æF–FFS¢'&–åc6æF–FFRÂçVÆÃ°§Ğ ¦W‡÷'BG—RFWFW&Ö–æ—7F–476W76ÖVçEfW'6–öâÒG—VöbFWFW&Ö–æ—7F–476W76ÖVçEfW'6–öå¶¶W–öbG—VöbFWFW&Ö–æ—7F–476W76ÖVçEfW'6–öåÓ°  ¦W‡÷'B6öç7BFWFW&Ö–æ—7F–476W76ÖVçEfW'6–öâÒ°¢vFWFW&Ö–æ—7F–2Ö6÷Væ6–Â×cs¢vFWFW&Ö–æ—7F–2Ö6÷Væ6–Â×crÀ§Ò26öç7C° ¦W‡÷'BG—RFWFW&Ö–æ—7F–476W76ÖVçEF‡&W6†öÆG2Ò°¢ò¢ ¢¢Ö–æ–×VÒ ¢¢Ö†–×VÒ¢¢ğ¢VçFW$æ÷s¢çVÖ&W#°¢ò¢ ¢¢Ö–æ–×VÒ ¢¢Ö†–×VÒ¢¢ğ¢v—Df÷%G&–vvW#¢çVÖ&W#°§Ó° ¦W‡÷'B–çFW&f6RFWFW&Ö–æ—7F–476W76ÖVçB°¢fW'6–öã¢FWFW&Ö–æ—7F–476W76ÖVçEfW'6–öã°¢ò¢¢Ö–æ–×VÒ¢ğ¢Æöæu66÷&S¢çVÖ&W#°¢ò¢¢Ö–æ–×VÒ¢ğ¢6†÷'E66÷&S¢çVÖ&W#°¢ò¢ ¢¢Ö–æ–×VÒ ¢¢Ö†–×VÒ¢¢ğ¢FöÖ–æçE6†&S¢çVÖ&W#°¢ò¢ ¢¢Ö–æ–×VÒ ¢¢Ö†–×VÒ¢¢ğ¢fW&vTVffV7F—fU7G&VæwFƒ¢çVÖ&W#°¢ò¢ ¢¢Ö–æ–×VÒ ¢¢Ö†–×VÒ¢¢ğ¢&Vv–ÖU7V—F&–Æ—G“¢çVÖ&W#°¢ò¢ ¢¢Ö–æ–×VÒ ¢¢Ö†–×VÒ¢¢ğ¢6÷7EVæÇG“¢çVÖ&W#°¢ò¢ ¢¢Ö–æ–×VÒ ¢¢Ö†–×VÒ¢¢ğ¢FV6—6–öå7G&VæwFƒ¢çVÖ&W#°¢F‡&W6†öÆG3¢FWFW&Ö–æ—7F–476W76ÖVçEF‡&W6†öÆG3°¢'VÆUG&6S¢7G&–æuµÓ°§Ğ ¦W‡÷'B–çFW&f6R&V6öæ–æt6Æ–Ò°¢6Æ–Ó¢7G&–æs°¢Wf–FVæ6T–G3¢7G&–æuµÓ°§Ğ ¦W‡÷'BG—R6÷Væ6–Å&V6öæ–æu&W÷'E7FGW2ÒG—Vöb6÷Væ6–Å&V6öæ–æu&W÷'E7FGW5¶¶W–öbG—Vöb6÷Væ6–Å&V6öæ–æu&W÷'E7FGW5Ó°  ¦W‡÷'B6öç7B6÷Væ6–Å&V6öæ–æu&W÷'E7FGW2Ò°¢æ÷Eö6öæf–wW&VC¢væ÷Eö6öæf–wW&VBrÀ¢fÆ–FFVC¢wfÆ–FFVBrÀ¢FVw&FVC¢vFVw&FVBrÀ¢6—&7V—Eö÷Vã¢v6—&7V—Eö÷VârÀ¢&÷f–FW%öW'&÷#¢w&÷f–FW%öW'&÷"rÀ§Ò26öç7C° ¦W‡÷'BG—R6÷Væ6–Å&V6öæ–æu&W÷'EW6vRÒ°¢ò¢ ¢¢Ö–æ–×VÒ ¢¢çVÆÆ&ÆP¢¢ğ¢–çWEFö¶Vç3¢çVÖ&W"ÂçVÆÃ°¢ò¢ ¢¢Ö–æ–×VÒ ¢¢çVÆÆ&ÆP¢¢ğ¢÷WGWEFö¶Vç3¢çVÖ&W"ÂçVÆÃ°¢ò¢ ¢¢Ö–æ–×VÒ ¢¢çVÆÆ&ÆP¢¢ğ¢6÷7EW6C¢çVÖ&W"ÂçVÆÃ°§Ó° ¦W‡÷'B–çFW&f6R6÷Væ6–Å&V6öæ–æu&W÷'B°¢7FGW3¢6÷Væ6–Å&V6öæ–æu&W÷'E7FGW3°¢ò¢¢çVÆÆ&ÆR¢ğ¢&÷f–FW$–C¢7G&–ærÂçVÆÃ°¢ò¢¢çVÆÆ&ÆR¢ğ¢ÖöFVÅfW'6–öã¢7G&–ærÂçVÆÃ°¢7VÖÖ'“¢7G&–æs°¢6Æ–×3¢&V6öæ–æt6Æ–ÕµÓ°¢6†ÆÆVævW3¢&V6öæ–æt6Æ–ÕµÓ°¢Væ6W'F–çG”æ÷FW3¢7G&–æuµÓ°¢fÆ–FF–öäf–ÇW&W3¢7G&–æuµÓ°¢ò¢¢Ö–æ–×VÒ¢ğ¢GFV×G3¢çVÖ&W#°¢ò¢¢Ö–æ–×VÒ¢ğ¢ÆFVæ7”×3¢çVÖ&W#°¢W6vS¢6÷Væ6–Å&V6öæ–æu&W÷'EW6vS°§Ğ ¦W‡÷'B–çFW&f6R6†F÷u&WÆ”'VæFÆR°¢Ö&¶WE7FFS¢Ö&¶WE7FFS°¢7V6–Æ—7D6÷Væ6–Ã¢7V6–Æ—7D6÷Væ6–Å6æ6†÷C°¢W†V7WF–öä6÷7G3¢W†V7WF–öä6÷7D6öçFW‡C°¢÷'FföÆ–ó¢&VÆ–Ö–æ'•÷'FföÆ–ô6öçFW‡C°¢†—7F÷&–6ÄWf–FVæ6S¢†—7F÷&–6ÄWf–FVæ6T6öçFW‡C°¢'&–åc¢'&–åc6ö×&—6öã°§Ğ ¦W‡÷'BG—R6†F÷t6÷Væ6–Å'Vå66†VÖfW'6–öâÒG—Vöb6†F÷t6÷Væ6–Å'Vå66†VÖfW'6–öå¶¶W–öbG—Vöb6†F÷t6÷Væ6–Å'Vå66†VÖfW'6–öåÓ°  ¦W‡÷'B6öç7B6†F÷t6÷Væ6–Å'Vå66†VÖfW'6–öâÒ°¢ss¢sããrÀ§Ò26öç7C° ¦W‡÷'BG—R6†F÷t6÷Væ6–Å'Vä6÷Væ6–ÅfW'6–öâÒG—Vöb6†F÷t6÷Væ6–Å'Vä6÷Væ6–ÅfW'6–öå¶¶W–öbG—Vöb6†F÷t6÷Væ6–Å'Vä6÷Væ6–ÅfW'6–öåÓ°  ¦W‡÷'B6öç7B6†F÷t6÷Væ6–Å'Vä6÷Væ6–ÅfW'6–öâÒ°¢w6†F÷rÖFV6—6–öâÖ6÷Væ6–Â×cs¢w6†F÷rÖFV6—6–öâÖ6÷Væ6–Â×crÀ§Ò26öç7C° ¦W‡÷'BG—R6†F÷t6÷Væ6–Å'VäÖöFRÒG—Vöb6†F÷t6÷Væ6–Å'VäÖöFU¶¶W–öbG—Vöb6†F÷t6÷Væ6–Å'VäÖöFUÓ°  ¦W‡÷'B6öç7B6†F÷t6÷Væ6–Å'VäÖöFRÒ°¢6†F÷s¢w6†F÷rrÀ§Ò26öç7C° ¦W‡÷'B–çFW&f6R6†F÷t6÷Væ6–Å'Vâ°¢66†VÖfW'6–öã¢6†F÷t6÷Væ6–Å'Vå66†VÖfW'6–öã°¢6÷Væ6–ÅfW'6–öã¢6†F÷t6÷Væ6–Å'Vä6÷Væ6–ÅfW'6–öã°¢'Vä–C¢7G&–æs°¢ò¢¢GFW&âå¶ÖdÔcÓ•×³cGÒB¢ğ¢–çWDf–ævW'&–çC¢7G&–æs°¢ò¢¢GFW&âå¶ÖdÔcÓ•×³cGÒB¢ğ¢'Väf–ævW'&–çC¢7G&–æs°¢ÖöFS¢6†F÷t6÷Væ6–Å'VäÖöFS°¢6ææ÷DW†V7WFS¢G'VS°¢vVæW&FVDC¢7G&–æs°¢FV6—6–öã¢'&–äFV6—6–öã°¢ò¢¢GFW&âå¶ÖdÔcÓ•×³cGÒB¢ğ¢FV6—6–öäf–ævW'&–çC¢7G&–æs°¢FWFW&Ö–æ—7F–476W76ÖVçC¢FWFW&Ö–æ—7F–476W76ÖVçC°¢&V6öæ–æs¢6÷Væ6–Å&V6öæ–æu&W÷'C°¢&WÆ“¢6†F÷u&WÆ”'VæFÆS°§Ğ ¦W‡÷'B–çFW&f6R7G&FVw”–æfò°¢7G&FVw”–C¢7G&–æs°¢7G&FVw”æÖS¢7G&–æs°¢7W÷'FVE&Vv–ÖW3¢7G&–æuµÓ°¢ò¢¢F†R–æF–6F÷'2F†—27G&FVw’&VG2Â‡VÖâ×&VF&ÆRv—F‚F–ÖVg&ÖRâ¢ğ¢–æF–6F÷'3¢7G&–æuµÓ°¢ò¢¢G'VRv†VâF†R7G&FVw’—2æF—fRFV6—6–öâÖÖ¶W"÷væ–ær—G2gVÆÂG&FUÆâ†ÆWfW&vRÂ7G'V7GW&Â7F÷ÂGW&F–öâÂw&—GFVâ&V6öæ–ær’â¢ğ¢FV6—6–öäÖ¶W#¢&ööÆVã°¢6öæf–s¢7G&FVw”6öæf–s°¢W&f÷&Öæ6S¢7G&FVw•W&f÷&Öæ6S°¢ò¢¢G'VRv†VâF†—2—2W6W"Ö'V–ÇB7W7FöÒ7G&FVw’†æòÖ6öFR'V–ÆFW"’Âæ÷B'V–ÇBÖ–ââ¢ğ¢7W7FöÓó¢&ööÆVã°¢ò¢¢F†R7W7FöÒ7G&FVw’w2çVÖW&–2–B†f÷"ö7W7FöÒ×7G&FVv–W2÷¶–GÒ5%TB’â&W6VçBöæÇ’v†Vâ7W7FöÒâ¢ğ¢7W7FöÔ–Có¢çVÖ&W#°¢ò¢¢7W7FöÒ7G&FVv–W2öæÇ’(	BG'VRöæ6R6–ævÆR×7G&FVw’&6·FW7BöbF†R5U%$TåB'VÆW2†26ö×ÆWFVB‡&WV—&VB&Vf÷&RÆ—fRVæ&ÆR’â¢ğ¢&6·FW7FVCó¢&ööÆVã°§Ğ ¢ò¢ ¢¢6ö×&—6öâ(	BwBöwFRöÇBöÇFRf÷"çVÖW&–2–æF–6F÷'2ÂWf÷"VçVÒö&ööÆVâöæW2à¢¢ğ¦W‡÷'BG—R7W7FöÕ7G&FVw”6öæF—F–öä÷ÒG—Vöb7W7FöÕ7G&FVw”6öæF—F–öä÷¶¶W–öbG—Vöb7W7FöÕ7G&FVw”6öæF—F–öä÷Ó°  ¦W‡÷'B6öç7B7W7FöÕ7G&FVw”6öæF—F–öä÷Ò°¢wC¢vwBrÀ¢wFS¢vwFRrÀ¢ÇC¢vÇBrÀ¢ÇFS¢vÇFRrÀ¢W¢vWrÀ§Ò26öç7C° ¦W‡÷'B–çFW&f6R7W7FöÕ7G&FVw”6öæF—F–öâ°¢ò¢¢öæRöbF†R'V–ÆFW"w2–æF–6F÷"fö6'VÆ'’–G2‡'6’ÂG‚ÂG%W&6VçBÂÖ6D†—7Föw&ÒÂföÇVÖU&F–òÂ6öæf–FVæ6RÂ6†÷'D6öæf–FVæ6RÂÆ7E&–6RÂ†÷W%WF2Â7Dg&öÔ†–vƒ#Â7Dg&öÔÆ÷s#Â&Vv–ÖRÂÖ7&ô'VÆÆ—6‚ÂÖ7&ô&V&—6‚ÂVÖ#&÷fTVÖS’â¢ğ¢–æF–6F÷#¢7G&–æs°¢ò¢¢6ö×&—6öâ(	BwBöwFRöÇBöÇFRf÷"çVÖW&–2–æF–6F÷'2ÂWf÷"VçVÒö&ööÆVâöæW2â¢ğ¢÷¢7W7FöÕ7G&FVw”6öæF—F–öä÷°¢ò¢¢çVÖ&W"f÷"çVÖW&–2–æF–6F÷'3²7G&–ærf÷"VçVÒö&ööÆVâöæW2‚'G'VR"ò&fÇ6R"÷"&Vv–ÖRæÖR’â¢ğ¢fÇVS¢çVÖ&W"Â7G&–æs°§Ğ ¦W‡÷'BG—R7W7FöÕ7G&FVw•7F÷ÖöFRÒG—Vöb7W7FöÕ7G&FVw•7F÷ÖöFU¶¶W–öbG—Vöb7W7FöÕ7G&FVw•7F÷ÖöFUÓ°  ¦W‡÷'B6öç7B7W7FöÕ7G&FVw•7F÷ÖöFRÒ°¢G#¢vG"rÀ¢W&6VçC¢wW&6VçBrÀ¢7v–æs¢w7v–ærrÀ§Ò26öç7C° ¦W‡÷'B–çFW&f6R7W7FöÕ7G&FVw•7F÷°¢ÖöFS¢7W7FöÕ7G&FVw•7F÷ÖöFS°¢ò¢¢G"ÖöFR(	B7F÷Bâ9rE"g&öÒVçG'’ƒã^(	3’â¢ğ¢G$×VÇCó¢çVÖ&W#°¢ò¢¢W&6VçBÖöFR(	Bf—†VBRF—7Fæ6Rg&öÒVçG'’ƒã^(	3#’â¢ğ¢7Có¢çVÖ&W#°¢ò¢¢7v–ærÖöFR(	BÆ÷vW7BÆ÷rò†–v†W7B†–v‚öbF†RÆ7BâVÒ&'2ƒ>(	3S’â¢ğ¢Æöö¶&6³ó¢çVÖ&W#°§Ğ ¦W‡÷'B–çFW&f6R7W7FöÕ7G&FVw•'VÆW2°¢ò¢¢äBÖÆ—7Böb6öæF—F–öç2F†B×W7BÄÂ†öÆBFò&÷÷6RÆöærâöÖ—BFòF—6&ÆRÆöæw2â¢ğ¢Æöæsó¢7W7FöÕ7G&FVw”6öæF—F–öåµÓ°¢ò¢¢äBÖÆ—7Böb6öæF—F–öç2F†B×W7BÄÂ†öÆBFò&÷÷6R6†÷'BâöÖ—BFòF—6&ÆR6†÷'G2â¢ğ¢6†÷'Có¢7W7FöÕ7G&FVw”6öæF—F–öåµÓ°¢7F÷¢7W7FöÕ7G&FVw•7F÷°¢ò¢¢7FF–2Æâ6öæf–FVæ6RƒS(	3“R“²F†RW"×7G&FVw’6öæf–FVæ6RF‡&W6†öÆB7F–ÆÂÆ–W2öâF÷â¢ğ¢6öæf–FVæ6S¢çVÖ&W#°§Ğ ¦W‡÷'BG—R7W7FöÕ7G&FVw•6V7F–öâÒG—Vöb7W7FöÕ7G&FVw•6V7F–öå¶¶W–öbG—Vöb7W7FöÕ7G&FVw•6V7F–öåÓ°  ¦W‡÷'B6öç7B7W7FöÕ7G&FVw•6V7F–öâÒ°¢7'—Fó¢v7'—FòrÀ¢f÷&Wƒ¢vf÷&W‚rÀ§Ò26öç7C° ¦W‡÷'B–çFW&f6R7W7FöÕ7G&FVw’°¢–C¢çVÖ&W#°¢ò¢¢Væv–æRÖf6–ær–BÂ7W7FöÕóÆ–Câ(	BF†R¶W’W6VBöâ÷7G&FVv–W2Â&6·FW7G2æBWF÷6–W2â¢ğ¢7G&FVw”–C¢7G&–æs°¢6V7F–öã¢7W7FöÕ7G&FVw•6V7F–öã°¢æÖS¢7G&–æs°¢FW67&—F–öãó¢7G&–ærÂçVÆÃ°¢'VÆW3¢7W7FöÕ7G&FVw•'VÆW3°¢ò¢¢‡VÖâ×&VF&ÆR&VæFW&–æröbF†R'VÆW2‚$Äôärv†Vâ%4’Â3(
-b"’â¢ğ¢–æF–6F÷'3¢7G&–æuµÓ°¢'VÆW5fÆ–C¢&ööÆVã°¢ò¢¢G'VRöæ6R6–ævÆR×7G&FVw’&6·FW7BöbF†R5U%$TåB'VÆW26ö×ÆWFVBâVF—F–ær'VÆW2&W6WG2F†—2(	BæBÆ—fRVæ&ÆVÖVçB&WV—&W2—Bâ¢ğ¢&6·FW7FVC¢&ööÆVã°¢Æ7D&6·FW7DCó¢7G&–ærÂçVÆÃ°¢'VÆW5WFFVDC¢7G&–æs°¢7&VFVDC¢7G&–æs°¢WFFVDC¢7G&–æs°§Ğ ¦W‡÷'B–çFW&f6R7W7FöÕ7G&FVw”7&VFR°¢ò¢ ¢¢Ö–äÆVæwF‚¢¢Ö„ÆVæwF‚c ¢¢ğ¢æÖS¢7G&–æs°¢ò¢¢Ö„ÆVæwF‚S¢ğ¢FW67&—F–öãó¢7G&–æs°¢'VÆW3¢7W7FöÕ7G&FVw•'VÆW3°§Ğ ¦W‡÷'B–çFW&f6R7W7FöÕ7G&FVw•WFFR°¢ò¢ ¢¢Ö–äÆVæwF‚¢¢Ö„ÆVæwF‚c ¢¢ğ¢æÖSó¢7G&–æs°¢ò¢¢Ö„ÆVæwF‚S¢ğ¢FW67&—F–öãó¢7G&–ærÂçVÆÃ°¢'VÆW3ó¢7W7FöÕ7G&FVw•'VÆW3°§Ğ ¦W‡÷'B–çFW&f6R7G&FVw•6–væÄ—FVÒ°¢7–Ö&öÃ¢7G&–æs°¢7G&FVw”–Có¢7G&–æs°¢7G&FVw”æÖSó¢7G&–æs°¢6öæf–FVæ6S¢çVÖ&W#°¢&Vv–ÖS¢7G&–æs°¢Æ7E&–6S¢çVÖ&W#°¢Gƒó¢çVÖ&W#°¢'6“ó¢çVÖ&W#°¢föÇVÖU&F–óó¢çVÖ&W#°¢7FGW3¢7G&–æs°¢VçG'•&V6öãó¢7G&–æs°§Ğ ¦W‡÷'BG—R&Vv—7FW$&öG’Ò°¢ò¢ ¢¢Ö–äÆVæwF‚0¢¢Ö„ÆVæwF‚c@¢¢ğ¢W6W&æÖS¢7G&–æs°¢ò¢¢Ö–äÆVæwF‚"¢ğ¢77v÷&C¢7G&–æs°§Ó° ¦W‡÷'BG—R&Vv—7FW##Ò°¢ö³ó¢&ööÆVã°§Ó° ¦W‡÷'BG—RÆöv–ä&öG’Ò°¢W6W&æÖS¢7G&–æs°¢77v÷&C¢7G&–æs°§Ó° ¦W‡÷'BG—RÆöv–ã#Ò°¢ö³ó¢&ööÆVã°§Ó° ¦W‡÷'BG—RÆöv÷WC#Ò°¢ö³ó¢&ööÆVã°§Ó° ¦W‡÷'BG—RvWDWF…7FGW3#Ò°¢WF†VçF–6FVC¢&ööÆVã°§Ó° ¦W‡÷'BG—R&W6WE&—6µW6S#Ò°¢ÖW76vS¢7G&–æs°§Ó° ¦W‡÷'BG—RvWDFV6—6–öägVææVÅ&×2Ò°¢ò¢ ¢¢Ö–æ–×VÒ¢¢Ö†–×VÒs# ¢¢ğ¦†÷W'3ó¢çVÖ&W#°§Ó° ¦W‡÷'BG—RvWDFV6—6–öä¦÷W&æÅ&×2Ò°¢ò¢ ¢¢Ö–æ–×VÒ¢¢Ö†–×VÒ# ¢¢ğ¦Æ–Ö—Có¢çVÖ&W#°¢ò¢ ¢¢&WGW&â&÷w2v—F‚–BÆ÷vW"F†âF†—2†7W'6÷"v–æF–öâ¢¢ğ¦&Vf÷&Só¢çVÖ&W#°¦¶–æCó¢vWDFV6—6–öä¦÷W&æÄ¶–æC°§7G&FVw”–Có¢7G&–æs°§7–Ö&öÃó¢7G&–æs°§Ó° ¦W‡÷'BG—RvWDFV6—6–öä¦÷W&æÄ¶–æBÒG—VöbvWDFV6—6–öä¦÷W&æÄ¶–æE¶¶W–öbG—VöbvWDFV6—6–öä¦÷W&æÄ¶–æEÓ°  ¦W‡÷'B6öç7BvWDFV6—6–öä¦÷W&æÄ¶–æBÒ°¢W†V7WFVC¢vW†V7WFVBrÀ¢&÷fVEöæ÷E÷F¶Vã¢v&÷fVEöæ÷E÷F¶VârÀ¢&V¦V7FVC¢w&V¦V7FVBrÀ§Ò26öç7C° ¦W‡÷'BG—RvWD¦÷W&æÅ&×2Ò°¢ò¢ ¢¢Ö–æ–×VÒ¢¢Ö†–×VÒ# ¢¢ğ¦Æ–Ö—Có¢çVÖ&W#°¢ò¢ ¢¢&WGW&â&÷w2v—F‚–BÆ÷vW"F†âF†—2†7W'6÷"v–æF–öâ¢¢ğ¦&Vf÷&Só¢çVÖ&W#°§7–Ö&öÃó¢7G&–æs°¦÷WF6öÖSó¢vWD¦÷W&æÄ÷WF6öÖS°§Ó° ¦W‡÷'BG—RvWD¦÷W&æÄ÷WF6öÖRÒG—VöbvWD¦÷W&æÄ÷WF6öÖU¶¶W–öbG—VöbvWD¦÷W&æÄ÷WF6öÖUÓ°  ¦W‡÷'B6öç7BvWD¦÷W&æÄ÷WF6öÖRÒ°¢v–ã¢wv–ârÀ¢Æ÷73¢vÆ÷72rÀ¢'&V¶WfVã¢v'&V¶WfVârÀ§Ò26öç7C° ¦W‡÷'BG—RvWD6÷–Æ÷D–æ&÷…&×2Ò°¢ò¢ ¢¢6öÖÖ×6W&FVB7FGW6W2âFVfVÇG2Fò7&VFVF‡F†R7F–öæ&ÆRöæW2’à¢¢ğ§7FGW3ó¢7G&–æs°¢ò¢ ¢¢Ö–æ–×VÒ¢¢Ö†–×VÒ# ¢¢ğ¦Æ–Ö—Có¢çVÖ&W#°§Ó° ¦W‡÷'BG—R&V¦V7E&V6öÖÖVæFF–öä&öG’Ò°¢æ÷FSó¢7G&–æs°§Ó° ¦W‡÷'BG—RÖöF–g•&V6öÖÖVæFF–öä&öG’Ò°¢6Å&–6Só¢çVÖ&W#°¢G&–6Só¢çVÖ&W#°¢G“ó¢çVÖ&W#°§Ó° ¦W‡÷'BG—RvWDæ÷F–f–6F–öç5&×2Ò°¢ò¢ ¢¢Ö–æ–×VÒ¢¢Ö†–×VÒ# ¢¢ğ¦Æ–Ö—Có¢çVÖ&W#°¢ò¢ ¢¢&WGW&â&÷w2v—F‚–BÆ÷vW"F†âF†—2†7W'6÷"v–æF–öâ¢¢ğ¦&Vf÷&Só¢çVÖ&W#°§Vç&VDöæÇ“ó¢&ööÆVã°§Ó° ¦W‡÷'BG—RÖ&´æ÷F–f–6F–öå&VC#Ò°¢7V66W73¢&ööÆVã°§Ó° ¦W‡÷'BG—RÖ&´ÆÄæ÷F–f–6F–öç5&VC#Ò°¢7V66W73¢&ööÆVã°§Ó° ¦W‡÷'BG—RvWEG&FW5&×2Ò°§7FGW3ó¢vWEG&FW57FGW3°§6÷W&6Só¢vWEG&FW56÷W&6S°¢ò¢ ¢¢Ö–æ–×VÒ¢¢Ö†–×VÒS ¢¢ğ¦Æ–Ö—Có¢çVÖ&W#°§Ó° ¦W‡÷'BG—RvWEG&FW57FGW2ÒG—VöbvWEG&FW57FGW5¶¶W–öbG—VöbvWEG&FW57FGW5Ó°  ¦W‡÷'B6öç7BvWEG&FW57FGW2Ò°¢÷Vã¢v÷VârÀ¢6Æ÷6VC¢v6Æ÷6VBrÀ¢7F÷VC¢w7F÷VBrÀ§Ò26öç7C° ¦W‡÷'BG—RvWEG&FW56÷W&6RÒG—VöbvWEG&FW56÷W&6U¶¶W–öbG—VöbvWEG&FW56÷W&6UÓ°  ¦W‡÷'B6öç7BvWEG&FW56÷W&6RÒ°¢Æ—fS¢vÆ—fRrÀ¢&6·FW7C¢v&6·FW7BrÀ§Ò26öç7C° ¦W‡÷'BG—RvWDF–Ç•&W÷'E&×2Ò°¢ò¢ ¢¢UD2F’Â•••’ÔÔÒÔDBâFVfVÇG2FòFöF’à¢¢GFW&âåÆG³GÒÕÆG³'ÒÕÆG³'Ò@¢¢ğ¦FFSó¢7G&–æs°§Ó° ¦W‡÷'BG—R6WD&–ææ6T7&VFVçF–Ç4&öG’Ò°¢”¶W“¢7G&–æs°¢•6V7&WC¢7G&–æs°§Ó° ¦W‡÷'BG—RFW7D&–ææ6T6öææV7F–öä&öG’Ò°¢”¶W“ó¢7G&–æs°¢•6V7&WCó¢7G&–æs°§Ó° ¦W‡÷'BG—R6WDöæF7&VFVçF–Ç4&öG’Ò°¢•Fö¶Vã¢7G&–æs°¢66÷VçD–C¢7G&–æs°§Ó° ¦W‡÷'BG—RFW7DöæF6öææV7F–öä&öG’Ò°¢•Fö¶Vãó¢7G&–æs°¢66÷VçD–Có¢7G&–æs°§Ó° ¦W‡÷'BG—R7F'DWF÷7”&öG’Ò°¢7G&FVw”–C¢7G&–æs°¢ò¢¢FVfVÇG2Fò–÷W"6öæf–wW&VB7'—Fò—'2†Ö‚B’â¢ğ¢7–Ö&öÇ3ó¢7G&–æuµÓ°¢ò¢¢FVfVÇBVÒâ¢ğ¢F–ÖVg&ÖSó¢7G&–æs°¢ò¢¢F÷FÂv–æF÷rÆVæwF‚‡G&–âÒf—'7B(YBÂfÆ–FF–öâÒÆ7B(Y2’âFVfVÇBCRÂ&ævRBÓ#â¢ğ¢F—3ó¢çVÖ&W#°§Ó° ¦W‡÷'BG—R7F'DWF÷7“#"Ò°¢–C¢çVÖ&W#°¢7FGW3¢7G&–æs°§Ó° ¦W‡÷'BG—RFVÆWFT&6·FW7C#Ò°¢FVÆWFVC¢&ööÆVã°§Ó° ¦W‡÷'BG—RFVÆWFT7W7FöÕ7G&FVw“#Ò°¢7V66W73¢&ööÆVã°¢7G&FVw”–C¢7G&–æs°§Ó° ¦W‡÷'BG—RWFFU7G&FVw”6öæf–s#Ò°¢7V66W73¢&ööÆVã°¢7G&FVw”–C¢7G&–æs°§Ó° ¦W‡÷'BG—RW‡÷'D&6·FW7E&×2Ò°¦f÷&ÖCó¢W‡÷'D&6·FW7Df÷&ÖC°§Ó° ¦W‡÷'BG—RW‡÷'D&6·FW7Df÷&ÖBÒG—VöbW‡÷'D&6·FW7Df÷&ÖE¶¶W–öbG—VöbW‡÷'D&6·FW7Df÷&ÖEÓ°  ¦W‡÷'B6öç7BW‡÷'D&6·FW7Df÷&ÖBÒ°¢§6öã¢v§6öârÀ¢77c¢v77brÀ§Ò26öç7C° ¦W‡÷'BG—RW‡÷'D&6·FW7C#öæRÒ²¶¶W“¢7G&–æuÓ¢Væ¶æ÷vâÓ° 
+  executing: 'executing',
+  executed: 'executed',
+  rejected: 'rejected',
+  expired: 'expired',
+  superseded: 'superseded',
+  blocked: 'blocked',
+} as const;
+
+/**
+ * "user" marks a plan the trader modified â€” outcome attribution depends on it.
+ */
+export type RecommendationAuthoredBy = typeof RecommendationAuthoredBy[keyof typeof RecommendationAuthoredBy];
+
+
+export const RecommendationAuthoredBy = {
+  engine: 'engine',
+  user: 'user',
+} as const;
+
+export type RecommendationSide = typeof RecommendationSide[keyof typeof RecommendationSide];
+
+
+export const RecommendationSide = {
+  long: 'long',
+  short: 'short',
+} as const;
+
+export interface Recommendation {
+  id: number;
+  status: RecommendationStatus;
+  /** "user" marks a plan the trader modified â€” outcome attribution depends on it. */
+  authoredBy: RecommendationAuthoredBy;
+  /** @nullable */
+  derivedFromId?: number | null;
+  symbol: string;
+  strategyId: string;
+  /** @nullable */
+  strategyName?: string | null;
+  side: RecommendationSide;
+  confidence: number;
+  entryPrice: number;
+  slPrice: number;
+  tpPrice: number;
+  qty: number;
+  leverage: number;
+  /** SHA-256 of the decision content. Identical to the plan AutoPilot would have executed for the same scan. */
+  planFingerprint: string;
+  /** @nullable */
+  entryReason?: string | null;
+  expiresAt: string;
+  createdAt: string;
+  /** @nullable */
+  actedAt?: string | null;
+  /** @nullable */
+  tradeId?: number | null;
+  /** @nullable */
+  resolutionReason?: string | null;
+}
+
+export interface RecommendationList {
+  recommendations: Recommendation[];
+}
+
+export interface RevalidationCheck {
+  name: string;
+  passed: boolean;
+  detail: string;
+}
+
+export type RecommendationActionResultStatus = typeof RecommendationActionResultStatus[keyof typeof RecommendationActionResultStatus];
+
+
+export const RecommendationActionResultStatus = {
+  created: 'created',
+  executing: 'executing',
+  executed: 'executed',
+  rejected: 'rejected',
+  expired: 'expired',
+  superseded: 'superseded',
+  blocked: 'blocked',
+} as const;
+
+export interface RecommendationActionResult {
+  ok: boolean;
+  status: RecommendationActionResultStatus;
+  reason: string;
+  /** Every re-validation check that ran, pass or fail â€” not just the first failure. */
+  checks?: RevalidationCheck[];
+  tradeId?: number;
+  /** Set by modify(): the new user-authored plan. */
+  newRecommendationId?: number;
+}
+
+export interface PortfolioImpact {
+  currentOpenPositions: number;
+  maxOpenPositions: number;
+  /** This plan's own worst-case dollar risk: |entry âˆ’ stop| Ã— qty. */
+  candidateRiskUsdt: number;
+  currentPortfolioRiskUsdt: number;
+  /** currentPortfolioRiskUsdt + candidateRiskUsdt â€” what the cap would read if this trade executes. */
+  afterPortfolioRiskUsdt: number;
+  maxPortfolioRiskUsdt: number;
+}
+
+/**
+ * Outcome summary for one bucket of closed trades. Counts and net P&L are facts and are always present; every rate is null while `gated` is true.
+ */
+export interface CellStats {
+  samples: number;
+  wins: number;
+  losses: number;
+  /** Break-even washes â€” excluded from the win-rate denominator, not counted as losses. */
+  scratches: number;
+  /** samples < minSamples. Every rate below is null. */
+  gated: boolean;
+  minSamples: number;
+  /**
+     * Scratch-adjusted: wins / (wins + losses).
+     * @nullable
+     */
+  winRate: number | null;
+  /**
+     * Lower bound of the 95% Wilson interval on winRate.
+     * @nullable
+     */
+  winRateLow: number | null;
+  /** @nullable */
+  winRateHigh: number | null;
+  /** @nullable */
+  expectancyUsdt: number | null;
+  /** @nullable */
+  profitFactor: number | null;
+  /** @nullable */
+  avgR: number | null;
+  netPnlUsdt: number;
+}
+
+export interface CellSignificance {
+  /** Exact two-sided binomial test against the account baseline win rate. */
+  pValue: number;
+  /** Benjaminiâ€“Hochberg adjusted p-value: the false-discovery rate incurred by treating this cell as a real edge. */
+  qValue: number;
+  /** qValue is within the family's FDR budget. */
+  significant: boolean;
+}
+
+export type KnowledgeCellDimension = typeof KnowledgeCellDimension[keyof typeof KnowledgeCellDimension];
+
+
+export const KnowledgeCellDimension = {
+  strategy_regime: 'strategy_regime',
+  symbol_strategy: 'symbol_strategy',
+  session: 'session',
+  volatility: 'volatility',
+} as const;
+
+export type KnowledgeCell = CellStats & ({
+  dimension: KnowledgeCellDimension;
+  key: string;
+  label: string;
+  /** Null when the cell is gated, or when there is no trustworthy baseline to test against. */
+  significance: CellSignificance | null;
+});
+
+export interface ReliabilityBin {
+  low: number;
+  high: number;
+  count: number;
+  /** @nullable */
+  meanPredicted: number | null;
+  /**
+     * Observed win frequency in the bin. Perfect calibration puts this on the diagonal.
+     * @nullable
+     */
+  observedRate: number | null;
+}
+
+export interface CalibrationScores {
+  /** @nullable */
+  brier: number | null;
+  /** @nullable */
+  logLoss: number | null;
+  /**
+     * Expected Calibration Error â€” sample-weighted average gap between promised and observed frequency.
+     * @nullable
+     */
+  ece: number | null;
+}
+
+/**
+ * Whether strategy confidence behaves like a probability on this account's record. Fitted on an earlier chronological slice and scored on a later one â€” never on its own training data. Gated on the VALIDATION set, since that is where every published number is measured.
+ */
+export interface CalibrationReport {
+  gated: boolean;
+  minSamples: number;
+  totalSamples: number;
+  trainSamples: number;
+  validationSamples: number;
+  /** Further validation-set trades needed to open the gate; 0 once open. */
+  samplesNeeded: number;
+  raw: CalibrationScores;
+  calibrated: CalibrationScores;
+  /**
+     * Brier score of predicting the base rate for every trade â€” the bar any calibration must clear to be worth anything.
+     * @nullable
+     */
+  climatologyBrier: number | null;
+  /** calibrated.brier < climatologyBrier. False means confidence carries no usable information on this record. */
+  beatsClimatology: boolean;
+  bins: ReliabilityBin[];
+}
+
+/**
+ * Which record these numbers describe. Demo and live are never pooled.
+ */
+export type KnowledgeOverviewExecutionTarget = typeof KnowledgeOverviewExecutionTarget[keyof typeof KnowledgeOverviewExecutionTarget];
+
+
+export const KnowledgeOverviewExecutionTarget = {
+  demo: 'demo',
+  live: 'live',
+} as const;
+
+export interface KnowledgeOverview {
+  /** Which record these numbers describe. Demo and live are never pooled. */
+  executionTarget: KnowledgeOverviewExecutionTarget;
+  /** The point-in-time cut. Every claim is 'given only what was knowable at this moment'. */
+  asOf: string;
+  totalTrades: number;
+  /**
+     * The account's own scratch-adjusted win rate â€” the null hypothesis each cell is tested against. Null below the gate.
+     * @nullable
+     */
+  baselineWinRate: number | null;
+  minSamples: number;
+  /** False-discovery-rate budget for the significance family. */
+  fdr: number;
+  /** How many cells entered the multiple-comparison family. */
+  cellsTested: number;
+  cells: KnowledgeCell[];
+  calibration: CalibrationReport;
+}
+
+export type InfluenceRuleDimension = typeof InfluenceRuleDimension[keyof typeof InfluenceRuleDimension];
+
+
+export const InfluenceRuleDimension = {
+  strategy_regime: 'strategy_regime',
+  symbol_strategy: 'symbol_strategy',
+  session: 'session',
+  volatility: 'volatility',
+} as const;
+
+/**
+ * One knowledge cell memory is acting on. Present only for cells that cleared the sample gate AND whose q-value survived the multiple-comparison correction.
+ */
+export interface InfluenceRule {
+  dimension: InfluenceRuleDimension;
+  key: string;
+  label: string;
+  samples: number;
+  winRate: number;
+  baselineWinRate: number;
+  qValue: number;
+  /** Confidence points this cell adds to the bar. Always positive â€” memory only tightens. */
+  delta: number;
+}
+
+export interface MemoryArmMetrics {
+  trades: number;
+  wins: number;
+  losses: number;
+  /** @nullable */
+  winRate: number | null;
+  netPnlUsdt: number;
+  expectancyUsdt: number;
+}
+
+export type MemoryValidationSummaryStatus = typeof MemoryValidationSummaryStatus[keyof typeof MemoryValidationSummaryStatus];
+
+
+export const MemoryValidationSummaryStatus = {
+  pending: 'pending',
+  running: 'running',
+  completed: 'completed',
+  failed: 'failed',
+} as const;
+
+/**
+ * @nullable
+ */
+export type MemoryValidationSummaryVerdict = typeof MemoryValidationSummaryVerdict[keyof typeof MemoryValidationSummaryVerdict] | null;
+
+
+export const MemoryValidationSummaryVerdict = {
+  improved: 'improved',
+  no_better: 'no_better',
+  insufficient_data: 'insufficient_data',
+} as const;
+
+export interface MemoryValidationSummary {
+  id: number;
+  status: MemoryValidationSummaryStatus;
+  /** @nullable */
+  verdict: MemoryValidationSummaryVerdict;
+  /** @nullable */
+  summary: string | null;
+  /**
+     * The rule-set version this run approved. Permission is version-scoped â€” a refit revokes it.
+     * @nullable
+     */
+  stateVersion: string | null;
+  executionTarget: string;
+  trainTrades: number;
+  validationTrades: number;
+  withheld: number;
+  /** @nullable */
+  withheldPnlUsdt: number | null;
+  /** @nullable */
+  expectancyDelta: number | null;
+  createdAt: string;
+}
+
+export type MemoryValidationResultVerdict = typeof MemoryValidationResultVerdict[keyof typeof MemoryValidationResultVerdict];
+
+
+export const MemoryValidationResultVerdict = {
+  improved: 'improved',
+  no_better: 'no_better',
+  insufficient_data: 'insufficient_data',
+} as const;
+
+export interface MemoryValidationResult {
+  verdict: MemoryValidationResultVerdict;
+  summary: string;
+  stateVersion: string;
+  trainTrades: number;
+  validationTrades: number;
+  /** Out-of-sample trades memory would have withheld. */
+  withheld: number;
+  /** P&L of the withheld trades. Negative is the point. */
+  withheldPnlUsdt: number;
+  expectancyDelta: number;
+  baseline: MemoryArmMetrics;
+  withMemory: MemoryArmMetrics;
+  rules: InfluenceRule[];
+}
+
+/**
+ * One time memory raised a plan's bar. Both outcomes are recorded â€” logging only the withheld trades would read as a list of saves and hide every time a rule fired harmlessly.
+ */
+export interface AppliedInfluence {
+  id: number;
+  symbol: string;
+  strategyId: string;
+  /** True when the plan cleared the raised bar anyway. */
+  admitted: boolean;
+  confidence: number;
+  requiredConfidence: number;
+  delta: number;
+  memoryVersion: string;
+  executionTarget: string;
+  reason: string;
+  createdAt: string;
+}
+
+export interface MemoryInfluenceStatus {
+  /** What the user asked for. Not the same as `active`. */
+  enabled: boolean;
+  /** Hard cap in confidence points, applied after summing every matching cell. */
+  maxDelta: number;
+  /** @nullable */
+  approvedVersion: string | null;
+  /** Whether the engine is actually acting on memory right now. */
+  active: boolean;
+  /** Live influence is requested but blocked for want of a matching passing validation. */
+  needsValidation: boolean;
+  executionTarget: string;
+  reason: string;
+  summary: string;
+  /** "memory-0" when inert; "memory-1:<hash>" when it carries rules. */
+  version: string;
+  rules: InfluenceRule[];
+  latestValidation: MemoryValidationSummary | null;
+  recent: AppliedInfluence[];
+}
+
+export interface UpdateMemoryInfluence {
+  enabled?: boolean;
+  /**
+     * Hard cap in confidence points. Bounded server-side; memory is not permitted an unlimited reach.
+     * @minimum 0
+     * @maximum 25
+     */
+  maxDelta?: number;
+}
+
+export interface MemoryInfluenceToggle {
+  enabled: boolean;
+  active: boolean;
+  needsValidation: boolean;
+  version: string;
+  reason: string;
+}
+
+export type SimilarMatchOutcome = typeof SimilarMatchOutcome[keyof typeof SimilarMatchOutcome];
+
+
+export const SimilarMatchOutcome = {
+  win: 'win',
+  loss: 'loss',
+  scratch: 'scratch',
+} as const;
+
+export interface SimilarMatch {
+  tradeId: number;
+  symbol: string;
+  /** @nullable */
+  strategyId: string | null;
+  /** Epoch milliseconds the outcome was settled. */
+  closedAt: number;
+  /** Cosine similarity on z-score-normalised feature vectors, in [-1, 1]. */
+  similarity: number;
+  pnl: number;
+  /** @nullable */
+  rMultiple: number | null;
+  outcome: SimilarMatchOutcome;
+}
+
+/**
+ * Closed trades whose entry conditions resembled the candidate. Cosine similarity over z-scored vectors â€” raw cosine would be dominated by whichever features have the largest magnitude. A similarity FLOOR comes before any top-N cap, so a sparse account gets "nothing comparable" rather than its N least-dissimilar trades. `reason` is always populated.
+ */
+export interface SimilarTrades {
+  available: boolean;
+  reason: string;
+  /** Closed trades carrying recorded indicator readings. */
+  poolSize: number;
+  /** Pool needed before z-scores are trustworthy enough to normalise with. */
+  minPoolSize: number;
+  similarityFloor: number;
+  matches: SimilarMatch[];
+  /** Aggregate outcome of the matches, gated separately â€” individual trades are facts, their win rate is an estimate. */
+  stats: CellStats | null;
+  featuresUsed: string[];
+}
+
+export interface RecommendationWorkspace {
+  recommendation: Recommendation;
+  decisionTrace: PipelineStage[];
+  portfolioImpact: PortfolioImpact;
+  similarTrades: SimilarTrades;
+}
+
+export type NotificationSeverity = typeof NotificationSeverity[keyof typeof NotificationSeverity];
+
+
+export const NotificationSeverity = {
+  info: 'info',
+  warning: 'warning',
+  critical: 'critical',
+} as const;
+
+export interface Notification {
+  id: number;
+  type: string;
+  message: string;
+  severity: NotificationSeverity;
+  createdAt: string;
+  /** @nullable */
+  readAt: string | null;
+}
+
+export interface NotificationList {
+  unreadCount: number;
+  notifications: Notification[];
+}
+
+export type JournalEntryOutcome = typeof JournalEntryOutcome[keyof typeof JournalEntryOutcome];
+
+
+export const JournalEntryOutcome = {
+  win: 'win',
+  loss: 'loss',
+  breakeven: 'breakeven',
+} as const;
+
+export interface JournalEntry {
+  id: number;
+  tradeId: number;
+  outcome: JournalEntryOutcome;
+  /**
+     * Realized reward:risk in R units = net P&L Ã· planned dollar risk.
+     * @nullable
+     */
+  rMultiple?: number | null;
+  /**
+     * Evidence-based execution grade A-F â€” a scorecard of what happened, not a prediction.
+     * @nullable
+     */
+  grade?: string | null;
+  /** Itemised factual findings (fees vs. move, stop-in-noise, momentum decay, etc.). */
+  findings: string[];
+  summary: string;
+  createdAt: string;
+  symbol: string;
+  side: string;
+  /** @nullable */
+  strategyId?: string | null;
+  /** @nullable */
+  strategyName?: string | null;
+  entryPrice: number;
+  /** @nullable */
+  exitPrice?: number | null;
+  /** @nullable */
+  pnl?: number | null;
+  entryTime: string;
+  /** @nullable */
+  exitTime?: string | null;
+  /** @nullable */
+  exitReason?: string | null;
+  /** @nullable */
+  holdingSeconds?: number | null;
+}
+
+export interface LiveTicker {
+  symbol: string;
+  last: number;
+  bid: number;
+  ask: number;
+  spread: number;
+  spreadPercent: number;
+  baseVolume: number;
+  quoteVolume: number;
+  changePercent: number;
+  timestamp: number;
+}
+
+export type ConnectionStatusMode = typeof ConnectionStatusMode[keyof typeof ConnectionStatusMode];
+
+
+export const ConnectionStatusMode = {
+  live: 'live',
+  testnet: 'testnet',
+  backtest: 'backtest',
+} as const;
+
+export interface ConnectionStatus {
+  connected: boolean;
+  mode: ConnectionStatusMode;
+  exchange: string;
+  marketsLoaded: number;
+  credentialsVerified: boolean;
+  /** @nullable */
+  lastTickerFetchAt: string | null;
+  /** @nullable */
+  lastTickerLatencyMs: number | null;
+  /** @nullable */
+  lastError: string | null;
+}
+
+export type EvidenceReferenceKind = typeof EvidenceReferenceKind[keyof typeof EvidenceReferenceKind];
+
+
+export const EvidenceReferenceKind = {
+  observation: 'observation',
+  specialist: 'specialist',
+  statistical: 'statistical',
+  memory: 'memory',
+  portfolio: 'portfolio',
+  execution: 'execution',
+} as const;
+
+export interface EvidenceReference {
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  evidenceId: string;
+  kind: EvidenceReferenceKind;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  source: string;
+  /**
+     * @minLength 1
+     * @maxLength 1000
+     */
+  summary: string;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  reference: string;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  fingerprint?: string;
+  dataTimestamp: string;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  strength: number;
+}
+
+export type ProposedTradePlanSchemaVersion = typeof ProposedTradePlanSchemaVersion[keyof typeof ProposedTradePlanSchemaVersion];
+
+
+export const ProposedTradePlanSchemaVersion = {
+  '100': '1.0.0',
+} as const;
+
+export type ProposedTradePlanSide = typeof ProposedTradePlanSide[keyof typeof ProposedTradePlanSide];
+
+
+export const ProposedTradePlanSide = {
+  long: 'long',
+  short: 'short',
+} as const;
+
+export type ProposedTradePlanReportChecksItem = {
+  name: string;
+  passed: boolean;
+  detail: string;
+};
+
+export type ProposedTradePlanReportData = { [key: string]: unknown };
+
+export type ProposedTradePlanReport = {
+  /** @minLength 1 */
+  summary: string;
+  marketView: string[];
+  entryLogic: string[];
+  riskLogic: string[];
+  exitLogic: string[];
+  checks: ProposedTradePlanReportChecksItem[];
+  data?: ProposedTradePlanReportData;
+};
+
+export interface ProposedTradePlan {
+  schemaVersion: ProposedTradePlanSchemaVersion;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  strategyId: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  strategyName: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  symbol: string;
+  side: ProposedTradePlanSide;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  confidence: number;
+  /** @exclusiveMinimum 0 */
+  entryPrice: number;
+  /** @exclusiveMinimum 0 */
+  stopPrice: number;
+  /** @exclusiveMinimum 0 */
+  targetPrice: number;
+  /** @exclusiveMinimum 0 */
+  quantity: number;
+  /** @minimum 1 */
+  leverage: number;
+  /** @minimum 1 */
+  expectedHoldSeconds: number;
+  /** @minimum 1 */
+  maxHoldSeconds: number;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  regime: string;
+  /**
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  netRewardRisk: number | null;
+  report: ProposedTradePlanReport;
+}
+
+export type BrainDecisionSchemaVersion = typeof BrainDecisionSchemaVersion[keyof typeof BrainDecisionSchemaVersion];
+
+
+export const BrainDecisionSchemaVersion = {
+  '100': '1.0.0',
+} as const;
+
+export type BrainDecisionAction = typeof BrainDecisionAction[keyof typeof BrainDecisionAction];
+
+
+export const BrainDecisionAction = {
+  ENTER_NOW: 'ENTER_NOW',
+  WAIT_FOR_TRIGGER: 'WAIT_FOR_TRIGGER',
+  OBSERVE: 'OBSERVE',
+  REJECT: 'REJECT',
+  REDUCE: 'REDUCE',
+  EXIT: 'EXIT',
+} as const;
+
+export type BrainDecisionUncertainty = {
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  score: number;
+  /**
+     * @minItems 1
+     * @maxItems 20
+     * @items.minLength 1
+     * @items.maxLength 500
+     */
+  reasons: string[];
+  calibrated: boolean;
+};
+
+export type BrainDecisionVersions = {
+  brain: string;
+  strategy: string;
+  model: string;
+  config: string;
+  marketState: string;
+};
+
+/**
+ * @nullable
+ */
+export type BrainDecisionThesis = { [key: string]: unknown } | null;
+
+export interface BrainDecision {
+  schemaVersion: BrainDecisionSchemaVersion;
+  decisionId: string;
+  action: BrainDecisionAction;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  symbol: string;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  marketStateFingerprint: string;
+  /** @maxItems 100 */
+  supportingEvidence: EvidenceReference[];
+  /** @maxItems 100 */
+  opposingEvidence: EvidenceReference[];
+  uncertainty: BrainDecisionUncertainty;
+  dataTimestamp: string;
+  expiresAt: string;
+  /**
+     * @minItems 1
+     * @maxItems 20
+     * @items.minLength 1
+     * @items.maxLength 500
+     */
+  invalidationConditions: string[];
+  versions: BrainDecisionVersions;
+  /** @pattern ^[A-Z0-9_]{3,120}$ */
+  reasonCode: string;
+  /** @nullable */
+  thesis: BrainDecisionThesis;
+  proposedTrade: ProposedTradePlan | null;
+}
+
+export type MarketStateSchemaVersion = typeof MarketStateSchemaVersion[keyof typeof MarketStateSchemaVersion];
+
+
+export const MarketStateSchemaVersion = {
+  '100': '1.0.0',
+} as const;
+
+export type MarketStateMarketStateVersion = typeof MarketStateMarketStateVersion[keyof typeof MarketStateMarketStateVersion];
+
+
+export const MarketStateMarketStateVersion = {
+  'market-state-v1': 'market-state-v1',
+} as const;
+
+export type MarketStateVenue = typeof MarketStateVenue[keyof typeof MarketStateVenue];
+
+
+export const MarketStateVenue = {
+  spot: 'spot',
+  futures: 'futures',
+  forex: 'forex',
+} as const;
+
+export type MarketStateProvider = typeof MarketStateProvider[keyof typeof MarketStateProvider];
+
+
+export const MarketStateProvider = {
+  binance: 'binance',
+  oanda: 'oanda',
+  fixture: 'fixture',
+} as const;
+
+export type MarketStateFreshnessStatus = typeof MarketStateFreshnessStatus[keyof typeof MarketStateFreshnessStatus];
+
+
+export const MarketStateFreshnessStatus = {
+  fresh: 'fresh',
+  stale: 'stale',
+} as const;
+
+export type MarketStateFreshness = {
+  status: MarketStateFreshnessStatus;
+  /** @minimum 0 */
+  ageMs: number;
+  /** @minimum 1 */
+  maximumAgeMs: number;
+};
+
+export type MarketStateDataQualityStatus = typeof MarketStateDataQualityStatus[keyof typeof MarketStateDataQualityStatus];
+
+
+export const MarketStateDataQualityStatus = {
+  healthy: 'healthy',
+  degraded: 'degraded',
+} as const;
+
+export type MarketStateDataQuality = {
+  status: MarketStateDataQualityStatus;
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     */
+  issues: string[];
+};
+
+export type MarketStateObservationsTimeframesItemTimeframe = typeof MarketStateObservationsTimeframesItemTimeframe[keyof typeof MarketStateObservationsTimeframesItemTimeframe];
+
+
+export const MarketStateObservationsTimeframesItemTimeframe = {
+  '1m': '1m',
+  '3m': '3m',
+  '5m': '5m',
+  '15m': '15m',
+  '1h': '1h',
+} as const;
+
+export type MarketStateObservationsTimeframesItem = {
+  timeframe: MarketStateObservationsTimeframesItemTimeframe;
+  /** @minimum 1 */
+  intervalMs: number;
+  /** @minimum 1 */
+  candleCount: number;
+  lastClosedAt: string;
+  /** @exclusiveMinimum 0 */
+  lastClose: number;
+  /** @minimum 0 */
+  excludedOpenCandles: number;
+};
+
+export type MarketStateObservationsTrend = { [key: string]: unknown };
+
+export type MarketStateObservationsVolatility = { [key: string]: unknown };
+
+export type MarketStateObservationsMomentum = { [key: string]: unknown };
+
+export type MarketStateObservationsLiquidity = { [key: string]: unknown };
+
+export type MarketStateObservationsStructure = { [key: string]: unknown };
+
+export type MarketStateObservations = {
+  /** @exclusiveMinimum 0 */
+  lastPrice: number;
+  /**
+     * @minItems 5
+     * @maxItems 5
+     */
+  timeframes: MarketStateObservationsTimeframesItem[];
+  trend: MarketStateObservationsTrend;
+  volatility: MarketStateObservationsVolatility;
+  momentum: MarketStateObservationsMomentum;
+  liquidity: MarketStateObservationsLiquidity;
+  structure: MarketStateObservationsStructure;
+  [key: string]: unknown;
+ };
+
+export type MarketStateInferencesRegime = typeof MarketStateInferencesRegime[keyof typeof MarketStateInferencesRegime];
+
+
+export const MarketStateInferencesRegime = {
+  strong_trend: 'strong_trend',
+  weak_trend: 'weak_trend',
+  range: 'range',
+  high_volatility: 'high_volatility',
+  low_volatility: 'low_volatility',
+} as const;
+
+export type MarketStateInferencesDominantDirection = typeof MarketStateInferencesDominantDirection[keyof typeof MarketStateInferencesDominantDirection];
+
+
+export const MarketStateInferencesDominantDirection = {
+  bullish: 'bullish',
+  bearish: 'bearish',
+  neutral: 'neutral',
+} as const;
+
+export type MarketStateInferencesSession = typeof MarketStateInferencesSession[keyof typeof MarketStateInferencesSession];
+
+
+export const MarketStateInferencesSession = {
+  asia: 'asia',
+  europe: 'europe',
+  us: 'us',
+  europe_us_overlap: 'europe_us_overlap',
+  off_hours: 'off_hours',
+} as const;
+
+export type MarketStateInferencesAnomaly = { [key: string]: unknown };
+
+export type MarketStateInferences = {
+  regime: MarketStateInferencesRegime;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  regimeConfidence: number;
+  dominantDirection: MarketStateInferencesDominantDirection;
+  session: MarketStateInferencesSession;
+  anomaly: MarketStateInferencesAnomaly;
+};
+
+export type MarketStateContextBreadth = { [key: string]: unknown };
+
+export type MarketStateContextLeadership = { [key: string]: unknown };
+
+export type MarketStateContextCorrelation = { [key: string]: unknown };
+
+export type MarketStateContext = {
+  breadth: MarketStateContextBreadth;
+  leadership: MarketStateContextLeadership;
+  correlation: MarketStateContextCorrelation;
+};
+
+export interface MarketState {
+  schemaVersion: MarketStateSchemaVersion;
+  marketStateVersion: MarketStateMarketStateVersion;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  fingerprint: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  symbol: string;
+  venue: MarketStateVenue;
+  provider: MarketStateProvider;
+  dataTimestamp: string;
+  observedAt: string;
+  freshness: MarketStateFreshness;
+  dataQuality: MarketStateDataQuality;
+  observations: MarketStateObservations;
+  inferences: MarketStateInferences;
+  context: MarketStateContext;
+}
+
+export interface MarketStateBuildIssue {
+  code: string;
+  detail: string;
+  timeframe?: string;
+}
+
+export type MarketStateResult = {
+  status: 'available';
+  state: MarketState;
+} | {
+  status: 'blocked';
+  symbol: string;
+  observedAt: string;
+  /** @minItems 1 */
+  issues: MarketStateBuildIssue[];
+};
+
+export interface MarketMonitor {
+  connection: ConnectionStatus;
+  tickers: LiveTicker[];
+}
+
+export interface CorrelationCell {
+  a: string;
+  b: string;
+  /** Pearson r over the days both symbols share. Null means too little shared history to measure â€” render "insufficient history", not a number. */
+  correlation: number | null;
+}
+
+export interface CorrelationHeatMap {
+  symbols: string[];
+  /** Upper triangle only â€” correlation is symmetric and the diagonal is trivially 1. */
+  cells: CorrelationCell[];
+  /** Symbols currently carrying a position. */
+  openSymbols: string[];
+  /** Reinforcement level at which two symbols count as the same bet. */
+  threshold: number;
+  /** Shared days required before a correlation is reported at all. */
+  minObservations: number;
+}
+
+export interface BlockingReason {
+  stage: string;
+  reason: string;
+  count: number;
+  symbols: string[];
+}
+
+export interface BlockingSummary {
+  tradingActive: boolean;
+  running: boolean;
+  /** @nullable */
+  globalBlock: string | null;
+  entered: number;
+  totalEvaluated: number;
+  reasons: BlockingReason[];
+  /** @nullable */
+  lastScanAt: string | null;
+}
+
+export type TradeSide = typeof TradeSide[keyof typeof TradeSide];
+
+
+export const TradeSide = {
+  buy: 'buy',
+  sell: 'sell',
+} as const;
+
+export type TradeStatus = typeof TradeStatus[keyof typeof TradeStatus];
+
+
+export const TradeStatus = {
+  open: 'open',
+  closed: 'closed',
+  stopped: 'stopped',
+} as const;
+
+/**
+ * @nullable
+ */
+export type TradeExitReason = typeof TradeExitReason[keyof typeof TradeExitReason] | null;
+
+
+export const TradeExitReason = {
+  take_profit: 'take_profit',
+  stop_loss: 'stop_loss',
+  signal_exit: 'signal_exit',
+  timeout: 'timeout',
+  break_even: 'break_even',
+  trailing_stop: 'trailing_stop',
+  manual: 'manual',
+  emergency_stop: 'emergency_stop',
+  circuit_breaker: 'circuit_breaker',
+  reconciled_missing: 'reconciled_missing',
+} as const;
+
+export interface Trade {
+  id: number;
+  symbol: string;
+  side: TradeSide;
+  entryPrice: number;
+  /** @nullable */
+  exitPrice?: number | null;
+  quantity: number;
+  /** @nullable */
+  pnl?: number | null;
+  status: TradeStatus;
+  confidence: number;
+  stopLoss: number;
+  takeProfit: number;
+  entryTime: string;
+  /** @nullable */
+  exitTime?: string | null;
+  /** @nullable */
+  exitReason?: TradeExitReason;
+  isBacktest?: boolean;
+  /** @nullable */
+  plannedStopLoss?: number | null;
+  /** @nullable */
+  plannedTakeProfit?: number | null;
+  /** @nullable */
+  plannedQuantity?: number | null;
+  /** @nullable */
+  feesUsdt?: number | null;
+  /** @nullable */
+  slippageUsdt?: number | null;
+  /** @nullable */
+  holdingSeconds?: number | null;
+  /** @nullable */
+  grossPnl?: number | null;
+  /** @nullable */
+  remainingQuantity?: number | null;
+  /** @nullable */
+  tp1Price?: number | null;
+  /** @nullable */
+  tp1Quantity?: number | null;
+  tp1Filled?: boolean;
+  /** @nullable */
+  tp1FillPrice?: number | null;
+  /** @nullable */
+  tp2Price?: number | null;
+  /** @nullable */
+  tp2Quantity?: number | null;
+  tp2Filled?: boolean;
+  /** @nullable */
+  tp2FillPrice?: number | null;
+  breakEvenActive?: boolean;
+  trailingStopActive?: boolean;
+  /** @nullable */
+  trailingStopMode?: string | null;
+}
+
+export type StatsSummaryStreakType = typeof StatsSummaryStreakType[keyof typeof StatsSummaryStreakType];
+
+
+export const StatsSummaryStreakType = {
+  win: 'win',
+  loss: 'loss',
+  none: 'none',
+} as const;
+
+export interface StatsSummary {
+  totalTrades: number;
+  winRate: number;
+  totalPnl: number;
+  maxDrawdown: number;
+  avgConfidence: number;
+  bestTrade: number;
+  worstTrade: number;
+  streakCurrent: number;
+  streakType: StatsSummaryStreakType;
+}
+
+export interface HourlyStat {
+  hour: number;
+  pnl: number;
+  tradeCount: number;
+  winRate: number;
+  isToxic: boolean;
+}
+
+export interface DailyStats {
+  date: string;
+  tradesCount: number;
+  winRate: number;
+  totalPnl: number;
+  openPositions: number;
+  circuitBreakerHit: boolean;
+  hourlyBreakdown?: HourlyStat[];
+}
+
+export type DailyReportSummary = {
+  totalTrades: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  totalPnl: number;
+  totalFeesUsdt: number;
+  bestTrade: number;
+  worstTrade: number;
+  openPositions: number;
+};
+
+export type DailyReportByStrategyItem = {
+  strategyName: string;
+  trades: number;
+  wins: number;
+  pnl: number;
+};
+
+export type DailyReportBySymbolItem = {
+  symbol: string;
+  trades: number;
+  wins: number;
+  pnl: number;
+};
+
+export type DailyReportExitReasons = {[key: string]: number};
+
+export type DailyReportTradesItem = {
+  id: number;
+  symbol: string;
+  side: string;
+  /** @nullable */
+  strategyName?: string | null;
+  entryTime: string;
+  /** @nullable */
+  exitTime?: string | null;
+  entryPrice: number;
+  /** @nullable */
+  exitPrice?: number | null;
+  quantity: number;
+  /** @nullable */
+  pnl?: number | null;
+  /** @nullable */
+  exitReason?: string | null;
+};
+
+export interface DailyReport {
+  date: string;
+  generatedAt: string;
+  summary: DailyReportSummary;
+  byStrategy: DailyReportByStrategyItem[];
+  bySymbol: DailyReportBySymbolItem[];
+  exitReasons: DailyReportExitReasons;
+  trades: DailyReportTradesItem[];
+}
+
+export interface BlacklistEntry {
+  symbol: string;
+  winRate: number;
+  tradeCount: number;
+  blacklistedAt: string;
+  expiresAt: string;
+}
+
+export interface ToxicHour {
+  hour: number;
+  cumulativePnl: number;
+  tradeCount: number;
+  blockedAt: string;
+}
+
+export type DecisionFunnelStagesItem = {
+  stage: string;
+  count: number;
+  topReason?: string | null;
+};
+
+export interface DecisionFunnel {
+  /** Window actually measured. */
+  hours: number;
+  /** Total decisions considered â€” executed + rejected + approved-not-taken. */
+  signals: number;
+  executed: number;
+  rejected: number;
+  /** The strategy approved it; an engine-level cap or gate stopped it. */
+  approvedNotTaken: number;
+  /** Rejection stages, largest first. `topReason` is the most frequent verbatim reason inside that stage â€” the actionable part, since a stage name alone doesn't say which number to change. */
+  stages: DecisionFunnelStagesItem[];
+}
+
+export type SectionsResponseActivatedItem = typeof SectionsResponseActivatedItem[keyof typeof SectionsResponseActivatedItem];
+
+
+export const SectionsResponseActivatedItem = {
+  crypto: 'crypto',
+  forex: 'forex',
+} as const;
+
+export interface SectionsResponse {
+  /** Sections the user has deliberately set up. May be empty for a brand new account that skipped onboarding â€” callers should fall back to showing the currently selected section rather than nothing. */
+  activated: SectionsResponseActivatedItem[];
+}
+
+/**
+ * Which broker this section's engine connects to â€” binance (crypto section) or oanda (forex section). Fixed per section, not user-editable.
+ */
+export type BotConfigBroker = typeof BotConfigBroker[keyof typeof BotConfigBroker];
+
+
+export const BotConfigBroker = {
+  binance: 'binance',
+  oanda: 'oanda',
+} as const;
+
+/**
+ * Spot (no leverage, long-only), USDâ“ˆ-M Futures (leveraged, long+short), or forex (OANDA, margin-based)
+ */
+export type BotConfigMarketType = typeof BotConfigMarketType[keyof typeof BotConfigMarketType];
+
+
+export const BotConfigMarketType = {
+  spot: 'spot',
+  futures: 'futures',
+  forex: 'forex',
+} as const;
+
+/**
+ * Futures margin mode. Ignored in spot mode.
+ */
+export type BotConfigMarginMode = typeof BotConfigMarginMode[keyof typeof BotConfigMarginMode];
+
+
+export const BotConfigMarginMode = {
+  isolated: 'isolated',
+  cross: 'cross',
+} as const;
+
+/**
+ * What to do when a pair has too little shared history to measure. Never silently treated as uncorrelated.
+ */
+export type BotConfigCorrelationUnknownPolicy = typeof BotConfigCorrelationUnknownPolicy[keyof typeof BotConfigCorrelationUnknownPolicy];
+
+
+export const BotConfigCorrelationUnknownPolicy = {
+  allow: 'allow',
+  block: 'block',
+} as const;
+
+/**
+ * How SL/TP are decided. 'percent': SL/TP are a % of price (stopLossPercent/takeProfitPercent) and size comes from riskPercent/positionSizeUsdt. 'dollar': SL/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt/targetProfitUsdt).
+ */
+export type BotConfigRiskModel = typeof BotConfigRiskModel[keyof typeof BotConfigRiskModel];
+
+
+export const BotConfigRiskModel = {
+  percent: 'percent',
+  dollar: 'dollar',
+} as const;
+
+/**
+ * Where approved TradePlans execute. 'demo' = TradeCore's internal simulation on live market data (no broker, no API keys, no real money); 'live' = real orders through the connected broker.
+ */
+export type BotConfigExecutionTarget = typeof BotConfigExecutionTarget[keyof typeof BotConfigExecutionTarget];
+
+
+export const BotConfigExecutionTarget = {
+  demo: 'demo',
+  live: 'live',
+} as const;
+
+/**
+ * What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three.
+ */
+export type BotConfigMode = typeof BotConfigMode[keyof typeof BotConfigMode];
+
+
+export const BotConfigMode = {
+  research: 'research',
+  copilot: 'copilot',
+  autopilot: 'autopilot',
+} as const;
+
+export interface BotConfig {
+  /** Whether this section can actually run in Demo on this deployment. Crypto is always true (Binance's public endpoints need no credentials). Forex is false unless the platform supplies its own OANDA practice token, because OANDA publishes no public market data â€” so a keyless forex demo is impossible, not merely unconfigured. Read-only; a property of the deployment, not the user. */
+  readonly demoDataAvailable: boolean;
+  /** Which broker this section's engine connects to â€” binance (crypto section) or oanda (forex section). Fixed per section, not user-editable. */
+  broker: BotConfigBroker;
+  /** Spot (no leverage, long-only), USDâ“ˆ-M Futures (leveraged, long+short), or forex (OANDA, margin-based) */
+  marketType: BotConfigMarketType;
+  /** Futures leverage multiplier. Ignored in spot mode (always 1). */
+  leverage: number;
+  /** Futures margin mode. Ignored in spot mode. */
+  marginMode: BotConfigMarginMode;
+  positionSizeUsdt: number;
+  /** % of account balance to risk per trade (0 = fixed positionSizeUsdt) */
+  riskPercent: number;
+  maxOpenPositions: number;
+  /** Maximum % of total balance across all open positions */
+  maxPortfolioRiskPercent: number;
+  dailyLossLimitUsdt: number;
+  /** Max notional (entry price Ã— qty) allowed in a single symbol, as % of balance. Default 100 (permissive â€” no effective limit) until tightened. */
+  maxSymbolConcentrationPercent: number;
+  /** Max net long-short notional exposure across all open positions, as % of balance. Default 200 (permissive â€” no effective limit) until tightened. */
+  maxNetExposurePercent: number;
+  /** Max notional across one correlated cluster (the candidate plus every open position measured to be the same directional bet), as % of balance. Default 200 (permissive) until tightened. */
+  maxCorrelatedExposurePercent: number;
+  /** Reinforcement level (r adjusted for trade direction) at which two symbols count as the same bet. */
+  correlationThreshold: number;
+  /** What to do when a pair has too little shared history to measure. Never silently treated as uncorrelated. */
+  correlationUnknownPolicy: BotConfigCorrelationUnknownPolicy;
+  confidenceThreshold: number;
+  /** How SL/TP are decided. 'percent': SL/TP are a % of price (stopLossPercent/takeProfitPercent) and size comes from riskPercent/positionSizeUsdt. 'dollar': SL/TP prices and size are derived from a fixed max-dollar-loss and target-dollar-profit per trade (maxLossUsdt/targetProfitUsdt). */
+  riskModel: BotConfigRiskModel;
+  /** Stop-loss distance as a % below entry price (used when riskModel = percent) */
+  stopLossPercent: number;
+  /** Take-profit distance as a % above entry price (used when riskModel = percent) */
+  takeProfitPercent: number;
+  /** Dollar mode: max dollars to lose on one trade (net of fees) */
+  maxLossUsdt: number;
+  /** Dollar mode: desired dollar profit on one trade (net of fees) */
+  targetProfitUsdt: number;
+  cooldownMinutes: number;
+  scanIntervalSeconds: number;
+  pairs: string[];
+  /** Where approved TradePlans execute. 'demo' = TradeCore's internal simulation on live market data (no broker, no API keys, no real money); 'live' = real orders through the connected broker. */
+  executionTarget: BotConfigExecutionTarget;
+  /** What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three. */
+  mode: BotConfigMode;
+  /** Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades. */
+  demoStartingBalanceUsdt: number;
+  testnet: boolean;
+  backtestMode: boolean;
+  /** Testnet/demo only: when on, the live engine overrides its turnover-limiting gates (cooldown, confidence floor, toxic hours, max positions, daily-loss breaker, max holding time) to generate a high volume of trades for end-to-end testing. Ignored on real-money keys. Not a profitable configuration. */
+  highFrequencyTestMode: boolean;
+  /** Discord / Telegram / Slack incoming-webhook URL for risk alerts */
+  alertWebhookUrl?: string | null;
+}
+
+export type BotConfigUpdateMarketType = typeof BotConfigUpdateMarketType[keyof typeof BotConfigUpdateMarketType];
+
+
+export const BotConfigUpdateMarketType = {
+  spot: 'spot',
+  futures: 'futures',
+  forex: 'forex',
+} as const;
+
+export type BotConfigUpdateMarginMode = typeof BotConfigUpdateMarginMode[keyof typeof BotConfigUpdateMarginMode];
+
+
+export const BotConfigUpdateMarginMode = {
+  isolated: 'isolated',
+  cross: 'cross',
+} as const;
+
+/**
+ * Policy for pairs with too little shared history to measure.
+ */
+export type BotConfigUpdateCorrelationUnknownPolicy = typeof BotConfigUpdateCorrelationUnknownPolicy[keyof typeof BotConfigUpdateCorrelationUnknownPolicy];
+
+
+export const BotConfigUpdateCorrelationUnknownPolicy = {
+  allow: 'allow',
+  block: 'block',
+} as const;
+
+/**
+ * percent = %-based SL/TP + riskPercent sizing; dollar = fixed max-loss/target-profit sizing (maxLossUsdt/targetProfitUsdt).
+ */
+export type BotConfigUpdateRiskModel = typeof BotConfigUpdateRiskModel[keyof typeof BotConfigUpdateRiskModel];
+
+
+export const BotConfigUpdateRiskModel = {
+  percent: 'percent',
+  dollar: 'dollar',
+} as const;
+
+/**
+ * Where approved TradePlans execute. 'demo' = TradeCore's internal simulation on live market data (no broker, no API keys, no real money); 'live' = real orders through the connected broker.
+ */
+export type BotConfigUpdateExecutionTarget = typeof BotConfigUpdateExecutionTarget[keyof typeof BotConfigUpdateExecutionTarget];
+
+
+export const BotConfigUpdateExecutionTarget = {
+  demo: 'demo',
+  live: 'live',
+} as const;
+
+/**
+ * What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three.
+ */
+export type BotConfigUpdateMode = typeof BotConfigUpdateMode[keyof typeof BotConfigUpdateMode];
+
+
+export const BotConfigUpdateMode = {
+  research: 'research',
+  copilot: 'copilot',
+  autopilot: 'autopilot',
+} as const;
+
+export interface BotConfigUpdate {
+  marketType?: BotConfigUpdateMarketType;
+  /**
+     * Futures leverage multiplier (1 = no leverage). Ignored in spot mode.
+     * @minimum 1
+     * @maximum 125
+     */
+  leverage?: number;
+  marginMode?: BotConfigUpdateMarginMode;
+  /**
+     * @minimum 1
+     * @maximum 1000000
+     */
+  positionSizeUsdt?: number;
+  /**
+     * 0 = fixed positionSizeUsdt instead of risk-based sizing. Capped at 10% per trade.
+     * @minimum 0
+     * @maximum 10
+     */
+  riskPercent?: number;
+  /**
+     * @minimum 1
+     * @maximum 50
+     */
+  maxOpenPositions?: number;
+  /**
+     * @minimum 0.1
+     * @maximum 100
+     */
+  maxPortfolioRiskPercent?: number;
+  /**
+     * Stored as a positive magnitude; the circuit breaker trips when dailyPnl <= -this value.
+     * @minimum 0
+     */
+  dailyLossLimitUsdt?: number;
+  /**
+     * Max notional allowed in a single symbol, as % of balance.
+     * @minimum 1
+     * @maximum 100
+     */
+  maxSymbolConcentrationPercent?: number;
+  /**
+     * Max net long-short notional exposure across all open positions, as % of balance.
+     * @minimum 1
+     * @maximum 200
+     */
+  maxNetExposurePercent?: number;
+  /**
+     * Max notional across one correlated cluster, as % of balance.
+     * @minimum 1
+     * @maximum 200
+     */
+  maxCorrelatedExposurePercent?: number;
+  /**
+     * Reinforcement level at which two symbols count as the same bet.
+     * @minimum 0
+     * @maximum 1
+     */
+  correlationThreshold?: number;
+  /** Policy for pairs with too little shared history to measure. */
+  correlationUnknownPolicy?: BotConfigUpdateCorrelationUnknownPolicy;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  confidenceThreshold?: number;
+  /** percent = %-based SL/TP + riskPercent sizing; dollar = fixed max-loss/target-profit sizing (maxLossUsdt/targetProfitUsdt). */
+  riskModel?: BotConfigUpdateRiskModel;
+  /**
+     * @minimum 0.01
+     * @maximum 20
+     */
+  stopLossPercent?: number;
+  /**
+     * Must clear round-trip trading costs (~0.3% at default fee/slippage assumptions) â€” see lib/tradingCosts.ts. A lower value is a guaranteed net loss on every winning trade, confirmed empirically in the Phase 6 audit.
+     * @minimum 0.3
+     * @maximum 100
+     */
+  takeProfitPercent?: number;
+  /**
+     * Dollar mode: max dollars to lose on one trade (net of fees).
+     * @minimum 0.01
+     * @maximum 1000000
+     */
+  maxLossUsdt?: number;
+  /**
+     * Dollar mode: desired dollar profit on one trade (net of fees).
+     * @minimum 0.01
+     * @maximum 1000000
+     */
+  targetProfitUsdt?: number;
+  /**
+     * @minimum 0
+     * @maximum 1440
+     */
+  cooldownMinutes?: number;
+  /**
+     * @minimum 5
+     * @maximum 3600
+     */
+  scanIntervalSeconds?: number;
+  pairs?: string[];
+  /** Where approved TradePlans execute. 'demo' = TradeCore's internal simulation on live market data (no broker, no API keys, no real money); 'live' = real orders through the connected broker. */
+  executionTarget?: BotConfigUpdateExecutionTarget;
+  /** What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three. */
+  mode?: BotConfigUpdateMode;
+  /** Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades. */
+  demoStartingBalanceUsdt?: number;
+  testnet?: boolean;
+  backtestMode?: boolean;
+  /** Testnet/demo only: when on, the live engine overrides its turnover-limiting gates to generate a high volume of trades for end-to-end testing. Ignored on real-money keys. */
+  highFrequencyTestMode?: boolean;
+  /** Discord / Telegram / Slack incoming-webhook URL for risk alerts */
+  alertWebhookUrl?: string | null;
+}
+
+export interface BinanceCredentialsStatus {
+  configured: boolean;
+  /**
+     * Last 4 chars of the stored API key, e.g. "...ab12" â€” never the full key.
+     * @nullable
+     */
+  apiKeyPreview: string | null;
+  /** @nullable */
+  updatedAt: string | null;
+}
+
+export type ConnectionTestResultProvider = typeof ConnectionTestResultProvider[keyof typeof ConnectionTestResultProvider];
+
+
+export const ConnectionTestResultProvider = {
+  binance: 'binance',
+  oanda: 'oanda',
+} as const;
+
+export type ConnectionTestResultMarketType = typeof ConnectionTestResultMarketType[keyof typeof ConnectionTestResultMarketType];
+
+
+export const ConnectionTestResultMarketType = {
+  spot: 'spot',
+  futures: 'futures',
+  forex: 'forex',
+} as const;
+
+export interface ConnectionTestResult {
+  ok: true;
+  provider: ConnectionTestResultProvider;
+  environment: string;
+  marketType: ConnectionTestResultMarketType;
+  accountAccessible: boolean;
+  /**
+     * Null when the provider offers no safe, non-mutating permission probe.
+     * @nullable
+     */
+  tradingEnabled: boolean | null;
+  /**
+     * Provider time minus this server's midpoint time; Binance only.
+     * @nullable
+     */
+  serverTimeOffsetMs: number | null;
+  /**
+     * Null when the selected provider/environment does not expose it.
+     * @nullable
+     */
+  ipRestrictionEnabled: boolean | null;
+  permissions: string[];
+  warnings: string[];
+  message: string;
+}
+
+export type AutopsyWindowMetricsExitReasons = {[key: string]: number};
+
+export interface AutopsyWindowMetrics {
+  totalTrades: number;
+  winRate: number;
+  profitFactor: number;
+  sharpeRatio: number;
+  maxDrawdown: number;
+  totalPnl: number;
+  exitReasons: AutopsyWindowMetricsExitReasons;
+}
+
+export interface AutopsyParams {
+  /** @nullable */
+  maxLossUsdt?: number | null;
+  /** @nullable */
+  targetProfitUsdt?: number | null;
+  confidenceThreshold: number;
+  maxHoldingSeconds: number;
+}
+
+export interface AutopsyFinding {
+  param: string;
+  label: string;
+  /** @nullable */
+  current?: number | null;
+  /** @nullable */
+  suggested?: number | null;
+  evidence: string;
+  action: string;
+}
+
+export type AutopsyDiagnosisVerdict = typeof AutopsyDiagnosisVerdict[keyof typeof AutopsyDiagnosisVerdict];
+
+
+export const AutopsyDiagnosisVerdict = {
+  improved: 'improved',
+  no_better: 'no_better',
+  insufficient_data: 'insufficient_data',
+} as const;
+
+export interface AutopsyDiagnosis {
+  verdict: AutopsyDiagnosisVerdict;
+  summary: string;
+  findings: AutopsyFinding[];
+}
+
+export type AutopsyRunStatus = typeof AutopsyRunStatus[keyof typeof AutopsyRunStatus];
+
+
+export const AutopsyRunStatus = {
+  pending: 'pending',
+  running: 'running',
+  completed: 'completed',
+  failed: 'failed',
+} as const;
+
+export interface AutopsyRun {
+  /** Global DB id â€” for links/API only, never shown as the run number. */
+  id: number;
+  /** Per-section run number (1..N) shown in the UI. */
+  displayNo: number;
+  strategyId: string;
+  /** @nullable */
+  strategyName?: string | null;
+  symbols: string[];
+  timeframe: string;
+  trainStart: string;
+  trainEnd: string;
+  valStart: string;
+  valEnd: string;
+  status: AutopsyRunStatus;
+  progress: number;
+  /** @nullable */
+  stage?: string | null;
+  totalBacktests: number;
+  truncated: boolean;
+  currentParams: AutopsyParams;
+  bestParams?: AutopsyParams | null;
+  currentTrain?: AutopsyWindowMetrics | null;
+  currentVal?: AutopsyWindowMetrics | null;
+  bestTrain?: AutopsyWindowMetrics | null;
+  bestVal?: AutopsyWindowMetrics | null;
+  /** @nullable */
+  verdict?: string | null;
+  diagnosis?: AutopsyDiagnosis | null;
+  /** @nullable */
+  error?: string | null;
+  createdAt: string;
+  /** @nullable */
+  completedAt?: string | null;
+}
+
+export interface OandaCredentialsStatus {
+  configured: boolean;
+  /**
+     * Last 4 chars of the stored account id, e.g. "...4567" â€” never the full id or token.
+     * @nullable
+     */
+  accountIdPreview: string | null;
+  /** @nullable */
+  updatedAt: string | null;
+}
+
+export type BacktestRunStatus = typeof BacktestRunStatus[keyof typeof BacktestRunStatus];
+
+
+export const BacktestRunStatus = {
+  pending: 'pending',
+  running: 'running',
+  completed: 'completed',
+  failed: 'failed',
+  cancelled: 'cancelled',
+} as const;
+
+export interface BacktestRun {
+  /** Global DB id â€” for links/API/export only, never shown as the run number. */
+  id: number;
+  /** Per-section run number (1..N) shown in the UI. */
+  displayNo: number;
+  strategyVersion: string;
+  strategyName: string;
+  symbols: string[];
+  timeframe: string;
+  startDate: string;
+  endDate: string;
+  startingBalance: number;
+  /** @nullable */
+  endingBalance?: number | null;
+  /** @nullable */
+  totalReturn?: number | null;
+  /** @nullable */
+  totalPnl?: number | null;
+  /** @nullable */
+  totalTrades?: number | null;
+  /** @nullable */
+  winningTrades?: number | null;
+  /** @nullable */
+  losingTrades?: number | null;
+  /** @nullable */
+  winRate?: number | null;
+  /** @nullable */
+  profitFactor?: number | null;
+  /** @nullable */
+  sharpeRatio?: number | null;
+  /** @nullable */
+  sortinoRatio?: number | null;
+  /** @nullable */
+  maxDrawdown?: number | null;
+  /** @nullable */
+  averageWin?: number | null;
+  /** @nullable */
+  averageLoss?: number | null;
+  /** @nullable */
+  expectancy?: number | null;
+  /** @nullable */
+  largestWin?: number | null;
+  /** @nullable */
+  largestLoss?: number | null;
+  dailyReturns?: unknown | null;
+  monthlyReturns?: unknown | null;
+  strategyComparison?: unknown | null;
+  /** Diagnostic: the actual per-strategy stopLossPercent/takeProfitPercent, confidenceThreshold, and riskPercent used for this run â€” shape `{ summary: [...per-strategy], runLevelOverrides: {...} }` â€” computed before the simulation started (Phase 5A). See lib/backtestConfig.ts. */
+  effectiveConfig?: unknown | null;
+  params?: unknown | null;
+  status: BacktestRunStatus;
+  progress: number;
+  /** @nullable */
+  error?: string | null;
+  aiAnalysis?: unknown | null;
+  createdAt: string;
+}
+
+export interface BacktestTrade {
+  id: number;
+  runId: number;
+  symbol: string;
+  side: string;
+  /** @nullable */
+  strategyId?: string | null;
+  /** @nullable */
+  strategyName?: string | null;
+  entryTime: string;
+  /** @nullable */
+  exitTime?: string | null;
+  entryPrice: number;
+  /** @nullable */
+  exitPrice?: number | null;
+  quantity: number;
+  stopLoss: number;
+  takeProfit: number;
+  /** @nullable */
+  slPercent?: number | null;
+  /** @nullable */
+  tpPercent?: number | null;
+  /** @nullable */
+  fees?: number | null;
+  /** @nullable */
+  slippage?: number | null;
+  /** @nullable */
+  pnl?: number | null;
+  /** @nullable */
+  grossPnl?: number | null;
+  /** @nullable */
+  pnlPercent?: number | null;
+  /** @nullable */
+  confidence?: number | null;
+  /** @nullable */
+  exitReason?: string | null;
+  /** @nullable */
+  durationSeconds?: number | null;
+  /** @nullable */
+  mfe?: number | null;
+  /** @nullable */
+  mae?: number | null;
+  /** @nullable */
+  riskReward?: number | null;
+  /** @nullable */
+  tp1Price?: number | null;
+  tp1Filled?: boolean;
+  /** @nullable */
+  tp1FillPrice?: number | null;
+  /** @nullable */
+  tp2Price?: number | null;
+  tp2Filled?: boolean;
+  /** @nullable */
+  tp2FillPrice?: number | null;
+  breakEvenActive?: boolean;
+  trailingStopActive?: boolean;
+  /** @nullable */
+  trailingStopMode?: string | null;
+}
+
+export interface EquityCurvePoint {
+  timestamp: string;
+  balance: number;
+  drawdown: number;
+}
+
+export type OptimizationResultParameterSet = { [key: string]: unknown };
+
+export interface OptimizationResult {
+  id: number;
+  parameterSet: OptimizationResultParameterSet;
+  score: number;
+  winRate: number;
+  pnl: number;
+  drawdown: number;
+  profitFactor: number;
+  totalTrades: number;
+}
+
+export interface BacktestDetail {
+  run: BacktestRun;
+  trades: BacktestTrade[];
+  equityCurve: EquityCurvePoint[];
+  optimizationResults: OptimizationResult[];
+}
+
+export type BacktestRunRequestTimeframe = typeof BacktestRunRequestTimeframe[keyof typeof BacktestRunRequestTimeframe];
+
+
+export const BacktestRunRequestTimeframe = {
+  '1m': '1m',
+  '3m': '3m',
+  '5m': '5m',
+  '15m': '15m',
+  '30m': '30m',
+  '1h': '1h',
+  '4h': '4h',
+  '1d': '1d',
+} as const;
+
+/**
+ * futures models isolated-margin liquidation (leverage affects liquidation risk only, not position size â€” matches live sizing).
+ */
+export type BacktestRunRequestMarketType = typeof BacktestRunRequestMarketType[keyof typeof BacktestRunRequestMarketType];
+
+
+export const BacktestRunRequestMarketType = {
+  spot: 'spot',
+  futures: 'futures',
+} as const;
+
+export type BacktestRunRequestMarginMode = typeof BacktestRunRequestMarginMode[keyof typeof BacktestRunRequestMarginMode];
+
+
+export const BacktestRunRequestMarginMode = {
+  isolated: 'isolated',
+  cross: 'cross',
+} as const;
+
+/**
+ * dollar = size each trade from a fixed max-loss/target-profit (maxLossUsdt/targetProfitUsdt) using the SAME planner as the live engine, so the backtest reflects live dollar-model trading. percent (default) = %-based SL/TP as before.
+ */
+export type BacktestRunRequestRiskModel = typeof BacktestRunRequestRiskModel[keyof typeof BacktestRunRequestRiskModel];
+
+
+export const BacktestRunRequestRiskModel = {
+  percent: 'percent',
+  dollar: 'dollar',
+} as const;
+
+export interface BacktestRunRequest {
+  symbols: string[];
+  timeframe: BacktestRunRequestTimeframe;
+  startDate: string;
+  endDate: string;
+  startingBalance?: number;
+  confidenceThreshold?: number;
+  /** Stop-loss distance as a % below entry (Phase 5A â€” replaces atrMultiplierSl) */
+  stopLossPercent?: number;
+  /**
+     * Take-profit distance as a % above entry (Phase 5A â€” replaces atrMultiplierTp). Minimum clears round-trip trading costs â€” see lib/tradingCosts.ts.
+     * @minimum 0.3
+     */
+  takeProfitPercent?: number;
+  positionSizeUsdt?: number;
+  maxOpenPositions?: number;
+  dailyLossLimitUsdt?: number;
+  /** 0 = use each strategy's own configured risk% (no override). Any other value overrides risk% for every strategy in this run. (Bug fix: this field was already read by the backend but was missing from this schema and had no UI field â€” see CHANGES.md.) */
+  riskPercent?: number;
+  feeRate?: number;
+  slippageRate?: number;
+  /** futures models isolated-margin liquidation (leverage affects liquidation risk only, not position size â€” matches live sizing). */
+  marketType?: BacktestRunRequestMarketType;
+  /**
+     * Futures leverage. Only affects liquidation risk in the backtest, not position size.
+     * @minimum 1
+     * @maximum 125
+     */
+  leverage?: number;
+  marginMode?: BacktestRunRequestMarginMode;
+  /** dollar = size each trade from a fixed max-loss/target-profit (maxLossUsdt/targetProfitUsdt) using the SAME planner as the live engine, so the backtest reflects live dollar-model trading. percent (default) = %-based SL/TP as before. */
+  riskModel?: BacktestRunRequestRiskModel;
+  /**
+     * Dollar mode only: max dollars to lose per trade (net of fees).
+     * @minimum 0.01
+     */
+  maxLossUsdt?: number;
+  /**
+     * Dollar mode only: desired dollar profit per trade (net of fees).
+     * @minimum 0.01
+     */
+  targetProfitUsdt?: number;
+  /** Test ONE strategy in isolation: it is force-enabled (even if disabled for live) and all others disabled for this run, using its own saved config (SL/TP or dollar plan). Omit to run every enabled strategy. */
+  onlyStrategyId?: string;
+  /** true (default): each strategy uses its own SL/TP/confidence, matching live. false: flatten every strategy to the run-level stopLossPercent/takeProfitPercent/confidenceThreshold (a single-config sweep). Ignored (forced true) when onlyStrategyId is set. */
+  perStrategyConfigs?: boolean;
+  /**
+     * Faithful mode only: reshape every strategy to TP = its own SL Ã— this ratio (e.g. 3 â†’ 1:3 reward:risk), keeping everything else per-strategy. 0 = off. The volatility-adaptive cap preserves the ratio when it shrinks targets.
+     * @minimum 0
+     * @maximum 10
+     */
+  rrRatio?: number;
+  /** Faithful mode only: disable TP1 partials, break-even, and trailing stops so trades resolve only at the full SL or TP. Required to evaluate asymmetric-R:R styles, which the management layer otherwise clips at ~1R. */
+  pureExits?: boolean;
+  /**
+     * Faithful mode only: multiply every strategy's maxHoldingSeconds (swing-profile test). Adaptive targets grow ~âˆšhold, so per-trade moves get larger while the roughly-fixed per-trade fee shrinks in proportion. 1 = off.
+     * @minimum 0.1
+     * @maximum 100
+     */
+  holdMultiplier?: number;
+  /** Model entries as post-only MAKER limit orders instead of taker markets. The limit rests at the signal price and only becomes a position if a later candle trades through it within makerEntryFillWindowMinutes; otherwise the entry is MISSED. On fill there is no adverse entry slippage and the maker fee applies; take-profit exits (resting limits) are also charged the maker rate. Trades cheaper/better fills against missed trades â€” the honest way to test whether an edge survives real fees. */
+  makerEntry?: boolean;
+  /** Maker fee for passive fills (default when makerEntry is on: 0.0002 futures / 0.001 spot). Ignored unless makerEntry is on. Defaults to feeRate otherwise, so non-maker runs are unchanged. */
+  makerFeeRate?: number;
+  /**
+     * How long a maker-entry limit rests before it's cancelled unfilled. Only used when makerEntry is on.
+     * @minimum 1
+     * @maximum 1440
+     */
+  makerEntryFillWindowMinutes?: number;
+}
+
+export type OptimizeRequestTimeframe = typeof OptimizeRequestTimeframe[keyof typeof OptimizeRequestTimeframe];
+
+
+export const OptimizeRequestTimeframe = {
+  '1m': '1m',
+  '3m': '3m',
+  '5m': '5m',
+  '15m': '15m',
+  '30m': '30m',
+  '1h': '1h',
+  '4h': '4h',
+  '1d': '1d',
+} as const;
+
+export type OptimizeRequestRankBy = typeof OptimizeRequestRankBy[keyof typeof OptimizeRequestRankBy];
+
+
+export const OptimizeRequestRankBy = {
+  pnl: 'pnl',
+  profitFactor: 'profitFactor',
+  sharpeRatio: 'sharpeRatio',
+  winRate: 'winRate',
+  maxDrawdown: 'maxDrawdown',
+} as const;
+
+export interface OptimizeRequest {
+  symbols: string[];
+  timeframe: OptimizeRequestTimeframe;
+  startDate: string;
+  endDate: string;
+  startingBalance?: number;
+  confidenceThresholds?: number[];
+  /** Stop-loss % values to grid-search (Phase 5A â€” replaces atrMultiplierSls) */
+  stopLossPercents?: number[];
+  /** Take-profit % values to grid-search (Phase 5A â€” replaces atrMultiplierTps) */
+  takeProfitPercents?: number[];
+  positionSizeUsdts?: number[];
+  rankBy?: OptimizeRequestRankBy;
+}
+
+export interface BacktestStarted {
+  runId: number;
+  status: string;
+}
+
+export interface StrategyConfig {
+  strategyId: string;
+  enabled: boolean;
+  /**
+     * Dollar trade plan: spot notional / futures margin per trade. null â†’ global positionSizeUsdt.
+     * @nullable
+     */
+  tradeAmountUsdt?: number | null;
+  /**
+     * Dollar trade plan: max dollars to lose on one trade (net of fees). With targetProfitUsdt set, this strategy trades the dollar risk model.
+     * @nullable
+     */
+  maxLossUsdt?: number | null;
+  /**
+     * Dollar trade plan: desired dollar profit for one trade (net of fees).
+     * @nullable
+     */
+  targetProfitUsdt?: number | null;
+  /** % of account balance to risk per trade */
+  riskPercent: number;
+  /** Minimum confidence score 0â€“100 required to enter */
+  confidenceThreshold: number;
+  /** Stop-loss distance as a % below entry price (Phase 5A â€” replaces atrMultiplierSl) */
+  stopLossPercent: number;
+  /** Take-profit distance as a % above entry price (Phase 5A â€” replaces atrMultiplierTp) */
+  takeProfitPercent: number;
+  maxHoldingSeconds: number;
+  maxConcurrentPositions: number;
+  cooldownMinutes: number;
+  /** Pre-TP1 break-even arm: at this many R of unrealized profit the stop moves to entry â€” the trade can no longer lose. 0 disables. */
+  breakEvenRMultiple?: number;
+  /** R-multiple at which TP1 banks a partial and moves the stop to break-even. 0 = single TP. */
+  tp1RMultiple?: number;
+}
+
+export type StrategyConfigUpdateTrailingStopMode = typeof StrategyConfigUpdateTrailingStopMode[keyof typeof StrategyConfigUpdateTrailingStopMode];
+
+
+export const StrategyConfigUpdateTrailingStopMode = {
+  none: 'none',
+  atr: 'atr',
+  percent: 'percent',
+  dynamic: 'dynamic',
+} as const;
+
+export type StrategyConfigUpdateExitPriorityItem = typeof StrategyConfigUpdateExitPriorityItem[keyof typeof StrategyConfigUpdateExitPriorityItem];
+
+
+export const StrategyConfigUpdateExitPriorityItem = {
+  stop_loss: 'stop_loss',
+  take_profit: 'take_profit',
+  trailing_stop: 'trailing_stop',
+  timeout: 'timeout',
+} as const;
+
+export interface StrategyConfigUpdate {
+  enabled?: boolean;
+  /**
+     * null clears the field (fall back to global positionSizeUsdt).
+     * @minimum 1
+     * @maximum 1000000
+     * @nullable
+     */
+  tradeAmountUsdt?: number | null;
+  /**
+     * null clears the dollar plan (strategy reverts to %-based SL/TP).
+     * @minimum 0.01
+     * @maximum 1000000
+     * @nullable
+     */
+  maxLossUsdt?: number | null;
+  /**
+     * null clears the dollar plan (strategy reverts to %-based SL/TP).
+     * @minimum 0.01
+     * @maximum 1000000
+     * @nullable
+     */
+  targetProfitUsdt?: number | null;
+  /**
+     * @minimum 0.01
+     * @maximum 10
+     */
+  riskPercent?: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  confidenceThreshold?: number;
+  /**
+     * @minimum 0.01
+     * @maximum 20
+     */
+  stopLossPercent?: number;
+  /**
+     * @minimum 0.3
+     * @maximum 100
+     */
+  takeProfitPercent?: number;
+  /**
+     * @minimum 1
+     * @maximum 2592000
+     */
+  maxHoldingSeconds?: number;
+  /**
+     * @minimum 1
+     * @maximum 20
+     */
+  maxConcurrentPositions?: number;
+  /**
+     * @minimum 0
+     * @maximum 1440
+     */
+  cooldownMinutes?: number;
+  /**
+     * Pre-TP1 break-even arm: at this many R of unrealized profit the stop moves to entry â€” the trade can no longer lose. 0 disables.
+     * @minimum 0
+     * @maximum 20
+     */
+  breakEvenRMultiple?: number;
+  /**
+     * R-multiple at which TP1 banks a partial and moves the stop to break-even. 0 = single TP.
+     * @minimum 0
+     * @maximum 20
+     */
+  tp1RMultiple?: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  tp1ClosePercent?: number;
+  tp3Enabled?: boolean;
+  /**
+     * @minimum 0.01
+     * @maximum 20
+     */
+  tp2RMultiple?: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  tp2ClosePercent?: number;
+  /**
+     * @minimum 0.01
+     * @maximum 20
+     */
+  tp3RMultiple?: number;
+  trailingStopMode?: StrategyConfigUpdateTrailingStopMode;
+  /**
+     * @minimum 0.01
+     * @maximum 20
+     */
+  trailingStopAtrMultiplier?: number;
+  /**
+     * @minimum 0.01
+     * @maximum 20
+     */
+  trailingStopPercent?: number;
+  trailingAfterTp1Only?: boolean;
+  /**
+     * @minimum 0
+     * @maximum 20
+     */
+  emergencyTrailingRMultiple?: number;
+  /**
+     * @minimum 0.01
+     * @maximum 20
+     */
+  emergencyTrailingPercent?: number;
+  /**
+     * @minItems 3
+     * @maxItems 4
+     */
+  exitPriority?: StrategyConfigUpdateExitPriorityItem[];
+}
+
+export interface StrategyPerformance {
+  totalTrades: number;
+  winningTrades: number;
+  losingTrades: number;
+  /** @nullable */
+  winRate?: number | null;
+  totalPnl: number;
+  avgWin: number;
+  avgLoss: number;
+  avgDurationSeconds: number;
+}
+
+export type StrategyOpinionSchemaVersion = typeof StrategyOpinionSchemaVersion[keyof typeof StrategyOpinionSchemaVersion];
+
+
+export const StrategyOpinionSchemaVersion = {
+  '100': '1.0.0',
+} as const;
+
+export type StrategyOpinionStance = typeof StrategyOpinionStance[keyof typeof StrategyOpinionStance];
+
+
+export const StrategyOpinionStance = {
+  long: 'long',
+  short: 'short',
+  neutral: 'neutral',
+  abstain: 'abstain',
+} as const;
+
+export interface StrategyOpinion {
+  schemaVersion: StrategyOpinionSchemaVersion;
+  opinionId: string;
+  specialistId: string;
+  specialistVersion: string;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  marketStateFingerprint: string;
+  symbol: string;
+  stance: StrategyOpinionStance;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  strength: number;
+  /** @minItems 1 */
+  applicableRegimes: string[];
+  /** @maxItems 50 */
+  supportingEvidence: EvidenceReference[];
+  /** @maxItems 50 */
+  opposingEvidence: EvidenceReference[];
+  /** @nullable */
+  trigger: string | null;
+  /** @maxItems 20 */
+  invalidationConditions: string[];
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  expectedDurationSeconds: number | null;
+  /**
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  proposedRewardRisk: number | null;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  uncertainty: number;
+  /** @nullable */
+  abstentionReason: string | null;
+  dataTimestamp: string;
+  expiresAt: string;
+}
+
+export type SpecialistOpinionViewRole = typeof SpecialistOpinionViewRole[keyof typeof SpecialistOpinionViewRole];
+
+
+export const SpecialistOpinionViewRole = {
+  trend: 'trend',
+  breakout: 'breakout',
+  mean_reversion: 'mean_reversion',
+  volatility: 'volatility',
+  market_structure: 'market_structure',
+  execution_quality: 'execution_quality',
+  portfolio_conflict: 'portfolio_conflict',
+} as const;
+
+export type SpecialistOpinionViewOperationalStatus = typeof SpecialistOpinionViewOperationalStatus[keyof typeof SpecialistOpinionViewOperationalStatus];
+
+
+export const SpecialistOpinionViewOperationalStatus = {
+  active: 'active',
+  abstained: 'abstained',
+} as const;
+
+export interface SpecialistOpinionView {
+  role: SpecialistOpinionViewRole;
+  correlationGroup: string;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  correlationDiscount: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  effectiveStrength: number;
+  operationalStatus: SpecialistOpinionViewOperationalStatus;
+  opinion: StrategyOpinion;
+}
+
+export type SpecialistConsensusStance = typeof SpecialistConsensusStance[keyof typeof SpecialistConsensusStance];
+
+
+export const SpecialistConsensusStance = {
+  long: 'long',
+  short: 'short',
+  mixed: 'mixed',
+  abstain: 'abstain',
+} as const;
+
+export interface SpecialistConsensus {
+  stance: SpecialistConsensusStance;
+  /** @minimum 0 */
+  longScore: number;
+  /** @minimum 0 */
+  shortScore: number;
+  /** @minimum 0 */
+  actionableOpinions: number;
+  /** @minimum 0 */
+  abstentions: number;
+  disagreement: boolean;
+  explanation: string;
+}
+
+export type SpecialistCouncilSnapshotSchemaVersion = typeof SpecialistCouncilSnapshotSchemaVersion[keyof typeof SpecialistCouncilSnapshotSchemaVersion];
+
+
+export const SpecialistCouncilSnapshotSchemaVersion = {
+  '100': '1.0.0',
+} as const;
+
+export type SpecialistCouncilSnapshotCouncilVersion = typeof SpecialistCouncilSnapshotCouncilVersion[keyof typeof SpecialistCouncilSnapshotCouncilVersion];
+
+
+export const SpecialistCouncilSnapshotCouncilVersion = {
+  'specialist-council-v1': 'specialist-council-v1',
+} as const;
+
+export type SpecialistCouncilSnapshotMode = typeof SpecialistCouncilSnapshotMode[keyof typeof SpecialistCouncilSnapshotMode];
+
+
+export const SpecialistCouncilSnapshotMode = {
+  observational: 'observational',
+} as const;
+
+export interface SpecialistCouncilSnapshot {
+  schemaVersion: SpecialistCouncilSnapshotSchemaVersion;
+  councilVersion: SpecialistCouncilSnapshotCouncilVersion;
+  mode: SpecialistCouncilSnapshotMode;
+  cannotExecute: true;
+  symbol: string;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  marketStateFingerprint: string;
+  dataTimestamp: string;
+  generatedAt: string;
+  consensus: SpecialistConsensus;
+  opinions: SpecialistOpinionView[];
+}
+
+export type ExecutionCostContextSource = typeof ExecutionCostContextSource[keyof typeof ExecutionCostContextSource];
+
+
+export const ExecutionCostContextSource = {
+  'engine-market-cost-model': 'engine-market-cost-model',
+} as const;
+
+export interface ExecutionCostContext {
+  /** @minimum 0 */
+  feeRatePerLeg: number;
+  /** @minimum 0 */
+  slippageRatePerLeg: number;
+  source: ExecutionCostContextSource;
+  version: string;
+}
+
+export interface PortfolioCorrelationCluster {
+  /** @minLength 1 */
+  clusterId: string;
+  /**
+     * @minItems 1
+     * @maxItems 100
+     * @items.minLength 1
+     */
+  symbols: string[];
+  /** @minimum 0 */
+  exposure: number;
+}
+
+export type PortfolioContextCorrelationState = typeof PortfolioContextCorrelationState[keyof typeof PortfolioContextCorrelationState];
+
+
+export const PortfolioContextCorrelationState = {
+  known: 'known',
+  partial: 'partial',
+  unknown: 'unknown',
+} as const;
+
+export interface PortfolioContext {
+  schemaVersion: '1.0.0';
+  contextId: string;
+  asOf: string;
+  /** @minLength 1 */
+  currency: string;
+  /** @minimum 0 */
+  equity: number;
+  /** @minimum 0 */
+  availableBalance: number;
+  /** @minimum 0 */
+  openPositionCount: number;
+  /** @minimum 0 */
+  remainingStopRisk: number;
+  /** @minimum 0 */
+  grossExposure: number;
+  netExposure: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  drawdownFraction: number;
+  /** @minimum 0 */
+  reservedRisk: number;
+  correlationState: PortfolioContextCorrelationState;
+  /** @maxItems 100 */
+  correlationClusters: PortfolioCorrelationCluster[];
+  /** @minLength 1 */
+  riskPolicyVersion: string;
+  /** @pattern ^[a-f0-9]{64}$ */
+  fingerprint: string;
+}
+
+export type PortfolioPolicyUnknownCorrelationPolicy = typeof PortfolioPolicyUnknownCorrelationPolicy[keyof typeof PortfolioPolicyUnknownCorrelationPolicy];
+
+
+export const PortfolioPolicyUnknownCorrelationPolicy = {
+  allow: 'allow',
+  block: 'block',
+} as const;
+
+export interface PortfolioPolicy {
+  policyVersion: 'shadow-portfolio-policy-v1';
+  /** @minLength 1 */
+  riskPolicyVersion: string;
+  /** @minimum 0 */
+  maxOpenPositions: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  maxPortfolioRiskFraction: number;
+  /** @minimum 0 */
+  maxSymbolNotionalFraction: number;
+  /** @minimum 0 */
+  maxNetExposureFraction: number;
+  /** @minimum 0 */
+  maxCorrelatedNotionalFraction: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  maxStrategyRiskFraction: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  correlationThreshold: number;
+  unknownCorrelationPolicy: PortfolioPolicyUnknownCorrelationPolicy;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  drawdownDeRiskStartFraction: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  drawdownHardFraction: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  minimumAllocationFraction: number;
+}
+
+export interface OpportunityScoreComponents {
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  rewardRiskQuality: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  decisionSupport: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  regimeSuitability: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  liquidityQuality: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  diversificationBenefit: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  costQuality: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  uncertaintyQuality: number;
+}
+
+/**
+ * @nullable
+ */
+export type PortfolioOpportunityAssessmentSide = typeof PortfolioOpportunityAssessmentSide[keyof typeof PortfolioOpportunityAssessmentSide] | null;
+
+
+export const PortfolioOpportunityAssessmentSide = {
+  long: 'long',
+  short: 'short',
+} as const;
+
+export type PortfolioOpportunityAssessmentAction = typeof PortfolioOpportunityAssessmentAction[keyof typeof PortfolioOpportunityAssessmentAction];
+
+
+export const PortfolioOpportunityAssessmentAction = {
+  ENTER_NOW: 'ENTER_NOW',
+  WAIT_FOR_TRIGGER: 'WAIT_FOR_TRIGGER',
+  OBSERVE: 'OBSERVE',
+  REJECT: 'REJECT',
+  REDUCE: 'REDUCE',
+  EXIT: 'EXIT',
+} as const;
+
+export type PortfolioOpportunityAssessmentDisposition = typeof PortfolioOpportunityAssessmentDisposition[keyof typeof PortfolioOpportunityAssessmentDisposition];
+
+
+export const PortfolioOpportunityAssessmentDisposition = {
+  SHADOW_ALLOCATED: 'SHADOW_ALLOCATED',
+  WAIT_FOR_TRIGGER: 'WAIT_FOR_TRIGGER',
+  OBSERVE: 'OBSERVE',
+  REJECTED: 'REJECTED',
+} as const;
+
+export interface PortfolioOpportunityAssessment {
+  /** @minimum 1 */
+  rank: number;
+  decisionId: string;
+  /** @pattern ^[a-f0-9]{64}$ */
+  sourceFingerprint: string;
+  /** @minLength 1 */
+  symbol: string;
+  /** @nullable */
+  side: PortfolioOpportunityAssessmentSide;
+  action: PortfolioOpportunityAssessmentAction;
+  /** @nullable */
+  strategyId: string | null;
+  /** @nullable */
+  strategyName: string | null;
+  dataTimestamp: string;
+  expiresAt: string;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  score: number;
+  scoreComponents: OpportunityScoreComponents;
+  /**
+     * Unavailable until calibrated expectancy exists.
+     * @nullable
+     */
+  estimatedNetR: null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  netRewardRisk: number | null;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  uncertainty: number;
+  /** @minimum 0 */
+  requestedRisk: number;
+  /** @minimum 0 */
+  requestedNotional: number;
+  /** @minimum 0 */
+  allocatedRisk: number;
+  /** @minimum 0 */
+  allocatedNotional: number;
+  /** @minimum 0 */
+  allocatedQuantity: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  allocationFraction: number;
+  disposition: PortfolioOpportunityAssessmentDisposition;
+  reasonCodes: string[];
+  explanation: string;
+  correlationUnknownWith: string[];
+  reinforcingClusterSymbols: string[];
+}
+
+export interface PortfolioRiskUsage {
+  /** @minimum 0 */
+  maximumStopRisk: number;
+  /** @minimum 0 */
+  openStopRisk: number;
+  /** @minimum 0 */
+  initiallyReservedRisk: number;
+  /** @minimum 0 */
+  shadowReservedRisk: number;
+  /** @minimum 0 */
+  remainingRisk: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  drawdownScale: number;
+  /** @minimum 0 */
+  openPositions: number;
+  /** @minimum 0 */
+  shadowAllocatedPositions: number;
+  /** @minimum 0 */
+  remainingPositionSlots: number;
+}
+
+export interface RetainedCash {
+  /** @minimum 0 */
+  amount: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  fractionOfAvailableBalance: number;
+  reasonCodes: string[];
+  explanation: string;
+}
+
+export type PortfolioIntelligenceProjectionDataStatus = typeof PortfolioIntelligenceProjectionDataStatus[keyof typeof PortfolioIntelligenceProjectionDataStatus];
+
+
+export const PortfolioIntelligenceProjectionDataStatus = {
+  healthy: 'healthy',
+  degraded: 'degraded',
+  blocked: 'blocked',
+} as const;
+
+export interface PortfolioIntelligenceProjection {
+  schemaVersion: '1.0.0';
+  portfolioVersion: 'shadow-portfolio-intelligence-v1';
+  mode: 'shadow';
+  cannotExecute: true;
+  projectionId: string;
+  /** @pattern ^[a-f0-9]{64}$ */
+  fingerprint: string;
+  generatedAt: string;
+  /** @nullable */
+  sourceScanTimestamp: string | null;
+  dataStatus: PortfolioIntelligenceProjectionDataStatus;
+  dataIssues: string[];
+  policy: PortfolioPolicy;
+  context: PortfolioContext;
+  riskUsage: PortfolioRiskUsage;
+  opportunities: PortfolioOpportunityAssessment[];
+  retainedCash: RetainedCash;
+}
+
+export type PreliminaryPortfolioContextStatus = typeof PreliminaryPortfolioContextStatus[keyof typeof PreliminaryPortfolioContextStatus];
+
+
+export const PreliminaryPortfolioContextStatus = {
+  partial: 'partial',
+  unavailable: 'unavailable',
+} as const;
+
+export interface PreliminaryPortfolioContext {
+  status: PreliminaryPortfolioContextStatus;
+  currency: string;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  availableBalance: number | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  openPositionCount: number | null;
+  observedAt: string;
+  limitations: string[];
+}
+
+export type HistoricalEvidenceContextStatus = typeof HistoricalEvidenceContextStatus[keyof typeof HistoricalEvidenceContextStatus];
+
+
+export const HistoricalEvidenceContextStatus = {
+  unavailable: 'unavailable',
+  observational: 'observational',
+  approved: 'approved',
+} as const;
+
+export type HistoricalEvidenceContextItemsItem = { [key: string]: unknown };
+
+export interface HistoricalEvidenceContext {
+  status: HistoricalEvidenceContextStatus;
+  /** @nullable */
+  ruleVersion: string | null;
+  items: HistoricalEvidenceContextItemsItem[];
+  limitations: string[];
+}
+
+export type BrainV0CandidateSide = typeof BrainV0CandidateSide[keyof typeof BrainV0CandidateSide];
+
+
+export const BrainV0CandidateSide = {
+  long: 'long',
+  short: 'short',
+} as const;
+
+export interface BrainV0Candidate {
+  strategyId: string;
+  strategyName: string;
+  side: BrainV0CandidateSide;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  confidence: number;
+  /**
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  netRewardRisk: number | null;
+}
+
+export type BrainV0ComparisonMode = typeof BrainV0ComparisonMode[keyof typeof BrainV0ComparisonMode];
+
+
+export const BrainV0ComparisonMode = {
+  control: 'control',
+} as const;
+
+export type BrainV0ComparisonDisposition = typeof BrainV0ComparisonDisposition[keyof typeof BrainV0ComparisonDisposition];
+
+
+export const BrainV0ComparisonDisposition = {
+  CANDIDATE_PRODUCED: 'CANDIDATE_PRODUCED',
+  NO_CANDIDATE: 'NO_CANDIDATE',
+} as const;
+
+export interface BrainV0Comparison {
+  mode: BrainV0ComparisonMode;
+  /** @minimum 0 */
+  candidateCount: number;
+  disposition: BrainV0ComparisonDisposition;
+  topCandidate: BrainV0Candidate | null;
+}
+
+export type DeterministicAssessmentVersion = typeof DeterministicAssessmentVersion[keyof typeof DeterministicAssessmentVersion];
+
+
+export const DeterministicAssessmentVersion = {
+  'deterministic-council-v1': 'deterministic-council-v1',
+} as const;
+
+export type DeterministicAssessmentThresholds = {
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  enterNow: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  waitForTrigger: number;
+};
+
+export interface DeterministicAssessment {
+  version: DeterministicAssessmentVersion;
+  /** @minimum 0 */
+  longScore: number;
+  /** @minimum 0 */
+  shortScore: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  dominantShare: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  averageEffectiveStrength: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  regimeSuitability: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  costPenalty: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  decisionStrength: number;
+  thresholds: DeterministicAssessmentThresholds;
+  ruleTrace: string[];
+}
+
+export interface ReasoningClaim {
+  claim: string;
+  evidenceIds: string[];
+}
+
+export type CouncilReasoningReportStatus = typeof CouncilReasoningReportStatus[keyof typeof CouncilReasoningReportStatus];
+
+
+export const CouncilReasoningReportStatus = {
+  not_configured: 'not_configured',
+  validated: 'validated',
+  degraded: 'degraded',
+  circuit_open: 'circuit_open',
+  provider_error: 'provider_error',
+} as const;
+
+export type CouncilReasoningReportUsage = {
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  inputTokens: number | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  outputTokens: number | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  costUsd: number | null;
+};
+
+export interface CouncilReasoningReport {
+  status: CouncilReasoningReportStatus;
+  /** @nullable */
+  providerId: string | null;
+  /** @nullable */
+  modelVersion: string | null;
+  summary: string;
+  claims: ReasoningClaim[];
+  challenges: ReasoningClaim[];
+  uncertaintyNotes: string[];
+  validationFailures: string[];
+  /** @minimum 0 */
+  attempts: number;
+  /** @minimum 0 */
+  latencyMs: number;
+  usage: CouncilReasoningReportUsage;
+}
+
+export interface ShadowReplayBundle {
+  marketState: MarketState;
+  specialistCouncil: SpecialistCouncilSnapshot;
+  executionCosts: ExecutionCostContext;
+  portfolio: PreliminaryPortfolioContext;
+  historicalEvidence: HistoricalEvidenceContext;
+  brainV0: BrainV0Comparison;
+}
+
+export type ShadowCouncilRunSchemaVersion = typeof ShadowCouncilRunSchemaVersion[keyof typeof ShadowCouncilRunSchemaVersion];
+
+
+export const ShadowCouncilRunSchemaVersion = {
+  '100': '1.0.0',
+} as const;
+
+export type ShadowCouncilRunCouncilVersion = typeof ShadowCouncilRunCouncilVersion[keyof typeof ShadowCouncilRunCouncilVersion];
+
+
+export const ShadowCouncilRunCouncilVersion = {
+  'shadow-decision-council-v1': 'shadow-decision-council-v1',
+} as const;
+
+export type ShadowCouncilRunMode = typeof ShadowCouncilRunMode[keyof typeof ShadowCouncilRunMode];
+
+
+export const ShadowCouncilRunMode = {
+  shadow: 'shadow',
+} as const;
+
+export interface ShadowCouncilRun {
+  schemaVersion: ShadowCouncilRunSchemaVersion;
+  councilVersion: ShadowCouncilRunCouncilVersion;
+  runId: string;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  inputFingerprint: string;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  runFingerprint: string;
+  mode: ShadowCouncilRunMode;
+  cannotExecute: true;
+  generatedAt: string;
+  decision: BrainDecision;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  decisionFingerprint: string;
+  deterministicAssessment: DeterministicAssessment;
+  reasoning: CouncilReasoningReport;
+  replay: ShadowReplayBundle;
+}
+
+export interface StrategyInfo {
+  strategyId: string;
+  strategyName: string;
+  supportedRegimes: string[];
+  /** The indicators this strategy reads, human-readable with timeframe. */
+  indicators: string[];
+  /** True when the strategy is a native decision-maker owning its full TradePlan (leverage, structural stop, duration, written reasoning). */
+  decisionMaker: boolean;
+  config: StrategyConfig;
+  performance: StrategyPerformance;
+  /** True when this is a user-built custom strategy (no-code builder), not a built-in. */
+  custom?: boolean;
+  /** The custom strategy's numeric id (for /custom-strategies/{id} CRUD). Present only when custom. */
+  customId?: number;
+  /** Custom strategies only â€” true once a single-strategy backtest of the CURRENT rules has completed (required before live enable). */
+  backtested?: boolean;
+}
+
+/**
+ * Comparison â€” gt/gte/lt/lte for numeric indicators, eq for enum/boolean ones.
+ */
+export type CustomStrategyConditionOp = typeof CustomStrategyConditionOp[keyof typeof CustomStrategyConditionOp];
+
+
+export const CustomStrategyConditionOp = {
+  gt: 'gt',
+  gte: 'gte',
+  lt: 'lt',
+  lte: 'lte',
+  eq: 'eq',
+} as const;
+
+export interface CustomStrategyCondition {
+  /** One of the builder's indicator vocabulary ids (rsi, adx, atrPercent, macdHistogram, volumeRatio, confidence, shortConfidence, lastPrice, hourUtc, pctFromHigh20, pctFromLow20, regime, macroBullish, macroBearish, ema20AboveEma50). */
+  indicator: string;
+  /** Comparison â€” gt/gte/lt/lte for numeric indicators, eq for enum/boolean ones. */
+  op: CustomStrategyConditionOp;
+  /** Number for numeric indicators; string for enum/boolean ones ("true"/"false" or a regime name). */
+  value: number | string;
+}
+
+export type CustomStrategyStopMode = typeof CustomStrategyStopMode[keyof typeof CustomStrategyStopMode];
+
+
+export const CustomStrategyStopMode = {
+  atr: 'atr',
+  percent: 'percent',
+  swing: 'swing',
+} as const;
+
+export interface CustomStrategyStop {
+  mode: CustomStrategyStopMode;
+  /** atr mode â€” stop at N Ã— ATR from entry (0.5â€“10). */
+  atrMult?: number;
+  /** percent mode â€” fixed % distance from entry (0.05â€“20). */
+  pct?: number;
+  /** swing mode â€” lowest low / highest high of the last N 15m bars (3â€“50). */
+  lookback?: number;
+}
+
+export interface CustomStrategyRules {
+  /** AND-list of conditions that must ALL hold to propose a long. Omit to disable longs. */
+  long?: CustomStrategyCondition[];
+  /** AND-list of conditions that must ALL hold to propose a short. Omit to disable shorts. */
+  short?: CustomStrategyCondition[];
+  stop: CustomStrategyStop;
+  /** Static plan confidence (50â€“95); the per-strategy confidence threshold still applies on top. */
+  confidence: number;
+}
+
+export type CustomStrategySection = typeof CustomStrategySection[keyof typeof CustomStrategySection];
+
+
+export const CustomStrategySection = {
+  crypto: 'crypto',
+  forex: 'forex',
+} as const;
+
+export interface CustomStrategy {
+  id: number;
+  /** Engine-facing id, custom_<id> â€” the key used on /strategies, backtests and autopsies. */
+  strategyId: string;
+  section: CustomStrategySection;
+  name: string;
+  description?: string | null;
+  rules: CustomStrategyRules;
+  /** Human-readable rendering of the rules ("LONG when RSI < 30 â€¦"). */
+  indicators: string[];
+  rulesValid: boolean;
+  /** True once a single-strategy backtest of the CURRENT rules completed. Editing rules resets this â€” and live enablement requires it. */
+  backtested: boolean;
+  lastBacktestAt?: string | null;
+  rulesUpdatedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomStrategyCreate {
+  /**
+     * @minLength 1
+     * @maxLength 60
+     */
+  name: string;
+  /** @maxLength 500 */
+  description?: string;
+  rules: CustomStrategyRules;
+}
+
+export interface CustomStrategyUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 60
+     */
+  name?: string;
+  /** @maxLength 500 */
+  description?: string | null;
+  rules?: CustomStrategyRules;
+}
+
+export interface StrategySignalItem {
+  symbol: string;
+  strategyId?: string;
+  strategyName?: string;
+  confidence: number;
+  regime: string;
+  lastPrice: number;
+  adx?: number;
+  rsi?: number;
+  volumeRatio?: number;
+  status: string;
+  entryReason?: string;
+}
+
+export type RegisterBody = {
+  /**
+     * @minLength 3
+     * @maxLength 64
+     */
+  username: string;
+  /** @minLength 12 */
+  password: string;
+};
+
+export type Register201 = {
+  ok?: boolean;
+};
+
+export type LoginBody = {
+  username: string;
+  password: string;
+};
+
+export type Login200 = {
+  ok?: boolean;
+};
+
+export type Logout200 = {
+  ok?: boolean;
+};
+
+export type GetAuthStatus200 = {
+  authenticated: boolean;
+};
+
+export type ResetRiskPause200 = {
+  message: string;
+};
+
+export type GetDecisionFunnelParams = {
+/**
+ * @minimum 1
+ * @maximum 720
+ */
+hours?: number;
+};
+
+export type GetDecisionJournalParams = {
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+/**
+ * Return rows with id lower than this (cursor pagination)
+ */
+before?: number;
+kind?: GetDecisionJournalKind;
+strategyId?: string;
+symbol?: string;
+};
+
+export type GetDecisionJournalKind = typeof GetDecisionJournalKind[keyof typeof GetDecisionJournalKind];
+
+
+export const GetDecisionJournalKind = {
+  executed: 'executed',
+  approved_not_taken: 'approved_not_taken',
+  rejected: 'rejected',
+} as const;
+
+export type GetJournalParams = {
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+/**
+ * Return rows with id lower than this (cursor pagination)
+ */
+before?: number;
+symbol?: string;
+outcome?: GetJournalOutcome;
+};
+
+export type GetJournalOutcome = typeof GetJournalOutcome[keyof typeof GetJournalOutcome];
+
+
+export const GetJournalOutcome = {
+  win: 'win',
+  loss: 'loss',
+  breakeven: 'breakeven',
+} as const;
+
+export type GetCopilotInboxParams = {
+/**
+ * Comma-separated statuses. Defaults to `created` (the actionable ones).
+ */
+status?: string;
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+};
+
+export type RejectRecommendationBody = {
+  note?: string;
+};
+
+export type ModifyRecommendationBody = {
+  slPrice?: number;
+  tpPrice?: number;
+  qty?: number;
+};
+
+export type GetNotificationsParams = {
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+/**
+ * Return rows with id lower than this (cursor pagination)
+ */
+before?: number;
+unreadOnly?: boolean;
+};
+
+export type MarkNotificationRead200 = {
+  success: boolean;
+};
+
+export type MarkAllNotificationsRead200 = {
+  success: boolean;
+};
+
+export type GetTradesParams = {
+status?: GetTradesStatus;
+source?: GetTradesSource;
+/**
+ * @minimum 1
+ * @maximum 500
+ */
+limit?: number;
+};
+
+export type GetTradesStatus = typeof GetTradesStatus[keyof typeof GetTradesStatus];
+
+
+export const GetTradesStatus = {
+  open: 'open',
+  closed: 'closed',
+  stopped: 'stopped',
+} as const;
+
+export type GetTradesSource = typeof GetTradesSource[keyof typeof GetTradesSource];
+
+
+export const GetTradesSource = {
+  live: 'live',
+  backtest: 'backtest',
+} as const;
+
+export type GetDailyReportParams = {
+/**
+ * UTC day, YYYY-MM-DD. Defaults to today.
+ * @pattern ^\d{4}-\d{2}-\d{2}$
+ */
+date?: string;
+};
+
+export type SetBinanceCredentialsBody = {
+  apiKey: string;
+  apiSecret: string;
+};
+
+export type TestBinanceConnectionBody = {
+  apiKey?: string;
+  apiSecret?: string;
+};
+
+export type SetOandaCredentialsBody = {
+  apiToken: string;
+  accountId: string;
+};
+
+export type TestOandaConnectionBody = {
+  apiToken?: string;
+  accountId?: string;
+};
+
+export type StartAutopsyBody = {
+  strategyId: string;
+  /** Defaults to your configured crypto pairs (max 4). */
+  symbols?: string[];
+  /** Default 5m. */
+  timeframe?: string;
+  /** Total window length (train = first â…”, validation = last â…“). Default 45, range 14-120. */
+  days?: number;
+};
+
+export type StartAutopsy202 = {
+  id: number;
+  status: string;
+};
+
+export type DeleteBacktest200 = {
+  deleted: boolean;
+};
+
+export type DeleteCustomStrategy200 = {
+  success: boolean;
+  strategyId: string;
+};
+
+export type UpdateStrategyConfig200 = {
+  success: boolean;
+  strategyId: string;
+};
+
+export type ExportBacktestParams = {
+format?: ExportBacktestFormat;
+};
+
+export type ExportBacktestFormat = typeof ExportBacktestFormat[keyof typeof ExportBacktestFormat];
+
+
+export const ExportBacktestFormat = {
+  json: 'json',
+  csv: 'csv',
+} as const;
+
+export type ExportBacktest200One = { [key: string]: unknown };
+
