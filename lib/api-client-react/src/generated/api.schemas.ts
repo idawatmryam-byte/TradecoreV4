@@ -419,6 +419,359 @@ export interface ErrorResponse {
   error: string;
 }
 
+export type ResearchExperimentRequestTimeframe = typeof ResearchExperimentRequestTimeframe[keyof typeof ResearchExperimentRequestTimeframe];
+
+
+export const ResearchExperimentRequestTimeframe = {
+  '1m': '1m',
+} as const;
+
+export type ResearchExperimentRequestMarketType = typeof ResearchExperimentRequestMarketType[keyof typeof ResearchExperimentRequestMarketType];
+
+
+export const ResearchExperimentRequestMarketType = {
+  spot: 'spot',
+  futures: 'futures',
+  forex: 'forex',
+} as const;
+
+export type ResearchExperimentRequestCorrelationUnknownPolicy = typeof ResearchExperimentRequestCorrelationUnknownPolicy[keyof typeof ResearchExperimentRequestCorrelationUnknownPolicy];
+
+
+export const ResearchExperimentRequestCorrelationUnknownPolicy = {
+  allow: 'allow',
+  block: 'block',
+} as const;
+
+export interface ResearchExperimentRequest {
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  name: string;
+  /**
+     * @minItems 1
+     * @maxItems 10
+     * @items.minLength 1
+     * @items.maxLength 80
+     */
+  symbols: string[];
+  timeframe: ResearchExperimentRequestTimeframe;
+  startDate: string;
+  endDate: string;
+  marketType: ResearchExperimentRequestMarketType;
+  /**
+     * @maximum 1000000000
+     * @exclusiveMinimum 0
+     */
+  startingBalance?: number;
+  /**
+     * @maximum 100000000
+     * @exclusiveMinimum 0
+     */
+  positionSizeUsdt?: number;
+  /**
+     * @minimum 1
+     * @maximum 100
+     */
+  maxOpenPositions?: number;
+  /**
+     * @maximum 100000000
+     * @exclusiveMinimum 0
+     */
+  dailyLossLimitUsdt?: number;
+  /**
+     * @minimum 1
+     * @maximum 125
+     */
+  leverage?: number;
+  /**
+     * @minimum 1
+     * @maximum 10
+     */
+  folds?: number;
+  /**
+     * @minimum 0.1
+     * @maximum 0.5
+     */
+  holdoutFraction?: number;
+  /**
+     * @minimum 0
+     * @maximum 10080
+     */
+  purgeMinutes?: number;
+  /**
+     * @minimum 0
+     * @maximum 10080
+     */
+  embargoMinutes?: number;
+  /**
+     * @minimum 0
+     * @maximum 2147483647
+     */
+  deterministicSeed?: number;
+  /**
+     * @exclusiveMinimum 0
+     * @exclusiveMaximum 1
+     */
+  falseDiscoveryRate?: number;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  candidateBrainVersion?: string;
+  /**
+     * @maximum 100
+     * @exclusiveMinimum 0
+     */
+  maxPortfolioRiskPercent?: number;
+  /**
+     * @maximum 1000
+     * @exclusiveMinimum 0
+     */
+  maxSymbolConcentrationPercent?: number;
+  /**
+     * @maximum 2000
+     * @exclusiveMinimum 0
+     */
+  maxNetExposurePercent?: number;
+  /**
+     * @maximum 2000
+     * @exclusiveMinimum 0
+     */
+  maxCorrelatedExposurePercent?: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  correlationThreshold?: number;
+  correlationUnknownPolicy?: ResearchExperimentRequestCorrelationUnknownPolicy;
+}
+
+export type ResearchExperimentStartedStatus = typeof ResearchExperimentStartedStatus[keyof typeof ResearchExperimentStartedStatus];
+
+
+export const ResearchExperimentStartedStatus = {
+  preparing: 'preparing',
+} as const;
+
+export type ResearchExperimentStartedMode = typeof ResearchExperimentStartedMode[keyof typeof ResearchExperimentStartedMode];
+
+
+export const ResearchExperimentStartedMode = {
+  research: 'research',
+} as const;
+
+export interface ResearchExperimentStarted {
+  id: number;
+  status: ResearchExperimentStartedStatus;
+  mode: ResearchExperimentStartedMode;
+  cannotExecute: true;
+}
+
+export type ResearchMetricsRegimeMix = {[key: string]: number};
+
+export type ResearchMetricsUncertaintyMethod = typeof ResearchMetricsUncertaintyMethod[keyof typeof ResearchMetricsUncertaintyMethod];
+
+
+export const ResearchMetricsUncertaintyMethod = {
+  'bootstrap-percentile': 'bootstrap-percentile',
+} as const;
+
+export type ResearchMetricsUncertainty = {
+  method: ResearchMetricsUncertaintyMethod;
+  confidenceLevel: number;
+  /** @nullable */
+  lowerNetExpectancyR: number | null;
+  /** @nullable */
+  upperNetExpectancyR: number | null;
+  /** @minimum 0 */
+  samples: number;
+};
+
+export interface ResearchMetrics {
+  /** @minimum 0 */
+  eligibleDecisions: number;
+  /** @minimum 0 */
+  closedTrades: number;
+  /** @minimum 0 */
+  calendarDays: number;
+  grossPnl: number;
+  /** @minimum 0 */
+  costs: number;
+  netPnl: number;
+  /** @nullable */
+  netExpectancyR: number | null;
+  /** @nullable */
+  profitFactor: number | null;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  maxDrawdown: number;
+  /** @nullable */
+  expectedShortfallR: number | null;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  abstentionRate: number;
+  regimeMix: ResearchMetricsRegimeMix;
+  uncertainty: ResearchMetricsUncertainty;
+}
+
+export type ResearchPromotionReportAttribution = { [key: string]: unknown };
+
+export type ResearchPromotionReportGoldenStream = {
+  expectedFingerprint: string;
+  actualFingerprint: string;
+  reproducible: boolean;
+};
+
+export type ResearchPromotionReportLeakageChecksItem = {
+  check: string;
+  passed: boolean;
+  detail: string;
+};
+
+export type ResearchPromotionReportMultipleTesting = { [key: string]: unknown };
+
+export type ResearchPromotionReportGateChecksItem = {
+  key: string;
+  passed: boolean;
+  actual: string;
+  required: string;
+};
+
+export type ResearchPromotionReportRecommendation = typeof ResearchPromotionReportRecommendation[keyof typeof ResearchPromotionReportRecommendation];
+
+
+export const ResearchPromotionReportRecommendation = {
+  REJECT: 'REJECT',
+  REMAIN_RESEARCH: 'REMAIN_RESEARCH',
+  ELIGIBLE_FOR_HUMAN_REVIEW: 'ELIGIBLE_FOR_HUMAN_REVIEW',
+} as const;
+
+export interface ResearchPromotionReport {
+  schemaVersion: string;
+  experimentId: string;
+  manifestFingerprint: string;
+  generatedAt: string;
+  control: ResearchMetrics;
+  candidate: ResearchMetrics;
+  attribution: ResearchPromotionReportAttribution;
+  goldenStream: ResearchPromotionReportGoldenStream;
+  leakageChecks: ResearchPromotionReportLeakageChecksItem[];
+  multipleTesting: ResearchPromotionReportMultipleTesting;
+  gateChecks: ResearchPromotionReportGateChecksItem[];
+  recommendation: ResearchPromotionReportRecommendation;
+  humanApprovalRequired: true;
+  limitations: string[];
+  fingerprint: string;
+}
+
+export type ResearchExperimentSection = typeof ResearchExperimentSection[keyof typeof ResearchExperimentSection];
+
+
+export const ResearchExperimentSection = {
+  crypto: 'crypto',
+  forex: 'forex',
+} as const;
+
+export type ResearchExperimentStatus = typeof ResearchExperimentStatus[keyof typeof ResearchExperimentStatus];
+
+
+export const ResearchExperimentStatus = {
+  preparing: 'preparing',
+  pending: 'pending',
+  running: 'running',
+  completed: 'completed',
+  failed: 'failed',
+  cancelled: 'cancelled',
+} as const;
+
+export type ResearchExperimentMode = typeof ResearchExperimentMode[keyof typeof ResearchExperimentMode];
+
+
+export const ResearchExperimentMode = {
+  research: 'research',
+} as const;
+
+export type ResearchExperimentRequestProperty = { [key: string]: unknown };
+
+/**
+ * @nullable
+ */
+export type ResearchExperimentManifest = { [key: string]: unknown } | null;
+
+export interface ResearchExperiment {
+  id: number;
+  section: ResearchExperimentSection;
+  /** @nullable */
+  experimentId?: string | null;
+  name: string;
+  status: ResearchExperimentStatus;
+  stage: string;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  progress: number;
+  cancelRequested: boolean;
+  /** @minimum 0 */
+  decisionEventCount: number;
+  /** @minimum 0 */
+  managementEventCount: number;
+  /** @nullable */
+  manifestFingerprint?: string | null;
+  /** @nullable */
+  goldenStreamFingerprint?: string | null;
+  mode: ResearchExperimentMode;
+  cannotExecute: true;
+  request: ResearchExperimentRequestProperty;
+  /** @nullable */
+  manifest?: ResearchExperimentManifest;
+  report?: ResearchPromotionReport | null;
+  /** @nullable */
+  error?: string | null;
+  createdAt: string;
+  /** @nullable */
+  startedAt?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+}
+
+export type ResearchReplayEventKind = typeof ResearchReplayEventKind[keyof typeof ResearchReplayEventKind];
+
+
+export const ResearchReplayEventKind = {
+  decision: 'decision',
+  management: 'management',
+} as const;
+
+export type ResearchReplayEventEvent = { [key: string]: unknown };
+
+export interface ResearchReplayEvent {
+  /** @minimum 0 */
+  sequence: number;
+  kind: ResearchReplayEventKind;
+  partitionId: string;
+  observedAt: string;
+  /** @nullable */
+  symbol: string | null;
+  /** @nullable */
+  tradeId: number | null;
+  eventFingerprint: string;
+  event: ResearchReplayEventEvent;
+}
+
+export interface ResearchReplayEventPage {
+  events: ResearchReplayEvent[];
+  /** @minimum -1 */
+  nextAfterSequence: number;
+  hasMore: boolean;
+}
+
 export type BotStatusMode = typeof BotStatusMode[keyof typeof BotStatusMode];
 
 
@@ -4202,4 +4555,20 @@ export const ExportBacktestFormat = {
 } as const;
 
 export type ExportBacktest200One = { [key: string]: unknown };
+
+export type ListResearchReplayEventsParams = {
+/**
+ * @minimum -1
+ */
+afterSequence?: number;
+/**
+ * @minimum 1
+ * @maximum 500
+ */
+limit?: number;
+};
+
+export type CancelResearchExperiment202 = {
+  cancelRequested: boolean;
+};
 

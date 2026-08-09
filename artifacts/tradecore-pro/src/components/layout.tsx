@@ -155,7 +155,7 @@ const PRIMARY_NAV: NavItem[] = [
 const ADVANCED_NAV: NavItem[] = [
   { href: "/strategies", label: "Strategies", icon: Layers },
   { href: "/builder", label: "Strategy Builder", icon: Hammer },
-  { href: "/backtest", label: "Backtesting", icon: FlaskConical },
+  { href: "/backtest", label: "Experiment Lab", icon: FlaskConical },
   { href: "/memory", label: "Learning", icon: Database },
 ];
 

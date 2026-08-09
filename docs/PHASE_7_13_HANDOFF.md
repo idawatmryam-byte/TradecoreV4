@@ -626,6 +626,19 @@ state, specialists, evidence, portfolio allocation, council decisions, and Phase
 - Leakage/stress/golden-stream suites.
 - Candidate promotion or rejection report against Brain V0.
 
+### Phase 8 implementation record (2026-08-09)
+
+The repository now contains the Phase 8 Research implementation described in
+`docs/phase-8-scientific-research.md` and
+`docs/adr/ADR-008-phase-8-research-isolation-and-replay.md`.
+
+Its authority remains Research-only. The implementation can produce
+`ELIGIBLE_FOR_HUMAN_REVIEW`, but cannot promote, configure, deploy, or execute a
+candidate. The current implementation-level report is
+`docs/phase-8-promotion-report.md`; it remains `REMAIN_RESEARCH` until real
+provider-backed experiments satisfy the predetermined gates and receive human
+approval.
+
 ## 10. Phase 9 — Co-Pilot and Human Approval Workflow
 
 ### Objective

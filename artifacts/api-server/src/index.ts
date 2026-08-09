@@ -7,6 +7,7 @@ import { DEMO_IDLE_GRACE_MS, getOrCreateEngine, isSection, startDemoSweeper } fr
 import { installOpsMonitor } from "./lib/opsMonitor";
 import { ensureDemoAccount } from "./lib/demoSeed";
 import { beginEngineResume, failEngineResumeDiscovery, recordEngineResume } from "./lib/startupHealth";
+import { resumeIncompleteResearchExperiments } from "./lib/intelligence/research/runner";
 
 // app.ts already called validateEnv() at import time (fail fast before
 // building any middleware) — this call is free (memoized) and just gets us
@@ -81,6 +82,9 @@ const onListening = (err?: Error) => {
   logger.info({ port, host: host ?? "0.0.0.0" }, "Server listening");
   void resumeRunningEngines();
   void ensureDemoOnStartup();
+  void resumeIncompleteResearchExperiments().catch((err) => {
+    logger.error({ err }, "RESEARCH: interrupted experiment discovery failed");
+  });
   // Demo engines are session-scoped: they stop after a grace period of user
   // silence so a free signup does not cost an always-on scan loop forever.
   // Live engines are never touched by this sweeper.
