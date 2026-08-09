@@ -3699,3 +3699,466 @@ export const ExportBacktestResponse = zod.object({
 }).passthrough()
 
 
+/**
+ * @summary List tenant-scoped Research experiments
+ */
+export const listResearchExperimentsResponseProgressMin = 0;
+export const listResearchExperimentsResponseProgressMax = 100;
+
+export const listResearchExperimentsResponseDecisionEventCountMin = 0;
+
+export const listResearchExperimentsResponseManagementEventCountMin = 0;
+
+export const listResearchExperimentsResponseReportOneControlEligibleDecisionsMin = 0;
+
+export const listResearchExperimentsResponseReportOneControlClosedTradesMin = 0;
+
+export const listResearchExperimentsResponseReportOneControlCalendarDaysMin = 0;
+
+export const listResearchExperimentsResponseReportOneControlCostsMin = 0;
+
+export const listResearchExperimentsResponseReportOneControlMaxDrawdownMin = 0;
+export const listResearchExperimentsResponseReportOneControlMaxDrawdownMax = 1;
+
+export const listResearchExperimentsResponseReportOneControlAbstentionRateMin = 0;
+export const listResearchExperimentsResponseReportOneControlAbstentionRateMax = 1;
+
+export const listResearchExperimentsResponseReportOneControlRegimeMixMinOne = 0;
+
+export const listResearchExperimentsResponseReportOneControlUncertaintySamplesMin = 0;
+
+export const listResearchExperimentsResponseReportOneCandidateEligibleDecisionsMin = 0;
+
+export const listResearchExperimentsResponseReportOneCandidateClosedTradesMin = 0;
+
+export const listResearchExperimentsResponseReportOneCandidateCalendarDaysMin = 0;
+
+export const listResearchExperimentsResponseReportOneCandidateCostsMin = 0;
+
+export const listResearchExperimentsResponseReportOneCandidateMaxDrawdownMin = 0;
+export const listResearchExperimentsResponseReportOneCandidateMaxDrawdownMax = 1;
+
+export const listResearchExperimentsResponseReportOneCandidateAbstentionRateMin = 0;
+export const listResearchExperimentsResponseReportOneCandidateAbstentionRateMax = 1;
+
+export const listResearchExperimentsResponseReportOneCandidateRegimeMixMinOne = 0;
+
+export const listResearchExperimentsResponseReportOneCandidateUncertaintySamplesMin = 0;
+
+
+
+export const ListResearchExperimentsResponseItem = zod.object({
+  "id": zod.number(),
+  "section": zod.enum(['crypto', 'forex']),
+  "experimentId": zod.string().uuid().nullish(),
+  "name": zod.string(),
+  "status": zod.enum(['preparing', 'pending', 'running', 'completed', 'failed', 'cancelled']),
+  "stage": zod.string(),
+  "progress": zod.number().min(listResearchExperimentsResponseProgressMin).max(listResearchExperimentsResponseProgressMax),
+  "cancelRequested": zod.boolean(),
+  "decisionEventCount": zod.number().min(listResearchExperimentsResponseDecisionEventCountMin),
+  "managementEventCount": zod.number().min(listResearchExperimentsResponseManagementEventCountMin),
+  "manifestFingerprint": zod.string().nullish(),
+  "goldenStreamFingerprint": zod.string().nullish(),
+  "mode": zod.enum(['research']),
+  "cannotExecute": zod.literal(true),
+  "request": zod.record(zod.string(), zod.unknown()),
+  "manifest": zod.record(zod.string(), zod.unknown()).nullish(),
+  "report": zod.union([zod.object({
+  "schemaVersion": zod.string(),
+  "experimentId": zod.string().uuid(),
+  "manifestFingerprint": zod.string(),
+  "generatedAt": zod.coerce.date(),
+  "control": zod.object({
+  "eligibleDecisions": zod.number().min(listResearchExperimentsResponseReportOneControlEligibleDecisionsMin),
+  "closedTrades": zod.number().min(listResearchExperimentsResponseReportOneControlClosedTradesMin),
+  "calendarDays": zod.number().min(listResearchExperimentsResponseReportOneControlCalendarDaysMin),
+  "grossPnl": zod.number(),
+  "costs": zod.number().min(listResearchExperimentsResponseReportOneControlCostsMin),
+  "netPnl": zod.number(),
+  "netExpectancyR": zod.number().nullable(),
+  "profitFactor": zod.number().nullable(),
+  "maxDrawdown": zod.number().min(listResearchExperimentsResponseReportOneControlMaxDrawdownMin).max(listResearchExperimentsResponseReportOneControlMaxDrawdownMax),
+  "expectedShortfallR": zod.number().nullable(),
+  "abstentionRate": zod.number().min(listResearchExperimentsResponseReportOneControlAbstentionRateMin).max(listResearchExperimentsResponseReportOneControlAbstentionRateMax),
+  "regimeMix": zod.record(zod.string(), zod.number().min(listResearchExperimentsResponseReportOneControlRegimeMixMinOne)),
+  "uncertainty": zod.object({
+  "method": zod.enum(['bootstrap-percentile']),
+  "confidenceLevel": zod.number(),
+  "lowerNetExpectancyR": zod.number().nullable(),
+  "upperNetExpectancyR": zod.number().nullable(),
+  "samples": zod.number().min(listResearchExperimentsResponseReportOneControlUncertaintySamplesMin)
+})
+}),
+  "candidate": zod.object({
+  "eligibleDecisions": zod.number().min(listResearchExperimentsResponseReportOneCandidateEligibleDecisionsMin),
+  "closedTrades": zod.number().min(listResearchExperimentsResponseReportOneCandidateClosedTradesMin),
+  "calendarDays": zod.number().min(listResearchExperimentsResponseReportOneCandidateCalendarDaysMin),
+  "grossPnl": zod.number(),
+  "costs": zod.number().min(listResearchExperimentsResponseReportOneCandidateCostsMin),
+  "netPnl": zod.number(),
+  "netExpectancyR": zod.number().nullable(),
+  "profitFactor": zod.number().nullable(),
+  "maxDrawdown": zod.number().min(listResearchExperimentsResponseReportOneCandidateMaxDrawdownMin).max(listResearchExperimentsResponseReportOneCandidateMaxDrawdownMax),
+  "expectedShortfallR": zod.number().nullable(),
+  "abstentionRate": zod.number().min(listResearchExperimentsResponseReportOneCandidateAbstentionRateMin).max(listResearchExperimentsResponseReportOneCandidateAbstentionRateMax),
+  "regimeMix": zod.record(zod.string(), zod.number().min(listResearchExperimentsResponseReportOneCandidateRegimeMixMinOne)),
+  "uncertainty": zod.object({
+  "method": zod.enum(['bootstrap-percentile']),
+  "confidenceLevel": zod.number(),
+  "lowerNetExpectancyR": zod.number().nullable(),
+  "upperNetExpectancyR": zod.number().nullable(),
+  "samples": zod.number().min(listResearchExperimentsResponseReportOneCandidateUncertaintySamplesMin)
+})
+}),
+  "attribution": zod.record(zod.string(), zod.unknown()),
+  "goldenStream": zod.object({
+  "expectedFingerprint": zod.string(),
+  "actualFingerprint": zod.string(),
+  "reproducible": zod.boolean()
+}),
+  "leakageChecks": zod.array(zod.object({
+  "check": zod.string(),
+  "passed": zod.boolean(),
+  "detail": zod.string()
+})),
+  "multipleTesting": zod.record(zod.string(), zod.unknown()),
+  "gateChecks": zod.array(zod.object({
+  "key": zod.string(),
+  "passed": zod.boolean(),
+  "actual": zod.string(),
+  "required": zod.string()
+})),
+  "recommendation": zod.enum(['REJECT', 'REMAIN_RESEARCH', 'ELIGIBLE_FOR_HUMAN_REVIEW']),
+  "humanApprovalRequired": zod.literal(true),
+  "limitations": zod.array(zod.string()),
+  "fingerprint": zod.string()
+}),zod.null()]).optional(),
+  "error": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "startedAt": zod.coerce.date().nullish(),
+  "completedAt": zod.coerce.date().nullish()
+})
+export const ListResearchExperimentsResponse = zod.array(ListResearchExperimentsResponseItem)
+
+
+/**
+ * Creates an asynchronous Research job. The job can read recorded market data and produce replay evidence, but it cannot reach any Demo or Live executor. A successful promotion report still requires human approval.
+ * @summary Prepare and start a bounded Research-only experiment
+ */
+export const createResearchExperimentBodyNameMax = 160;
+
+export const createResearchExperimentBodySymbolsItemMax = 80;
+
+export const createResearchExperimentBodySymbolsMax = 10;
+
+export const createResearchExperimentBodyStartingBalanceDefault = 10000;
+export const createResearchExperimentBodyStartingBalanceExclusiveMin = 0;
+export const createResearchExperimentBodyStartingBalanceMax = 1000000000;
+
+export const createResearchExperimentBodyPositionSizeUsdtDefault = 100;
+export const createResearchExperimentBodyPositionSizeUsdtExclusiveMin = 0;
+export const createResearchExperimentBodyPositionSizeUsdtMax = 100000000;
+
+export const createResearchExperimentBodyMaxOpenPositionsDefault = 5;
+export const createResearchExperimentBodyMaxOpenPositionsMax = 100;
+
+export const createResearchExperimentBodyDailyLossLimitUsdtDefault = 500;
+export const createResearchExperimentBodyDailyLossLimitUsdtExclusiveMin = 0;
+export const createResearchExperimentBodyDailyLossLimitUsdtMax = 100000000;
+
+export const createResearchExperimentBodyLeverageDefault = 1;
+export const createResearchExperimentBodyLeverageMax = 125;
+
+export const createResearchExperimentBodyFoldsDefault = 3;
+export const createResearchExperimentBodyFoldsMax = 10;
+
+export const createResearchExperimentBodyHoldoutFractionDefault = 0.2;
+export const createResearchExperimentBodyHoldoutFractionMin = 0.1;
+export const createResearchExperimentBodyHoldoutFractionMax = 0.5;
+
+export const createResearchExperimentBodyPurgeMinutesDefault = 60;
+export const createResearchExperimentBodyPurgeMinutesMin = 0;
+export const createResearchExperimentBodyPurgeMinutesMax = 10080;
+
+export const createResearchExperimentBodyEmbargoMinutesDefault = 60;
+export const createResearchExperimentBodyEmbargoMinutesMin = 0;
+export const createResearchExperimentBodyEmbargoMinutesMax = 10080;
+
+export const createResearchExperimentBodyDeterministicSeedDefault = 42;
+export const createResearchExperimentBodyDeterministicSeedMin = 0;
+export const createResearchExperimentBodyDeterministicSeedMax = 2147483647;
+
+export const createResearchExperimentBodyFalseDiscoveryRateDefault = 0.05;
+export const createResearchExperimentBodyFalseDiscoveryRateExclusiveMin = 0;
+export const createResearchExperimentBodyFalseDiscoveryRateExclusiveMax = 1;
+
+export const createResearchExperimentBodyCandidateBrainVersionDefault = `phase8-full-brain-v1`;
+export const createResearchExperimentBodyCandidateBrainVersionMax = 120;
+
+export const createResearchExperimentBodyMaxPortfolioRiskPercentDefault = 10;
+export const createResearchExperimentBodyMaxPortfolioRiskPercentExclusiveMin = 0;
+export const createResearchExperimentBodyMaxPortfolioRiskPercentMax = 100;
+
+export const createResearchExperimentBodyMaxSymbolConcentrationPercentDefault = 100;
+export const createResearchExperimentBodyMaxSymbolConcentrationPercentExclusiveMin = 0;
+export const createResearchExperimentBodyMaxSymbolConcentrationPercentMax = 1000;
+
+export const createResearchExperimentBodyMaxNetExposurePercentDefault = 200;
+export const createResearchExperimentBodyMaxNetExposurePercentExclusiveMin = 0;
+export const createResearchExperimentBodyMaxNetExposurePercentMax = 2000;
+
+export const createResearchExperimentBodyMaxCorrelatedExposurePercentDefault = 200;
+export const createResearchExperimentBodyMaxCorrelatedExposurePercentExclusiveMin = 0;
+export const createResearchExperimentBodyMaxCorrelatedExposurePercentMax = 2000;
+
+export const createResearchExperimentBodyCorrelationThresholdDefault = 0.7;
+export const createResearchExperimentBodyCorrelationThresholdMin = 0;
+export const createResearchExperimentBodyCorrelationThresholdMax = 1;
+
+export const createResearchExperimentBodyCorrelationUnknownPolicyDefault = `allow`;
+
+export const CreateResearchExperimentBody = zod.object({
+  "name": zod.string().min(1).max(createResearchExperimentBodyNameMax),
+  "symbols": zod.array(zod.string().min(1).max(createResearchExperimentBodySymbolsItemMax)).min(1).max(createResearchExperimentBodySymbolsMax),
+  "timeframe": zod.enum(['1m']),
+  "startDate": zod.coerce.date(),
+  "endDate": zod.coerce.date(),
+  "marketType": zod.enum(['spot', 'futures', 'forex']),
+  "startingBalance": zod.number().gt(createResearchExperimentBodyStartingBalanceExclusiveMin).max(createResearchExperimentBodyStartingBalanceMax).default(createResearchExperimentBodyStartingBalanceDefault),
+  "positionSizeUsdt": zod.number().gt(createResearchExperimentBodyPositionSizeUsdtExclusiveMin).max(createResearchExperimentBodyPositionSizeUsdtMax).default(createResearchExperimentBodyPositionSizeUsdtDefault),
+  "maxOpenPositions": zod.number().min(1).max(createResearchExperimentBodyMaxOpenPositionsMax).default(createResearchExperimentBodyMaxOpenPositionsDefault),
+  "dailyLossLimitUsdt": zod.number().gt(createResearchExperimentBodyDailyLossLimitUsdtExclusiveMin).max(createResearchExperimentBodyDailyLossLimitUsdtMax).default(createResearchExperimentBodyDailyLossLimitUsdtDefault),
+  "leverage": zod.number().min(1).max(createResearchExperimentBodyLeverageMax).default(createResearchExperimentBodyLeverageDefault),
+  "folds": zod.number().min(1).max(createResearchExperimentBodyFoldsMax).default(createResearchExperimentBodyFoldsDefault),
+  "holdoutFraction": zod.number().min(createResearchExperimentBodyHoldoutFractionMin).max(createResearchExperimentBodyHoldoutFractionMax).default(createResearchExperimentBodyHoldoutFractionDefault),
+  "purgeMinutes": zod.number().min(createResearchExperimentBodyPurgeMinutesMin).max(createResearchExperimentBodyPurgeMinutesMax).default(createResearchExperimentBodyPurgeMinutesDefault),
+  "embargoMinutes": zod.number().min(createResearchExperimentBodyEmbargoMinutesMin).max(createResearchExperimentBodyEmbargoMinutesMax).default(createResearchExperimentBodyEmbargoMinutesDefault),
+  "deterministicSeed": zod.number().min(createResearchExperimentBodyDeterministicSeedMin).max(createResearchExperimentBodyDeterministicSeedMax).default(createResearchExperimentBodyDeterministicSeedDefault),
+  "falseDiscoveryRate": zod.number().gt(createResearchExperimentBodyFalseDiscoveryRateExclusiveMin).lt(createResearchExperimentBodyFalseDiscoveryRateExclusiveMax).default(createResearchExperimentBodyFalseDiscoveryRateDefault),
+  "candidateBrainVersion": zod.string().min(1).max(createResearchExperimentBodyCandidateBrainVersionMax).default(createResearchExperimentBodyCandidateBrainVersionDefault),
+  "maxPortfolioRiskPercent": zod.number().gt(createResearchExperimentBodyMaxPortfolioRiskPercentExclusiveMin).max(createResearchExperimentBodyMaxPortfolioRiskPercentMax).default(createResearchExperimentBodyMaxPortfolioRiskPercentDefault),
+  "maxSymbolConcentrationPercent": zod.number().gt(createResearchExperimentBodyMaxSymbolConcentrationPercentExclusiveMin).max(createResearchExperimentBodyMaxSymbolConcentrationPercentMax).default(createResearchExperimentBodyMaxSymbolConcentrationPercentDefault),
+  "maxNetExposurePercent": zod.number().gt(createResearchExperimentBodyMaxNetExposurePercentExclusiveMin).max(createResearchExperimentBodyMaxNetExposurePercentMax).default(createResearchExperimentBodyMaxNetExposurePercentDefault),
+  "maxCorrelatedExposurePercent": zod.number().gt(createResearchExperimentBodyMaxCorrelatedExposurePercentExclusiveMin).max(createResearchExperimentBodyMaxCorrelatedExposurePercentMax).default(createResearchExperimentBodyMaxCorrelatedExposurePercentDefault),
+  "correlationThreshold": zod.number().min(createResearchExperimentBodyCorrelationThresholdMin).max(createResearchExperimentBodyCorrelationThresholdMax).default(createResearchExperimentBodyCorrelationThresholdDefault),
+  "correlationUnknownPolicy": zod.enum(['allow', 'block']).default(createResearchExperimentBodyCorrelationUnknownPolicyDefault)
+})
+
+export const CreateResearchExperimentResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['preparing']),
+  "mode": zod.enum(['research']),
+  "cannotExecute": zod.literal(true)
+})
+
+
+/**
+ * @summary Get a Research experiment and its terminal promotion report
+ */
+
+
+
+export const GetResearchExperimentParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+export const getResearchExperimentResponseProgressMin = 0;
+export const getResearchExperimentResponseProgressMax = 100;
+
+export const getResearchExperimentResponseDecisionEventCountMin = 0;
+
+export const getResearchExperimentResponseManagementEventCountMin = 0;
+
+export const getResearchExperimentResponseReportOneControlEligibleDecisionsMin = 0;
+
+export const getResearchExperimentResponseReportOneControlClosedTradesMin = 0;
+
+export const getResearchExperimentResponseReportOneControlCalendarDaysMin = 0;
+
+export const getResearchExperimentResponseReportOneControlCostsMin = 0;
+
+export const getResearchExperimentResponseReportOneControlMaxDrawdownMin = 0;
+export const getResearchExperimentResponseReportOneControlMaxDrawdownMax = 1;
+
+export const getResearchExperimentResponseReportOneControlAbstentionRateMin = 0;
+export const getResearchExperimentResponseReportOneControlAbstentionRateMax = 1;
+
+export const getResearchExperimentResponseReportOneControlRegimeMixMinOne = 0;
+
+export const getResearchExperimentResponseReportOneControlUncertaintySamplesMin = 0;
+
+export const getResearchExperimentResponseReportOneCandidateEligibleDecisionsMin = 0;
+
+export const getResearchExperimentResponseReportOneCandidateClosedTradesMin = 0;
+
+export const getResearchExperimentResponseReportOneCandidateCalendarDaysMin = 0;
+
+export const getResearchExperimentResponseReportOneCandidateCostsMin = 0;
+
+export const getResearchExperimentResponseReportOneCandidateMaxDrawdownMin = 0;
+export const getResearchExperimentResponseReportOneCandidateMaxDrawdownMax = 1;
+
+export const getResearchExperimentResponseReportOneCandidateAbstentionRateMin = 0;
+export const getResearchExperimentResponseReportOneCandidateAbstentionRateMax = 1;
+
+export const getResearchExperimentResponseReportOneCandidateRegimeMixMinOne = 0;
+
+export const getResearchExperimentResponseReportOneCandidateUncertaintySamplesMin = 0;
+
+
+
+export const GetResearchExperimentResponse = zod.object({
+  "id": zod.number(),
+  "section": zod.enum(['crypto', 'forex']),
+  "experimentId": zod.string().uuid().nullish(),
+  "name": zod.string(),
+  "status": zod.enum(['preparing', 'pending', 'running', 'completed', 'failed', 'cancelled']),
+  "stage": zod.string(),
+  "progress": zod.number().min(getResearchExperimentResponseProgressMin).max(getResearchExperimentResponseProgressMax),
+  "cancelRequested": zod.boolean(),
+  "decisionEventCount": zod.number().min(getResearchExperimentResponseDecisionEventCountMin),
+  "managementEventCount": zod.number().min(getResearchExperimentResponseManagementEventCountMin),
+  "manifestFingerprint": zod.string().nullish(),
+  "goldenStreamFingerprint": zod.string().nullish(),
+  "mode": zod.enum(['research']),
+  "cannotExecute": zod.literal(true),
+  "request": zod.record(zod.string(), zod.unknown()),
+  "manifest": zod.record(zod.string(), zod.unknown()).nullish(),
+  "report": zod.union([zod.object({
+  "schemaVersion": zod.string(),
+  "experimentId": zod.string().uuid(),
+  "manifestFingerprint": zod.string(),
+  "generatedAt": zod.coerce.date(),
+  "control": zod.object({
+  "eligibleDecisions": zod.number().min(getResearchExperimentResponseReportOneControlEligibleDecisionsMin),
+  "closedTrades": zod.number().min(getResearchExperimentResponseReportOneControlClosedTradesMin),
+  "calendarDays": zod.number().min(getResearchExperimentResponseReportOneControlCalendarDaysMin),
+  "grossPnl": zod.number(),
+  "costs": zod.number().min(getResearchExperimentResponseReportOneControlCostsMin),
+  "netPnl": zod.number(),
+  "netExpectancyR": zod.number().nullable(),
+  "profitFactor": zod.number().nullable(),
+  "maxDrawdown": zod.number().min(getResearchExperimentResponseReportOneControlMaxDrawdownMin).max(getResearchExperimentResponseReportOneControlMaxDrawdownMax),
+  "expectedShortfallR": zod.number().nullable(),
+  "abstentionRate": zod.number().min(getResearchExperimentResponseReportOneControlAbstentionRateMin).max(getResearchExperimentResponseReportOneControlAbstentionRateMax),
+  "regimeMix": zod.record(zod.string(), zod.number().min(getResearchExperimentResponseReportOneControlRegimeMixMinOne)),
+  "uncertainty": zod.object({
+  "method": zod.enum(['bootstrap-percentile']),
+  "confidenceLevel": zod.number(),
+  "lowerNetExpectancyR": zod.number().nullable(),
+  "upperNetExpectancyR": zod.number().nullable(),
+  "samples": zod.number().min(getResearchExperimentResponseReportOneControlUncertaintySamplesMin)
+})
+}),
+  "candidate": zod.object({
+  "eligibleDecisions": zod.number().min(getResearchExperimentResponseReportOneCandidateEligibleDecisionsMin),
+  "closedTrades": zod.number().min(getResearchExperimentResponseReportOneCandidateClosedTradesMin),
+  "calendarDays": zod.number().min(getResearchExperimentResponseReportOneCandidateCalendarDaysMin),
+  "grossPnl": zod.number(),
+  "costs": zod.number().min(getResearchExperimentResponseReportOneCandidateCostsMin),
+  "netPnl": zod.number(),
+  "netExpectancyR": zod.number().nullable(),
+  "profitFactor": zod.number().nullable(),
+  "maxDrawdown": zod.number().min(getResearchExperimentResponseReportOneCandidateMaxDrawdownMin).max(getResearchExperimentResponseReportOneCandidateMaxDrawdownMax),
+  "expectedShortfallR": zod.number().nullable(),
+  "abstentionRate": zod.number().min(getResearchExperimentResponseReportOneCandidateAbstentionRateMin).max(getResearchExperimentResponseReportOneCandidateAbstentionRateMax),
+  "regimeMix": zod.record(zod.string(), zod.number().min(getResearchExperimentResponseReportOneCandidateRegimeMixMinOne)),
+  "uncertainty": zod.object({
+  "method": zod.enum(['bootstrap-percentile']),
+  "confidenceLevel": zod.number(),
+  "lowerNetExpectancyR": zod.number().nullable(),
+  "upperNetExpectancyR": zod.number().nullable(),
+  "samples": zod.number().min(getResearchExperimentResponseReportOneCandidateUncertaintySamplesMin)
+})
+}),
+  "attribution": zod.record(zod.string(), zod.unknown()),
+  "goldenStream": zod.object({
+  "expectedFingerprint": zod.string(),
+  "actualFingerprint": zod.string(),
+  "reproducible": zod.boolean()
+}),
+  "leakageChecks": zod.array(zod.object({
+  "check": zod.string(),
+  "passed": zod.boolean(),
+  "detail": zod.string()
+})),
+  "multipleTesting": zod.record(zod.string(), zod.unknown()),
+  "gateChecks": zod.array(zod.object({
+  "key": zod.string(),
+  "passed": zod.boolean(),
+  "actual": zod.string(),
+  "required": zod.string()
+})),
+  "recommendation": zod.enum(['REJECT', 'REMAIN_RESEARCH', 'ELIGIBLE_FOR_HUMAN_REVIEW']),
+  "humanApprovalRequired": zod.literal(true),
+  "limitations": zod.array(zod.string()),
+  "fingerprint": zod.string()
+}),zod.null()]).optional(),
+  "error": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "startedAt": zod.coerce.date().nullish(),
+  "completedAt": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Page through the immutable full-brain replay stream
+ */
+
+
+
+export const ListResearchReplayEventsParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+export const listResearchReplayEventsQueryAfterSequenceDefault = -1;
+export const listResearchReplayEventsQueryAfterSequenceMin = -1;
+
+export const listResearchReplayEventsQueryLimitDefault = 100;
+export const listResearchReplayEventsQueryLimitMax = 500;
+
+
+
+export const ListResearchReplayEventsQueryParams = zod.object({
+  "afterSequence": zod.coerce.number().min(listResearchReplayEventsQueryAfterSequenceMin).default(listResearchReplayEventsQueryAfterSequenceDefault),
+  "limit": zod.coerce.number().min(1).max(listResearchReplayEventsQueryLimitMax).default(listResearchReplayEventsQueryLimitDefault)
+})
+
+export const listResearchReplayEventsResponseEventsItemSequenceMin = 0;
+
+export const listResearchReplayEventsResponseNextAfterSequenceMin = -1;
+
+
+
+export const ListResearchReplayEventsResponse = zod.object({
+  "events": zod.array(zod.object({
+  "sequence": zod.number().min(listResearchReplayEventsResponseEventsItemSequenceMin),
+  "kind": zod.enum(['decision', 'management']),
+  "partitionId": zod.string(),
+  "observedAt": zod.coerce.date(),
+  "symbol": zod.string().nullable(),
+  "tradeId": zod.number().nullable(),
+  "eventFingerprint": zod.string(),
+  "event": zod.record(zod.string(), zod.unknown())
+})),
+  "nextAfterSequence": zod.number().min(listResearchReplayEventsResponseNextAfterSequenceMin),
+  "hasMore": zod.boolean()
+})
+
+
+/**
+ * @summary Request cancellation of a preparing or running Research job
+ */
+
+
+
+export const CancelResearchExperimentParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+export const CancelResearchExperimentResponse = zod.object({
+  "cancelRequested": zod.boolean()
+})
+
+

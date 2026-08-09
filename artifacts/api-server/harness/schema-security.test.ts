@@ -6,15 +6,6 @@ if (!process.env.DATABASE_URL) {
 process.env.SESSION_SECRET ??= "schema-security-integration-secret-123";
 process.env.PORT ??= "8080";
 
-import {
-  brainDecisionsTable,
-  brainEvidenceReferencesTable,
-  db,
-  positionManagementEventsTable,
-  positionThesesTable,
-  tradesTable,
-  usersTable,
-} from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 
 const USERNAME = "schema_security_harness_990081";
@@ -26,6 +17,17 @@ function expect(name: string, condition: boolean, detail = "") {
 }
 
 async function main() {
+  const {
+    brainDecisionsTable,
+    brainEvidenceReferencesTable,
+    db,
+    positionManagementEventsTable,
+    positionThesesTable,
+    researchExperimentsTable,
+    researchReplayEventsTable,
+    tradesTable,
+    usersTable,
+  } = await import("@workspace/db");
   await db.delete(usersTable).where(eq(usersTable.username, USERNAME));
   const [user] = await db.insert(usersTable).values({ username: USERNAME }).returning();
   const now = new Date();
@@ -108,6 +110,32 @@ async function main() {
       observedAt: now,
     });
 
+    const [researchExperiment] = await db.insert(researchExperimentsTable).values({
+      userId: user!.id,
+      section: "crypto",
+      experimentId: "11111111-1111-5111-8111-111111111111",
+      name: "Schema security fixture",
+      manifestVersion: "phase8-experiment-v1",
+      manifestFingerprint: "c".repeat(64),
+      manifest: { mode: "research", cannotExecute: true },
+      request: { source: "schema-security" },
+      status: "pending",
+      stage: "manifest",
+    }).returning();
+    await db.insert(researchReplayEventsTable).values({
+      userId: user!.id,
+      section: "crypto",
+      experimentDbId: researchExperiment!.id,
+      experimentId: researchExperiment!.experimentId!,
+      sequence: 0,
+      kind: "decision",
+      partitionId: "fold-1",
+      observedAt: now,
+      symbol: "BTCUSDT",
+      eventFingerprint: "d".repeat(64),
+      event: { mode: "research", cannotExecute: true },
+    });
+
     let duplicateActionRefused = false;
     try {
       await db.insert(positionManagementEventsTable).values({
@@ -161,14 +189,19 @@ async function main() {
       .from(positionThesesTable).where(eq(positionThesesTable.userId, user!.id));
     const remainingManagementEvents = await db.select({ id: positionManagementEventsTable.id })
       .from(positionManagementEventsTable).where(eq(positionManagementEventsTable.userId, user!.id));
+    const remainingResearchEvents = await db.select({ id: researchReplayEventsTable.id })
+      .from(researchReplayEventsTable).where(eq(researchReplayEventsTable.userId, user!.id));
     expect("capture purge removes the user's decision", remainingDecisions.length === 0);
     expect("capture purge removes dependent evidence first", remainingEvidence.length === 0);
     expect("capture purge removes Phase 7 management events", remainingManagementEvents.length === 0);
     expect("capture purge removes Phase 7 theses", remainingTheses.length === 0);
+    expect("capture purge removes Phase 8 replay events", remainingResearchEvents.length === 0);
+    await db.delete(researchExperimentsTable).where(eq(researchExperimentsTable.id, researchExperiment!.id));
     await db.delete(tradesTable).where(eq(tradesTable.id, trade!.id));
   } finally {
     await db.execute(sql`SELECT capture.purge_user_data(${user!.id})`);
     await db.delete(tradesTable).where(eq(tradesTable.userId, user!.id));
+    await db.delete(researchExperimentsTable).where(eq(researchExperimentsTable.userId, user!.id));
     await db.delete(usersTable).where(eq(usersTable.id, user!.id));
   }
 

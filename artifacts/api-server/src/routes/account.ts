@@ -25,6 +25,7 @@ import {
   evidenceSnapshotsTable, evidenceRuleEventsTable, strategyOpinionsTable,
   shadowCouncilRunsTable, brainDecisionsTable, brainEvidenceReferencesTable,
   positionManagementEventsTable, positionThesesTable,
+  researchExperimentsTable, researchReplayEventsTable,
 } from "@workspace/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "../lib/passwordHash";
@@ -174,6 +175,7 @@ router.delete("/me/account", async (req, res) => {
       }
       await tx.delete(positionManagementEventsTable).where(eq(positionManagementEventsTable.userId, userId));
       await tx.delete(positionThesesTable).where(eq(positionThesesTable.userId, userId));
+      await tx.delete(researchReplayEventsTable).where(eq(researchReplayEventsTable.userId, userId));
       await tx.delete(shadowCouncilRunsTable).where(eq(shadowCouncilRunsTable.userId, userId));
       await tx.delete(brainDecisionsTable).where(eq(brainDecisionsTable.userId, userId));
       await tx.delete(strategyOpinionsTable).where(eq(strategyOpinionsTable.userId, userId));
@@ -190,6 +192,7 @@ router.delete("/me/account", async (req, res) => {
     await tx.delete(memoryValidationsTable).where(eq(memoryValidationsTable.userId, userId));
     await tx.delete(scanCountersTable).where(eq(scanCountersTable.userId, userId));
     await tx.delete(autopsyRunsTable).where(eq(autopsyRunsTable.userId, userId));
+    await tx.delete(researchExperimentsTable).where(eq(researchExperimentsTable.userId, userId));
     await tx.delete(customStrategiesTable).where(eq(customStrategiesTable.userId, userId));
     await tx.delete(strategyDecisionsTable).where(eq(strategyDecisionsTable.userId, userId));
     await tx.delete(tradeAnalysesTable).where(eq(tradeAnalysesTable.userId, userId));

@@ -4,3 +4,4 @@ export * from "./trade-plan-adapter";
 export * from "./market-state/types";
 export * from "./market-state/builder";
 export * from "./specialists";
+export * from "./research";
