@@ -34,7 +34,12 @@ export default defineConfig({
           includeHttpResponseReturnType: false,
         },
         mutator: {
-          path: path.resolve(apiClientReactSrc, "custom-fetch.ts"),
+          // Orval passes this path through esbuild. A Windows absolute path is
+          // interpreted as a package-like specifier by that pipeline, causing
+          // it to traverse above the workspace and fail with access denied.
+          // Keep the mutator relative to the configured client workspace so
+          // codegen is portable across Linux and Windows.
+          path: "./custom-fetch.ts",
           name: "customFetch",
         },
       },

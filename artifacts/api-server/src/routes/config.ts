@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { botConfigTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { botConfigTable, tradesTable } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
 import { getOrCreateEngine } from "../lib/engineRegistry";
 import { forexDemoAvailable } from "../lib/execution/demoMarketData";
 import { getBinanceCredentials } from "../lib/binanceCredentials";
@@ -146,6 +146,25 @@ router.put("/config", async (req, res): Promise<void> => {
     nextExecutionTarget !== existing.executionTarget ||
     nextMarketType !== existing.marketType ||
     nextTestnet !== existing.testnet;
+
+  if (connectionChanged) {
+    const [openTrade] = await db
+      .select({ id: tradesTable.id })
+      .from(tradesTable)
+      .where(and(
+        eq(tradesTable.userId, req.userId!),
+        eq(tradesTable.section, req.section!),
+        eq(tradesTable.status, "open"),
+      ))
+      .limit(1);
+    if (openTrade) {
+      res.status(409).json({
+        error: "Close every open position in this section before changing Demo/Live, market type, or broker environment. The active engine connection must continue managing the positions it opened.",
+        code: "OPEN_POSITIONS_BLOCK_CONNECTION_CHANGE",
+      });
+      return;
+    }
+  }
 
   if (connectionChanged && nextExecutionTarget === "demo" && !demoDataAvailableFor(existing.section)) {
     res.status(400).json({

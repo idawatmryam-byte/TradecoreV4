@@ -1,6 +1,13 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  getEvidenceOverview,
+  promoteEvidenceVersion,
+  rollbackEvidenceVersion,
+  suspendEvidenceVersion,
+  validateEvidence,
+} from "@workspace/api-client-react";
+import {
   AlertTriangle,
   BrainCog,
   CheckCircle2,
@@ -27,7 +34,7 @@ import {
   TableRow,
 } from "@/components/ui";
 import { useToast } from "@/components/ui/use-toast";
-import { sectionHeaders, useSection } from "@/lib/section";
+import { useSection } from "@/lib/section";
 import { cn } from "@/lib/utils";
 
 const PROMOTION_CONFIRMATION = "APPROVE_WITHHOLD_ONLY";
@@ -110,20 +117,6 @@ interface EvidenceOverview {
   ruleSets: RuleSetView[];
 }
 
-async function api<T>(path: string, _section: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      ...sectionHeaders(),
-    },
-  });
-  const payload = await response.json().catch(() => ({})) as { error?: string };
-  if (!response.ok) throw new Error(payload.error ?? `Request failed (${response.status})`);
-  return payload as T;
-}
-
 const money = (value: number | null) => value == null
   ? "not captured"
   : new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(value);
@@ -156,10 +149,10 @@ export function EvidenceLifecyclePanel() {
   const queryKey = ["learning-evidence", section] as const;
   const query = useQuery<EvidenceOverview>({
     queryKey,
-    queryFn: () => api<EvidenceOverview>("/api/memory/evidence", section),
+    queryFn: async () => (await getEvidenceOverview()) as EvidenceOverview,
   });
   const validate = useMutation({
-    mutationFn: () => api<ValidationView>("/api/memory/evidence/validate", section, { method: "POST", body: "{}" }),
+    mutationFn: async () => (await validateEvidence()) as ValidationView,
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey });
       toast({ title: `Validation: ${readable(result.verdict ?? "completed")}`, description: result.summary });
@@ -167,10 +160,20 @@ export function EvidenceLifecyclePanel() {
     onError: (error: Error) => toast({ title: "Validation failed", description: error.message, variant: "destructive" }),
   });
   const transition = useMutation({
-    mutationFn: (input: { path: string; body: object }) => api<{ reason: string }>(input.path, section, {
-      method: "POST",
-      body: JSON.stringify(input.body),
-    }),
+    mutationFn: async (input: {
+      kind: "promote" | "rollback" | "suspend";
+      version: string;
+      confirmation?: string;
+      reason?: string;
+    }) => {
+      if (input.kind === "promote") {
+        return promoteEvidenceVersion(input.version, { confirmation: input.confirmation ?? "" });
+      }
+      if (input.kind === "rollback") {
+        return rollbackEvidenceVersion(input.version, { confirmation: input.confirmation ?? "" });
+      }
+      return suspendEvidenceVersion(input.version, { reason: input.reason ?? "Suspended from Learning & Evidence." });
+    },
     onSuccess: async (result) => {
       setAction(null);
       setConfirmation("");
@@ -293,7 +296,7 @@ export function EvidenceLifecyclePanel() {
                   <p className="mt-1 text-xs text-muted-foreground">Permission: {ruleSet.permits} only · cutoff {new Date(ruleSet.dataCutoff).toLocaleString()}</p>
                 </div>
                 {ruleSet.status === "shadow" && <Button size="sm" onClick={() => { setAction({ kind: "promote", version: ruleSet.ruleVersion }); setConfirmation(""); }}>Review activation</Button>}
-                {ruleSet.status === "active" && <Button size="sm" variant="destructive" disabled={transition.isPending} onClick={() => transition.mutate({ path: `/api/memory/evidence/${encodeURIComponent(ruleSet.ruleVersion)}/suspend`, body: { reason: "Suspended from Learning & Evidence." } })}><PauseCircle className="mr-2 h-3.5 w-3.5" />Suspend now</Button>}
+                {ruleSet.status === "active" && <Button size="sm" variant="destructive" disabled={transition.isPending} onClick={() => transition.mutate({ kind: "suspend", version: ruleSet.ruleVersion, reason: "Suspended from Learning & Evidence." })}><PauseCircle className="mr-2 h-3.5 w-3.5" />Suspend now</Button>}
                 {ruleSet.status === "suspended" && <Button size="sm" variant="outline" onClick={() => { setAction({ kind: "rollback", version: ruleSet.ruleVersion }); setConfirmation(""); }}>Review rollback</Button>}
               </div>
             </div>
@@ -309,8 +312,9 @@ export function EvidenceLifecyclePanel() {
               <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                 <Input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" aria-label="Lifecycle confirmation" />
                 <Button disabled={confirmation !== expectedPhrase || transition.isPending} onClick={() => transition.mutate({
-                  path: `/api/memory/evidence/${encodeURIComponent(action.version)}/${action.kind}`,
-                  body: { confirmation },
+                  kind: action.kind,
+                  version: action.version,
+                  confirmation,
                 })}>{transition.isPending && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}{action.kind === "promote" ? "Activate exact version" : "Rollback exact version"}</Button>
                 <Button variant="ghost" onClick={() => { setAction(null); setConfirmation(""); }}>Cancel</Button>
               </div>

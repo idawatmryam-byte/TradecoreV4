@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
+import { getMarketState } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui";
-import { sectionHeaders, useSection } from "@/lib/section";
+import { useSection } from "@/lib/section";
 import { cn } from "@/lib/utils";
 import { Activity, AlertTriangle, Compass, DatabaseZap, Radar, Waves } from "lucide-react";
 
@@ -60,14 +61,7 @@ export function MarketOverview() {
   const query = useQuery<MarketStateResult[]>({
     queryKey: ["market-state", section],
     refetchInterval: 15_000,
-    queryFn: async () => {
-      const response = await fetch("/api/market/state", {
-        credentials: "same-origin",
-        headers: sectionHeaders(),
-      });
-      if (!response.ok) throw new Error("MarketState request failed");
-      return response.json();
-    },
+    queryFn: async () => (await getMarketState()) as MarketStateResult[],
   });
 
   const results = query.data ?? [];

@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { db } from "@workspace/db";
 import { usersTable, userIdentitiesTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
-import { createSessionToken, getAuthenticatedUserId, SESSION_COOKIE_NAME } from "../middleware/auth";
+import { getAuthenticatedUserId, setSessionCookie, SESSION_COOKIE_NAME, type SessionUser } from "../middleware/auth";
 import { hashPassword, verifyPassword } from "../lib/passwordHash";
 import { validateEnv } from "../lib/env";
 import {
@@ -25,18 +25,6 @@ const MAX_USERNAME_LENGTH = 64;
 // password for a real user takes scrypt's full derivation time, leaking
 // which usernames exist via response timing.
 const DUMMY_HASH = `${"0".repeat(32)}:${"0".repeat(128)}`;
-
-function setSessionCookie(res: Response, userId: number): void {
-  const { nodeEnv } = validateEnv();
-  const sessionToken = createSessionToken(userId);
-  res.cookie(SESSION_COOKIE_NAME, sessionToken, {
-    httpOnly: true,
-    secure: nodeEnv === "production",
-    sameSite: "strict",
-    path: "/",
-    maxAge: 12 * 60 * 60 * 1000, // 12h — must match SESSION_DURATION_MS in middleware/auth.ts
-  });
-}
 
 // ---------------------------------------------------------------------------
 // POST /auth/register — body { username: string, password: string }.
@@ -73,7 +61,7 @@ router.post("/auth/register", async (req, res) => {
   const [user] = await db.insert(usersTable).values({ username, passwordHash }).returning();
 
   logger.info({ userId: user!.id, ip: req.ip }, "AUTH_REGISTER_SUCCESS");
-  setSessionCookie(res, user!.id);
+  setSessionCookie(res, user!);
   res.status(201).json({ ok: true });
 });
 
@@ -103,7 +91,7 @@ router.post("/auth/login", async (req, res) => {
   }
 
   logger.info({ userId: user.id, ip: req.ip }, "AUTH_LOGIN_SUCCESS");
-  setSessionCookie(res, user.id);
+  setSessionCookie(res, user);
   res.json({ ok: true });
 });
 
@@ -118,7 +106,7 @@ router.post("/auth/login", async (req, res) => {
 // ---------------------------------------------------------------------------
 router.post("/auth/demo", async (req, res) => {
   const [demo] = await db
-    .select({ id: usersTable.id })
+    .select({ id: usersTable.id, sessionVersion: usersTable.sessionVersion })
     .from(usersTable)
     .where(eq(usersTable.isDemo, true))
     .limit(1);
@@ -127,7 +115,7 @@ router.post("/auth/demo", async (req, res) => {
     return;
   }
   logger.info({ userId: demo.id, ip: req.ip }, "AUTH_DEMO_LOGIN");
-  setSessionCookie(res, demo.id);
+  setSessionCookie(res, demo);
   res.json({ ok: true });
 });
 
@@ -186,7 +174,7 @@ router.get("/auth/providers", async (_req, res) => {
  * accounts get a unique username derived from the email/name and NO password —
  * they can add one later on the Account page.
  */
-async function findOrCreateOauthUser(identity: OAuthIdentity): Promise<number> {
+async function findOrCreateOauthUser(identity: OAuthIdentity): Promise<SessionUser> {
   const [existing] = await db
     .select()
     .from(userIdentitiesTable)
@@ -194,7 +182,15 @@ async function findOrCreateOauthUser(identity: OAuthIdentity): Promise<number> {
       eq(userIdentitiesTable.provider, identity.provider),
       eq(userIdentitiesTable.providerUserId, identity.providerUserId),
     ));
-  if (existing) return existing.userId;
+  if (existing) {
+    const [user] = await db
+      .select({ id: usersTable.id, sessionVersion: usersTable.sessionVersion })
+      .from(usersTable)
+      .where(eq(usersTable.id, existing.userId))
+      .limit(1);
+    if (!user) throw new Error("OAuth identity points to a missing user");
+    return user;
+  }
 
   const base = (identity.email?.split("@")[0] ?? identity.displayName ?? identity.provider)
     .replace(/[^a-zA-Z0-9_.\- ]/g, "")
@@ -222,7 +218,7 @@ async function findOrCreateOauthUser(identity: OAuthIdentity): Promise<number> {
     email: identity.email,
   });
   logger.info({ userId: user!.id, provider: identity.provider }, "AUTH_OAUTH_ACCOUNT_CREATED");
-  return user!.id;
+  return user!;
 }
 
 /** Where the dashboard SPA is served from, in lock-step with BASE_PATH (see
@@ -252,9 +248,9 @@ async function completeOauthLogin(
   }
   try {
     const identity = provider === "google" ? await exchangeGoogleCode(code) : await exchangeAppleCode(code);
-    const userId = await findOrCreateOauthUser(identity);
-    logger.info({ userId, provider, ip: req.ip }, "AUTH_OAUTH_LOGIN_SUCCESS");
-    setSessionCookie(res, userId);
+    const user = await findOrCreateOauthUser(identity);
+    logger.info({ userId: user.id, provider, ip: req.ip }, "AUTH_OAUTH_LOGIN_SUCCESS");
+    setSessionCookie(res, user);
     res.redirect(appBasePath());
   } catch (err) {
     logger.error({ err, provider }, "AUTH_OAUTH_LOGIN_FAILED");

@@ -1,11 +1,12 @@
 import app from "./app";
-import { db, botConfigTable, tradesTable, usersTable } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { db, botConfigTable, usersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { logger } from "./lib/logger";
 import { validateEnv } from "./lib/env";
 import { DEMO_IDLE_GRACE_MS, getOrCreateEngine, isSection, startDemoSweeper } from "./lib/engineRegistry";
 import { installOpsMonitor } from "./lib/opsMonitor";
 import { ensureDemoAccount } from "./lib/demoSeed";
+import { beginEngineResume, failEngineResumeDiscovery, recordEngineResume } from "./lib/startupHealth";
 
 // app.ts already called validateEnv() at import time (fail fast before
 // building any middleware) — this call is free (memoized) and just gets us
@@ -36,49 +37,37 @@ async function resumeRunningEngines(): Promise<void> {
     // exchange keys and every mutation is blocked), so exclude it defensively
     // in case its desired-running flag was ever set outside the API.
     const resumable = rows.filter((r) => !r.isDemo);
+    beginEngineResume(resumable.length);
 
-    // EXCLUSIVE MODE: only one section per user may run. If a user has BOTH
-    // sections flagged (state from before exclusivity, or a crash between
-    // stop/start), resume the one holding open positions — it needs its
-    // trade management back — preferring crypto on a tie, and clear the
-    // other's desired flag so the state converges.
-    const byUser = new Map<number, string[]>();
+    // Crypto and Forex are independent engines. Resume every valid section
+    // the user deliberately left running; never clear one section's intent
+    // merely because the other is also active. Doing so strands active
+    // position management (trailing, ladder and time exits) after a deploy.
     for (const { userId, section } of resumable) {
-      byUser.set(userId, [...(byUser.get(userId) ?? []), section]);
-    }
-
-    for (const [userId, sections] of byUser) {
-      let chosen = sections[0]!;
-      if (sections.length > 1) {
-        chosen = "crypto";
-        for (const section of sections) {
-          const open = await db
-            .select({ id: tradesTable.id })
-            .from(tradesTable)
-            .where(and(eq(tradesTable.userId, userId), eq(tradesTable.section, section), eq(tradesTable.status, "open")))
-            .limit(1);
-          if (open.length > 0) { chosen = section; break; }
-        }
-        for (const section of sections) {
-          if (section === chosen) continue;
-          await db
-            .update(botConfigTable)
-            .set({ engineDesiredRunning: false })
-            .where(and(eq(botConfigTable.userId, userId), eq(botConfigTable.section, section)));
-          logger.info({ userId, section, chosen }, "AUTO-RESUME: exclusive mode — sibling section's desired-running cleared");
-        }
+      if (!isSection(section)) {
+        logger.error({ userId, section }, "AUTO-RESUME: invalid persisted section — skipped");
+        recordEngineResume(false);
+        continue;
       }
-
-      const sec = isSection(chosen) ? chosen : "crypto";
       try {
-        await getOrCreateEngine(userId, sec).start();
-        logger.info({ userId, section: sec }, "AUTO-RESUME: engine restarted after server restart");
+        const engine = getOrCreateEngine(userId, section);
+        await engine.start();
+        const entryGateHealthy = engine.isDemoTarget() || engine.getState().newEntriesAllowed;
+        logger.info(
+          { userId, section, entryGateHealthy },
+          entryGateHealthy
+            ? "AUTO-RESUME: engine restarted after server restart"
+            : "AUTO-RESUME: engine restarted in exit-only mode; readiness remains degraded",
+        );
+        recordEngineResume(entryGateHealthy);
       } catch (err) {
-        logger.error({ err, userId, section: sec }, "AUTO-RESUME: engine failed to restart — user must press Start manually");
+        logger.error({ err, userId, section }, "AUTO-RESUME: engine failed to restart — user must press Start manually");
+        recordEngineResume(false);
       }
     }
     if (resumable.length === 0) logger.info("AUTO-RESUME: no engines were running before restart");
   } catch (err) {
+    failEngineResumeDiscovery();
     logger.error({ err }, "AUTO-RESUME: could not query desired engine states");
   }
 }

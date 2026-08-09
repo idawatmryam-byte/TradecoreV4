@@ -18,11 +18,17 @@ import {
   userOandaCredentialsTable,
   botConfigTable, strategyConfigsTable, tradesTable, tradePartialExitsTable,
   blacklistTable, hourlyStatsTable, tradeAnalysesTable, backtestRunsTable,
+  autopsyRunsTable, customStrategiesTable, strategyDecisionsTable,
+  recommendationsTable, notificationsTable, executionIntentsTable,
+  executionEventsTable, scanCountersTable, memoryValidationsTable,
+  evidenceRuleSetsTable, capturedDecisionsTable, memoryInfluencesTable,
+  evidenceSnapshotsTable, evidenceRuleEventsTable, strategyOpinionsTable,
+  shadowCouncilRunsTable, brainDecisionsTable, brainEvidenceReferencesTable,
 } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "../lib/passwordHash";
-import { getOrCreateEngine, SECTIONS } from "../lib/engineRegistry";
-import { SESSION_COOKIE_NAME } from "../middleware/auth";
+import { evictUserEngines, getOrCreateEngine, SECTIONS } from "../lib/engineRegistry";
+import { setSessionCookie, SESSION_COOKIE_NAME } from "../middleware/auth";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -90,7 +96,18 @@ router.post("/me/account/password", async (req, res) => {
     }
   }
 
-  await db.update(usersTable).set({ passwordHash: await hashPassword(newPassword) }).where(eq(usersTable.id, req.userId!));
+  const [updated] = await db
+    .update(usersTable)
+    .set({
+      passwordHash: await hashPassword(newPassword),
+      sessionVersion: sql`${usersTable.sessionVersion} + 1`,
+    })
+    .where(eq(usersTable.id, req.userId!))
+    .returning({ id: usersTable.id, sessionVersion: usersTable.sessionVersion });
+  if (!updated) { res.status(404).json({ error: "Account not found" }); return; }
+  // Revoke every previously-issued cookie, then issue one fresh cookie for
+  // the password-change request itself so the user is not logged out here.
+  setSessionCookie(res, updated);
   logger.info({ userId: req.userId }, "ACCOUNT_PASSWORD_CHANGED");
   res.json({ ok: true });
 });
@@ -113,30 +130,79 @@ router.delete("/me/account", async (req, res) => {
     try {
       await getOrCreateEngine(req.userId!, section).stop();
     } catch (err) {
-      logger.warn({ err, userId: req.userId, section }, "Engine stop during account deletion failed — continuing with delete");
+      logger.error({ err, userId: req.userId, section }, "Engine stop during account deletion failed — deletion aborted");
+      res.status(503).json({ error: "Account deletion could not safely stop every trading engine. No account data was deleted; try again after checking engine health." });
+      return;
     }
   }
 
   const userId = req.userId!;
-  // Children without their own userId column first (via the parent's ids),
-  // then everything keyed on userId. Backtest child tables cascade from runs.
-  const tradeIds = (await db.select({ id: tradesTable.id }).from(tradesTable).where(eq(tradesTable.userId, userId)))
-    .map((t) => t.id);
-  if (tradeIds.length > 0) {
-    await db.delete(tradePartialExitsTable).where(inArray(tradePartialExitsTable.tradeId, tradeIds));
-  }
-  await db.delete(tradeAnalysesTable).where(eq(tradeAnalysesTable.userId, userId));
-  await db.delete(tradesTable).where(eq(tradesTable.userId, userId));
-  await db.delete(blacklistTable).where(eq(blacklistTable.userId, userId));
-  await db.delete(hourlyStatsTable).where(eq(hourlyStatsTable.userId, userId));
-  await db.delete(strategyConfigsTable).where(eq(strategyConfigsTable.userId, userId));
-  await db.delete(botConfigTable).where(eq(botConfigTable.userId, userId));
-  await db.delete(backtestRunsTable).where(eq(backtestRunsTable.userId, userId)); // cascades trades/equity/optimization
-  await db.delete(userBinanceCredentialsTable).where(eq(userBinanceCredentialsTable.userId, userId));
-  await db.delete(userOandaCredentialsTable).where(eq(userOandaCredentialsTable.userId, userId));
-  await db.delete(userIdentitiesTable).where(eq(userIdentitiesTable.userId, userId));
-  await db.delete(usersTable).where(eq(usersTable.id, userId));
+  const functionLookup = await db.execute(sql`SELECT to_regprocedure('capture.purge_user_data(integer)')::text AS name`);
+  const functionRows = (functionLookup as unknown as { rows?: Array<{ name: string | null }> }).rows ?? [];
+  const hasHardenedCapturePurge = functionRows[0]?.name != null;
 
+  // Account erasure is all-or-nothing. The previous sequence omitted Phase
+  // 0–6 intelligence, execution, recommendation and learning records and ran
+  // outside a transaction, leaving orphaned personal data after a partial
+  // failure. Child rows are removed first; backtest children cascade.
+  await db.transaction(async (tx) => {
+    const tradeIds = (await tx.select({ id: tradesTable.id }).from(tradesTable).where(eq(tradesTable.userId, userId)))
+      .map((t) => t.id);
+    if (tradeIds.length > 0) {
+      await tx.delete(tradePartialExitsTable).where(inArray(tradePartialExitsTable.tradeId, tradeIds));
+    }
+
+    const intentIds = (await tx.select({ id: executionIntentsTable.id }).from(executionIntentsTable)
+      .where(eq(executionIntentsTable.userId, userId))).map((row) => row.id);
+    if (intentIds.length > 0) {
+      await tx.delete(executionEventsTable).where(inArray(executionEventsTable.intentId, intentIds));
+    }
+
+    if (hasHardenedCapturePurge) {
+      // Production's capture schema is INSERT/SELECT-only. This narrowly
+      // scoped SECURITY DEFINER function is installed by capture-grants.sql
+      // so account erasure works without weakening append-only privileges.
+      await tx.execute(sql`SELECT capture.purge_user_data(${userId})`);
+    } else {
+      // Development/test databases usually connect as the owner and do not
+      // install the grants script. Purge the same rows directly there.
+      const brainIds = (await tx.select({ id: brainDecisionsTable.id }).from(brainDecisionsTable)
+        .where(eq(brainDecisionsTable.userId, userId))).map((row) => row.id);
+      if (brainIds.length > 0) {
+        await tx.delete(brainEvidenceReferencesTable).where(inArray(brainEvidenceReferencesTable.brainDecisionId, brainIds));
+      }
+      await tx.delete(shadowCouncilRunsTable).where(eq(shadowCouncilRunsTable.userId, userId));
+      await tx.delete(brainDecisionsTable).where(eq(brainDecisionsTable.userId, userId));
+      await tx.delete(strategyOpinionsTable).where(eq(strategyOpinionsTable.userId, userId));
+      await tx.delete(evidenceRuleEventsTable).where(eq(evidenceRuleEventsTable.userId, userId));
+      await tx.delete(evidenceSnapshotsTable).where(eq(evidenceSnapshotsTable.userId, userId));
+      await tx.delete(memoryInfluencesTable).where(eq(memoryInfluencesTable.userId, userId));
+      await tx.delete(capturedDecisionsTable).where(eq(capturedDecisionsTable.userId, userId));
+    }
+
+    await tx.delete(executionIntentsTable).where(eq(executionIntentsTable.userId, userId));
+    await tx.delete(recommendationsTable).where(eq(recommendationsTable.userId, userId));
+    await tx.delete(notificationsTable).where(eq(notificationsTable.userId, userId));
+    await tx.delete(evidenceRuleSetsTable).where(eq(evidenceRuleSetsTable.userId, userId));
+    await tx.delete(memoryValidationsTable).where(eq(memoryValidationsTable.userId, userId));
+    await tx.delete(scanCountersTable).where(eq(scanCountersTable.userId, userId));
+    await tx.delete(autopsyRunsTable).where(eq(autopsyRunsTable.userId, userId));
+    await tx.delete(customStrategiesTable).where(eq(customStrategiesTable.userId, userId));
+    await tx.delete(strategyDecisionsTable).where(eq(strategyDecisionsTable.userId, userId));
+    await tx.delete(tradeAnalysesTable).where(eq(tradeAnalysesTable.userId, userId));
+    await tx.delete(tradesTable).where(eq(tradesTable.userId, userId));
+    await tx.delete(blacklistTable).where(eq(blacklistTable.userId, userId));
+    await tx.delete(hourlyStatsTable).where(eq(hourlyStatsTable.userId, userId));
+    await tx.delete(strategyConfigsTable).where(eq(strategyConfigsTable.userId, userId));
+    await tx.delete(botConfigTable).where(eq(botConfigTable.userId, userId));
+    await tx.delete(backtestRunsTable).where(eq(backtestRunsTable.userId, userId));
+    await tx.delete(userBinanceCredentialsTable).where(eq(userBinanceCredentialsTable.userId, userId));
+    await tx.delete(userOandaCredentialsTable).where(eq(userOandaCredentialsTable.userId, userId));
+    await tx.delete(userIdentitiesTable).where(eq(userIdentitiesTable.userId, userId));
+    await tx.delete(usersTable).where(eq(usersTable.id, userId));
+  });
+
+  evictUserEngines(userId);
   logger.info({ userId, ip: req.ip }, "ACCOUNT_DELETED");
   res.clearCookie(SESSION_COOKIE_NAME, { path: "/" });
   res.json({ ok: true });

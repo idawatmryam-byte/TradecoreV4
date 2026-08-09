@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { getPortfolioIntelligence } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import {
   AlertTriangle,
@@ -28,7 +29,7 @@ import {
   TableRow,
 } from "@/components/ui";
 import { EmptyState, PageHeader } from "@/components/patterns";
-import { sectionHeaders, useSection } from "@/lib/section";
+import { useSection } from "@/lib/section";
 import { cn } from "@/lib/utils";
 
 type DataStatus = "healthy" | "degraded" | "blocked";
@@ -162,14 +163,7 @@ export function PortfolioIntelligence() {
   const [shockPercent, setShockPercent] = useState("-5");
   const query = useQuery<Projection>({
     queryKey: ["portfolio-intelligence", section],
-    queryFn: async () => {
-      const response = await fetch("/api/intelligence/portfolio", {
-        credentials: "same-origin",
-        headers: sectionHeaders(),
-      });
-      if (!response.ok) throw new Error(`Portfolio Intelligence request failed (${response.status})`);
-      return response.json() as Promise<Projection>;
-    },
+    queryFn: async () => (await getPortfolioIntelligence()) as Projection,
     refetchInterval: 10_000,
   });
 

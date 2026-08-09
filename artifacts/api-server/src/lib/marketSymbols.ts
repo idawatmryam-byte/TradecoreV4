@@ -84,6 +84,11 @@ export function unifiedFromPlainFallback(symbol: string, marketType: "spot" | "f
   return marketType === "futures" ? `${spotStyle}:USDT` : spotStyle;
 }
 
+/** Spot has no borrow/short entry path. Futures and OANDA Forex both do. */
+export function supportsShortEntries(marketType: "spot" | "futures" | "forex"): boolean {
+  return marketType !== "spot";
+}
+
 export function plainFromUnifiedFallback(unified: string): string {
   // "BTC/USDT:USDT" → "BTC/USDT" → "BTCUSDT"; spot input is unaffected.
   return unified.split(":")[0]!.replace("/", "");

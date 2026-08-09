@@ -22,7 +22,8 @@ walk through a fully-populated, read-only account first.
    Keys are encrypted at rest and never leave your server.
 3. **Pick your market** at the top-left switcher: **Crypto** or **Forex**.
    The two are completely independent — separate settings, positions, and
-   history. Only one engine runs at a time.
+   history. Both engines may run at the same time; stopping one never stops
+   active position management in the other.
 4. **Set your risk** (see *Risk settings* below), then press **START** on the
    Cockpit.
 

@@ -34,6 +34,7 @@ import { similarTradesFor } from "../knowledge/knowledgeService";
 import { FEATURE_KEYS, type FeatureVector, type SimilarTradesResult } from "../knowledge/similarity";
 import type { TradePlan } from "../strategies";
 import type { SignalRow } from "../strategy";
+import type { ExecutionResult } from "../execution/executor";
 
 export interface ActionOutcome {
   ok: boolean;
@@ -167,6 +168,32 @@ export async function executeRecommendation(
 ): Promise<ActionOutcome> {
   const rec = await load(userId, section, id);
   if (!rec) return { ok: false, status: "created", reason: "Recommendation not found" };
+  if (rec.status !== "created") {
+    return { ok: false, status: rec.status, reason: `Already ${rec.status} — it cannot be executed` };
+  }
+
+  // Financial idempotency boundary. Loading `created` and updating only after
+  // the broker call lets two concurrent requests both place an order. Claim
+  // the row with one compare-and-set before gathering state or touching an
+  // executor; exactly one caller can receive the row back.
+  const [claimed] = await db
+    .update(recommendationsTable)
+    .set({ status: "executing", actedAt: now, resolutionReason: "approval claimed; re-validating current state" })
+    .where(and(
+      eq(recommendationsTable.id, rec.id),
+      eq(recommendationsTable.userId, userId),
+      eq(recommendationsTable.section, section),
+      eq(recommendationsTable.status, "created"),
+    ))
+    .returning();
+  if (!claimed) {
+    const current = await load(userId, section, id);
+    return {
+      ok: false,
+      status: current?.status ?? "blocked",
+      reason: current ? `Already ${current.status} — it cannot be executed again` : "Recommendation not found",
+    };
+  }
 
   const engine = getOrCreateEngine(userId, section);
   const plan = rec.plan as TradePlan;
@@ -184,7 +211,10 @@ export async function executeRecommendation(
       entryPrice: Number(rec.entryPrice), slPrice: Number(rec.slPrice), qty: Number(rec.qty),
     },
     expiresAt: rec.expiresAt,
-    status: rec.status,
+    // `executing` is the database claim, not a change to the plan's semantic
+    // eligibility. The compare-and-set above proved it was created exactly
+    // once, so the pure validator should evaluate the claimed plan as such.
+    status: "created",
     now,
     ...state,
   });
@@ -193,23 +223,30 @@ export async function executeRecommendation(
     // Terminal. The situation that made this plan sensible has passed, so it
     // does not return to the inbox for another attempt — except when the plan
     // was already resolved, where the existing status is the truth.
-    const nextStatus = rec.status === "created" ? "blocked" : rec.status;
-    if (rec.status === "created") {
-      await db.update(recommendationsTable)
-        .set({ status: "blocked", actedAt: now, resolutionReason: verdict.reason ?? verdict.code ?? "blocked" })
-        .where(eq(recommendationsTable.id, rec.id));
-    }
+    await db.update(recommendationsTable)
+      .set({ status: "blocked", actedAt: now, resolutionReason: verdict.reason ?? verdict.code ?? "blocked" })
+      .where(and(eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing")));
     logger.info({ recommendationId: rec.id, code: verdict.code }, "CO-PILOT: approval refused at re-validation");
-    return { ok: false, status: nextStatus, reason: verdict.reason ?? "Re-validation failed", checks: verdict.checks };
+    return { ok: false, status: "blocked", reason: verdict.reason ?? "Re-validation failed", checks: verdict.checks };
   }
 
   const row = (rec.signalRow ?? { confidence: Number(rec.confidence), votes: [] }) as SignalRow;
-  const result = await engine.executeApprovedPlan(plan, row, now);
+  let result: ExecutionResult;
+  try {
+    result = await engine.executeApprovedPlan(plan, row, now);
+  } catch (err) {
+    const reason = "Execution failed after approval was claimed; verify broker and execution-intent state before taking any further action";
+    await db.update(recommendationsTable)
+      .set({ status: "blocked", actedAt: now, resolutionReason: reason })
+      .where(and(eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing")));
+    logger.error({ err, recommendationId: rec.id }, "CO-PILOT: claimed approval threw during execution");
+    return { ok: false, status: "blocked", reason, checks: verdict.checks };
+  }
 
   if (!result.entered) {
     await db.update(recommendationsTable)
       .set({ status: "blocked", actedAt: now, resolutionReason: result.reason })
-      .where(eq(recommendationsTable.id, rec.id));
+      .where(and(eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing")));
     return { ok: false, status: "blocked", reason: result.reason, checks: verdict.checks };
   }
 
@@ -219,7 +256,7 @@ export async function executeRecommendation(
       ...(result.tradeId != null && { tradeId: result.tradeId }),
       resolutionReason: result.reason,
     })
-    .where(eq(recommendationsTable.id, rec.id));
+    .where(and(eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing")));
 
   logger.info({ recommendationId: rec.id, tradeId: result.tradeId }, "CO-PILOT: user approved — position opened");
   return {
@@ -237,9 +274,19 @@ export async function rejectRecommendation(
   if (rec.status !== "created") {
     return { ok: false, status: rec.status, reason: `Already ${rec.status} — nothing to reject` };
   }
-  await db.update(recommendationsTable)
+  const [rejected] = await db.update(recommendationsTable)
     .set({ status: "rejected", actedAt: now, resolutionReason: note?.trim() || "declined by the user" })
-    .where(eq(recommendationsTable.id, rec.id));
+    .where(and(
+      eq(recommendationsTable.id, rec.id),
+      eq(recommendationsTable.userId, userId),
+      eq(recommendationsTable.section, section),
+      eq(recommendationsTable.status, "created"),
+    ))
+    .returning({ id: recommendationsTable.id });
+  if (!rejected) {
+    const current = await load(userId, section, id);
+    return { ok: false, status: current?.status ?? "blocked", reason: `Already ${current?.status ?? "resolved"} — nothing to reject` };
+  }
   return { ok: true, status: "rejected", reason: "Recommendation declined" };
 }
 
@@ -291,45 +338,70 @@ export async function modifyRecommendation(
   const newExpiresAt = expiryFor(modifiedPlan, now);
   const derivedTrace = relabelTraceForModification(rec.decisionTrace as PipelineStage[] | null, newExpiresAt);
 
-  const [created] = await db
-    .insert(recommendationsTable)
-    .values({
-      userId,
-      section,
-      correlationId,
-      planFingerprint: planFingerprint(userId, modifiedPlan),
-      status: "created",
-      authoredBy: "user",
-      derivedFromId: rec.id,
-      symbol: rec.symbol,
-      strategyId: rec.strategyId,
-      strategyName: rec.strategyName,
-      side: rec.side,
-      confidence: rec.confidence,
-      entryPrice: rec.entryPrice,
-      slPrice: slPrice.toFixed(8),
-      tpPrice: tpPrice.toFixed(8),
-      qty: qty.toFixed(8),
-      leverage: rec.leverage,
-      plan: modifiedPlan,
-      signalRow: rec.signalRow,
-      decisionTrace: derivedTrace as unknown as object,
-      expiresAt: newExpiresAt,
-    })
-    .returning();
+  const created = await db.transaction(async (tx) => {
+    // Win the same lifecycle compare-and-set used by Execute and Reject.
+    // The insert and original-state update commit together, so a failed child
+    // insert can never strand the original as superseded without a replacement.
+    const [claimedOriginal] = await tx.update(recommendationsTable)
+      .set({ status: "superseded", actedAt: now, resolutionReason: "creating user-modified replacement" })
+      .where(and(
+        eq(recommendationsTable.id, rec.id),
+        eq(recommendationsTable.userId, userId),
+        eq(recommendationsTable.section, section),
+        eq(recommendationsTable.status, "created"),
+      ))
+      .returning({ id: recommendationsTable.id });
+    if (!claimedOriginal) return null;
 
-  await db.update(recommendationsTable)
-    .set({ status: "superseded", actedAt: now, resolutionReason: `replaced by your modified plan #${created!.id}` })
-    .where(eq(recommendationsTable.id, rec.id));
+    const [inserted] = await tx
+      .insert(recommendationsTable)
+      .values({
+        userId,
+        section,
+        correlationId,
+        planFingerprint: planFingerprint(userId, modifiedPlan),
+        status: "created",
+        authoredBy: "user",
+        derivedFromId: rec.id,
+        symbol: rec.symbol,
+        strategyId: rec.strategyId,
+        strategyName: rec.strategyName,
+        side: rec.side,
+        confidence: rec.confidence,
+        entryPrice: rec.entryPrice,
+        slPrice: slPrice.toFixed(8),
+        tpPrice: tpPrice.toFixed(8),
+        qty: qty.toFixed(8),
+        leverage: rec.leverage,
+        plan: modifiedPlan,
+        signalRow: rec.signalRow,
+        decisionTrace: derivedTrace as unknown as object,
+        expiresAt: newExpiresAt,
+      })
+      .returning();
+    await tx.update(recommendationsTable)
+      .set({ resolutionReason: `replaced by your modified plan #${inserted!.id}` })
+      .where(eq(recommendationsTable.id, rec.id));
+    return inserted!;
+  });
+
+  if (!created) {
+    const current = await load(userId, section, id);
+    return {
+      ok: false,
+      status: current?.status ?? "blocked",
+      reason: `Already ${current?.status ?? "resolved"} — it can no longer be modified`,
+    };
+  }
 
   logger.info(
-    { original: rec.id, derived: created!.id, slPrice, tpPrice, qty },
+    { original: rec.id, derived: created.id, slPrice, tpPrice, qty },
     "CO-PILOT: user authored a modified plan — original superseded, not edited",
   );
 
   return {
     ok: true, status: "superseded",
-    reason: `Created your modified plan #${created!.id}; the original is kept unchanged for the record`,
-    newRecommendationId: created!.id,
+    reason: `Created your modified plan #${created.id}; the original is kept unchanged for the record`,
+    newRecommendationId: created.id,
   };
 }

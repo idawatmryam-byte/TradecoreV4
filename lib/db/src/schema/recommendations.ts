@@ -22,6 +22,8 @@ import { z } from "zod/v4";
  * acted on; everything else is terminal.
  *
  *   created     awaiting the user
+ *   executing   atomically claimed by one approval request; no second request
+ *               may cross the broker boundary while this state is present
  *   executed    the user approved it and a position was opened
  *   rejected    the user declined it
  *   expired     the user did not act before the plan went stale
@@ -31,7 +33,7 @@ import { z } from "zod/v4";
  *               there is no path from here to a position.
  */
 export const RECOMMENDATION_STATUSES = [
-  "created", "executed", "rejected", "expired", "superseded", "blocked",
+  "created", "executing", "executed", "rejected", "expired", "superseded", "blocked",
 ] as const;
 export type RecommendationStatus = (typeof RECOMMENDATION_STATUSES)[number];
 

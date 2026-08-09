@@ -16,6 +16,7 @@ import { loadStrategyConfigs } from "../lib/strategyConfigLoader";
 import { getOrCreateEngine } from "../lib/engineRegistry";
 import { logger } from "../lib/logger";
 import { MIN_VIABLE_TAKE_PROFIT_PERCENT } from "../lib/tradingCosts";
+import { UpdateStrategyConfigBody } from "@workspace/api-zod";
 
 const router = Router();
 
@@ -205,7 +206,17 @@ router.put("/strategies/:id", async (req, res) => {
     return res.status(404).json({ error: `Strategy '${strategyId}' not found in this section` });
   }
 
-  const b = req.body as Record<string, unknown>;
+  const parsedBody = UpdateStrategyConfigBody.safeParse(req.body);
+  if (!parsedBody.success) {
+    return res.status(400).json({
+      error: "Invalid strategy configuration",
+      details: parsedBody.error.issues.map((issue) => `${issue.path.join(".") || "body"}: ${issue.message}`),
+    });
+  }
+  const b = parsedBody.data as Record<string, unknown>;
+  const VALID_TRAILING_MODES = new Set(["none", "atr", "percent", "dynamic"]);
+  const VALID_PRIORITY_KEYS = new Set(["stop_loss", "take_profit", "trailing_stop", "timeout"]);
+  const REQUIRED_PRIORITY_KEYS = ["stop_loss", "take_profit", "timeout"];
 
   // BACKTEST-FIRST LIVE GATE: a custom strategy can only be enabled after a
   // completed single-strategy backtest of its CURRENT rules (editing the
@@ -236,7 +247,32 @@ router.put("/strategies/:id", async (req, res) => {
     if (b[key] === undefined || b[key] === null) return null;
     return numField(key, min, max, label);
   };
+  const booleanField = (key: string): string | null =>
+    b[key] === undefined || typeof b[key] === "boolean" ? null : `${key} must be a boolean`;
+  const trailingModeError = b.trailingStopMode === undefined ||
+    (typeof b.trailingStopMode === "string" && VALID_TRAILING_MODES.has(b.trailingStopMode))
+    ? null : "trailingStopMode must be one of: none, atr, percent, dynamic";
+  let exitPriorityError: string | null = null;
+  if (b.exitPriority !== undefined) {
+    const supplied = Array.isArray(b.exitPriority) ? b.exitPriority : [];
+    const normalized = supplied.filter((v): v is string => typeof v === "string");
+    if (
+      normalized.length !== supplied.length ||
+      normalized.length < REQUIRED_PRIORITY_KEYS.length ||
+      normalized.length > VALID_PRIORITY_KEYS.size ||
+      new Set(normalized).size !== normalized.length ||
+      normalized.some((key) => !VALID_PRIORITY_KEYS.has(key)) ||
+      REQUIRED_PRIORITY_KEYS.some((key) => !normalized.includes(key))
+    ) {
+      exitPriorityError = "exitPriority must contain stop_loss, take_profit, and timeout exactly once; trailing_stop is optional";
+    }
+  }
   const validationErrors = [
+    booleanField("enabled"),
+    booleanField("tp3Enabled"),
+    booleanField("trailingAfterTp1Only"),
+    trailingModeError,
+    exitPriorityError,
     nullableNumField("tradeAmountUsdt", 1, 1_000_000, "tradeAmountUsdt"),
     nullableNumField("maxLossUsdt", 0.01, 1_000_000, "maxLossUsdt"),
     nullableNumField("targetProfitUsdt", 0.01, 1_000_000, "targetProfitUsdt"),
@@ -280,8 +316,6 @@ router.put("/strategies/:id", async (req, res) => {
       trailingAfterTp1Only: true, emergencyTrailingRMultiple: 0, emergencyTrailingPercent: 0.5,
       exitPriority: ["stop_loss", "take_profit", "trailing_stop", "timeout"],
     };
-    const VALID_TRAILING_MODES = new Set(["none", "atr", "percent", "dynamic"]);
-    const VALID_PRIORITY_KEYS = new Set(["stop_loss", "take_profit", "trailing_stop", "timeout"]);
     const trailingStopMode =
       typeof b.trailingStopMode === "string" && VALID_TRAILING_MODES.has(b.trailingStopMode)
         ? b.trailingStopMode : d.trailingStopMode;
@@ -289,14 +323,14 @@ router.put("/strategies/:id", async (req, res) => {
       ? (b.exitPriority as unknown[]).map(String).filter((k) => VALID_PRIORITY_KEYS.has(k))
       : d.exitPriority;
 
-    const [updated] = await db
+    await db
       .insert(strategyConfigsTable)
       .values({
         userId: req.userId!,
         section: req.section!,
         strategyId,
         strategyName: strategy?.strategyName ?? customRow!.name,
-        enabled:                b.enabled                !== undefined ? Boolean(b.enabled) : d.enabled,
+        enabled:                b.enabled                !== undefined ? b.enabled as boolean : d.enabled,
         tradeAmountUsdt:        b.tradeAmountUsdt  !== undefined ? (b.tradeAmountUsdt  === null ? null : String(b.tradeAmountUsdt))  : null,
         maxLossUsdt:            b.maxLossUsdt      !== undefined ? (b.maxLossUsdt      === null ? null : String(b.maxLossUsdt))      : null,
         targetProfitUsdt:       b.targetProfitUsdt !== undefined ? (b.targetProfitUsdt === null ? null : String(b.targetProfitUsdt)) : null,
@@ -310,14 +344,14 @@ router.put("/strategies/:id", async (req, res) => {
         breakEvenRMultiple:          String(b.breakEvenRMultiple          ?? d.breakEvenRMultiple),
         tp1RMultiple:                String(b.tp1RMultiple                ?? d.tp1RMultiple),
         tp1ClosePercent:              Number(b.tp1ClosePercent              ?? d.tp1ClosePercent),
-        tp3Enabled:                   b.tp3Enabled                !== undefined ? Boolean(b.tp3Enabled) : d.tp3Enabled,
+        tp3Enabled:                   b.tp3Enabled                !== undefined ? b.tp3Enabled as boolean : d.tp3Enabled,
         tp2RMultiple:                 String(b.tp2RMultiple                ?? d.tp2RMultiple),
         tp2ClosePercent:              Number(b.tp2ClosePercent              ?? d.tp2ClosePercent),
         tp3RMultiple:                 String(b.tp3RMultiple                ?? d.tp3RMultiple),
         trailingStopMode,
         trailingStopAtrMultiplier:    String(b.trailingStopAtrMultiplier    ?? d.trailingStopAtrMultiplier),
         trailingStopPercent:          String(b.trailingStopPercent          ?? d.trailingStopPercent),
-        trailingAfterTp1Only:         b.trailingAfterTp1Only     !== undefined ? Boolean(b.trailingAfterTp1Only) : d.trailingAfterTp1Only,
+        trailingAfterTp1Only:         b.trailingAfterTp1Only     !== undefined ? b.trailingAfterTp1Only as boolean : d.trailingAfterTp1Only,
         emergencyTrailingRMultiple:   String(b.emergencyTrailingRMultiple   ?? d.emergencyTrailingRMultiple),
         emergencyTrailingPercent:     String(b.emergencyTrailingPercent     ?? d.emergencyTrailingPercent),
         exitPriority: exitPriority.join(","),
@@ -325,7 +359,7 @@ router.put("/strategies/:id", async (req, res) => {
       .onConflictDoUpdate({
         target: [strategyConfigsTable.userId, strategyConfigsTable.section, strategyConfigsTable.strategyId],
         set: {
-          enabled:                b.enabled                !== undefined ? Boolean(b.enabled) : undefined,
+          enabled:                b.enabled                !== undefined ? b.enabled as boolean : undefined,
           tradeAmountUsdt:        b.tradeAmountUsdt  !== undefined ? (b.tradeAmountUsdt  === null ? null : String(b.tradeAmountUsdt))  : undefined,
           maxLossUsdt:            b.maxLossUsdt      !== undefined ? (b.maxLossUsdt      === null ? null : String(b.maxLossUsdt))      : undefined,
           targetProfitUsdt:       b.targetProfitUsdt !== undefined ? (b.targetProfitUsdt === null ? null : String(b.targetProfitUsdt)) : undefined,
@@ -339,14 +373,14 @@ router.put("/strategies/:id", async (req, res) => {
           breakEvenRMultiple:           b.breakEvenRMultiple           !== undefined ? String(b.breakEvenRMultiple) : undefined,
           tp1RMultiple:                 b.tp1RMultiple                !== undefined ? String(b.tp1RMultiple) : undefined,
           tp1ClosePercent:              b.tp1ClosePercent              !== undefined ? Number(b.tp1ClosePercent) : undefined,
-          tp3Enabled:                   b.tp3Enabled                   !== undefined ? Boolean(b.tp3Enabled) : undefined,
+          tp3Enabled:                   b.tp3Enabled                   !== undefined ? b.tp3Enabled as boolean : undefined,
           tp2RMultiple:                 b.tp2RMultiple                 !== undefined ? String(b.tp2RMultiple) : undefined,
           tp2ClosePercent:              b.tp2ClosePercent              !== undefined ? Number(b.tp2ClosePercent) : undefined,
           tp3RMultiple:                 b.tp3RMultiple                 !== undefined ? String(b.tp3RMultiple) : undefined,
           trailingStopMode:             b.trailingStopMode             !== undefined ? trailingStopMode : undefined,
           trailingStopAtrMultiplier:    b.trailingStopAtrMultiplier    !== undefined ? String(b.trailingStopAtrMultiplier) : undefined,
           trailingStopPercent:          b.trailingStopPercent          !== undefined ? String(b.trailingStopPercent) : undefined,
-          trailingAfterTp1Only:         b.trailingAfterTp1Only         !== undefined ? Boolean(b.trailingAfterTp1Only) : undefined,
+          trailingAfterTp1Only:         b.trailingAfterTp1Only         !== undefined ? b.trailingAfterTp1Only as boolean : undefined,
           emergencyTrailingRMultiple:   b.emergencyTrailingRMultiple   !== undefined ? String(b.emergencyTrailingRMultiple) : undefined,
           emergencyTrailingPercent:     b.emergencyTrailingPercent     !== undefined ? String(b.emergencyTrailingPercent) : undefined,
           exitPriority:                 b.exitPriority                 !== undefined ? exitPriority.join(",") : undefined,
@@ -354,7 +388,7 @@ router.put("/strategies/:id", async (req, res) => {
       })
       .returning();
 
-    return res.json({ success: true, strategyId, config: updated });
+    return res.json({ success: true, strategyId });
   } catch (err) {
     logger.error({ err, strategyId }, "PUT /strategies/:id failed");
     return res.status(500).json({ error: "Internal server error" });

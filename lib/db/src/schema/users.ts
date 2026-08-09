@@ -28,6 +28,10 @@ export const usersTable = pgTable("users", {
    *  user (see middleware/demoGuard.ts), so it can view the fully-populated
    *  product but can never run an engine, place an order, or edit config. */
   isDemo: boolean("is_demo").notNull().default(false),
+  /** Incremented on password/security changes. Signed into session cookies so
+   *  one account can revoke its own outstanding sessions without rotating the
+   *  global SESSION_SECRET and logging out every user. */
+  sessionVersion: integer("session_version").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -420,6 +420,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </span>
           </div>
         )}
+        {botStatus?.running && !botStatus.newEntriesAllowed && !botStatus.circuitBreakerActive && (
+          <div
+            role="status"
+            className="flex items-center justify-center gap-3 border-b border-warning/60 bg-warning/10 px-4 py-3 text-sm font-medium text-warning"
+          >
+            <ShieldAlert className="h-5 w-5 shrink-0" />
+            <span>
+              {botStatus.entryBlockReason ?? "New entries are blocked."} Existing positions continue to be monitored and may exit.
+            </span>
+          </div>
+        )}
         <div className="flex-1 overflow-auto p-4 sm:p-6 md:p-8">{children}</div>
       </main>
     </div>

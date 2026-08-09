@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { getSpecialistCouncil } from "@workspace/api-client-react";
 import { AlertTriangle, BrainCircuit, ChevronRight, MinusCircle, Scale, ShieldCheck } from "lucide-react";
 import { Badge, Card, CardContent } from "@/components/ui";
-import { sectionHeaders, useSection } from "@/lib/section";
+import { useSection } from "@/lib/section";
 import { cn } from "@/lib/utils";
 
 type Stance = "long" | "short" | "neutral" | "abstain";
@@ -66,14 +67,7 @@ export function SpecialistCouncil() {
   const query = useQuery<CouncilSnapshot[]>({
     queryKey: ["specialist-council", section],
     refetchInterval: 15_000,
-    queryFn: async () => {
-      const response = await fetch("/api/strategies/council", {
-        credentials: "same-origin",
-        headers: sectionHeaders(),
-      });
-      if (!response.ok) throw new Error("Specialist Council request failed");
-      return response.json();
-    },
+    queryFn: async () => (await getSpecialistCouncil()) as CouncilSnapshot[],
   });
 
   const snapshots = [...(query.data ?? [])]
