@@ -1,10 +1,11 @@
 import { useGetTrades, getGetTradesQueryKey, type GetTradesStatus } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge, Button } from "@/components/ui";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
-import { History, ArrowUpRight, ArrowDownRight, Filter, WifiOff, Download } from "lucide-react";
+import { History, ArrowUpRight, ArrowDownRight, Filter, WifiOff, Download, BrainCircuit } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { PageHeader, PageTabs, EmptyState, LoadingRows } from "@/components/patterns";
+import { PositionThesisCard } from "@/components/position-thesis-card";
 
 // Fetch the API's maximum so the CSV export covers as much history as one
 // request allows (the on-screen table simply scrolls).
@@ -25,11 +26,13 @@ const STATUS_FILTERS: { label: string; value: GetTradesStatus | undefined }[] = 
 
 export function Trades() {
   const [filter, setFilter] = useState<GetTradesStatus | undefined>(undefined);
+  const [selectedThesisTradeId, setSelectedThesisTradeId] = useState<number | null>(null);
 
   const { data: trades, isLoading, isError } = useGetTrades(
     { status: filter, limit: FETCH_LIMIT },
     { query: { refetchInterval: 10000, queryKey: getGetTradesQueryKey({ status: filter, limit: FETCH_LIMIT }) } }
   );
+  const selectedTrade = trades?.find((trade) => trade.id === selectedThesisTradeId);
 
   // Everything the Trade type exposes, one row per trade — analysis-ready.
   function downloadCsv() {
@@ -39,7 +42,8 @@ export function Trades() {
       "quantity", "remainingQuantity", "pnl", "grossPnl", "feesUsdt", "slippageUsdt",
       "stopLoss", "takeProfit", "plannedStopLoss", "plannedTakeProfit", "confidence",
       "exitReason", "holdingSeconds", "tp1Filled", "tp2Filled", "breakEvenActive",
-      "trailingStopActive", "trailingStopMode", "isBacktest",
+      "trailingStopActive", "trailingStopMode", "managementAuthority", "managementMode",
+      "managementPolicyVersion", "thesisId", "phase7ReductionApplied", "isBacktest",
     ] as const;
     const esc = (v: unknown) => {
       if (v == null) return "";
@@ -100,6 +104,7 @@ export function Trades() {
                 <TableHead className="text-right">PnL</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Exit Reason</TableHead>
+                <TableHead>Management</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -151,12 +156,29 @@ export function Trades() {
                     <TableCell className="text-[13px] text-muted-foreground">
                       {trade.exitReason?.replace('_', ' ') || '-'}
                     </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={trade.managementAuthority === "phase7" ? "success" : trade.managementMode === "phase7_shadow" ? "outline" : "secondary"}>
+                          {trade.managementMode === "phase7_active" ? "Phase 7 active" : trade.managementMode === "phase7_shadow" ? "Phase 7 shadow" : "Fixed"}
+                        </Badge>
+                        {trade.thesisId && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`View thesis for trade ${trade.id}`}
+                            onClick={() => setSelectedThesisTradeId((current) => current === trade.id ? null : trade.id)}
+                          >
+                            <BrainCircuit className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 );
               })}
               {isError && (
                 <TableRow>
-                  <TableCell colSpan={8} className="p-0">
+                  <TableCell colSpan={9} className="p-0">
                     <EmptyState
                       icon={WifiOff}
                       title="Couldn't load your trades"
@@ -168,14 +190,14 @@ export function Trades() {
               )}
               {!isError && isLoading && (
                 <TableRow>
-                  <TableCell colSpan={8} className="p-0">
+                  <TableCell colSpan={9} className="p-0">
                     <LoadingRows rows={6} />
                   </TableCell>
                 </TableRow>
               )}
               {!isError && !isLoading && (!trades || trades.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={8} className="p-0">
+                  <TableCell colSpan={9} className="p-0">
                     <EmptyState
                       icon={History}
                       title={filter ? `No ${filter} trades` : "No trades yet"}
@@ -193,6 +215,13 @@ export function Trades() {
           </Table>
         </div>
       </Card>
+      {selectedTrade && (
+        <PositionThesisCard
+          tradeId={selectedTrade.id}
+          currentStopLoss={selectedTrade.stopLoss}
+          remainingQuantity={selectedTrade.remainingQuantity ?? selectedTrade.quantity}
+        />
+      )}
     </div>
   );
 }

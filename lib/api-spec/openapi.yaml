@@ -721,6 +721,35 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /trades/{id}/thesis:
+    get:
+      operationId: getTradeThesis
+      tags: [trades]
+      summary: Get the immutable Phase 7 position thesis and management timeline
+      description: >-
+        Returns the versioned thesis and append-only management events for one
+        owned trade. A 404 means the position uses fixed management and has no
+        Phase 7 thesis. This endpoint is read-only and cannot change authority.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Position thesis and audited management timeline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PositionThesisView"
+        "404":
+          description: Trade or Phase 7 thesis not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /stats/summary:
     get:
       operationId: getStatsSummary
@@ -3059,7 +3088,7 @@ components:
 
     Trade:
       type: object
-      required: [id, symbol, side, entryPrice, quantity, status, confidence, stopLoss, takeProfit, entryTime]
+      required: [id, symbol, side, entryPrice, quantity, status, confidence, stopLoss, takeProfit, entryTime, managementAuthority, managementMode, managementPolicyVersion, thesisId, phase7ReductionApplied]
       properties:
         id:
           type: integer
@@ -3136,6 +3165,129 @@ components:
           type: boolean
         trailingStopMode:
           type: ["string", "null"]
+        managementAuthority:
+          type: string
+          enum: [fixed, phase7]
+        managementMode:
+          type: string
+          enum: [fixed, phase7_shadow, phase7_active]
+        managementPolicyVersion:
+          type: string
+        thesisId:
+          type: ["string", "null"]
+          format: uuid
+        phase7ReductionApplied:
+          type: boolean
+
+    PositionThesis:
+      type: object
+      required: [schemaVersion, thesisId, symbol, side, context, trigger, invalidationConditions, targetRationale, expectedPath, expectedDurationSeconds, maximumDurationSeconds, managementPolicyVersion, permittedActions, entry, createdAt, fingerprint]
+      properties:
+        schemaVersion: { type: string, const: position-thesis-v1 }
+        thesisId: { type: string, format: uuid }
+        symbol: { type: string }
+        side: { type: string, enum: [long, short] }
+        context: { type: string }
+        trigger: { type: string }
+        invalidationConditions: { type: array, items: { type: string } }
+        targetRationale: { type: string }
+        expectedPath: { type: array, items: { type: string } }
+        expectedDurationSeconds: { type: integer }
+        maximumDurationSeconds: { type: integer }
+        managementPolicyVersion: { type: string, const: phase7-bounded-management-v1 }
+        permittedActions:
+          type: array
+          items: { type: string, enum: [HOLD, REDUCE, TIGHTEN_STOP, APPLY_TRAILING, EXIT, FREEZE] }
+        entry:
+          type: object
+          required: [price, initialStopPrice, targetPrice, regime, dominantDirection, marketStateFingerprint, marketStateVersion, dataTimestamp]
+          properties:
+            price: { type: number }
+            initialStopPrice: { type: number }
+            targetPrice: { type: number }
+            regime: { type: string, enum: [strong_trend, weak_trend, range, high_volatility, low_volatility] }
+            dominantDirection: { type: string, enum: [bullish, bearish, neutral] }
+            marketStateFingerprint: { type: string }
+            marketStateVersion: { type: string }
+            dataTimestamp: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        fingerprint: { type: string }
+
+    PositionThesisEvaluation:
+      type: object
+      required: [schemaVersion, thesisId, tradeId, state, marketStateFingerprint, evaluatedAt, progressR, elapsedFraction, supportingEvidence, contraryEvidence, reasonCodes, fingerprint]
+      properties:
+        schemaVersion: { type: string, const: position-thesis-evaluation-v1 }
+        thesisId: { type: string, format: uuid }
+        tradeId: { type: integer }
+        state: { type: string, enum: [VALID, WEAKENING, INVALIDATED, TARGET_DEGRADED, DATA_UNCERTAIN] }
+        marketStateFingerprint: { type: ["string", "null"] }
+        evaluatedAt: { type: string, format: date-time }
+        progressR: { type: number }
+        elapsedFraction: { type: number }
+        supportingEvidence: { type: array, items: { type: string } }
+        contraryEvidence: { type: array, items: { type: string } }
+        reasonCodes: { type: array, items: { type: string } }
+        fingerprint: { type: string }
+
+    PositionManagementAction:
+      type: object
+      required: [schemaVersion, actionId, thesisId, tradeId, type, state, policyVersion, proposedStopPrice, reductionFraction, trailingMode, reasonCodes, marketStateFingerprint, proposedAt, fingerprint]
+      properties:
+        schemaVersion: { type: string, const: position-management-action-v1 }
+        actionId: { type: string, format: uuid }
+        thesisId: { type: string, format: uuid }
+        tradeId: { type: integer }
+        type: { type: string, enum: [HOLD, REDUCE, TIGHTEN_STOP, APPLY_TRAILING, EXIT, FREEZE] }
+        state: { type: string, enum: [VALID, WEAKENING, INVALIDATED, TARGET_DEGRADED, DATA_UNCERTAIN] }
+        policyVersion: { type: string, const: phase7-bounded-management-v1 }
+        proposedStopPrice: { type: ["number", "null"] }
+        reductionFraction: { type: ["number", "null"] }
+        trailingMode: { type: ["string", "null"], enum: [atr, null] }
+        reasonCodes: { type: array, items: { type: string } }
+        marketStateFingerprint: { type: ["string", "null"] }
+        proposedAt: { type: string, format: date-time }
+        fingerprint: { type: string }
+
+    PositionActionValidation:
+      type: object
+      required: [schemaVersion, actionFingerprint, valid, currentMaximumLoss, proposedMaximumLoss, reasonCodes, validatedAt, fingerprint]
+      properties:
+        schemaVersion: { type: string, const: position-action-validation-v1 }
+        actionFingerprint: { type: string }
+        valid: { type: boolean }
+        currentMaximumLoss: { type: number }
+        proposedMaximumLoss: { type: number }
+        reasonCodes: { type: array, items: { type: string } }
+        validatedAt: { type: string, format: date-time }
+        fingerprint: { type: string }
+
+    PositionManagementEvent:
+      type: object
+      required: [eventId, stage, thesisState, actionType, policyVersion, marketStateFingerprint, validationPassed, evaluation, action, validation, result, observedAt, createdAt]
+      properties:
+        eventId: { type: string, format: uuid }
+        stage: { type: string, enum: [PROPOSED, SHADOW, APPLIED, FAILED, REFUSED] }
+        thesisState: { type: string, enum: [VALID, WEAKENING, INVALIDATED, TARGET_DEGRADED, DATA_UNCERTAIN] }
+        actionType: { type: string, enum: [HOLD, REDUCE, TIGHTEN_STOP, APPLY_TRAILING, EXIT, FREEZE] }
+        policyVersion: { type: string }
+        marketStateFingerprint: { type: ["string", "null"] }
+        validationPassed: { type: boolean }
+        evaluation: { $ref: "#/components/schemas/PositionThesisEvaluation" }
+        action: { $ref: "#/components/schemas/PositionManagementAction" }
+        validation: { $ref: "#/components/schemas/PositionActionValidation" }
+        result: { type: ["object", "null"], additionalProperties: true }
+        observedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    PositionThesisView:
+      type: object
+      required: [thesis, events]
+      properties:
+        thesis: { $ref: "#/components/schemas/PositionThesis" }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/PositionManagementEvent" }
 
     StatsSummary:
       type: object
@@ -3369,7 +3521,7 @@ components:
 
     BotConfig:
       type: object
-      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, maxSymbolConcentrationPercent, maxNetExposurePercent, maxCorrelatedExposurePercent, correlationThreshold, correlationUnknownPolicy, confidenceThreshold, riskModel, stopLossPercent, takeProfitPercent, maxLossUsdt, targetProfitUsdt, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode, broker, executionTarget, mode, demoStartingBalanceUsdt, demoDataAvailable]
+      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, maxSymbolConcentrationPercent, maxNetExposurePercent, maxCorrelatedExposurePercent, correlationThreshold, correlationUnknownPolicy, confidenceThreshold, riskModel, stopLossPercent, takeProfitPercent, maxLossUsdt, targetProfitUsdt, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode, broker, executionTarget, mode, positionManagementMode, demoStartingBalanceUsdt, demoDataAvailable]
       properties:
         demoDataAvailable:
           type: boolean
@@ -3458,6 +3610,10 @@ components:
           type: string
           enum: [research, copilot, autopilot]
           description: "What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three."
+        positionManagementMode:
+          type: string
+          enum: [fixed, phase7_shadow, phase7_active]
+          description: "Pinned per position at entry. phase7_active is accepted only for Demo, Binance testnet, or OANDA practice; real Live remains fixed until a later promotion gate."
         demoStartingBalanceUsdt:
           type: number
           description: "Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades."
@@ -3579,6 +3735,10 @@ components:
           type: string
           enum: [research, copilot, autopilot]
           description: "What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three."
+        positionManagementMode:
+          type: string
+          enum: [fixed, phase7_shadow, phase7_active]
+          description: "Selects the manager for positions opened after this change. Existing positions retain their pinned owner. phase7_active is refused for real Live."
         demoStartingBalanceUsdt:
           type: number
           description: "Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades."

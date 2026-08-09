@@ -24,6 +24,7 @@ import {
   evidenceRuleSetsTable, capturedDecisionsTable, memoryInfluencesTable,
   evidenceSnapshotsTable, evidenceRuleEventsTable, strategyOpinionsTable,
   shadowCouncilRunsTable, brainDecisionsTable, brainEvidenceReferencesTable,
+  positionManagementEventsTable, positionThesesTable,
 } from "@workspace/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "../lib/passwordHash";
@@ -171,6 +172,8 @@ router.delete("/me/account", async (req, res) => {
       if (brainIds.length > 0) {
         await tx.delete(brainEvidenceReferencesTable).where(inArray(brainEvidenceReferencesTable.brainDecisionId, brainIds));
       }
+      await tx.delete(positionManagementEventsTable).where(eq(positionManagementEventsTable.userId, userId));
+      await tx.delete(positionThesesTable).where(eq(positionThesesTable.userId, userId));
       await tx.delete(shadowCouncilRunsTable).where(eq(shadowCouncilRunsTable.userId, userId));
       await tx.delete(brainDecisionsTable).where(eq(brainDecisionsTable.userId, userId));
       await tx.delete(strategyOpinionsTable).where(eq(strategyOpinionsTable.userId, userId));

@@ -76,6 +76,7 @@ import type {
   OandaCredentialsStatus,
   OptimizeRequest,
   PortfolioIntelligenceProjection,
+  PositionThesisView,
   RecommendationActionResult,
   RecommendationList,
   RecommendationWorkspace,
@@ -2345,6 +2346,84 @@ export function useGetTrade<TData = Awaited<ReturnType<typeof getTrade>>, TError
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetTradeQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetTradeThesisUrl = (id: number,) => {
+
+
+
+
+  return `/api/trades/${id}/thesis`
+}
+
+/**
+ * Returns the versioned thesis and append-only management events for one owned trade. A 404 means the position uses fixed management and has no Phase 7 thesis. This endpoint is read-only and cannot change authority.
+ * @summary Get the immutable Phase 7 position thesis and management timeline
+ */
+export const getTradeThesis = async (id: number, options?: RequestInit): Promise<PositionThesisView> => {
+
+  return customFetch<PositionThesisView>(getGetTradeThesisUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTradeThesisQueryKey = (id: number,) => {
+    return [
+    `/api/trades/${id}/thesis`
+    ] as const;
+    }
+
+
+export const getGetTradeThesisQueryOptions = <TData = Awaited<ReturnType<typeof getTradeThesis>>, TError = ErrorType<ErrorResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTradeThesis>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTradeThesisQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTradeThesis>>> = ({ signal }) => getTradeThesis(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTradeThesis>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTradeThesisQueryResult = NonNullable<Awaited<ReturnType<typeof getTradeThesis>>>
+export type GetTradeThesisQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get the immutable Phase 7 position thesis and management timeline
+ */
+
+export function useGetTradeThesis<TData = Awaited<ReturnType<typeof getTradeThesis>>, TError = ErrorType<ErrorResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTradeThesis>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTradeThesisQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

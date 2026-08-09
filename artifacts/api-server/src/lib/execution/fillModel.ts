@@ -26,7 +26,7 @@ import { computeTrailingStop } from "./trailing";
 
 /** One scale-out along the way (TP1/TP2), recorded for the audit trail. */
 export interface PartialExitRecord {
-  reason: "tp1" | "tp2";
+  reason: "tp1" | "tp2" | "phase7_reduce";
   qty: number;
   price: number;
   fees: number;

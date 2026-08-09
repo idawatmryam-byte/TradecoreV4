@@ -1665,6 +1665,23 @@ export const TradeExitReason = {
   reconciled_missing: 'reconciled_missing',
 } as const;
 
+export type TradeManagementAuthority = typeof TradeManagementAuthority[keyof typeof TradeManagementAuthority];
+
+
+export const TradeManagementAuthority = {
+  fixed: 'fixed',
+  phase7: 'phase7',
+} as const;
+
+export type TradeManagementMode = typeof TradeManagementMode[keyof typeof TradeManagementMode];
+
+
+export const TradeManagementMode = {
+  fixed: 'fixed',
+  phase7_shadow: 'phase7_shadow',
+  phase7_active: 'phase7_active',
+} as const;
+
 export interface Trade {
   id: number;
   symbol: string;
@@ -1719,6 +1736,236 @@ export interface Trade {
   trailingStopActive?: boolean;
   /** @nullable */
   trailingStopMode?: string | null;
+  managementAuthority: TradeManagementAuthority;
+  managementMode: TradeManagementMode;
+  managementPolicyVersion: string;
+  /** @nullable */
+  thesisId: string | null;
+  phase7ReductionApplied: boolean;
+}
+
+export type PositionThesisSide = typeof PositionThesisSide[keyof typeof PositionThesisSide];
+
+
+export const PositionThesisSide = {
+  long: 'long',
+  short: 'short',
+} as const;
+
+export type PositionThesisPermittedActionsItem = typeof PositionThesisPermittedActionsItem[keyof typeof PositionThesisPermittedActionsItem];
+
+
+export const PositionThesisPermittedActionsItem = {
+  HOLD: 'HOLD',
+  REDUCE: 'REDUCE',
+  TIGHTEN_STOP: 'TIGHTEN_STOP',
+  APPLY_TRAILING: 'APPLY_TRAILING',
+  EXIT: 'EXIT',
+  FREEZE: 'FREEZE',
+} as const;
+
+export type PositionThesisEntryRegime = typeof PositionThesisEntryRegime[keyof typeof PositionThesisEntryRegime];
+
+
+export const PositionThesisEntryRegime = {
+  strong_trend: 'strong_trend',
+  weak_trend: 'weak_trend',
+  range: 'range',
+  high_volatility: 'high_volatility',
+  low_volatility: 'low_volatility',
+} as const;
+
+export type PositionThesisEntryDominantDirection = typeof PositionThesisEntryDominantDirection[keyof typeof PositionThesisEntryDominantDirection];
+
+
+export const PositionThesisEntryDominantDirection = {
+  bullish: 'bullish',
+  bearish: 'bearish',
+  neutral: 'neutral',
+} as const;
+
+export type PositionThesisEntry = {
+  price: number;
+  initialStopPrice: number;
+  targetPrice: number;
+  regime: PositionThesisEntryRegime;
+  dominantDirection: PositionThesisEntryDominantDirection;
+  marketStateFingerprint: string;
+  marketStateVersion: string;
+  dataTimestamp: string;
+};
+
+export interface PositionThesis {
+  schemaVersion: 'position-thesis-v1';
+  thesisId: string;
+  symbol: string;
+  side: PositionThesisSide;
+  context: string;
+  trigger: string;
+  invalidationConditions: string[];
+  targetRationale: string;
+  expectedPath: string[];
+  expectedDurationSeconds: number;
+  maximumDurationSeconds: number;
+  managementPolicyVersion: 'phase7-bounded-management-v1';
+  permittedActions: PositionThesisPermittedActionsItem[];
+  entry: PositionThesisEntry;
+  createdAt: string;
+  fingerprint: string;
+}
+
+export type PositionThesisEvaluationState = typeof PositionThesisEvaluationState[keyof typeof PositionThesisEvaluationState];
+
+
+export const PositionThesisEvaluationState = {
+  VALID: 'VALID',
+  WEAKENING: 'WEAKENING',
+  INVALIDATED: 'INVALIDATED',
+  TARGET_DEGRADED: 'TARGET_DEGRADED',
+  DATA_UNCERTAIN: 'DATA_UNCERTAIN',
+} as const;
+
+export interface PositionThesisEvaluation {
+  schemaVersion: 'position-thesis-evaluation-v1';
+  thesisId: string;
+  tradeId: number;
+  state: PositionThesisEvaluationState;
+  /** @nullable */
+  marketStateFingerprint: string | null;
+  evaluatedAt: string;
+  progressR: number;
+  elapsedFraction: number;
+  supportingEvidence: string[];
+  contraryEvidence: string[];
+  reasonCodes: string[];
+  fingerprint: string;
+}
+
+export type PositionManagementActionType = typeof PositionManagementActionType[keyof typeof PositionManagementActionType];
+
+
+export const PositionManagementActionType = {
+  HOLD: 'HOLD',
+  REDUCE: 'REDUCE',
+  TIGHTEN_STOP: 'TIGHTEN_STOP',
+  APPLY_TRAILING: 'APPLY_TRAILING',
+  EXIT: 'EXIT',
+  FREEZE: 'FREEZE',
+} as const;
+
+export type PositionManagementActionState = typeof PositionManagementActionState[keyof typeof PositionManagementActionState];
+
+
+export const PositionManagementActionState = {
+  VALID: 'VALID',
+  WEAKENING: 'WEAKENING',
+  INVALIDATED: 'INVALIDATED',
+  TARGET_DEGRADED: 'TARGET_DEGRADED',
+  DATA_UNCERTAIN: 'DATA_UNCERTAIN',
+} as const;
+
+/**
+ * @nullable
+ */
+export type PositionManagementActionTrailingMode = typeof PositionManagementActionTrailingMode[keyof typeof PositionManagementActionTrailingMode] | null;
+
+
+export const PositionManagementActionTrailingMode = {
+  atr: 'atr',
+} as const;
+
+export interface PositionManagementAction {
+  schemaVersion: 'position-management-action-v1';
+  actionId: string;
+  thesisId: string;
+  tradeId: number;
+  type: PositionManagementActionType;
+  state: PositionManagementActionState;
+  policyVersion: 'phase7-bounded-management-v1';
+  /** @nullable */
+  proposedStopPrice: number | null;
+  /** @nullable */
+  reductionFraction: number | null;
+  /** @nullable */
+  trailingMode: PositionManagementActionTrailingMode;
+  reasonCodes: string[];
+  /** @nullable */
+  marketStateFingerprint: string | null;
+  proposedAt: string;
+  fingerprint: string;
+}
+
+export interface PositionActionValidation {
+  schemaVersion: 'position-action-validation-v1';
+  actionFingerprint: string;
+  valid: boolean;
+  currentMaximumLoss: number;
+  proposedMaximumLoss: number;
+  reasonCodes: string[];
+  validatedAt: string;
+  fingerprint: string;
+}
+
+export type PositionManagementEventStage = typeof PositionManagementEventStage[keyof typeof PositionManagementEventStage];
+
+
+export const PositionManagementEventStage = {
+  PROPOSED: 'PROPOSED',
+  SHADOW: 'SHADOW',
+  APPLIED: 'APPLIED',
+  FAILED: 'FAILED',
+  REFUSED: 'REFUSED',
+} as const;
+
+export type PositionManagementEventThesisState = typeof PositionManagementEventThesisState[keyof typeof PositionManagementEventThesisState];
+
+
+export const PositionManagementEventThesisState = {
+  VALID: 'VALID',
+  WEAKENING: 'WEAKENING',
+  INVALIDATED: 'INVALIDATED',
+  TARGET_DEGRADED: 'TARGET_DEGRADED',
+  DATA_UNCERTAIN: 'DATA_UNCERTAIN',
+} as const;
+
+export type PositionManagementEventActionType = typeof PositionManagementEventActionType[keyof typeof PositionManagementEventActionType];
+
+
+export const PositionManagementEventActionType = {
+  HOLD: 'HOLD',
+  REDUCE: 'REDUCE',
+  TIGHTEN_STOP: 'TIGHTEN_STOP',
+  APPLY_TRAILING: 'APPLY_TRAILING',
+  EXIT: 'EXIT',
+  FREEZE: 'FREEZE',
+} as const;
+
+/**
+ * @nullable
+ */
+export type PositionManagementEventResult = { [key: string]: unknown } | null;
+
+export interface PositionManagementEvent {
+  eventId: string;
+  stage: PositionManagementEventStage;
+  thesisState: PositionManagementEventThesisState;
+  actionType: PositionManagementEventActionType;
+  policyVersion: string;
+  /** @nullable */
+  marketStateFingerprint: string | null;
+  validationPassed: boolean;
+  evaluation: PositionThesisEvaluation;
+  action: PositionManagementAction;
+  validation: PositionActionValidation;
+  /** @nullable */
+  result: PositionManagementEventResult;
+  observedAt: string;
+  createdAt: string;
+}
+
+export interface PositionThesisView {
+  thesis: PositionThesis;
+  events: PositionManagementEvent[];
 }
 
 export type StatsSummaryStreakType = typeof StatsSummaryStreakType[keyof typeof StatsSummaryStreakType];
@@ -1943,6 +2190,18 @@ export const BotConfigMode = {
   autopilot: 'autopilot',
 } as const;
 
+/**
+ * Pinned per position at entry. phase7_active is accepted only for Demo, Binance testnet, or OANDA practice; real Live remains fixed until a later promotion gate.
+ */
+export type BotConfigPositionManagementMode = typeof BotConfigPositionManagementMode[keyof typeof BotConfigPositionManagementMode];
+
+
+export const BotConfigPositionManagementMode = {
+  fixed: 'fixed',
+  phase7_shadow: 'phase7_shadow',
+  phase7_active: 'phase7_active',
+} as const;
+
 export interface BotConfig {
   /** Whether this section can actually run in Demo on this deployment. Crypto is always true (Binance's public endpoints need no credentials). Forex is false unless the platform supplies its own OANDA practice token, because OANDA publishes no public market data — so a keyless forex demo is impossible, not merely unconfigured. Read-only; a property of the deployment, not the user. */
   readonly demoDataAvailable: boolean;
@@ -1989,6 +2248,8 @@ export interface BotConfig {
   executionTarget: BotConfigExecutionTarget;
   /** What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three. */
   mode: BotConfigMode;
+  /** Pinned per position at entry. phase7_active is accepted only for Demo, Binance testnet, or OANDA practice; real Live remains fixed until a later promotion gate. */
+  positionManagementMode: BotConfigPositionManagementMode;
   /** Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades. */
   demoStartingBalanceUsdt: number;
   testnet: boolean;
@@ -2059,6 +2320,18 @@ export const BotConfigUpdateMode = {
   research: 'research',
   copilot: 'copilot',
   autopilot: 'autopilot',
+} as const;
+
+/**
+ * Selects the manager for positions opened after this change. Existing positions retain their pinned owner. phase7_active is refused for real Live.
+ */
+export type BotConfigUpdatePositionManagementMode = typeof BotConfigUpdatePositionManagementMode[keyof typeof BotConfigUpdatePositionManagementMode];
+
+
+export const BotConfigUpdatePositionManagementMode = {
+  fixed: 'fixed',
+  phase7_shadow: 'phase7_shadow',
+  phase7_active: 'phase7_active',
 } as const;
 
 export interface BotConfigUpdate {
@@ -2167,6 +2440,8 @@ export interface BotConfigUpdate {
   executionTarget?: BotConfigUpdateExecutionTarget;
   /** What happens once a TradePlan exists. 'autopilot' executes it; 'copilot' records it for the user to approve; 'research' never executes. The intelligence pipeline is identical in all three. */
   mode?: BotConfigUpdateMode;
+  /** Selects the manager for positions opened after this change. Existing positions retain their pinned owner. phase7_active is refused for real Live. */
+  positionManagementMode?: BotConfigUpdatePositionManagementMode;
   /** Virtual starting balance for the demo account. Its live balance is this plus the realised P&L of its closed demo trades. */
   demoStartingBalanceUsdt?: number;
   testnet?: boolean;
