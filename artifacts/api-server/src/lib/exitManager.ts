@@ -220,7 +220,7 @@ export class ExitManager {
     market: string,
     now: Date,
     cooldownMinutes: number,
-    reason: "manual" | "emergency_stop" | "circuit_breaker",
+    reason: "manual" | "signal_exit" | "emergency_stop" | "circuit_breaker",
     orderIds?: OpenOrderIds,
   ): Promise<ExitOutcome> {
     // Cancel the resting SL/TP legs BEFORE the market close: on spot the OCO

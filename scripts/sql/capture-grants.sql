@@ -40,6 +40,9 @@ SECURITY DEFINER
 SET search_path = pg_catalog, capture
 AS $$
 BEGIN
+  DELETE FROM capture.position_management_events WHERE user_id = target_user_id;
+  DELETE FROM capture.position_theses WHERE user_id = target_user_id;
+
   DELETE FROM capture.brain_evidence_references AS evidence
   USING capture.brain_decisions AS decision
   WHERE evidence.brain_decision_id = decision.id

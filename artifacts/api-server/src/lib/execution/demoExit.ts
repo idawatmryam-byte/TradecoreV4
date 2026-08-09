@@ -24,6 +24,7 @@ import { logger } from "../logger";
 import type { Candle } from "../strategy";
 import type { StrategyConfig } from "../strategies";
 import type { ExitManager } from "../exitManager";
+import type { PositionManagementAction } from "../intelligence/position";
 import {
   manageBar, settleBar, updateExcursion,
   type BarContext, type FillCosts, type SimulatedPosition,
@@ -68,8 +69,9 @@ function positionFromTrade(trade: Trade): SimulatedPosition {
     tp2Price: trade.tp2Price != null ? Number(trade.tp2Price) : 0,
     tp2Qty: trade.tp2Quantity != null ? Number(trade.tp2Quantity) : 0,
     tp2Filled: Boolean(trade.tp2Filled),
-    breakEvenActive: Number(trade.stopLoss) === Number(trade.entryPrice),
-    trailingStopActive: false,
+    breakEvenActive: trade.breakEvenActive,
+    trailingStopActive: trade.trailingStopActive,
+    ...(trade.trailingStopMode && { trailingStopMode: trade.trailingStopMode }),
     partialExits: [],
   };
 }
@@ -82,6 +84,19 @@ export interface DemoExitArgs {
   stratConfig: StrategyConfig | undefined;
   costs: FillCosts;
   exitManager: ExitManager;
+  /** Present only when Phase 7 is the pinned owner. Fixed manageBar is skipped
+   * so two managers can never mutate the same simulated position. */
+  phase7Action?: PositionManagementAction;
+  phase7OwnsManagement?: boolean;
+  onPhase7Result?: (result: DemoPhase7Result) => Promise<void>;
+}
+
+export interface DemoPhase7Result {
+  actionApplied: boolean;
+  closed: boolean;
+  remainingQuantity: number;
+  stopLoss: number;
+  reason: string;
 }
 
 /**
@@ -101,7 +116,38 @@ export async function simulateDemoExit(args: DemoExitArgs): Promise<boolean> {
 
   const slBefore = pos.slPrice;
   updateExcursion(pos, high, low);
-  manageBar(pos, ctx, stratConfig, costs);
+  if (args.phase7Action) {
+    const action = args.phase7Action;
+    if ((action.type === "TIGHTEN_STOP" || action.type === "APPLY_TRAILING") && action.proposedStopPrice !== null) {
+      pos.slPrice = action.proposedStopPrice;
+      pos.breakEvenActive ||= action.type === "TIGHTEN_STOP" && pos.slPrice === pos.entryPrice;
+      pos.trailingStopActive ||= action.type === "APPLY_TRAILING";
+      if (action.type === "APPLY_TRAILING") pos.trailingStopMode = "phase7-atr";
+    } else if (action.type === "REDUCE" && action.reductionFraction !== null) {
+      const qty = Math.min(pos.remainingQty * action.reductionFraction, pos.remainingQty * 0.5);
+      if (qty > 0 && qty < pos.remainingQty) {
+        const isShort = pos.side === "short";
+        const fillPrice = ctx.candle[4] * (isShort ? 1 + costs.slippageRate : 1 - costs.slippageRate);
+        const fees = (pos.entryPrice + fillPrice) * qty * costs.feeRate;
+        const pnl = (isShort ? pos.entryPrice - fillPrice : fillPrice - pos.entryPrice) * qty - fees;
+        pos.partialExits.push({ reason: "phase7_reduce", qty, price: fillPrice, fees, pnl, time: now });
+        pos.remainingQty -= qty;
+      }
+    } else if (action.type === "EXIT") {
+      const exitPrice = ctx.candle[4] * (pos.side === "short" ? 1 + costs.slippageRate : 1 - costs.slippageRate);
+      const outcome = await exitManager.closeSimulated(trade, "signal_exit", exitPrice, now, cooldownMinutes);
+      await args.onPhase7Result?.({
+        actionApplied: outcome.closed,
+        closed: outcome.closed,
+        remainingQuantity: pos.remainingQty,
+        stopLoss: pos.slPrice,
+        reason: outcome.closed ? "thesis invalidation exit settled" : "thesis invalidation exit failed",
+      });
+      return outcome.closed;
+    }
+  } else if (!args.phase7OwnsManagement) {
+    manageBar(pos, ctx, stratConfig, costs);
+  }
 
   // Persist anything trade management changed BEFORE evaluating the close, so
   // a crash between the two leaves the position in its true current state
@@ -120,6 +166,7 @@ export async function simulateDemoExit(args: DemoExitArgs): Promise<boolean> {
         });
       } catch (err) {
         logger.warn({ err, tradeId: trade.id, reason: p.reason }, "DEMO_PARTIAL_PERSIST_FAILED");
+        if (p.reason === "phase7_reduce") throw err;
       }
     }
   }
@@ -134,6 +181,13 @@ export async function simulateDemoExit(args: DemoExitArgs): Promise<boolean> {
           remainingQuantity: pos.remainingQty.toFixed(8),
           ...(pos.tp1Filled && { tp1Filled: true }),
           ...(pos.tp2Filled && { tp2Filled: true }),
+          ...(args.phase7Action?.type === "REDUCE" && pos.partialExits.length > 0 && { phase7ReductionApplied: true }),
+          ...(args.phase7Action?.type === "TIGHTEN_STOP" && { breakEvenActive: pos.breakEvenActive }),
+          ...(args.phase7Action?.type === "APPLY_TRAILING" && {
+            trailingStopActive: true,
+            trailingStopMode: "phase7-atr",
+            trailingStopArmedPrice: pos.slPrice.toFixed(8),
+          }),
           mfeUsdt: pos.mfe.toFixed(8),
           maeUsdt: pos.mae.toFixed(8),
         })
@@ -145,11 +199,25 @@ export async function simulateDemoExit(args: DemoExitArgs): Promise<boolean> {
       if (pos.tp2Filled) trade.tp2Filled = true;
     } catch (err) {
       logger.warn({ err, tradeId: trade.id }, "DEMO_MANAGE_PERSIST_FAILED");
+      if (args.phase7OwnsManagement) throw err;
     }
   }
 
   const settled = settleBar(pos, ctx, stratConfig, costs);
-  if (!settled) return false;
+  if (!settled) {
+    if (args.phase7Action) {
+      await args.onPhase7Result?.({
+        actionApplied: !["HOLD", "FREEZE"].includes(args.phase7Action.type)
+          ? slMoved || pos.partialExits.length > 0
+          : true,
+        closed: false,
+        remainingQuantity: pos.remainingQty,
+        stopLoss: pos.slPrice,
+        reason: args.phase7Action.type,
+      });
+    }
+    return false;
+  }
 
   logger.info(
     {
@@ -162,5 +230,14 @@ export async function simulateDemoExit(args: DemoExitArgs): Promise<boolean> {
   const outcome = await exitManager.closeSimulated(
     trade, settled.exitReason, settled.exitPrice, now, cooldownMinutes,
   );
+  if (args.phase7Action) {
+    await args.onPhase7Result?.({
+      actionApplied: true,
+      closed: outcome.closed,
+      remainingQuantity: pos.remainingQty,
+      stopLoss: pos.slPrice,
+      reason: `baseline ${settled.exitReason} settled after Phase 7 evaluation`,
+    });
+  }
   return outcome.closed;
 }

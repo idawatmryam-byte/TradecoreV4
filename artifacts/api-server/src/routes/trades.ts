@@ -7,9 +7,12 @@ import {
   GetTradeParams,
   GetTradeResponse,
   GetTradesResponse,
+  GetTradeThesisParams,
+  GetTradeThesisResponse,
 } from "@workspace/api-zod";
 import { isValidExitReason } from "../lib/exitTypes";
 import { getOrCreateEngine } from "../lib/engineRegistry";
+import { getPositionThesisView } from "../lib/intelligence/position/store";
 
 const router: IRouter = Router();
 
@@ -57,6 +60,11 @@ function mapTrade(t: typeof tradesTable.$inferSelect) {
     breakEvenActive: t.breakEvenActive,
     trailingStopActive: t.trailingStopActive,
     trailingStopMode: t.trailingStopMode,
+    managementAuthority: t.managementAuthority as "fixed" | "phase7",
+    managementMode: t.managementMode as "fixed" | "phase7_shadow" | "phase7_active",
+    managementPolicyVersion: t.managementPolicyVersion,
+    thesisId: t.thesisId,
+    phase7ReductionApplied: t.phase7ReductionApplied,
   };
 }
 
@@ -99,6 +107,33 @@ router.get("/trades/:id", async (req, res): Promise<void> => {
   }
 
   res.json(GetTradeResponse.parse(mapTrade(trade)));
+});
+
+router.get("/trades/:id/thesis", async (req, res): Promise<void> => {
+  const params = GetTradeThesisParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [trade] = await db
+    .select({ id: tradesTable.id })
+    .from(tradesTable)
+    .where(and(
+      eq(tradesTable.id, params.data.id),
+      eq(tradesTable.userId, req.userId!),
+      eq(tradesTable.section, req.section!),
+    ))
+    .limit(1);
+  if (!trade) {
+    res.status(404).json({ error: "Trade not found" });
+    return;
+  }
+  const view = await getPositionThesisView(req.userId!, req.section!, trade.id);
+  if (!view) {
+    res.status(404).json({ error: "This position uses fixed management and has no Phase 7 thesis" });
+    return;
+  }
+  res.json(GetTradeThesisResponse.parse(view));
 });
 
 // ---------------------------------------------------------------------------
