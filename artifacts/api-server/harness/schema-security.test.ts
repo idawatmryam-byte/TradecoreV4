@@ -10,6 +10,9 @@ import {
   brainDecisionsTable,
   brainEvidenceReferencesTable,
   db,
+  positionManagementEventsTable,
+  positionThesesTable,
+  tradesTable,
   usersTable,
 } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
@@ -59,15 +62,113 @@ async function main() {
       dataTimestamp: now,
     });
 
+    const thesisId = `schema-test-thesis-${user!.id}`;
+    const [trade] = await db.insert(tradesTable).values({
+      userId: user!.id,
+      section: "crypto",
+      symbol: "BTCUSDT",
+      side: "buy",
+      entryPrice: "100",
+      quantity: "1",
+      confidence: "75",
+      stopLoss: "98",
+      takeProfit: "104",
+      managementAuthority: "phase7",
+      managementMode: "phase7_active",
+      managementPolicyVersion: "phase7-bounded-management-v1",
+      thesisId,
+    }).returning();
+    const thesisFingerprint = "a".repeat(64);
+    const actionFingerprint = "b".repeat(64);
+    await db.insert(positionThesesTable).values({
+      userId: user!.id,
+      section: "crypto",
+      tradeId: trade!.id,
+      thesisId,
+      schemaVersion: "position-thesis-v1",
+      policyVersion: "phase7-bounded-management-v1",
+      thesisFingerprint,
+      thesis: { thesisId, fingerprint: thesisFingerprint },
+    });
+    await db.insert(positionManagementEventsTable).values({
+      eventId: `schema-test-event-${user!.id}`,
+      userId: user!.id,
+      section: "crypto",
+      tradeId: trade!.id,
+      thesisId,
+      actionFingerprint,
+      stage: "PROPOSED",
+      thesisState: "VALID",
+      actionType: "HOLD",
+      policyVersion: "phase7-bounded-management-v1",
+      validationPassed: true,
+      evaluation: { test: true },
+      action: { fingerprint: actionFingerprint },
+      validation: { valid: true },
+      observedAt: now,
+    });
+
+    let duplicateActionRefused = false;
+    try {
+      await db.insert(positionManagementEventsTable).values({
+        eventId: `schema-test-event-duplicate-${user!.id}`,
+        userId: user!.id,
+        section: "crypto",
+        tradeId: trade!.id,
+        thesisId,
+        actionFingerprint,
+        stage: "PROPOSED",
+        thesisState: "VALID",
+        actionType: "HOLD",
+        policyVersion: "phase7-bounded-management-v1",
+        validationPassed: true,
+        evaluation: { test: true },
+        action: { fingerprint: actionFingerprint },
+        validation: { valid: true },
+        observedAt: now,
+      });
+    } catch {
+      duplicateActionRefused = true;
+    }
+    expect("database refuses a duplicate Phase 7 action-stage claim", duplicateActionRefused);
+
+    let inconsistentOwnerRefused = false;
+    try {
+      await db.insert(tradesTable).values({
+        userId: user!.id,
+        section: "crypto",
+        symbol: "ETHUSDT",
+        side: "buy",
+        entryPrice: "100",
+        quantity: "1",
+        confidence: "75",
+        stopLoss: "98",
+        takeProfit: "104",
+        managementAuthority: "fixed",
+        managementMode: "phase7_active",
+      });
+    } catch {
+      inconsistentOwnerRefused = true;
+    }
+    expect("database refuses inconsistent fixed/Phase 7 ownership", inconsistentOwnerRefused);
+
     await db.execute(sql`SELECT capture.purge_user_data(${user!.id})`);
     const remainingDecisions = await db.select({ id: brainDecisionsTable.id })
       .from(brainDecisionsTable).where(eq(brainDecisionsTable.userId, user!.id));
     const remainingEvidence = await db.select({ id: brainEvidenceReferencesTable.id })
       .from(brainEvidenceReferencesTable).where(eq(brainEvidenceReferencesTable.brainDecisionId, decision!.id));
+    const remainingTheses = await db.select({ id: positionThesesTable.id })
+      .from(positionThesesTable).where(eq(positionThesesTable.userId, user!.id));
+    const remainingManagementEvents = await db.select({ id: positionManagementEventsTable.id })
+      .from(positionManagementEventsTable).where(eq(positionManagementEventsTable.userId, user!.id));
     expect("capture purge removes the user's decision", remainingDecisions.length === 0);
     expect("capture purge removes dependent evidence first", remainingEvidence.length === 0);
+    expect("capture purge removes Phase 7 management events", remainingManagementEvents.length === 0);
+    expect("capture purge removes Phase 7 theses", remainingTheses.length === 0);
+    await db.delete(tradesTable).where(eq(tradesTable.id, trade!.id));
   } finally {
     await db.execute(sql`SELECT capture.purge_user_data(${user!.id})`);
+    await db.delete(tradesTable).where(eq(tradesTable.userId, user!.id));
     await db.delete(usersTable).where(eq(usersTable.id, user!.id));
   }
 

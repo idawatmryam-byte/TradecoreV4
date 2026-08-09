@@ -41,6 +41,15 @@ export interface StopReplacementResult {
   ocoOrderListId?: string;
 }
 
+export interface PolicyManagementResult {
+  applied: boolean;
+  protectionHealthy: boolean;
+  orderIds: OpenOrderIds | undefined;
+  remainingQuantity: number;
+  fillPrice?: number;
+  reason: string;
+}
+
 export interface TradeManagerHost {
   /** Current taker fee per side as a fraction (0.001 spot / 0.0005 futures);
    *  a function so it reflects the engine's ACTIVE market type. */
@@ -210,6 +219,106 @@ export class TradeManager {
     }
 
     return orderIds;
+  }
+
+  /** Apply an already-validated Phase 7 stop tightening through the existing
+   * broker protection seam. A failed replacement is reported as unhealthy so
+   * BotEngine can immediately flatten through ExitManager; the DB stop is not
+   * advanced unless replacement protection was confirmed. */
+  async tightenStopByPolicy(
+    ex: any,
+    trade: Trade,
+    market: string,
+    newStopPrice: number,
+    orderIds: OpenOrderIds | undefined,
+    trailing: boolean,
+  ): Promise<PolicyManagementResult> {
+    const isShort = trade.side === "sell";
+    const currentStop = Number(trade.stopLoss);
+    const currentTp = Number(trade.takeProfit);
+    const remaining = Number(trade.remainingQuantity ?? trade.quantity);
+    const tighter = Number.isFinite(newStopPrice) && (isShort ? newStopPrice < currentStop : newStopPrice > currentStop);
+    if (!tighter || !(remaining > 0)) {
+      return { applied: false, protectionHealthy: true, orderIds, remainingQuantity: remaining, reason: "stop was not strictly tighter" };
+    }
+    const result = await this.host.replaceStopOrder(ex, trade, market, newStopPrice, currentTp, remaining, orderIds);
+    if (!result) {
+      return { applied: false, protectionHealthy: false, orderIds, remainingQuantity: remaining, reason: "replacement protection was not confirmed" };
+    }
+    const nextOrderIds = mergeOrderIds(orderIds, result);
+    await db.update(tradesTable).set({
+      stopLoss: newStopPrice.toFixed(8),
+      ...(trailing
+        ? { trailingStopActive: true, trailingStopMode: "phase7-atr", trailingStopArmedPrice: newStopPrice.toFixed(8) }
+        : { breakEvenActive: newStopPrice === Number(trade.entryPrice) }),
+    }).where(eq(tradesTable.id, trade.id));
+    return { applied: true, protectionHealthy: true, orderIds: nextOrderIds, remainingQuantity: remaining, reason: "stop tightened and protection confirmed" };
+  }
+
+  /** Execute the one-time bounded Phase 7 reduction. Protection is restored
+   * for the remainder before success is reported. A partial fill followed by
+   * failed re-protection is surfaced to BotEngine for an emergency flatten. */
+  async reduceByPolicy(
+    ex: any,
+    trade: Trade,
+    market: string,
+    reductionFraction: number,
+    orderIds: OpenOrderIds | undefined,
+  ): Promise<PolicyManagementResult> {
+    const remaining = Number(trade.remainingQuantity ?? trade.quantity);
+    const currentSl = Number(trade.stopLoss);
+    const currentTp = Number(trade.takeProfit);
+    const rawQty = remaining * reductionFraction;
+    const qty = Math.min(rawQty, remaining * 0.5);
+    if (!(qty > 0) || !(remaining > qty)) {
+      return { applied: false, protectionHealthy: true, orderIds, remainingQuantity: remaining, reason: "reduction quantity is outside policy" };
+    }
+
+    await this.host.cancelProtection(ex, market, orderIds);
+    const fillPrice = await this.host.executePartialClose(ex, trade, market, qty);
+    if (fillPrice === null) {
+      const restored = await this.host.replaceStopOrder(ex, trade, market, currentSl, currentTp, remaining, orderIds);
+      const nextOrderIds = restored ? mergeOrderIds(orderIds, restored) : orderIds;
+      return {
+        applied: false,
+        protectionHealthy: Boolean(restored),
+        orderIds: nextOrderIds,
+        remainingQuantity: remaining,
+        reason: restored ? "reduction failed; original protection restored" : "reduction and protection restoration failed",
+      };
+    }
+
+    const isShort = trade.side === "sell";
+    const entryPrice = Number(trade.entryPrice);
+    const takerFee = this.host.takerFee();
+    const fees = (entryPrice + fillPrice) * qty * takerFee;
+    const pnl = (isShort ? entryPrice - fillPrice : fillPrice - entryPrice) * qty - fees;
+    const newRemaining = remaining - qty;
+    await db.transaction(async (tx) => {
+      await tx.insert(tradePartialExitsTable).values({
+        tradeId: trade.id,
+        reason: "phase7_reduce",
+        quantity: qty.toFixed(8),
+        price: fillPrice.toFixed(8),
+        fees: fees.toFixed(8),
+        pnl: pnl.toFixed(8),
+        time: new Date(),
+      });
+      await tx.update(tradesTable).set({
+        remainingQuantity: newRemaining.toFixed(8),
+        phase7ReductionApplied: true,
+      }).where(eq(tradesTable.id, trade.id));
+    });
+    const replacement = await this.host.replaceStopOrder(ex, trade, market, currentSl, currentTp, newRemaining, orderIds);
+    const nextOrderIds = replacement ? mergeOrderIds(orderIds, replacement) : orderIds;
+    return {
+      applied: true,
+      protectionHealthy: Boolean(replacement),
+      orderIds: nextOrderIds,
+      remainingQuantity: newRemaining,
+      fillPrice,
+      reason: replacement ? "position reduced and remainder re-protected" : "position reduced but remainder protection was not confirmed",
+    };
   }
 
   /**

@@ -1,4 +1,5 @@
-import { pgTable, serial, numeric, integer, boolean, text, timestamp, unique } from "drizzle-orm/pg-core";
+import { pgTable, serial, numeric, integer, boolean, text, timestamp, unique, check } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -51,6 +52,17 @@ export const botConfigTable = pgTable("bot_config", {
    * the human decide before it is trusted to act alone.
    */
   mode: text("mode").notNull().default("autopilot"), // research | copilot | autopilot
+  /**
+   * Per-position management policy selected at entry time. Ownership is then
+   * persisted on the trade so a later config edit cannot make two managers
+   * race over an already-open position.
+   *
+   * fixed          — legacy TradeManager owns mutations.
+   * phase7_shadow  — Phase 7 records proposals; fixed remains the owner.
+   * phase7_active  — Phase 7 owns mutations, permitted only for Demo or a
+   *                  broker sandbox (Binance testnet / OANDA practice).
+   */
+  positionManagementMode: text("position_management_mode").notNull().default("fixed"),
   /**
    * Virtual starting balance for the demo account. The live balance is read
    * from the broker; a demo account has no broker, so its balance is this plus
@@ -240,6 +252,10 @@ export const botConfigTable = pgTable("bot_config", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => [
   unique("bot_config_user_section_unique").on(t.userId, t.section),
+  check(
+    "bot_config_position_management_mode_check",
+    sql`${t.positionManagementMode} IN ('fixed', 'phase7_shadow', 'phase7_active')`,
+  ),
 ]);
 
 export const insertBotConfigSchema = createInsertSchema(botConfigTable).omit({
