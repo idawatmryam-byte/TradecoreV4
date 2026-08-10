@@ -55,6 +55,7 @@ import type { ExecutionResult, PositionManagementContext, TradeExecutor } from "
 import { LiveExecutor, ResearchExecutor } from "./execution/liveExecutor";
 import { DemoExecutor } from "./execution/demoExecutor";
 import { expireStaleRecommendations, RecommendExecutor } from "./execution/recommendExecutor";
+import { knownSpreadFraction, marketStateFreshAt } from "./execution/approvalSafety";
 import { simulateDemoExit } from "./execution/demoExit";
 import { buildDemoMarketData } from "./execution/demoMarketData";
 import type { FillCosts } from "./execution/fillModel";
@@ -1517,7 +1518,7 @@ class BotEngine {
   async gatherRevalidationState(plan: {
     symbol: string; strategyId: string; side: "long" | "short";
     entryPrice: number; slPrice: number; tpPrice: number; qty: number;
-  }): Promise<{
+  }, now = new Date()): Promise<{
     engineRunning: boolean;
     circuitBreakerActive: boolean;
     riskPaused: boolean;
@@ -1555,7 +1556,6 @@ class BotEngine {
     executionCostViable: boolean;
     executionCostDetail: string;
   }> {
-    const now = new Date();
     const config = await this.loadConfig();
     const openTrades = await db
       .select()
@@ -1586,9 +1586,7 @@ class BotEngine {
     // click cannot authorize an entry whose current drift is unknowable.
     const cachedTicker = this.liveTickers.get(plan.symbol);
     let currentPrice: number | undefined = cachedTicker?.last;
-    let currentSpreadFraction: number | undefined = cachedTicker
-      ? Math.max(0, cachedTicker.spreadPercent / 100)
-      : undefined;
+    let currentSpreadFraction = knownSpreadFraction(cachedTicker);
     let marketDataTimestamp: Date | undefined = cachedTicker?.timestamp
       ? new Date(cachedTicker.timestamp)
       : undefined;
@@ -1695,7 +1693,7 @@ class BotEngine {
         : financialStateAvailable
           ? "Engine, connection, Co-Pilot mode, or entry authority is not currently eligible"
           : "Current account equity is unavailable; execution eligibility cannot be established",
-      marketStateFresh: currentMarketState?.freshness.status === "fresh",
+      marketStateFresh: marketStateFreshAt(currentMarketState, now),
       marketStateHealthy: currentMarketState?.dataQuality.status === "healthy",
       ...(currentMarketState && { currentRegime: currentMarketState.inferences.regime }),
       thesisValid,
@@ -1726,13 +1724,25 @@ class BotEngine {
    * re-checks — so this deliberately routes through the SAME executor a scan
    * would have used, rather than a separate approval-only order path.
    */
-  async executeApprovedPlan(plan: TradePlan, row: SignalRow, now: Date): Promise<ExecutionResult> {
+  async executeApprovedPlan(
+    plan: TradePlan,
+    row: SignalRow,
+    now: Date,
+    approvedTarget: "demo" | "live",
+  ): Promise<ExecutionResult> {
     if (this.connectionSuspended || !this.state.running) {
       return { entered: false, reason: "Engine stopped or reconnecting before the approved plan could execute" };
     }
     const config = this.applyHighFreqOverrides(await this.loadConfig());
-    this.executionTarget = config.executionTarget === "demo" ? "demo" : "live";
-    if (this.executionTarget === "live" && !this.state.newEntriesAllowed) {
+    const currentTarget = config.executionTarget === "demo" ? "demo" : "live";
+    if (currentTarget !== approvedTarget) {
+      return {
+        entered: false,
+        reason: `Execution target changed from approved ${approvedTarget} to ${currentTarget}; create a new proposal`,
+      };
+    }
+    this.executionTarget = approvedTarget;
+    if (approvedTarget === "live" && !this.state.newEntriesAllowed) {
       return {
         entered: false,
         reason: this.state.entryBlockReason ?? "Live entries are blocked until reconciliation succeeds",
@@ -1742,7 +1752,7 @@ class BotEngine {
     const stratConfig = strategyConfigs.get(plan.strategyId);
     // Co-Pilot's own executor must never be chosen here — that would record a
     // second recommendation instead of opening the position the user approved.
-    const executor = this.executionTarget === "demo" ? this.demoExecutor : this.liveExecutor;
+    const executor = approvedTarget === "demo" ? this.demoExecutor : this.liveExecutor;
     const positionManagementResolution = this.resolvePositionManagementContext(plan, config);
     if (positionManagementResolution.blockingReason) {
       return { entered: false, reason: positionManagementResolution.blockingReason };
