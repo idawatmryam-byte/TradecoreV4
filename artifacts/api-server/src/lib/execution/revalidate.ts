@@ -30,7 +30,21 @@ export type BlockCode =
   | "SYMBOL_COOLDOWN"
   | "BLACKLISTED"
   | "ALREADY_OPEN"
-  | "ENGINE_STOPPED";
+  | "ENGINE_STOPPED"
+  | "PLAN_MUTATED"
+  | "DECISION_BUNDLE_MUTATED"
+  | "WRONG_MODE"
+  | "TARGET_CHANGED"
+  | "MARKET_DATA_STALE"
+  | "MARKET_STATE_INVALID"
+  | "THESIS_INVALIDATED"
+  | "RECONCILIATION_BLOCKED"
+  | "EXECUTION_INELIGIBLE"
+  | "SYMBOL_EXPOSURE"
+  | "NET_EXPOSURE"
+  | "CORRELATED_EXPOSURE"
+  | "SIZING_INVALID"
+  | "EXECUTION_COSTS";
 
 export interface RevalidationCheck {
   name: string;
@@ -57,6 +71,38 @@ export interface RevalidationResult {
  * tolerance to the plan's own geometry makes it mean the same thing for both.
  */
 export const MAX_ENTRY_DRIFT_R = 0.25;
+
+export const MAX_APPROVAL_MARKET_DATA_AGE_MS = 60_000;
+
+export interface ApprovalSafetyContext {
+  planFingerprintMatches: boolean;
+  decisionBundleFingerprintMatches: boolean;
+  tradingMode: string;
+  boundExecutionTarget: "demo" | "live";
+  currentExecutionTarget: "demo" | "live";
+  reconciliationHealthy: boolean;
+  reconciliationDetail: string;
+  executionEligible: boolean;
+  executionEligibilityDetail: string;
+  marketDataTimestamp?: Date;
+  marketStateFresh: boolean;
+  marketStateHealthy: boolean;
+  proposalRegime: string;
+  currentRegime?: string;
+  thesisValid: boolean;
+  thesisDetail: string;
+  symbolExposureAfterUsdt: number;
+  maxSymbolExposureUsdt: number;
+  netExposureAfterUsdt: number;
+  maxNetExposureUsdt: number;
+  correlatedExposureAfterUsdt: number;
+  maxCorrelatedExposureUsdt: number;
+  correlationKnownOrAllowed: boolean;
+  sizingValid: boolean;
+  sizingDetail: string;
+  executionCostViable: boolean;
+  executionCostDetail: string;
+}
 
 export interface RevalidationInputs {
   plan: {
@@ -87,6 +133,7 @@ export interface RevalidationInputs {
   blacklisted: boolean;
   /** A position already open on this symbol. */
   symbolAlreadyOpen: boolean;
+  safety: ApprovalSafetyContext;
 }
 
 /**
@@ -98,7 +145,8 @@ export function revalidate(input: RevalidationInputs): RevalidationResult {
   const checks: RevalidationCheck[] = [];
   let firstFailure: { code: BlockCode; reason: string } | null = null;
 
-  const check = (name: string, passed: boolean, detail: string, code: BlockCode, reason: string) => {
+  const check = (name: string, passed: boolean, detail: string, code: BlockCode, reason: string,
+  ) => {
     checks.push({ name, passed, detail });
     if (!passed && !firstFailure) firstFailure = { code, reason };
   };
@@ -107,6 +155,39 @@ export function revalidate(input: RevalidationInputs): RevalidationResult {
     "Actionable", input.status === "created",
     input.status === "created" ? "Awaiting your decision" : `Already ${input.status}`,
     "NOT_ACTIONABLE", `This recommendation is already ${input.status} and cannot be executed`,
+  );
+
+  check(
+    "Immutable plan",
+    input.safety.planFingerprintMatches,
+    input.safety.planFingerprintMatches
+      ? "Plan fingerprint matches the frozen proposal"
+      : "Stored plan no longer matches its fingerprint",
+    "PLAN_MUTATED",
+    "The stored plan differs from the immutable plan that was proposed",
+  );
+  check(
+    "Immutable decision bundle",
+    input.safety.decisionBundleFingerprintMatches,
+    input.safety.decisionBundleFingerprintMatches
+      ? "Decision bundle fingerprint verified"
+      : "Decision bundle no longer matches its fingerprint",
+    "DECISION_BUNDLE_MUTATED",
+    "The proposal's decision/evidence bundle failed its integrity check",
+  );
+  check(
+    "Co-Pilot authority",
+    input.safety.tradingMode === "copilot",
+    `Current trading mode: ${input.safety.tradingMode}`,
+    "WRONG_MODE",
+    "Approval is allowed only while this section remains in Co-Pilot mode",
+  );
+  check(
+    "Execution target unchanged",
+    input.safety.currentExecutionTarget === input.safety.boundExecutionTarget,
+    `Proposed for ${input.safety.boundExecutionTarget}; current target ${input.safety.currentExecutionTarget}`,
+    "TARGET_CHANGED",
+    "The execution target changed after proposal creation; create a new proposal for the new target",
   );
 
   const expired = input.now.getTime() >= input.expiresAt.getTime();
@@ -124,6 +205,50 @@ export function revalidate(input: RevalidationInputs): RevalidationResult {
     "ENGINE_STOPPED", "The engine is stopped — start it before executing a recommendation",
   );
 
+  const marketDataAge = input.safety.marketDataTimestamp
+    ? input.now.getTime() - input.safety.marketDataTimestamp.getTime()
+    : Number.POSITIVE_INFINITY;
+  const marketDataFresh =
+    Number.isFinite(marketDataAge) &&
+    marketDataAge >= 0 &&
+    marketDataAge <= MAX_APPROVAL_MARKET_DATA_AGE_MS;
+  check(
+    "Market data fresh",
+    marketDataFresh,
+    marketDataFresh
+      ? `Latest market data is ${Math.round(marketDataAge / 1000)}s old`
+      : "Current market data is missing, future-dated, or stale",
+    "MARKET_DATA_STALE",
+    "Current market data is not fresh enough to authorize execution",
+  );
+  const marketStateValid =
+    input.safety.marketStateFresh && input.safety.marketStateHealthy;
+  check(
+    "Market state healthy",
+    marketStateValid,
+    marketStateValid
+      ? "Current MarketState is fresh and healthy"
+      : "Current MarketState is stale, degraded, or unavailable",
+    "MARKET_STATE_INVALID",
+    "Current MarketState is not reliable enough to approve this proposal",
+  );
+  const regimeCompatible =
+    input.safety.currentRegime === input.safety.proposalRegime;
+  check(
+    "Market regime unchanged",
+    regimeCompatible,
+    `Proposed in ${input.safety.proposalRegime}; current regime ${input.safety.currentRegime ?? "unavailable"}`,
+    "THESIS_INVALIDATED",
+    "The market regime changed; this is no longer the thesis that was proposed",
+  );
+  check(
+    "Thesis remains valid",
+    input.safety.thesisValid,
+    input.safety.thesisDetail,
+    "THESIS_INVALIDATED",
+    "Current market conditions invalidate the proposal thesis",
+  );
+
   check(
     "Circuit breaker", !input.circuitBreakerActive,
     input.circuitBreakerActive ? "Daily loss limit reached" : "Within daily loss limit",
@@ -134,6 +259,20 @@ export function revalidate(input: RevalidationInputs): RevalidationResult {
     "Risk pause", !input.riskPaused,
     input.riskPaused ? "Trading paused after consecutive risk violations" : "Not paused",
     "RISK_PAUSED", "Trading is paused after repeated risk violations",
+  );
+  check(
+    "Reconciliation",
+    input.safety.reconciliationHealthy,
+    input.safety.reconciliationDetail,
+    "RECONCILIATION_BLOCKED",
+    "Broker, database, or protection reconciliation does not currently permit a new entry",
+  );
+  check(
+    "Execution eligibility",
+    input.safety.executionEligible,
+    input.safety.executionEligibilityDetail,
+    "EXECUTION_INELIGIBLE",
+    "The existing controlled executor is not currently eligible to accept this proposal",
   );
 
   const maxPosReached = input.openPositions >= input.maxOpenPositions;
@@ -176,6 +315,49 @@ export function revalidate(input: RevalidationInputs): RevalidationResult {
     `$${totalRisk.toFixed(2)} / $${input.maxPortfolioRiskUsdt.toFixed(2)} max`,
     "PORTFOLIO_RISK", "Taking this trade would exceed the portfolio risk cap",
   );
+  const symbolExposureOk =
+    input.safety.symbolExposureAfterUsdt <= input.safety.maxSymbolExposureUsdt;
+  check(
+    "Symbol exposure",
+    symbolExposureOk,
+    `$${input.safety.symbolExposureAfterUsdt.toFixed(2)} / $${input.safety.maxSymbolExposureUsdt.toFixed(2)} max`,
+    "SYMBOL_EXPOSURE",
+    "Taking this trade would exceed the current symbol exposure limit",
+  );
+  const netExposureOk =
+    input.safety.netExposureAfterUsdt <= input.safety.maxNetExposureUsdt;
+  check(
+    "Net exposure",
+    netExposureOk,
+    `$${input.safety.netExposureAfterUsdt.toFixed(2)} / $${input.safety.maxNetExposureUsdt.toFixed(2)} max`,
+    "NET_EXPOSURE",
+    "Taking this trade would exceed the current net exposure limit",
+  );
+  const correlatedExposureOk =
+    input.safety.correlationKnownOrAllowed &&
+    input.safety.correlatedExposureAfterUsdt <=
+      input.safety.maxCorrelatedExposureUsdt;
+  check(
+    "Correlated exposure",
+    correlatedExposureOk,
+    `$${input.safety.correlatedExposureAfterUsdt.toFixed(2)} / $${input.safety.maxCorrelatedExposureUsdt.toFixed(2)} max`,
+    "CORRELATED_EXPOSURE",
+    "Current correlation or cluster exposure does not permit this trade",
+  );
+  check(
+    "Sizing and geometry",
+    input.safety.sizingValid,
+    input.safety.sizingDetail,
+    "SIZING_INVALID",
+    "Current deterministic sizing constraints reject this proposal",
+  );
+  check(
+    "Execution costs",
+    input.safety.executionCostViable,
+    input.safety.executionCostDetail,
+    "EXECUTION_COSTS",
+    "Current fees and slippage no longer leave a viable target after costs",
+  );
 
   // Price drift, measured in the plan's own R units.
   if (input.currentPrice !== undefined && input.currentPrice > 0) {
@@ -200,7 +382,11 @@ export function revalidate(input: RevalidationInputs): RevalidationResult {
 
   const failure = firstFailure as { code: BlockCode; reason: string } | null;
   if (failure) {
-    return { ok: false, code: failure.code, reason: failure.reason, checks, ...(input.currentPrice !== undefined && { currentPrice: input.currentPrice }) };
+    return { ok: false, code: failure.code, reason: failure.reason, checks, ...(input.currentPrice !== undefined && { currentPrice: input.currentPrice,
+      }),
+    };
   }
-  return { ok: true, checks, ...(input.currentPrice !== undefined && { currentPrice: input.currentPrice }) };
+  return { ok: true, checks, ...(input.currentPrice !== undefined && { currentPrice: input.currentPrice,
+    }),
+  };
 }

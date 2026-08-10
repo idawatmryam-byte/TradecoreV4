@@ -314,7 +314,7 @@ export const GetCopilotInboxQueryParams = zod.object({
 export const GetCopilotInboxResponse = zod.object({
   "recommendations": zod.array(zod.object({
   "id": zod.number(),
-  "status": zod.enum(['created', 'executing', 'executed', 'rejected', 'expired', 'superseded', 'blocked']),
+  "status": zod.enum(['created', 'executing', 'executed', 'rejected', 'expired', 'stale', 'invalidated', 'superseded', 'blocked']),
   "authoredBy": zod.enum(['engine', 'user']).describe('\"user\" marks a plan the trader modified — outcome attribution depends on it.'),
   "derivedFromId": zod.number().nullish(),
   "symbol": zod.string(),
@@ -333,7 +333,10 @@ export const GetCopilotInboxResponse = zod.object({
   "createdAt": zod.string(),
   "actedAt": zod.string().nullish(),
   "tradeId": zod.number().nullish(),
-  "resolutionReason": zod.string().nullish()
+  "resolutionReason": zod.string().nullish(),
+  "executionTarget": zod.union([zod.literal('demo'),zod.literal('live'),zod.literal(null)]).nullish(),
+  "decisionBundleFingerprint": zod.string().nullish(),
+  "approvalState": zod.enum(['PROPOSED', 'APPROVABLE', 'APPROVED', 'REJECTED', 'EXPIRED', 'STALE', 'INVALIDATED', 'EXECUTION_BLOCKED'])
 }))
 })
 
@@ -346,10 +349,415 @@ export const GetRecommendationWorkspaceParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunInputFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunRunFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSymbolMax = 80;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionMarketStateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSupportingEvidenceItemEvidenceIdMax = 160;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSupportingEvidenceItemSourceMax = 120;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSupportingEvidenceItemSummaryMax = 1000;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSupportingEvidenceItemReferenceMax = 500;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSupportingEvidenceItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSupportingEvidenceItemStrengthMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSupportingEvidenceItemStrengthMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSupportingEvidenceMax = 100;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionOpposingEvidenceItemEvidenceIdMax = 160;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionOpposingEvidenceItemSourceMax = 120;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionOpposingEvidenceItemSummaryMax = 1000;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionOpposingEvidenceItemReferenceMax = 500;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionOpposingEvidenceItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionOpposingEvidenceItemStrengthMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionOpposingEvidenceItemStrengthMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionOpposingEvidenceMax = 100;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionUncertaintyScoreMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionUncertaintyScoreMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionUncertaintyReasonsItemMax = 500;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionUncertaintyReasonsMax = 20;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionInvalidationConditionsItemMax = 500;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionInvalidationConditionsMax = 20;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionReasonCodeRegExp = new RegExp('^[A-Z0-9_]{3,120}$');
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneStrategyIdMax = 120;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneStrategyNameMax = 200;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneSymbolMax = 80;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneConfidenceMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneConfidenceMax = 100;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneEntryPriceExclusiveMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneStopPriceExclusiveMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneTargetPriceExclusiveMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneQuantityExclusiveMin = 0;
+
+
+
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneRegimeMax = 120;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneNetRewardRiskExclusiveMin = 0;
+
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentLongScoreMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentShortScoreMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentDominantShareMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentDominantShareMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentAverageEffectiveStrengthMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentAverageEffectiveStrengthMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentRegimeSuitabilityMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentRegimeSuitabilityMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentCostPenaltyMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentCostPenaltyMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentDecisionStrengthMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentDecisionStrengthMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentThresholdsEnterNowMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentThresholdsEnterNowMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentThresholdsWaitForTriggerMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentThresholdsWaitForTriggerMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReasoningAttemptsMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReasoningLatencyMsMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReasoningUsageInputTokensMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReasoningUsageOutputTokensMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReasoningUsageCostUsdMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateSymbolMax = 80;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateFreshnessAgeMsMin = 0;
+
+
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateDataQualityIssuesMax = 50;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateObservationsLastPriceExclusiveMin = 0;
+
+
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateObservationsTimeframesItemLastCloseExclusiveMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateObservationsTimeframesItemExcludedOpenCandlesMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateObservationsTimeframesMin = 5;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateObservationsTimeframesMax = 5;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateInferencesRegimeConfidenceMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateInferencesRegimeConfidenceMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilMarketStateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilConsensusLongScoreMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilConsensusShortScoreMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilConsensusActionableOpinionsMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilConsensusAbstentionsMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemCorrelationDiscountMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemCorrelationDiscountMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemEffectiveStrengthMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemEffectiveStrengthMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionMarketStateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionStrengthMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionStrengthMax = 1;
+
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemEvidenceIdMax = 160;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemSourceMax = 120;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemSummaryMax = 1000;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemReferenceMax = 500;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemStrengthMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemStrengthMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceMax = 50;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemEvidenceIdMax = 160;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemSourceMax = 120;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemSummaryMax = 1000;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemReferenceMax = 500;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemStrengthMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemStrengthMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceMax = 50;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionInvalidationConditionsMax = 20;
+
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionProposedRewardRiskExclusiveMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionUncertaintyMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionUncertaintyMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayExecutionCostsFeeRatePerLegMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayExecutionCostsSlippageRatePerLegMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayPortfolioAvailableBalanceMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayPortfolioOpenPositionCountMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayBrainV0CandidateCountMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayBrainV0TopCandidateOneConfidenceMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayBrainV0TopCandidateOneConfidenceMax = 100;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayBrainV0TopCandidateOneNetRewardRiskExclusiveMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneMarketStateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getRecommendationWorkspaceResponseDecisionBundleOneMarketStateSymbolMax = 80;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneMarketStateFreshnessAgeMsMin = 0;
+
+
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneMarketStateDataQualityIssuesMax = 50;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneMarketStateObservationsLastPriceExclusiveMin = 0;
+
+
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneMarketStateObservationsTimeframesItemLastCloseExclusiveMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneMarketStateObservationsTimeframesItemExcludedOpenCandlesMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneMarketStateObservationsTimeframesMin = 5;
+export const getRecommendationWorkspaceResponseDecisionBundleOneMarketStateObservationsTimeframesMax = 5;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneMarketStateInferencesRegimeConfidenceMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneMarketStateInferencesRegimeConfidenceMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilMarketStateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilConsensusLongScoreMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilConsensusShortScoreMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilConsensusActionableOpinionsMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilConsensusAbstentionsMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemCorrelationDiscountMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemCorrelationDiscountMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemEffectiveStrengthMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemEffectiveStrengthMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionMarketStateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionStrengthMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionStrengthMax = 1;
+
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemEvidenceIdMax = 160;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemSourceMax = 120;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemSummaryMax = 1000;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemReferenceMax = 500;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemStrengthMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemStrengthMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionSupportingEvidenceMax = 50;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemEvidenceIdMax = 160;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemSourceMax = 120;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemSummaryMax = 1000;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemReferenceMax = 500;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemStrengthMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemStrengthMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionOpposingEvidenceMax = 50;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionInvalidationConditionsMax = 20;
+
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionProposedRewardRiskExclusiveMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionUncertaintyMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionUncertaintyMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioFingerprintRegExp = new RegExp('^[a-f0-9]{64}$');
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMaxOpenPositionsMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMaxPortfolioRiskFractionMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMaxPortfolioRiskFractionMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMaxSymbolNotionalFractionMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMaxNetExposureFractionMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMaxCorrelatedNotionalFractionMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMaxStrategyRiskFractionMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMaxStrategyRiskFractionMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyCorrelationThresholdMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyCorrelationThresholdMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyDrawdownDeRiskStartFractionMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyDrawdownDeRiskStartFractionMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyDrawdownHardFractionMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyDrawdownHardFractionMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMinimumAllocationFractionMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMinimumAllocationFractionMax = 1;
+
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextEquityMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextAvailableBalanceMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextOpenPositionCountMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextRemainingStopRiskMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextGrossExposureMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextDrawdownFractionMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextDrawdownFractionMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextReservedRiskMin = 0;
+
+
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextCorrelationClustersItemSymbolsMax = 100;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextCorrelationClustersItemExposureMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextCorrelationClustersMax = 100;
+
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextFingerprintRegExp = new RegExp('^[a-f0-9]{64}$');
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageMaximumStopRiskMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageOpenStopRiskMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageInitiallyReservedRiskMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageShadowReservedRiskMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageRemainingRiskMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageDrawdownScaleMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageDrawdownScaleMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageOpenPositionsMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageShadowAllocatedPositionsMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageRemainingPositionSlotsMin = 0;
+
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemSourceFingerprintRegExp = new RegExp('^[a-f0-9]{64}$');
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsRewardRiskQualityMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsRewardRiskQualityMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsDecisionSupportMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsDecisionSupportMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsRegimeSuitabilityMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsRegimeSuitabilityMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsLiquidityQualityMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsLiquidityQualityMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsDiversificationBenefitMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsDiversificationBenefitMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsCostQualityMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsCostQualityMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsUncertaintyQualityMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsUncertaintyQualityMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemNetRewardRiskMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemUncertaintyMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemUncertaintyMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemRequestedRiskMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemRequestedNotionalMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemAllocatedRiskMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemAllocatedNotionalMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemAllocatedQuantityMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemAllocationFractionMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemAllocationFractionMax = 1;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRetainedCashAmountMin = 0;
+
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRetainedCashFractionOfAvailableBalanceMin = 0;
+export const getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRetainedCashFractionOfAvailableBalanceMax = 1;
+
+
+
 export const GetRecommendationWorkspaceResponse = zod.object({
   "recommendation": zod.object({
   "id": zod.number(),
-  "status": zod.enum(['created', 'executing', 'executed', 'rejected', 'expired', 'superseded', 'blocked']),
+  "status": zod.enum(['created', 'executing', 'executed', 'rejected', 'expired', 'stale', 'invalidated', 'superseded', 'blocked']),
   "authoredBy": zod.enum(['engine', 'user']).describe('\"user\" marks a plan the trader modified — outcome attribution depends on it.'),
   "derivedFromId": zod.number().nullish(),
   "symbol": zod.string(),
@@ -368,7 +776,10 @@ export const GetRecommendationWorkspaceResponse = zod.object({
   "createdAt": zod.string(),
   "actedAt": zod.string().nullish(),
   "tradeId": zod.number().nullish(),
-  "resolutionReason": zod.string().nullish()
+  "resolutionReason": zod.string().nullish(),
+  "executionTarget": zod.union([zod.literal('demo'),zod.literal('live'),zod.literal(null)]).nullish(),
+  "decisionBundleFingerprint": zod.string().nullish(),
+  "approvalState": zod.enum(['PROPOSED', 'APPROVABLE', 'APPROVED', 'REJECTED', 'EXPIRED', 'STALE', 'INVALIDATED', 'EXECUTION_BLOCKED'])
 }),
   "decisionTrace": zod.array(zod.object({
   "name": zod.string(),
@@ -416,7 +827,563 @@ export const GetRecommendationWorkspaceResponse = zod.object({
   "netPnlUsdt": zod.number()
 }).describe('Outcome summary for one bucket of closed trades. Counts and net P&L are facts and are always present; every rate is null while `gated` is true.'),zod.null()]).describe('Aggregate outcome of the matches, gated separately — individual trades are facts, their win rate is an estimate.'),
   "featuresUsed": zod.array(zod.string())
-}).describe('Closed trades whose entry conditions resembled the candidate. Cosine similarity over z-scored vectors — raw cosine would be dominated by whichever features have the largest magnitude. A similarity FLOOR comes before any top-N cap, so a sparse account gets \"nothing comparable\" rather than its N least-dissimilar trades. `reason` is always populated.')
+}).describe('Closed trades whose entry conditions resembled the candidate. Cosine similarity over z-scored vectors — raw cosine would be dominated by whichever features have the largest magnitude. A similarity FLOOR comes before any top-N cap, so a sparse account gets \"nothing comparable\" rather than its N least-dissimilar trades. `reason` is always populated.'),
+  "decisionBundle": zod.union([zod.object({
+  "schemaVersion": zod.enum(['phase9-copilot-bundle-v1']),
+  "createdAt": zod.coerce.date(),
+  "planFingerprint": zod.string(),
+  "executionTarget": zod.enum(['demo', 'live']),
+  "tradingMode": zod.enum(['copilot']),
+  "authorizationScope": zod.enum(['single-controlled-execution-attempt']),
+  "approvalPolicyVersion": zod.string(),
+  "revalidationPolicyVersion": zod.string(),
+  "decisionAuthority": zod.enum(['brain-v0']),
+  "unifiedBrain": zod.object({
+  "status": zod.enum(['shadow_context']),
+  "reason": zod.string(),
+  "run": zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "councilVersion": zod.enum(['shadow-decision-council-v1']),
+  "runId": zod.string().uuid(),
+  "inputFingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunInputFingerprintRegExp),
+  "runFingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunRunFingerprintRegExp),
+  "mode": zod.enum(['shadow']),
+  "cannotExecute": zod.boolean(),
+  "generatedAt": zod.coerce.date(),
+  "decision": zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "decisionId": zod.string().uuid(),
+  "action": zod.enum(['ENTER_NOW', 'WAIT_FOR_TRIGGER', 'OBSERVE', 'REJECT', 'REDUCE', 'EXIT']),
+  "symbol": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSymbolMax),
+  "marketStateFingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionMarketStateFingerprintRegExp),
+  "supportingEvidence": zod.array(zod.object({
+  "evidenceId": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSupportingEvidenceItemEvidenceIdMax),
+  "kind": zod.enum(['observation', 'specialist', 'statistical', 'memory', 'portfolio', 'execution']),
+  "source": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSupportingEvidenceItemSourceMax),
+  "summary": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSupportingEvidenceItemSummaryMax),
+  "reference": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSupportingEvidenceItemReferenceMax),
+  "fingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSupportingEvidenceItemFingerprintRegExp).optional(),
+  "dataTimestamp": zod.coerce.date(),
+  "strength": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSupportingEvidenceItemStrengthMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSupportingEvidenceItemStrengthMax)
+})).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionSupportingEvidenceMax),
+  "opposingEvidence": zod.array(zod.object({
+  "evidenceId": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionOpposingEvidenceItemEvidenceIdMax),
+  "kind": zod.enum(['observation', 'specialist', 'statistical', 'memory', 'portfolio', 'execution']),
+  "source": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionOpposingEvidenceItemSourceMax),
+  "summary": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionOpposingEvidenceItemSummaryMax),
+  "reference": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionOpposingEvidenceItemReferenceMax),
+  "fingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionOpposingEvidenceItemFingerprintRegExp).optional(),
+  "dataTimestamp": zod.coerce.date(),
+  "strength": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionOpposingEvidenceItemStrengthMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionOpposingEvidenceItemStrengthMax)
+})).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionOpposingEvidenceMax),
+  "uncertainty": zod.object({
+  "score": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionUncertaintyScoreMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionUncertaintyScoreMax),
+  "reasons": zod.array(zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionUncertaintyReasonsItemMax)).min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionUncertaintyReasonsMax),
+  "calibrated": zod.boolean()
+}),
+  "dataTimestamp": zod.coerce.date(),
+  "expiresAt": zod.coerce.date(),
+  "invalidationConditions": zod.array(zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionInvalidationConditionsItemMax)).min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionInvalidationConditionsMax),
+  "versions": zod.object({
+  "brain": zod.string(),
+  "strategy": zod.string(),
+  "model": zod.string(),
+  "config": zod.string(),
+  "marketState": zod.string()
+}),
+  "reasonCode": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionReasonCodeRegExp),
+  "thesis": zod.union([zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "thesisId": zod.string().uuid(),
+  "symbol": zod.string(),
+  "side": zod.enum(['long', 'short']),
+  "context": zod.string(),
+  "trigger": zod.string(),
+  "invalidationConditions": zod.array(zod.string()),
+  "targetRationale": zod.string(),
+  "expectedPath": zod.array(zod.string()),
+  "expectedDurationSeconds": zod.number().min(1),
+  "managementPolicyVersion": zod.string()
+}),zod.null()]),
+  "proposedTrade": zod.union([zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "strategyId": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneStrategyIdMax),
+  "strategyName": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneStrategyNameMax),
+  "symbol": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneSymbolMax),
+  "side": zod.enum(['long', 'short']),
+  "confidence": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneConfidenceMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneConfidenceMax),
+  "entryPrice": zod.number().gt(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneEntryPriceExclusiveMin),
+  "stopPrice": zod.number().gt(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneStopPriceExclusiveMin),
+  "targetPrice": zod.number().gt(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneTargetPriceExclusiveMin),
+  "quantity": zod.number().gt(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneQuantityExclusiveMin),
+  "leverage": zod.number().min(1),
+  "expectedHoldSeconds": zod.number().min(1),
+  "maxHoldSeconds": zod.number().min(1),
+  "regime": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneRegimeMax),
+  "netRewardRisk": zod.number().gt(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionProposedTradeOneNetRewardRiskExclusiveMin).nullable(),
+  "report": zod.object({
+  "summary": zod.string().min(1),
+  "marketView": zod.array(zod.string()),
+  "entryLogic": zod.array(zod.string()),
+  "riskLogic": zod.array(zod.string()),
+  "exitLogic": zod.array(zod.string()),
+  "checks": zod.array(zod.object({
+  "name": zod.string(),
+  "passed": zod.boolean(),
+  "detail": zod.string()
+})),
+  "data": zod.record(zod.string(), zod.unknown()).optional()
+})
+}),zod.null()])
+}),
+  "decisionFingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDecisionFingerprintRegExp),
+  "deterministicAssessment": zod.object({
+  "version": zod.enum(['deterministic-council-v1']),
+  "longScore": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentLongScoreMin),
+  "shortScore": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentShortScoreMin),
+  "dominantShare": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentDominantShareMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentDominantShareMax),
+  "averageEffectiveStrength": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentAverageEffectiveStrengthMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentAverageEffectiveStrengthMax),
+  "regimeSuitability": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentRegimeSuitabilityMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentRegimeSuitabilityMax),
+  "costPenalty": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentCostPenaltyMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentCostPenaltyMax),
+  "decisionStrength": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentDecisionStrengthMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentDecisionStrengthMax),
+  "thresholds": zod.object({
+  "enterNow": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentThresholdsEnterNowMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentThresholdsEnterNowMax),
+  "waitForTrigger": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentThresholdsWaitForTriggerMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunDeterministicAssessmentThresholdsWaitForTriggerMax)
+}),
+  "ruleTrace": zod.array(zod.string())
+}),
+  "reasoning": zod.object({
+  "status": zod.enum(['not_configured', 'validated', 'degraded', 'circuit_open', 'provider_error']),
+  "providerId": zod.string().nullable(),
+  "modelVersion": zod.string().nullable(),
+  "summary": zod.string(),
+  "claims": zod.array(zod.object({
+  "claim": zod.string(),
+  "evidenceIds": zod.array(zod.string())
+})),
+  "challenges": zod.array(zod.object({
+  "claim": zod.string(),
+  "evidenceIds": zod.array(zod.string())
+})),
+  "uncertaintyNotes": zod.array(zod.string()),
+  "validationFailures": zod.array(zod.string()),
+  "attempts": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReasoningAttemptsMin),
+  "latencyMs": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReasoningLatencyMsMin),
+  "usage": zod.object({
+  "inputTokens": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReasoningUsageInputTokensMin).nullable(),
+  "outputTokens": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReasoningUsageOutputTokensMin).nullable(),
+  "costUsd": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReasoningUsageCostUsdMin).nullable()
+})
+}),
+  "replay": zod.object({
+  "marketState": zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "marketStateVersion": zod.enum(['market-state-v1']),
+  "fingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateFingerprintRegExp),
+  "symbol": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateSymbolMax),
+  "venue": zod.enum(['spot', 'futures', 'forex']),
+  "provider": zod.enum(['binance', 'oanda', 'fixture']),
+  "dataTimestamp": zod.coerce.date(),
+  "observedAt": zod.coerce.date(),
+  "freshness": zod.object({
+  "status": zod.enum(['fresh', 'stale']),
+  "ageMs": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateFreshnessAgeMsMin),
+  "maximumAgeMs": zod.number().min(1)
+}),
+  "dataQuality": zod.object({
+  "status": zod.enum(['healthy', 'degraded']),
+  "issues": zod.array(zod.string().min(1)).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateDataQualityIssuesMax)
+}),
+  "observations": zod.object({
+  "lastPrice": zod.number().gt(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateObservationsLastPriceExclusiveMin),
+  "timeframes": zod.array(zod.object({
+  "timeframe": zod.enum(['1m', '3m', '5m', '15m', '1h']),
+  "intervalMs": zod.number().min(1),
+  "candleCount": zod.number().min(1),
+  "lastClosedAt": zod.coerce.date(),
+  "lastClose": zod.number().gt(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateObservationsTimeframesItemLastCloseExclusiveMin),
+  "excludedOpenCandles": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateObservationsTimeframesItemExcludedOpenCandlesMin)
+})).min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateObservationsTimeframesMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateObservationsTimeframesMax),
+  "trend": zod.record(zod.string(), zod.unknown()),
+  "volatility": zod.record(zod.string(), zod.unknown()),
+  "momentum": zod.record(zod.string(), zod.unknown()),
+  "liquidity": zod.record(zod.string(), zod.unknown()),
+  "structure": zod.record(zod.string(), zod.unknown())
+}),
+  "inferences": zod.object({
+  "regime": zod.enum(['strong_trend', 'weak_trend', 'range', 'high_volatility', 'low_volatility']),
+  "regimeConfidence": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateInferencesRegimeConfidenceMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayMarketStateInferencesRegimeConfidenceMax),
+  "dominantDirection": zod.enum(['bullish', 'bearish', 'neutral']),
+  "session": zod.enum(['asia', 'europe', 'us', 'europe_us_overlap', 'off_hours']),
+  "anomaly": zod.record(zod.string(), zod.unknown())
+}),
+  "context": zod.object({
+  "breadth": zod.record(zod.string(), zod.unknown()),
+  "leadership": zod.record(zod.string(), zod.unknown()),
+  "correlation": zod.record(zod.string(), zod.unknown())
+})
+}),
+  "specialistCouncil": zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "councilVersion": zod.enum(['specialist-council-v1']),
+  "mode": zod.enum(['observational']),
+  "cannotExecute": zod.boolean(),
+  "symbol": zod.string(),
+  "marketStateFingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilMarketStateFingerprintRegExp),
+  "dataTimestamp": zod.coerce.date(),
+  "generatedAt": zod.coerce.date(),
+  "consensus": zod.object({
+  "stance": zod.enum(['long', 'short', 'mixed', 'abstain']),
+  "longScore": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilConsensusLongScoreMin),
+  "shortScore": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilConsensusShortScoreMin),
+  "actionableOpinions": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilConsensusActionableOpinionsMin),
+  "abstentions": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilConsensusAbstentionsMin),
+  "disagreement": zod.boolean(),
+  "explanation": zod.string()
+}),
+  "opinions": zod.array(zod.object({
+  "role": zod.enum(['trend', 'breakout', 'mean_reversion', 'volatility', 'market_structure', 'execution_quality', 'portfolio_conflict']),
+  "correlationGroup": zod.string(),
+  "correlationDiscount": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemCorrelationDiscountMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemCorrelationDiscountMax),
+  "effectiveStrength": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemEffectiveStrengthMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemEffectiveStrengthMax),
+  "operationalStatus": zod.enum(['active', 'abstained']),
+  "opinion": zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "opinionId": zod.string().uuid(),
+  "specialistId": zod.string(),
+  "specialistVersion": zod.string(),
+  "marketStateFingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionMarketStateFingerprintRegExp),
+  "symbol": zod.string(),
+  "stance": zod.enum(['long', 'short', 'neutral', 'abstain']),
+  "strength": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionStrengthMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionStrengthMax),
+  "applicableRegimes": zod.array(zod.string()).min(1),
+  "supportingEvidence": zod.array(zod.object({
+  "evidenceId": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemEvidenceIdMax),
+  "kind": zod.enum(['observation', 'specialist', 'statistical', 'memory', 'portfolio', 'execution']),
+  "source": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemSourceMax),
+  "summary": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemSummaryMax),
+  "reference": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemReferenceMax),
+  "fingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemFingerprintRegExp).optional(),
+  "dataTimestamp": zod.coerce.date(),
+  "strength": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemStrengthMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemStrengthMax)
+})).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionSupportingEvidenceMax),
+  "opposingEvidence": zod.array(zod.object({
+  "evidenceId": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemEvidenceIdMax),
+  "kind": zod.enum(['observation', 'specialist', 'statistical', 'memory', 'portfolio', 'execution']),
+  "source": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemSourceMax),
+  "summary": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemSummaryMax),
+  "reference": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemReferenceMax),
+  "fingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemFingerprintRegExp).optional(),
+  "dataTimestamp": zod.coerce.date(),
+  "strength": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemStrengthMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemStrengthMax)
+})).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionOpposingEvidenceMax),
+  "trigger": zod.string().nullable(),
+  "invalidationConditions": zod.array(zod.string()).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionInvalidationConditionsMax),
+  "expectedDurationSeconds": zod.number().min(1).nullable(),
+  "proposedRewardRisk": zod.number().gt(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionProposedRewardRiskExclusiveMin).nullable(),
+  "uncertainty": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionUncertaintyMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplaySpecialistCouncilOpinionsItemOpinionUncertaintyMax),
+  "abstentionReason": zod.string().nullable(),
+  "dataTimestamp": zod.coerce.date(),
+  "expiresAt": zod.coerce.date()
+})
+}))
+}),
+  "executionCosts": zod.object({
+  "feeRatePerLeg": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayExecutionCostsFeeRatePerLegMin),
+  "slippageRatePerLeg": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayExecutionCostsSlippageRatePerLegMin),
+  "source": zod.enum(['engine-market-cost-model']),
+  "version": zod.string()
+}),
+  "portfolio": zod.object({
+  "status": zod.enum(['partial', 'unavailable']),
+  "currency": zod.string(),
+  "availableBalance": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayPortfolioAvailableBalanceMin).nullable(),
+  "openPositionCount": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayPortfolioOpenPositionCountMin).nullable(),
+  "observedAt": zod.coerce.date(),
+  "limitations": zod.array(zod.string())
+}),
+  "historicalEvidence": zod.object({
+  "status": zod.enum(['unavailable', 'observational', 'approved']),
+  "ruleVersion": zod.string().nullable(),
+  "items": zod.array(zod.record(zod.string(), zod.unknown())),
+  "limitations": zod.array(zod.string())
+}),
+  "brainV0": zod.object({
+  "mode": zod.enum(['control']),
+  "candidateCount": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayBrainV0CandidateCountMin),
+  "disposition": zod.enum(['CANDIDATE_PRODUCED', 'NO_CANDIDATE']),
+  "topCandidate": zod.union([zod.object({
+  "strategyId": zod.string(),
+  "strategyName": zod.string(),
+  "side": zod.enum(['long', 'short']),
+  "confidence": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayBrainV0TopCandidateOneConfidenceMin).max(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayBrainV0TopCandidateOneConfidenceMax),
+  "netRewardRisk": zod.number().gt(getRecommendationWorkspaceResponseDecisionBundleOneUnifiedBrainRunReplayBrainV0TopCandidateOneNetRewardRiskExclusiveMin).nullable()
+}),zod.null()])
+})
+})
+})
+}),
+  "marketState": zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "marketStateVersion": zod.enum(['market-state-v1']),
+  "fingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOneMarketStateFingerprintRegExp),
+  "symbol": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneMarketStateSymbolMax),
+  "venue": zod.enum(['spot', 'futures', 'forex']),
+  "provider": zod.enum(['binance', 'oanda', 'fixture']),
+  "dataTimestamp": zod.coerce.date(),
+  "observedAt": zod.coerce.date(),
+  "freshness": zod.object({
+  "status": zod.enum(['fresh', 'stale']),
+  "ageMs": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneMarketStateFreshnessAgeMsMin),
+  "maximumAgeMs": zod.number().min(1)
+}),
+  "dataQuality": zod.object({
+  "status": zod.enum(['healthy', 'degraded']),
+  "issues": zod.array(zod.string().min(1)).max(getRecommendationWorkspaceResponseDecisionBundleOneMarketStateDataQualityIssuesMax)
+}),
+  "observations": zod.object({
+  "lastPrice": zod.number().gt(getRecommendationWorkspaceResponseDecisionBundleOneMarketStateObservationsLastPriceExclusiveMin),
+  "timeframes": zod.array(zod.object({
+  "timeframe": zod.enum(['1m', '3m', '5m', '15m', '1h']),
+  "intervalMs": zod.number().min(1),
+  "candleCount": zod.number().min(1),
+  "lastClosedAt": zod.coerce.date(),
+  "lastClose": zod.number().gt(getRecommendationWorkspaceResponseDecisionBundleOneMarketStateObservationsTimeframesItemLastCloseExclusiveMin),
+  "excludedOpenCandles": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneMarketStateObservationsTimeframesItemExcludedOpenCandlesMin)
+})).min(getRecommendationWorkspaceResponseDecisionBundleOneMarketStateObservationsTimeframesMin).max(getRecommendationWorkspaceResponseDecisionBundleOneMarketStateObservationsTimeframesMax),
+  "trend": zod.record(zod.string(), zod.unknown()),
+  "volatility": zod.record(zod.string(), zod.unknown()),
+  "momentum": zod.record(zod.string(), zod.unknown()),
+  "liquidity": zod.record(zod.string(), zod.unknown()),
+  "structure": zod.record(zod.string(), zod.unknown())
+}),
+  "inferences": zod.object({
+  "regime": zod.enum(['strong_trend', 'weak_trend', 'range', 'high_volatility', 'low_volatility']),
+  "regimeConfidence": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneMarketStateInferencesRegimeConfidenceMin).max(getRecommendationWorkspaceResponseDecisionBundleOneMarketStateInferencesRegimeConfidenceMax),
+  "dominantDirection": zod.enum(['bullish', 'bearish', 'neutral']),
+  "session": zod.enum(['asia', 'europe', 'us', 'europe_us_overlap', 'off_hours']),
+  "anomaly": zod.record(zod.string(), zod.unknown())
+}),
+  "context": zod.object({
+  "breadth": zod.record(zod.string(), zod.unknown()),
+  "leadership": zod.record(zod.string(), zod.unknown()),
+  "correlation": zod.record(zod.string(), zod.unknown())
+})
+}),
+  "specialistCouncil": zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "councilVersion": zod.enum(['specialist-council-v1']),
+  "mode": zod.enum(['observational']),
+  "cannotExecute": zod.boolean(),
+  "symbol": zod.string(),
+  "marketStateFingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilMarketStateFingerprintRegExp),
+  "dataTimestamp": zod.coerce.date(),
+  "generatedAt": zod.coerce.date(),
+  "consensus": zod.object({
+  "stance": zod.enum(['long', 'short', 'mixed', 'abstain']),
+  "longScore": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilConsensusLongScoreMin),
+  "shortScore": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilConsensusShortScoreMin),
+  "actionableOpinions": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilConsensusActionableOpinionsMin),
+  "abstentions": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilConsensusAbstentionsMin),
+  "disagreement": zod.boolean(),
+  "explanation": zod.string()
+}),
+  "opinions": zod.array(zod.object({
+  "role": zod.enum(['trend', 'breakout', 'mean_reversion', 'volatility', 'market_structure', 'execution_quality', 'portfolio_conflict']),
+  "correlationGroup": zod.string(),
+  "correlationDiscount": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemCorrelationDiscountMin).max(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemCorrelationDiscountMax),
+  "effectiveStrength": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemEffectiveStrengthMin).max(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemEffectiveStrengthMax),
+  "operationalStatus": zod.enum(['active', 'abstained']),
+  "opinion": zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "opinionId": zod.string().uuid(),
+  "specialistId": zod.string(),
+  "specialistVersion": zod.string(),
+  "marketStateFingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionMarketStateFingerprintRegExp),
+  "symbol": zod.string(),
+  "stance": zod.enum(['long', 'short', 'neutral', 'abstain']),
+  "strength": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionStrengthMin).max(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionStrengthMax),
+  "applicableRegimes": zod.array(zod.string()).min(1),
+  "supportingEvidence": zod.array(zod.object({
+  "evidenceId": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemEvidenceIdMax),
+  "kind": zod.enum(['observation', 'specialist', 'statistical', 'memory', 'portfolio', 'execution']),
+  "source": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemSourceMax),
+  "summary": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemSummaryMax),
+  "reference": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemReferenceMax),
+  "fingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemFingerprintRegExp).optional(),
+  "dataTimestamp": zod.coerce.date(),
+  "strength": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemStrengthMin).max(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionSupportingEvidenceItemStrengthMax)
+})).max(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionSupportingEvidenceMax),
+  "opposingEvidence": zod.array(zod.object({
+  "evidenceId": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemEvidenceIdMax),
+  "kind": zod.enum(['observation', 'specialist', 'statistical', 'memory', 'portfolio', 'execution']),
+  "source": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemSourceMax),
+  "summary": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemSummaryMax),
+  "reference": zod.string().min(1).max(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemReferenceMax),
+  "fingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemFingerprintRegExp).optional(),
+  "dataTimestamp": zod.coerce.date(),
+  "strength": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemStrengthMin).max(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionOpposingEvidenceItemStrengthMax)
+})).max(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionOpposingEvidenceMax),
+  "trigger": zod.string().nullable(),
+  "invalidationConditions": zod.array(zod.string()).max(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionInvalidationConditionsMax),
+  "expectedDurationSeconds": zod.number().min(1).nullable(),
+  "proposedRewardRisk": zod.number().gt(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionProposedRewardRiskExclusiveMin).nullable(),
+  "uncertainty": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionUncertaintyMin).max(getRecommendationWorkspaceResponseDecisionBundleOneSpecialistCouncilOpinionsItemOpinionUncertaintyMax),
+  "abstentionReason": zod.string().nullable(),
+  "dataTimestamp": zod.coerce.date(),
+  "expiresAt": zod.coerce.date()
+})
+}))
+}),
+  "portfolio": zod.object({
+  "schemaVersion": zod.literal("1.0.0"),
+  "portfolioVersion": zod.literal("shadow-portfolio-intelligence-v1"),
+  "mode": zod.literal("shadow"),
+  "cannotExecute": zod.boolean(),
+  "projectionId": zod.string().uuid(),
+  "fingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioFingerprintRegExp),
+  "generatedAt": zod.coerce.date(),
+  "sourceScanTimestamp": zod.coerce.date().nullable(),
+  "dataStatus": zod.enum(['healthy', 'degraded', 'blocked']),
+  "dataIssues": zod.array(zod.string()),
+  "policy": zod.object({
+  "policyVersion": zod.literal("shadow-portfolio-policy-v1"),
+  "riskPolicyVersion": zod.string().min(1),
+  "maxOpenPositions": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMaxOpenPositionsMin),
+  "maxPortfolioRiskFraction": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMaxPortfolioRiskFractionMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMaxPortfolioRiskFractionMax),
+  "maxSymbolNotionalFraction": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMaxSymbolNotionalFractionMin),
+  "maxNetExposureFraction": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMaxNetExposureFractionMin),
+  "maxCorrelatedNotionalFraction": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMaxCorrelatedNotionalFractionMin),
+  "maxStrategyRiskFraction": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMaxStrategyRiskFractionMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMaxStrategyRiskFractionMax),
+  "correlationThreshold": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyCorrelationThresholdMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyCorrelationThresholdMax),
+  "unknownCorrelationPolicy": zod.enum(['allow', 'block']),
+  "drawdownDeRiskStartFraction": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyDrawdownDeRiskStartFractionMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyDrawdownDeRiskStartFractionMax),
+  "drawdownHardFraction": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyDrawdownHardFractionMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyDrawdownHardFractionMax),
+  "minimumAllocationFraction": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMinimumAllocationFractionMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioPolicyMinimumAllocationFractionMax)
+}),
+  "context": zod.object({
+  "schemaVersion": zod.literal("1.0.0"),
+  "contextId": zod.string().uuid(),
+  "asOf": zod.coerce.date(),
+  "currency": zod.string().min(1),
+  "equity": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextEquityMin),
+  "availableBalance": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextAvailableBalanceMin),
+  "openPositionCount": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextOpenPositionCountMin),
+  "remainingStopRisk": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextRemainingStopRiskMin),
+  "grossExposure": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextGrossExposureMin),
+  "netExposure": zod.number(),
+  "drawdownFraction": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextDrawdownFractionMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextDrawdownFractionMax),
+  "reservedRisk": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextReservedRiskMin),
+  "correlationState": zod.enum(['known', 'partial', 'unknown']),
+  "correlationClusters": zod.array(zod.object({
+  "clusterId": zod.string().min(1),
+  "symbols": zod.array(zod.string().min(1)).min(1).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextCorrelationClustersItemSymbolsMax),
+  "exposure": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextCorrelationClustersItemExposureMin)
+})).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextCorrelationClustersMax),
+  "riskPolicyVersion": zod.string().min(1),
+  "fingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioContextFingerprintRegExp)
+}),
+  "riskUsage": zod.object({
+  "maximumStopRisk": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageMaximumStopRiskMin),
+  "openStopRisk": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageOpenStopRiskMin),
+  "initiallyReservedRisk": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageInitiallyReservedRiskMin),
+  "shadowReservedRisk": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageShadowReservedRiskMin),
+  "remainingRisk": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageRemainingRiskMin),
+  "drawdownScale": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageDrawdownScaleMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageDrawdownScaleMax),
+  "openPositions": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageOpenPositionsMin),
+  "shadowAllocatedPositions": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageShadowAllocatedPositionsMin),
+  "remainingPositionSlots": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRiskUsageRemainingPositionSlotsMin)
+}),
+  "opportunities": zod.array(zod.object({
+  "rank": zod.number().min(1),
+  "decisionId": zod.string().uuid(),
+  "sourceFingerprint": zod.string().regex(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemSourceFingerprintRegExp),
+  "symbol": zod.string().min(1),
+  "side": zod.union([zod.literal('long'),zod.literal('short'),zod.literal(null)]).nullable(),
+  "action": zod.enum(['ENTER_NOW', 'WAIT_FOR_TRIGGER', 'OBSERVE', 'REJECT', 'REDUCE', 'EXIT']),
+  "strategyId": zod.string().nullable(),
+  "strategyName": zod.string().nullable(),
+  "dataTimestamp": zod.coerce.date(),
+  "expiresAt": zod.coerce.date(),
+  "score": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreMax),
+  "scoreComponents": zod.object({
+  "rewardRiskQuality": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsRewardRiskQualityMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsRewardRiskQualityMax),
+  "decisionSupport": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsDecisionSupportMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsDecisionSupportMax),
+  "regimeSuitability": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsRegimeSuitabilityMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsRegimeSuitabilityMax),
+  "liquidityQuality": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsLiquidityQualityMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsLiquidityQualityMax),
+  "diversificationBenefit": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsDiversificationBenefitMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsDiversificationBenefitMax),
+  "costQuality": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsCostQualityMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsCostQualityMax),
+  "uncertaintyQuality": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsUncertaintyQualityMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemScoreComponentsUncertaintyQualityMax)
+}),
+  "estimatedNetR": zod.null().describe('Unavailable until calibrated expectancy exists.'),
+  "netRewardRisk": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemNetRewardRiskMin).nullable(),
+  "uncertainty": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemUncertaintyMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemUncertaintyMax),
+  "requestedRisk": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemRequestedRiskMin),
+  "requestedNotional": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemRequestedNotionalMin),
+  "allocatedRisk": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemAllocatedRiskMin),
+  "allocatedNotional": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemAllocatedNotionalMin),
+  "allocatedQuantity": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemAllocatedQuantityMin),
+  "allocationFraction": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemAllocationFractionMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioOpportunitiesItemAllocationFractionMax),
+  "disposition": zod.enum(['SHADOW_ALLOCATED', 'WAIT_FOR_TRIGGER', 'OBSERVE', 'REJECTED']),
+  "reasonCodes": zod.array(zod.string()),
+  "explanation": zod.string(),
+  "correlationUnknownWith": zod.array(zod.string()),
+  "reinforcingClusterSymbols": zod.array(zod.string())
+})),
+  "retainedCash": zod.object({
+  "amount": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRetainedCashAmountMin),
+  "fractionOfAvailableBalance": zod.number().min(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRetainedCashFractionOfAvailableBalanceMin).max(getRecommendationWorkspaceResponseDecisionBundleOnePortfolioRetainedCashFractionOfAvailableBalanceMax),
+  "reasonCodes": zod.array(zod.string()),
+  "explanation": zod.string()
+})
+}),
+  "risk": zod.object({
+  "verdict": zod.enum(['PASSED']),
+  "checks": zod.array(zod.object({
+  "name": zod.string(),
+  "passed": zod.boolean(),
+  "detail": zod.string()
+})),
+  "candidateMaximumLoss": zod.number(),
+  "candidateNotional": zod.number(),
+  "policyVersion": zod.string()
+}),
+  "managementAuthority": zod.record(zod.string(), zod.unknown()).nullable(),
+  "versions": zod.object({
+  "plan": zod.string(),
+  "brain": zod.string(),
+  "council": zod.string(),
+  "marketState": zod.string(),
+  "portfolio": zod.string(),
+  "riskPolicy": zod.string(),
+  "managementPolicy": zod.string().nullable()
+}),
+  "limitations": zod.array(zod.string())
+}),zod.null()]),
+  "decisionBundleFingerprint": zod.string().nullable(),
+  "executionTarget": zod.union([zod.literal('demo'),zod.literal('live'),zod.literal(null)]).nullable(),
+  "approvalChallenge": zod.string().uuid().nullable(),
+  "approvalState": zod.enum(['PROPOSED', 'APPROVABLE', 'APPROVED', 'REJECTED', 'EXPIRED', 'STALE', 'INVALIDATED', 'EXECUTION_BLOCKED']),
+  "approvalReadiness": zod.object({
+  "approvable": zod.boolean(),
+  "reason": zod.string(),
+  "checks": zod.array(zod.object({
+  "name": zod.string(),
+  "passed": zod.boolean(),
+  "detail": zod.string()
+}))
+}),
+  "auditEvents": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.string(),
+  "actorType": zod.enum(['engine', 'user', 'system']),
+  "actorUserId": zod.number().nullable(),
+  "fromStatus": zod.string().nullable(),
+  "toStatus": zod.string(),
+  "reasonCode": zod.string(),
+  "reason": zod.string(),
+  "occurredAt": zod.coerce.date()
+}))
 })
 
 
@@ -428,9 +1395,30 @@ export const ExecuteRecommendationParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const executeRecommendationBodyExpectedPlanFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const executeRecommendationBodyExpectedDecisionBundleFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const executeRecommendationBodyIdempotencyKeyMin = 16;
+export const executeRecommendationBodyIdempotencyKeyMax = 200;
+
+export const executeRecommendationBodyConfirmationMax = 200;
+
+export const executeRecommendationBodyPasswordMax = 1024;
+
+
+
+export const ExecuteRecommendationBody = zod.object({
+  "expectedPlanFingerprint": zod.string().regex(executeRecommendationBodyExpectedPlanFingerprintRegExp),
+  "expectedDecisionBundleFingerprint": zod.string().regex(executeRecommendationBodyExpectedDecisionBundleFingerprintRegExp),
+  "executionTarget": zod.enum(['demo', 'live']),
+  "approvalChallenge": zod.string().uuid(),
+  "idempotencyKey": zod.string().min(executeRecommendationBodyIdempotencyKeyMin).max(executeRecommendationBodyIdempotencyKeyMax),
+  "confirmation": zod.string().max(executeRecommendationBodyConfirmationMax),
+  "password": zod.string().max(executeRecommendationBodyPasswordMax).optional()
+})
+
 export const ExecuteRecommendationResponse = zod.object({
   "ok": zod.boolean(),
-  "status": zod.enum(['created', 'executing', 'executed', 'rejected', 'expired', 'superseded', 'blocked']),
+  "status": zod.enum(['created', 'executing', 'executed', 'rejected', 'expired', 'stale', 'invalidated', 'superseded', 'blocked']),
   "reason": zod.string(),
   "checks": zod.array(zod.object({
   "name": zod.string(),
@@ -438,7 +1426,9 @@ export const ExecuteRecommendationResponse = zod.object({
   "detail": zod.string()
 })).optional().describe('Every re-validation check that ran, pass or fail — not just the first failure.'),
   "tradeId": zod.number().optional(),
-  "newRecommendationId": zod.number().optional().describe('Set by modify(): the new user-authored plan.')
+  "newRecommendationId": zod.number().optional().describe('Set by modify(): the new user-authored plan.'),
+  "code": zod.string().optional(),
+  "idempotentReplay": zod.boolean().optional()
 })
 
 
@@ -449,13 +1439,20 @@ export const RejectRecommendationParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const rejectRecommendationBodyExpectedPlanFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const rejectRecommendationBodyNoteMax = 1000;
+
+
+
 export const RejectRecommendationBody = zod.object({
-  "note": zod.string().optional()
+  "expectedPlanFingerprint": zod.string().regex(rejectRecommendationBodyExpectedPlanFingerprintRegExp),
+  "approvalChallenge": zod.string().uuid(),
+  "note": zod.string().max(rejectRecommendationBodyNoteMax).optional()
 })
 
 export const RejectRecommendationResponse = zod.object({
   "ok": zod.boolean(),
-  "status": zod.enum(['created', 'executing', 'executed', 'rejected', 'expired', 'superseded', 'blocked']),
+  "status": zod.enum(['created', 'executing', 'executed', 'rejected', 'expired', 'stale', 'invalidated', 'superseded', 'blocked']),
   "reason": zod.string(),
   "checks": zod.array(zod.object({
   "name": zod.string(),
@@ -463,7 +1460,9 @@ export const RejectRecommendationResponse = zod.object({
   "detail": zod.string()
 })).optional().describe('Every re-validation check that ran, pass or fail — not just the first failure.'),
   "tradeId": zod.number().optional(),
-  "newRecommendationId": zod.number().optional().describe('Set by modify(): the new user-authored plan.')
+  "newRecommendationId": zod.number().optional().describe('Set by modify(): the new user-authored plan.'),
+  "code": zod.string().optional(),
+  "idempotentReplay": zod.boolean().optional()
 })
 
 
@@ -483,7 +1482,7 @@ export const ModifyRecommendationBody = zod.object({
 
 export const ModifyRecommendationResponse = zod.object({
   "ok": zod.boolean(),
-  "status": zod.enum(['created', 'executing', 'executed', 'rejected', 'expired', 'superseded', 'blocked']),
+  "status": zod.enum(['created', 'executing', 'executed', 'rejected', 'expired', 'stale', 'invalidated', 'superseded', 'blocked']),
   "reason": zod.string(),
   "checks": zod.array(zod.object({
   "name": zod.string(),
@@ -491,7 +1490,9 @@ export const ModifyRecommendationResponse = zod.object({
   "detail": zod.string()
 })).optional().describe('Every re-validation check that ran, pass or fail — not just the first failure.'),
   "tradeId": zod.number().optional(),
-  "newRecommendationId": zod.number().optional().describe('Set by modify(): the new user-authored plan.')
+  "newRecommendationId": zod.number().optional().describe('Set by modify(): the new user-authored plan.'),
+  "code": zod.string().optional(),
+  "idempotentReplay": zod.boolean().optional()
 })
 
 
@@ -2645,6 +3646,7 @@ export const getShadowDecisionCouncilResponseDecisionInvalidationConditionsItemM
 export const getShadowDecisionCouncilResponseDecisionInvalidationConditionsMax = 20;
 
 export const getShadowDecisionCouncilResponseDecisionReasonCodeRegExp = new RegExp('^[A-Z0-9_]{3,120}$');
+
 export const getShadowDecisionCouncilResponseDecisionProposedTradeOneStrategyIdMax = 120;
 
 export const getShadowDecisionCouncilResponseDecisionProposedTradeOneStrategyNameMax = 200;
@@ -2853,7 +3855,19 @@ export const GetShadowDecisionCouncilResponseItem = zod.object({
   "marketState": zod.string()
 }),
   "reasonCode": zod.string().regex(getShadowDecisionCouncilResponseDecisionReasonCodeRegExp),
-  "thesis": zod.record(zod.string(), zod.unknown()).nullable(),
+  "thesis": zod.union([zod.object({
+  "schemaVersion": zod.enum(['1.0.0']),
+  "thesisId": zod.string().uuid(),
+  "symbol": zod.string(),
+  "side": zod.enum(['long', 'short']),
+  "context": zod.string(),
+  "trigger": zod.string(),
+  "invalidationConditions": zod.array(zod.string()),
+  "targetRationale": zod.string(),
+  "expectedPath": zod.array(zod.string()),
+  "expectedDurationSeconds": zod.number().min(1),
+  "managementPolicyVersion": zod.string()
+}),zod.null()]),
   "proposedTrade": zod.union([zod.object({
   "schemaVersion": zod.enum(['1.0.0']),
   "strategyId": zod.string().min(1).max(getShadowDecisionCouncilResponseDecisionProposedTradeOneStrategyIdMax),

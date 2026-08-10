@@ -21,20 +21,31 @@
  *            TradePlan is the claim the whole architecture rests on.
  */
 import { randomUUID } from "crypto";
-import { db, recommendationsTable } from "@workspace/db";
-import type { Recommendation } from "@workspace/db";
+import { db,
+  recommendationEventsTable,
+  recommendationsTable,
+} from "@workspace/db";
+import type { Recommendation, RecommendationEvent } from "@workspace/db";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { logger } from "../logger";
 import { planFingerprint } from "../plan/fingerprint";
 import { revalidate, type RevalidationCheck } from "../execution/revalidate";
 import { expiryFor } from "../execution/recommendExecutor";
-import { relabelTraceForModification, type PipelineStage } from "../decisionTrace";
+import { relabelTraceForModification, type PipelineStage,
+} from "../decisionTrace";
 import { getOrCreateEngine, type Section } from "../engineRegistry";
 import { similarTradesFor } from "../knowledge/knowledgeService";
-import { FEATURE_KEYS, type FeatureVector, type SimilarTradesResult } from "../knowledge/similarity";
+import { FEATURE_KEYS, type FeatureVector, type SimilarTradesResult,
+} from "../knowledge/similarity";
 import type { TradePlan } from "../strategies";
 import type { SignalRow } from "../strategy";
 import type { ExecutionResult } from "../execution/executor";
+import { sha256Fingerprint } from "../intelligence/canonical";
+import {
+  fingerprintDecisionBundle,
+  isPhase9DecisionBundle,
+  type Phase9DecisionBundle,
+} from "./approvalBundle";
 
 export interface ActionOutcome {
   ok: boolean;
@@ -44,9 +55,37 @@ export interface ActionOutcome {
   tradeId?: number;
   /** Set by modify(): the new, user-authored recommendation. */
   newRecommendationId?: number;
+  code?: string;
+  idempotentReplay?: boolean;
 }
 
-async function load(userId: number, section: Section, id: number): Promise<Recommendation | undefined> {
+export interface ApprovalRequest {
+  expectedPlanFingerprint: string;
+  expectedDecisionBundleFingerprint: string;
+  executionTarget: "demo" | "live";
+  approvalChallenge: string;
+  idempotencyKey: string;
+  confirmation: string;
+}
+
+export interface RejectionRequest {
+  expectedPlanFingerprint: string;
+  approvalChallenge: string;
+  note?: string;
+}
+
+export type ApprovalState =
+  | "PROPOSED"
+  | "APPROVABLE"
+  | "APPROVED"
+  | "REJECTED"
+  | "EXPIRED"
+  | "STALE"
+  | "INVALIDATED"
+  | "EXECUTION_BLOCKED";
+
+async function load(userId: number, section: Section, id: number,
+): Promise<Recommendation | undefined> {
   const [rec] = await db
     .select()
     .from(recommendationsTable)
@@ -54,7 +93,8 @@ async function load(userId: number, section: Section, id: number): Promise<Recom
       eq(recommendationsTable.id, id),
       eq(recommendationsTable.userId, userId),
       eq(recommendationsTable.section, section),
-    ))
+    ),
+    )
     .limit(1);
   return rec;
 }
@@ -73,7 +113,8 @@ export async function listInbox(
       eq(recommendationsTable.userId, userId),
       eq(recommendationsTable.section, section),
       inArray(recommendationsTable.status, statuses),
-    ))
+    ),
+    )
     .orderBy(desc(recommendationsTable.createdAt))
     .limit(Math.min(opts.limit ?? 50, 200));
 }
@@ -103,6 +144,153 @@ export interface RecommendationWorkspace {
    * on a young account is most of the time and is the correct answer.
    */
   similarTrades: SimilarTradesResult;
+  decisionBundle: Phase9DecisionBundle | null;
+  decisionBundleFingerprint: string | null;
+  executionTarget: "demo" | "live" | null;
+  approvalChallenge: string | null;
+  approvalState: ApprovalState;
+  approvalReadiness: {
+    approvable: boolean;
+    reason: string;
+    checks: RevalidationCheck[];
+  };
+  auditEvents: RecommendationEvent[];
+}
+
+/** Persist a refusal that happens at the HTTP authorization boundary. */
+export async function auditApprovalRefusal(
+  userId: number,
+  section: Section,
+  id: number,
+  code: string,
+  reason: string,
+): Promise<void> {
+  const rec = await load(userId, section, id);
+  if (!rec) return;
+  await db.insert(recommendationEventsTable).values({
+    recommendationId: rec.id,
+    userId,
+    section,
+    eventType: "APPROVAL_REFUSED",
+    actorType: "user",
+    actorUserId: userId,
+    fromStatus: rec.status,
+    toStatus: rec.status,
+    planFingerprint: rec.planFingerprint,
+    decisionBundleFingerprint: rec.decisionBundleFingerprint,
+    executionTarget: rec.executionTarget,
+    reasonCode: code,
+    reason,
+  });
+}
+
+function approvalStateFor(
+  rec: Recommendation,
+  approvable = false,
+  now = new Date(),
+): ApprovalState {
+  if (rec.status === "executed" || rec.status === "executing")
+    return "APPROVED";
+  if (rec.status === "rejected") return "REJECTED";
+  if (
+    rec.status === "expired" ||
+    (rec.status === "created" && now >= rec.expiresAt)
+  )
+    return "EXPIRED";
+  if (rec.status === "stale") return "STALE";
+  if (rec.status === "invalidated" || rec.status === "superseded")
+    return "INVALIDATED";
+  if (rec.status === "blocked") return "EXECUTION_BLOCKED";
+  return approvable ? "APPROVABLE" : "PROPOSED";
+}
+
+function idempotencyHash(approval: ApprovalRequest): string {
+  return sha256Fingerprint({
+    scope: "phase9-copilot-approval",
+    key: approval.idempotencyKey,
+    planFingerprint: approval.expectedPlanFingerprint,
+    decisionBundleFingerprint: approval.expectedDecisionBundleFingerprint,
+    executionTarget: approval.executionTarget,
+    approvalChallenge: approval.approvalChallenge,
+    confirmation: approval.confirmation,
+  });
+}
+
+async function currentRevalidation(
+  userId: number,
+  section: Section,
+  rec: Recommendation,
+  now: Date,
+) {
+  const plan = rec.plan as TradePlan;
+  const engine = getOrCreateEngine(userId, section);
+  const state = await engine.gatherRevalidationState({
+    symbol: rec.symbol,
+    strategyId: rec.strategyId,
+    side: rec.side === "short" ? "short" : "long",
+    entryPrice: Number(rec.entryPrice),
+    slPrice: Number(rec.slPrice),
+    tpPrice: Number(rec.tpPrice),
+    qty: Number(rec.qty),
+  }, now);
+  const bundle = isPhase9DecisionBundle(rec.decisionBundle)
+    ? rec.decisionBundle
+    : null;
+  const boundTarget: "demo" | "live" =
+    rec.executionTarget === "demo" || rec.executionTarget === "live"
+      ? rec.executionTarget
+      : "live";
+  const verdict = revalidate({
+    plan: {
+      symbol: rec.symbol,
+      side: rec.side,
+      strategyId: rec.strategyId,
+      entryPrice: Number(rec.entryPrice),
+      slPrice: Number(rec.slPrice),
+      qty: Number(rec.qty),
+    },
+    expiresAt: rec.expiresAt,
+    status: rec.status === "executing" ? "created" : rec.status,
+    now,
+    ...state,
+    safety: {
+      planFingerprintMatches:
+        planFingerprint(userId, plan) === rec.planFingerprint,
+      decisionBundleFingerprintMatches:
+        bundle !== null &&
+        rec.decisionBundleFingerprint !== null &&
+        fingerprintDecisionBundle(bundle) === rec.decisionBundleFingerprint &&
+        bundle.planFingerprint === rec.planFingerprint,
+      tradingMode: state.tradingMode,
+      boundExecutionTarget: boundTarget,
+      currentExecutionTarget: state.currentExecutionTarget,
+      reconciliationHealthy: state.reconciliationHealthy,
+      reconciliationDetail: state.reconciliationDetail,
+      executionEligible: state.executionEligible,
+      executionEligibilityDetail: state.executionEligibilityDetail,
+      ...(state.marketDataTimestamp && {
+        marketDataTimestamp: state.marketDataTimestamp,
+      }),
+      marketStateFresh: state.marketStateFresh,
+      marketStateHealthy: state.marketStateHealthy,
+      proposalRegime: plan.regime,
+      ...(state.currentRegime && { currentRegime: state.currentRegime }),
+      thesisValid: state.thesisValid,
+      thesisDetail: state.thesisDetail,
+      symbolExposureAfterUsdt: state.symbolExposureAfterUsdt,
+      maxSymbolExposureUsdt: state.maxSymbolExposureUsdt,
+      netExposureAfterUsdt: state.netExposureAfterUsdt,
+      maxNetExposureUsdt: state.maxNetExposureUsdt,
+      correlatedExposureAfterUsdt: state.correlatedExposureAfterUsdt,
+      maxCorrelatedExposureUsdt: state.maxCorrelatedExposureUsdt,
+      correlationKnownOrAllowed: state.correlationKnownOrAllowed,
+      sizingValid: state.sizingValid,
+      sizingDetail: state.sizingDetail,
+      executionCostViable: state.executionCostViable,
+      executionCostDetail: state.executionCostDetail,
+    },
+  });
+  return { engine, plan, state, bundle, boundTarget, verdict };
 }
 
 /**
@@ -116,17 +304,24 @@ export async function getRecommendationWorkspace(
   const rec = await load(userId, section, id);
   if (!rec) return null;
 
-  const engine = getOrCreateEngine(userId, section);
-  const state = await engine.gatherRevalidationState({
-    symbol: rec.symbol,
-    strategyId: rec.strategyId,
-    entryPrice: Number(rec.entryPrice),
-    slPrice: Number(rec.slPrice),
-    qty: Number(rec.qty),
-  });
+  const now = new Date();
+  const { state, bundle, verdict } = await currentRevalidation(
+    userId,
+    section,
+    rec,
+    now,
+  );
 
   const candidateRiskUsdt = Math.abs(Number(rec.entryPrice) - Number(rec.slPrice)) * Number(rec.qty);
-  const similarTrades = await similarTradesFor(userId, section, candidateFeatures(rec));
+  const similarTrades = await similarTradesFor(userId, section, candidateFeatures(rec),
+  );
+  const auditEvents = await db.select()
+      .from(recommendationEventsTable)
+      .where(and(eq(recommendationEventsTable.recommendationId, rec.id), eq(recommendationEventsTable.userId, userId),
+        eq(recommendationEventsTable.section, section),
+      ),
+    )
+      .orderBy(desc(recommendationEventsTable.occurredAt));
 
   return {
     recommendation: rec,
@@ -140,6 +335,22 @@ export async function getRecommendationWorkspace(
       maxPortfolioRiskUsdt: state.maxPortfolioRiskUsdt,
     },
     similarTrades,
+    decisionBundle: bundle,
+    decisionBundleFingerprint: rec.decisionBundleFingerprint,
+    executionTarget:
+      rec.executionTarget === "demo" || rec.executionTarget === "live"
+        ? rec.executionTarget
+        : null,
+    approvalChallenge: rec.approvalChallenge,
+    approvalState: approvalStateFor(rec, verdict.ok, now),
+    approvalReadiness: {
+      approvable: rec.status === "created" && verdict.ok,
+      reason: verdict.ok
+        ? "All current deterministic checks permit one controlled execution attempt"
+        : (verdict.reason ?? "Approval is not currently allowed"),
+      checks: verdict.checks,
+    },
+    auditEvents,
   };
 }
 
@@ -164,30 +375,138 @@ function candidateFeatures(rec: Recommendation): FeatureVector {
  * Approve and execute — after re-checking everything that could have changed.
  */
 export async function executeRecommendation(
-  userId: number, section: Section, id: number, now = new Date(),
+  userId: number, section: Section, id: number,
+  approval: ApprovalRequest,
+  now = new Date(),
 ): Promise<ActionOutcome> {
   const rec = await load(userId, section, id);
   if (!rec) return { ok: false, status: "created", reason: "Recommendation not found" };
+  const requestHash = idempotencyHash(approval);
   if (rec.status !== "created") {
-    return { ok: false, status: rec.status, reason: `Already ${rec.status} — it cannot be executed` };
+    if (
+      rec.approvalIdempotencyKeyHash === requestHash &&
+      rec.approvalResult &&
+      typeof rec.approvalResult === "object"
+    ) {
+      return {
+        ...(rec.approvalResult as ActionOutcome),
+        idempotentReplay: true,
+      };
+    }
+    return {
+      ok: false, status: rec.status, reason: `Already ${rec.status} — it cannot be executed`,
+    };
+  }
+
+  const bindingFailure =
+    approval.expectedPlanFingerprint !== rec.planFingerprint
+      ? {
+          code: "PLAN_BINDING_MISMATCH",
+          reason: "The approval does not match the plan currently displayed",
+        }
+      : approval.expectedDecisionBundleFingerprint !==
+          rec.decisionBundleFingerprint
+        ? {
+            code: "DECISION_BINDING_MISMATCH",
+            reason:
+              "The approval does not match the decision bundle currently displayed",
+          }
+        : approval.executionTarget !== rec.executionTarget
+          ? {
+              code: "TARGET_BINDING_MISMATCH",
+              reason:
+                "The approval target does not match the frozen proposal target",
+            }
+          : approval.approvalChallenge !== rec.approvalChallenge
+            ? {
+                code: "APPROVAL_CHALLENGE_MISMATCH",
+                reason:
+                  "The approval challenge is stale or invalid; reopen the proposal before acting",
+              }
+            : approval.confirmation !==
+                `APPROVE ${rec.symbol} ${rec.side.toUpperCase()} FOR ${String(rec.executionTarget).toUpperCase()}`
+              ? {
+                  code: "CONFIRMATION_MISMATCH",
+                  reason:
+                    "The explicit approval phrase does not match this proposal's symbol, side, and target",
+                }
+              : null;
+  if (bindingFailure) {
+    await db.insert(recommendationEventsTable).values({
+      recommendationId: rec.id,
+      userId,
+      section,
+      eventType: "APPROVAL_REFUSED",
+      actorType: "user",
+      actorUserId: userId,
+      fromStatus: rec.status,
+      toStatus: rec.status,
+      planFingerprint: rec.planFingerprint,
+      decisionBundleFingerprint: rec.decisionBundleFingerprint,
+      executionTarget: rec.executionTarget,
+      reasonCode: bindingFailure.code,
+      reason: bindingFailure.reason,
+    });
+    return {
+      ok: false,
+      status: rec.status,
+      code: bindingFailure.code,
+      reason: bindingFailure.reason,
+    };
   }
 
   // Financial idempotency boundary. Loading `created` and updating only after
   // the broker call lets two concurrent requests both place an order. Claim
   // the row with one compare-and-set before gathering state or touching an
   // executor; exactly one caller can receive the row back.
-  const [claimed] = await db
-    .update(recommendationsTable)
-    .set({ status: "executing", actedAt: now, resolutionReason: "approval claimed; re-validating current state" })
-    .where(and(
-      eq(recommendationsTable.id, rec.id),
+  const claimed = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(recommendationsTable)
+    .set({ status: "executing", actedAt: now,
+        approvedByUserId: userId,
+        approvalIdempotencyKeyHash: requestHash,
+        resolutionReason: "approval claimed; re-validating current state",
+      })
+      .where(
+        and(
+          eq(recommendationsTable.id, rec.id),
       eq(recommendationsTable.userId, userId),
       eq(recommendationsTable.section, section),
       eq(recommendationsTable.status, "created"),
-    ))
-    .returning();
+        ),
+      )
+      .returning();
+  if (!row) return null;
+    await tx.insert(recommendationEventsTable).values({
+      recommendationId: rec.id,
+      userId,
+      section,
+      eventType: "APPROVAL_REQUESTED",
+      actorType: "user",
+      actorUserId: userId,
+      fromStatus: "created",
+      toStatus: "executing",
+      planFingerprint: rec.planFingerprint,
+      decisionBundleFingerprint: rec.decisionBundleFingerprint,
+      executionTarget: rec.executionTarget,
+      reasonCode: "EXPLICIT_HUMAN_APPROVAL",
+      reason:
+        "User explicitly authorized one controlled execution attempt subject to fresh revalidation",
+    });
+    return row;
+  });
   if (!claimed) {
     const current = await load(userId, section, id);
+    if (
+      current?.approvalIdempotencyKeyHash === requestHash &&
+      current.approvalResult &&
+      typeof current.approvalResult === "object"
+    ) {
+      return {
+        ...(current.approvalResult as ActionOutcome),
+        idempotentReplay: true,
+      };
+    }
     return {
       ok: false,
       status: current?.status ?? "blocked",
@@ -195,97 +514,334 @@ export async function executeRecommendation(
     };
   }
 
-  const engine = getOrCreateEngine(userId, section);
-  const plan = rec.plan as TradePlan;
-  const state = await engine.gatherRevalidationState({
-    symbol: rec.symbol,
-    strategyId: rec.strategyId,
-    entryPrice: Number(rec.entryPrice),
-    slPrice: Number(rec.slPrice),
-    qty: Number(rec.qty),
-  });
-
-  const verdict = revalidate({
-    plan: {
-      symbol: rec.symbol, side: rec.side, strategyId: rec.strategyId,
-      entryPrice: Number(rec.entryPrice), slPrice: Number(rec.slPrice), qty: Number(rec.qty),
-    },
-    expiresAt: rec.expiresAt,
-    // `executing` is the database claim, not a change to the plan's semantic
-    // eligibility. The compare-and-set above proved it was created exactly
-    // once, so the pure validator should evaluate the claimed plan as such.
-    status: "created",
-    now,
-    ...state,
-  });
+  let current: Awaited<ReturnType<typeof currentRevalidation>>;
+  try {
+    current = await currentRevalidation(userId, section, claimed, now);
+  } catch (err) {
+    const reason = "Current financial state could not be established; approval failed closed and a new proposal is required";
+    const outcome: ActionOutcome = { ok: false, status: "blocked", code: "REVALIDATION_UNAVAILABLE", reason };
+    await db.transaction(async (tx) => {
+      await tx.update(recommendationsTable)
+        .set({ status: "blocked", actedAt: now, resolutionReason: reason, approvalResult: outcome as unknown as object })
+        .where(and(eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing")));
+      await tx.insert(recommendationEventsTable).values({
+        recommendationId: rec.id, userId, section, eventType: "APPROVAL_REFUSED",
+        actorType: "system", actorUserId: userId, fromStatus: "executing", toStatus: "blocked",
+        planFingerprint: rec.planFingerprint, decisionBundleFingerprint: rec.decisionBundleFingerprint,
+        executionTarget: rec.executionTarget, reasonCode: "REVALIDATION_UNAVAILABLE", reason,
+      });
+    });
+    logger.error({ err, recommendationId: rec.id }, "CO-PILOT: current state collection failed closed");
+    return outcome;
+  }
+  const { engine, plan, boundTarget, verdict } = current;
 
   if (!verdict.ok) {
     // Terminal. The situation that made this plan sensible has passed, so it
     // does not return to the inbox for another attempt — except when the plan
     // was already resolved, where the existing status is the truth.
-    await db.update(recommendationsTable)
-      .set({ status: "blocked", actedAt: now, resolutionReason: verdict.reason ?? verdict.code ?? "blocked" })
-      .where(and(eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing")));
-    logger.info({ recommendationId: rec.id, code: verdict.code }, "CO-PILOT: approval refused at re-validation");
-    return { ok: false, status: "blocked", reason: verdict.reason ?? "Re-validation failed", checks: verdict.checks };
+    const terminalStatus: Recommendation["status"] =
+      verdict.code === "EXPIRED"
+        ? "expired"
+        : verdict.code === "MARKET_DATA_STALE" ||
+            verdict.code === "PRICE_UNAVAILABLE" ||
+            verdict.code === "PRICE_DRIFT"
+          ? "stale"
+          : verdict.code === "THESIS_INVALIDATED" ||
+              verdict.code === "MARKET_STATE_INVALID" ||
+              verdict.code === "PLAN_MUTATED" ||
+              verdict.code === "DECISION_BUNDLE_MUTATED" ||
+              verdict.code === "TARGET_CHANGED" ||
+              verdict.code === "WRONG_MODE"
+            ? "invalidated"
+            : "blocked";
+    const outcome: ActionOutcome = {
+      ok: false,
+      status: terminalStatus,
+      code: verdict.code,
+      reason: verdict.reason ?? "Re-validation failed",
+      checks: verdict.checks,
+    };
+    await db.transaction(async (tx) => {
+      await tx
+        .update(recommendationsTable)
+        .set({ status: terminalStatus,
+          actedAt: now, resolutionReason: outcome.reason,
+          lastValidation: verdict as unknown as object,
+          approvalResult: outcome as unknown as object,
+        })
+        .where(
+          and(
+            eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing"),
+          ),
+        );
+      await tx.insert(recommendationEventsTable).values({
+        recommendationId: rec.id,
+        userId,
+        section,
+        eventType:
+          terminalStatus === "expired"
+            ? "EXPIRED"
+            : terminalStatus === "stale"
+              ? "STALE"
+              : terminalStatus === "invalidated"
+                ? "INVALIDATED"
+                : "APPROVAL_REFUSED",
+        actorType: "system",
+        actorUserId: userId,
+        fromStatus: "executing",
+        toStatus: terminalStatus,
+        planFingerprint: rec.planFingerprint,
+        decisionBundleFingerprint: rec.decisionBundleFingerprint,
+        executionTarget: rec.executionTarget,
+        reasonCode: verdict.code ?? "REVALIDATION_FAILED",
+        reason: outcome.reason,
+        validationResult: verdict as unknown as object,
+      });
+    });
+    logger.info(
+      { recommendationId: rec.id, code: verdict.code }, "CO-PILOT: approval refused at re-validation",
+    );
+    return outcome;
   }
 
-  const row = (rec.signalRow ?? { confidence: Number(rec.confidence), votes: [] }) as SignalRow;
+  await db.transaction(async (tx) => {
+    await tx
+      .update(recommendationsTable)
+      .set({ lastValidation: verdict as unknown as object })
+      .where(
+        and(
+          eq(recommendationsTable.id, rec.id),
+          eq(recommendationsTable.status, "executing"),
+        ),
+      );
+    await tx.insert(recommendationEventsTable).values({
+      recommendationId: rec.id,
+      userId,
+      section,
+      eventType: "APPROVAL_AUTHORIZED",
+      actorType: "system",
+      actorUserId: userId,
+      fromStatus: "executing",
+      toStatus: "executing",
+      planFingerprint: rec.planFingerprint,
+      decisionBundleFingerprint: rec.decisionBundleFingerprint,
+      executionTarget: rec.executionTarget,
+      reasonCode: "REVALIDATION_PASSED",
+      reason:
+        "Fresh deterministic revalidation authorized one execution attempt",
+      validationResult: verdict as unknown as object,
+    });
+  });
+
+  const row = (rec.signalRow ?? { confidence: Number(rec.confidence), votes: [],
+  }) as SignalRow;
   let result: ExecutionResult;
   try {
-    result = await engine.executeApprovedPlan(plan, row, now);
+    result = await engine.executeApprovedPlan(plan, row, now, boundTarget);
   } catch (err) {
     const reason = "Execution failed after approval was claimed; verify broker and execution-intent state before taking any further action";
-    await db.update(recommendationsTable)
-      .set({ status: "blocked", actedAt: now, resolutionReason: reason })
-      .where(and(eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing")));
-    logger.error({ err, recommendationId: rec.id }, "CO-PILOT: claimed approval threw during execution");
-    return { ok: false, status: "blocked", reason, checks: verdict.checks };
+    const outcome: ActionOutcome = {
+      ok: false,
+      status: "blocked",
+      code: "EXECUTION_AMBIGUOUS",
+      reason,
+      checks: verdict.checks,
+    };
+    await db.transaction(async (tx) => {
+      await tx
+        .update(recommendationsTable)
+        .set({ status: "blocked", actedAt: now, resolutionReason: reason,
+          approvalResult: outcome as unknown as object,
+        })
+        .where(
+          and(
+            eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing"),
+          ),
+        );
+      await tx.insert(recommendationEventsTable).values({
+        recommendationId: rec.id,
+        userId,
+        section,
+        eventType: "EXECUTION_BLOCKED",
+        actorType: "system",
+        actorUserId: userId,
+        fromStatus: "executing",
+        toStatus: "blocked",
+        planFingerprint: rec.planFingerprint,
+        decisionBundleFingerprint: rec.decisionBundleFingerprint,
+        executionTarget: rec.executionTarget,
+        reasonCode: "EXECUTION_AMBIGUOUS",
+        reason,
+      });
+    });
+    logger.error(
+      { err, recommendationId: rec.id }, "CO-PILOT: claimed approval threw during execution",
+    );
+    return outcome;
   }
 
   if (!result.entered) {
-    await db.update(recommendationsTable)
-      .set({ status: "blocked", actedAt: now, resolutionReason: result.reason })
-      .where(and(eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing")));
-    return { ok: false, status: "blocked", reason: result.reason, checks: verdict.checks };
+    const outcome: ActionOutcome = {
+      ok: false, status: "blocked",
+      code: "EXECUTION_REFUSED",
+      reason: result.reason,
+      checks: verdict.checks,
+    };
+    await db.transaction(async (tx) => {
+    await tx
+        .update(recommendationsTable)
+        .set({ status: "blocked", actedAt: now, resolutionReason: result.reason,
+          approvalResult: outcome as unknown as object,
+        })
+        .where(
+          and(
+            eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing"),
+          ),
+        );
+      await tx.insert(recommendationEventsTable).values({
+        recommendationId: rec.id,
+        userId,
+        section,
+        eventType: "EXECUTION_BLOCKED",
+        actorType: "system",
+        actorUserId: userId,
+        fromStatus: "executing",
+        toStatus: "blocked",
+        planFingerprint: rec.planFingerprint,
+        decisionBundleFingerprint: rec.decisionBundleFingerprint,
+        executionTarget: rec.executionTarget,
+        reasonCode: "EXECUTION_REFUSED",
+        reason: result.reason,
+      });
+    });
+    return outcome;
   }
 
-  await db.update(recommendationsTable)
-    .set({
+  const outcome: ActionOutcome = { ok: true,
+    status: "executed",
+    code: "EXECUTION_SUCCEEDED",
+    reason: result.reason, checks: verdict.checks,
+    ...(result.tradeId != null && { tradeId: result.tradeId }),
+  };
+  await db.transaction(async (tx) => {
+    await tx
+      .update(recommendationsTable)
+      .set({
       status: "executed", actedAt: now,
       ...(result.tradeId != null && { tradeId: result.tradeId }),
       resolutionReason: result.reason,
-    })
-    .where(and(eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing")));
+        approvalResult: outcome as unknown as object,
+      })
+      .where(
+        and(
+          eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing"),
+        ),
+      );
+    await tx.insert(recommendationEventsTable).values({
+      recommendationId: rec.id,
+      userId,
+      section,
+      eventType: "EXECUTION_SUCCEEDED",
+      actorType: "system",
+      actorUserId: userId,
+      fromStatus: "executing",
+      toStatus: "executed",
+      planFingerprint: rec.planFingerprint,
+      decisionBundleFingerprint: rec.decisionBundleFingerprint,
+      executionTarget: rec.executionTarget,
+      reasonCode: "EXECUTION_SUCCEEDED",
+      reason: result.reason,
+      payload: { ...(result.tradeId != null && { tradeId: result.tradeId }) },
+    });
+  });
 
-  logger.info({ recommendationId: rec.id, tradeId: result.tradeId }, "CO-PILOT: user approved — position opened");
-  return {
-    ok: true, status: "executed", reason: result.reason,
-    checks: verdict.checks, ...(result.tradeId != null && { tradeId: result.tradeId }),
-  };
+  logger.info(
+    { recommendationId: rec.id, tradeId: result.tradeId },
+    "CO-PILOT: user approved — position opened",
+  );
+  return outcome;
 }
 
 /** Decline a recommendation. Recorded, not deleted. */
 export async function rejectRecommendation(
-  userId: number, section: Section, id: number, note?: string, now = new Date(),
+  userId: number, section: Section, id: number,
+  rejection: RejectionRequest,
+  now = new Date(),
 ): Promise<ActionOutcome> {
   const rec = await load(userId, section, id);
   if (!rec) return { ok: false, status: "created", reason: "Recommendation not found" };
   if (rec.status !== "created") {
-    return { ok: false, status: rec.status, reason: `Already ${rec.status} — nothing to reject` };
+    return { ok: false, status: rec.status, reason: `Already ${rec.status} — nothing to reject`,
+    };
   }
-  const [rejected] = await db.update(recommendationsTable)
-    .set({ status: "rejected", actedAt: now, resolutionReason: note?.trim() || "declined by the user" })
-    .where(and(
-      eq(recommendationsTable.id, rec.id),
+  if (
+    rejection.expectedPlanFingerprint !== rec.planFingerprint ||
+    rejection.approvalChallenge !== rec.approvalChallenge
+  ) {
+    const reason =
+      "The rejection is bound to a stale or different proposal; reopen it before acting";
+    await db.insert(recommendationEventsTable).values({
+      recommendationId: rec.id,
+      userId,
+      section,
+      eventType: "APPROVAL_REFUSED",
+      actorType: "user",
+      actorUserId: userId,
+      fromStatus: rec.status,
+      toStatus: rec.status,
+      planFingerprint: rec.planFingerprint,
+      decisionBundleFingerprint: rec.decisionBundleFingerprint,
+      executionTarget: rec.executionTarget,
+      reasonCode: "REJECTION_BINDING_MISMATCH",
+      reason,
+    });
+    return {
+      ok: false,
+      status: rec.status,
+      code: "REJECTION_BINDING_MISMATCH",
+      reason,
+    };
+  }
+  const reason = rejection.note?.trim() || "declined by the user";
+  const rejected = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(recommendationsTable)
+      .set({ status: "rejected", actedAt: now,
+        rejectedByUserId: userId,
+        resolutionReason: reason,
+      })
+      .where(
+        and(
+          eq(recommendationsTable.id, rec.id),
       eq(recommendationsTable.userId, userId),
       eq(recommendationsTable.section, section),
       eq(recommendationsTable.status, "created"),
-    ))
-    .returning({ id: recommendationsTable.id });
+        ),
+      )
+      .returning({ id: recommendationsTable.id });
+  if (!row) return null;
+    await tx.insert(recommendationEventsTable).values({
+      recommendationId: rec.id,
+      userId,
+      section,
+      eventType: "REJECTED",
+      actorType: "user",
+      actorUserId: userId,
+      fromStatus: "created",
+      toStatus: "rejected",
+      planFingerprint: rec.planFingerprint,
+      decisionBundleFingerprint: rec.decisionBundleFingerprint,
+      executionTarget: rec.executionTarget,
+      reasonCode: "EXPLICIT_HUMAN_REJECTION",
+      reason,
+    });
+    return row;
+  });
   if (!rejected) {
     const current = await load(userId, section, id);
-    return { ok: false, status: current?.status ?? "blocked", reason: `Already ${current?.status ?? "resolved"} — nothing to reject` };
+    return { ok: false, status: current?.status ?? "blocked", reason: `Already ${current?.status ?? "resolved"} — nothing to reject`,
+    };
   }
   return { ok: true, status: "rejected", reason: "Recommendation declined" };
 }
@@ -310,13 +866,29 @@ export async function modifyRecommendation(
   const rec = await load(userId, section, id);
   if (!rec) return { ok: false, status: "created", reason: "Recommendation not found" };
   if (rec.status !== "created") {
-    return { ok: false, status: rec.status, reason: `Already ${rec.status} — it can no longer be modified` };
+    return { ok: false, status: rec.status, reason: `Already ${rec.status} — it can no longer be modified`,
+    };
   }
 
   const original = rec.plan as TradePlan;
   const slPrice = changes.slPrice ?? Number(rec.slPrice);
   const tpPrice = changes.tpPrice ?? Number(rec.tpPrice);
   const qty = changes.qty ?? Number(rec.qty);
+  const originalBundle = isPhase9DecisionBundle(rec.decisionBundle)
+    ? rec.decisionBundle
+    : null;
+  if (
+    !originalBundle ||
+    rec.decisionBundleFingerprint !== fingerprintDecisionBundle(originalBundle)
+  ) {
+    return {
+      ok: false,
+      status: rec.status,
+      code: "DECISION_BUNDLE_INVALID",
+      reason:
+        "This proposal predates the Phase 9 immutable bundle or failed integrity validation; request a new proposal",
+    };
+  }
 
   // Geometry the engine would never have produced must not be creatable by
   // hand either. A stop on the wrong side of entry is not a preference.
@@ -333,23 +905,64 @@ export async function modifyRecommendation(
     };
   }
 
+  const stopTightensOrMatches = isShort
+    ? slPrice <= Number(rec.slPrice)
+    : slPrice >= Number(rec.slPrice);
+  const riskReduced =
+    qty <= Number(rec.qty) &&
+    stopTightensOrMatches &&
+    tpPrice === Number(rec.tpPrice);
+  if (!riskReduced) {
+    return {
+      ok: false,
+      status: rec.status,
+      code: "NEW_PROPOSAL_REQUIRED",
+      reason:
+        "Only a smaller quantity or tighter protective stop may reuse this decision; target, size increases, and wider stops require a new engine proposal",
+    };
+  }
+
   const modifiedPlan: TradePlan = { ...original, slPrice, tpPrice, qty };
   const correlationId = randomUUID();
   const newExpiresAt = expiryFor(modifiedPlan, now);
-  const derivedTrace = relabelTraceForModification(rec.decisionTrace as PipelineStage[] | null, newExpiresAt);
+  const derivedTrace = relabelTraceForModification(
+    rec.decisionTrace as PipelineStage[] | null,
+    newExpiresAt,
+  );
+  const modifiedPlanFingerprint = planFingerprint(userId, modifiedPlan);
+  const modifiedBundle: Phase9DecisionBundle = {
+    ...originalBundle,
+    createdAt: now.toISOString(),
+    planFingerprint: modifiedPlanFingerprint,
+    risk: {
+      ...originalBundle.risk,
+      candidateMaximumLoss: Math.abs(entry - slPrice) * qty,
+      candidateNotional: entry * qty,
+    },
+    limitations: [
+      ...originalBundle.limitations,
+      `Bounded user risk reduction derived from recommendation #${rec.id}; the original decision and thesis remain immutable evidence.`,
+    ],
+  };
+  const modifiedBundleFingerprint = fingerprintDecisionBundle(modifiedBundle);
+  const approvalChallenge = randomUUID();
 
   const created = await db.transaction(async (tx) => {
     // Win the same lifecycle compare-and-set used by Execute and Reject.
     // The insert and original-state update commit together, so a failed child
     // insert can never strand the original as superseded without a replacement.
-    const [claimedOriginal] = await tx.update(recommendationsTable)
-      .set({ status: "superseded", actedAt: now, resolutionReason: "creating user-modified replacement" })
-      .where(and(
-        eq(recommendationsTable.id, rec.id),
+    const [claimedOriginal] = await tx
+      .update(recommendationsTable)
+      .set({ status: "superseded", actedAt: now, resolutionReason: "creating user-modified replacement",
+      })
+      .where(
+        and(
+          eq(recommendationsTable.id, rec.id),
         eq(recommendationsTable.userId, userId),
         eq(recommendationsTable.section, section),
         eq(recommendationsTable.status, "created"),
-      ))
+        ),
+      )
       .returning({ id: recommendationsTable.id });
     if (!claimedOriginal) return null;
 
@@ -359,7 +972,7 @@ export async function modifyRecommendation(
         userId,
         section,
         correlationId,
-        planFingerprint: planFingerprint(userId, modifiedPlan),
+        planFingerprint: modifiedPlanFingerprint,
         status: "created",
         authoredBy: "user",
         derivedFromId: rec.id,
@@ -376,12 +989,50 @@ export async function modifyRecommendation(
         plan: modifiedPlan,
         signalRow: rec.signalRow,
         decisionTrace: derivedTrace as unknown as object,
+        decisionBundle: modifiedBundle as unknown as object,
+        decisionBundleFingerprint: modifiedBundleFingerprint,
+        executionTarget: rec.executionTarget,
+        approvalChallenge,
         expiresAt: newExpiresAt,
       })
       .returning();
-    await tx.update(recommendationsTable)
-      .set({ resolutionReason: `replaced by your modified plan #${inserted!.id}` })
+    await tx
+      .update(recommendationsTable)
+      .set({ resolutionReason: `replaced by your modified plan #${inserted!.id}`,
+      })
       .where(eq(recommendationsTable.id, rec.id));
+    await tx.insert(recommendationEventsTable).values([
+      {
+        recommendationId: rec.id,
+        userId,
+        section,
+        eventType: "SUPERSEDED",
+        actorType: "user",
+        actorUserId: userId,
+        fromStatus: "created",
+        toStatus: "superseded",
+        planFingerprint: rec.planFingerprint,
+        decisionBundleFingerprint: rec.decisionBundleFingerprint,
+        executionTarget: rec.executionTarget,
+        reasonCode: "BOUNDED_RISK_REDUCTION",
+        reason: `Superseded by bounded risk-reduction proposal #${inserted!.id}`,
+      },
+      {
+        recommendationId: inserted!.id,
+        userId,
+        section,
+        eventType: "PROPOSED",
+        actorType: "user",
+        actorUserId: userId,
+        fromStatus: null,
+        toStatus: "created",
+        planFingerprint: modifiedPlanFingerprint,
+        decisionBundleFingerprint: modifiedBundleFingerprint,
+        executionTarget: rec.executionTarget,
+        reasonCode: "BOUNDED_RISK_REDUCTION",
+        reason: `User created a bounded risk-reduction variant of proposal #${rec.id}`,
+      },
+    ]);
     return inserted!;
   });
 

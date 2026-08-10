@@ -446,6 +446,31 @@ paths:
           in: path
           required: true
           schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                [
+                  expectedPlanFingerprint,
+                  expectedDecisionBundleFingerprint,
+                  executionTarget,
+                  approvalChallenge,
+                  idempotencyKey,
+                  confirmation,
+                ]
+              properties:
+                expectedPlanFingerprint:
+                  { type: string, pattern: "^[a-fA-F0-9]{64}$" }
+                expectedDecisionBundleFingerprint:
+                  { type: string, pattern: "^[a-fA-F0-9]{64}$" }
+                executionTarget: { type: string, enum: [demo, live] }
+                approvalChallenge: { type: string, format: uuid }
+                idempotencyKey: { type: string, minLength: 16, maxLength: 200 }
+                confirmation: { type: string, maxLength: 200 }
+                password: { type: string, writeOnly: true, maxLength: 1024 }
       responses:
         "200":
           description: Outcome, with every re-validation check that ran
@@ -465,13 +490,19 @@ paths:
           required: true
           schema: { type: integer }
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required: [expectedPlanFingerprint, approvalChallenge]
               properties:
+                expectedPlanFingerprint:
+                  { type: string, pattern: "^[a-fA-F0-9]{64}$" }
+                approvalChallenge: { type: string, format: uuid }
                 note:
                   type: string
+                  maxLength: 1000
       responses:
         "200":
           description: Outcome
@@ -1939,7 +1970,12 @@ components:
 
     EvidenceSnapshot:
       type: object
-      required: [schemaVersion, snapshotVersion, fingerprint, executionTarget, generatedAt, dataCutoff, totalOutcomes, minimumSamples, falseDiscoveryRate, cellsTested, records, limitations]
+      required:
+        [
+          schemaVersion,
+          snapshotVersion, fingerprint, executionTarget, generatedAt, dataCutoff, totalOutcomes, minimumSamples, falseDiscoveryRate, cellsTested, records,
+          limitations,
+        ]
       properties:
         schemaVersion: { type: string, const: evidence-v1 }
         snapshotVersion: { type: string }
@@ -1960,7 +1996,12 @@ components:
 
     EvidenceRecord:
       type: object
-      required: [schemaVersion, evidenceId, fingerprint, lifecycle, scope, metrics, statistics, drift, permission, learnedStatement, permittedBehavior, dataCutoff, latestOutcomeAt, ageDays, halfLifeDays, decayWeight]
+      required:
+        [
+          schemaVersion,
+          evidenceId, fingerprint, lifecycle, scope, metrics, statistics, drift, permission, learnedStatement, permittedBehavior, dataCutoff, latestOutcomeAt, ageDays, halfLifeDays,
+          decayWeight,
+        ]
       properties:
         schemaVersion: { type: string, const: evidence-v1 }
         evidenceId: { type: string, format: uuid }
@@ -1968,9 +2009,20 @@ components:
         lifecycle: { type: string, enum: [observational, shadow] }
         scope:
           type: object
-          required: [dimension, key, label, strategyId, regime, symbol, symbolClass, direction, volatility, session, confidenceBucket, managementPolicy]
+          required:
+            [
+              dimension,
+              key, label, strategyId, regime, symbol, symbolClass, direction, volatility, session, confidenceBucket,
+              managementPolicy,
+            ]
           properties:
-            dimension: { type: string, enum: [strategy_regime, symbol_strategy, symbol_class, direction, volatility, session, confidence_bucket, management_policy] }
+            dimension: { type: string, enum:
+                  [
+                    strategy_regime,
+                    symbol_strategy, symbol_class, direction, volatility, session, confidence_bucket,
+                    management_policy,
+                  ],
+              }
             key: { type: string }
             label: { type: string }
             strategyId: { type: [string, "null"] }
@@ -1985,7 +2037,12 @@ components:
           additionalProperties: false
         metrics:
           type: object
-          required: [samples, minimumSamples, gated, wins, losses, scratches, winRate, winRateInterval, grossPnlUsdt, grossPnlCoverage, feesUsdt, slippageUsdt, costCoverage, netPnlUsdt, expectancyUsdt, expectancyInterval, profitFactor, averageR, averageRInterval, averageMaeUsdt, averageMfeUsdt, excursionCoverage, averageTimeToMaeSeconds, averageTimeToMfeSeconds, excursionTimingCoverage]
+          required:
+            [
+              samples,
+              minimumSamples, gated, wins, losses, scratches, winRate, winRateInterval, grossPnlUsdt, grossPnlCoverage, feesUsdt, slippageUsdt, costCoverage, netPnlUsdt, expectancyUsdt, expectancyInterval, profitFactor, averageR, averageRInterval, averageMaeUsdt, averageMfeUsdt, excursionCoverage, averageTimeToMaeSeconds, averageTimeToMfeSeconds,
+              excursionTimingCoverage,
+            ]
           properties:
             samples: { type: integer, minimum: 0 }
             minimumSamples: { type: integer, minimum: 1 }
@@ -2024,7 +2081,12 @@ components:
           additionalProperties: false
         statistics:
           type: object
-          required: [baselineWinRate, pValue, qValue, falseDiscoveryRate, correction, significant, effectDirection]
+          required:
+            [
+              baselineWinRate,
+              pValue, qValue, falseDiscoveryRate, correction, significant,
+              effectDirection,
+            ]
           properties:
             baselineWinRate: { type: [number, "null"] }
             pValue: { type: [number, "null"] }
@@ -2032,12 +2094,19 @@ components:
             falseDiscoveryRate: { type: number }
             correction: { type: string, const: benjamini-hochberg }
             significant: { type: boolean }
-            effectDirection: { type: string, enum: [better, worse, indistinguishable, unknown] }
+            effectDirection: { type: string, enum: [better, worse, indistinguishable, unknown],
+              }
         drift:
           type: object
-          required: [status, referenceSamples, recentSamples, referenceWinRate, recentWinRate, absoluteShift, intervalsOverlap, reason]
+          required:
+            [
+              status,
+              referenceSamples, recentSamples, referenceWinRate, recentWinRate, absoluteShift, intervalsOverlap,
+              reason,
+            ]
           properties:
-            status: { type: string, enum: [stable, watch, degraded, insufficient_data] }
+            status: { type: string, enum: [stable, watch, degraded, insufficient_data],
+              }
             referenceSamples: { type: integer, minimum: 0 }
             recentSamples: { type: integer, minimum: 0 }
             referenceWinRate: { type: [number, "null"] }
@@ -2066,10 +2135,16 @@ components:
 
     EvidenceRuleSet:
       type: object
-      required: [ruleVersion, status, validationId, executionTarget, permits, dataCutoff, createdAt, validation, drift]
+      required:
+        [
+          ruleVersion,
+          status, validationId, executionTarget, permits, dataCutoff, createdAt, validation,
+          drift,
+        ]
       properties:
         ruleVersion: { type: string }
-        status: { type: string, enum: [observational, shadow, approved, active, suspended, retired] }
+        status: { type: string, enum: [observational, shadow, approved, active, suspended, retired],
+          }
         validationId: { type: integer }
         executionTarget: { type: string, enum: [demo, live] }
         permits: { type: string, enum: [withhold, reduce-risk] }
@@ -2080,7 +2155,12 @@ components:
         createdAt: { type: string, format: date-time }
         validation:
           type: object
-          required: [verdict, summary, validationTrades, embargoedTrades, expectancyDelta]
+          required:
+            [
+              verdict,
+              summary, validationTrades, embargoedTrades,
+              expectancyDelta,
+            ]
           properties:
             verdict: { type: string, enum: [improved, no_better, insufficient_data] }
             summary: { type: string }
@@ -2092,12 +2172,18 @@ components:
           type: object
           required: [status]
           properties:
-            status: { type: string, enum: [stable, watch, degraded, insufficient_data] }
+            status: { type: string, enum: [stable, watch, degraded, insufficient_data],
+              }
           additionalProperties: true
 
     EvidenceValidationResult:
       type: object
-      required: [verdict, summary, stateVersion, trainTrades, validationTrades, embargoedTrades, embargoMs, dataCutoff, withheld, withheldPnlUsdt, expectancyDelta, baseline, withMemory, rules]
+      required:
+        [
+          verdict,
+          summary, stateVersion, trainTrades, validationTrades, embargoedTrades, embargoMs, dataCutoff, withheld, withheldPnlUsdt, expectancyDelta, baseline, withMemory,
+          rules,
+        ]
       properties:
         verdict: { type: string, enum: [improved, no_better, insufficient_data] }
         summary: { type: string }
@@ -2165,18 +2251,23 @@ components:
         startDate: { type: string, format: date-time }
         endDate: { type: string, format: date-time }
         marketType: { type: string, enum: [spot, futures, forex] }
-        startingBalance: { type: number, exclusiveMinimum: 0, maximum: 1000000000, default: 10000 }
-        positionSizeUsdt: { type: number, exclusiveMinimum: 0, maximum: 100000000, default: 100 }
+        startingBalance: { type: number, exclusiveMinimum: 0, maximum: 1000000000, default: 10000,
+          }
+        positionSizeUsdt: { type: number, exclusiveMinimum: 0, maximum: 100000000, default: 100,
+          }
         maxOpenPositions: { type: integer, minimum: 1, maximum: 100, default: 5 }
-        dailyLossLimitUsdt: { type: number, exclusiveMinimum: 0, maximum: 100000000, default: 500 }
+        dailyLossLimitUsdt: { type: number, exclusiveMinimum: 0, maximum: 100000000, default: 500,
+          }
         leverage: { type: integer, minimum: 1, maximum: 125, default: 1 }
         folds: { type: integer, minimum: 1, maximum: 10, default: 3 }
         holdoutFraction: { type: number, minimum: 0.1, maximum: 0.5, default: 0.2 }
         purgeMinutes: { type: integer, minimum: 0, maximum: 10080, default: 60 }
         embargoMinutes: { type: integer, minimum: 0, maximum: 10080, default: 60 }
         deterministicSeed: { type: integer, minimum: 0, maximum: 2147483647, default: 42 }
-        falseDiscoveryRate: { type: number, exclusiveMinimum: 0, exclusiveMaximum: 1, default: 0.05 }
-        candidateBrainVersion: { type: string, minLength: 1, maxLength: 120, default: phase8-full-brain-v1 }
+        falseDiscoveryRate: { type: number, exclusiveMinimum: 0, exclusiveMaximum: 1, default: 0.05,
+          }
+        candidateBrainVersion: { type: string, minLength: 1, maxLength: 120, default: phase8-full-brain-v1,
+          }
         maxPortfolioRiskPercent: { type: number, exclusiveMinimum: 0, maximum: 100, default: 10 }
         maxSymbolConcentrationPercent: { type: number, exclusiveMinimum: 0, maximum: 1000, default: 100 }
         maxNetExposurePercent: { type: number, exclusiveMinimum: 0, maximum: 2000, default: 200 }
@@ -2197,7 +2288,12 @@ components:
     ResearchMetrics:
       type: object
       additionalProperties: false
-      required: [eligibleDecisions, closedTrades, calendarDays, grossPnl, costs, netPnl, netExpectancyR, profitFactor, maxDrawdown, expectedShortfallR, abstentionRate, regimeMix, uncertainty]
+      required:
+        [
+          eligibleDecisions,
+          closedTrades, calendarDays, grossPnl, costs, netPnl, netExpectancyR, profitFactor, maxDrawdown, expectedShortfallR, abstentionRate, regimeMix,
+          uncertainty,
+        ]
       properties:
         eligibleDecisions: { type: integer, minimum: 0 }
         closedTrades: { type: integer, minimum: 0 }
@@ -2215,7 +2311,12 @@ components:
           additionalProperties: { type: integer, minimum: 0 }
         uncertainty:
           type: object
-          required: [method, confidenceLevel, lowerNetExpectancyR, upperNetExpectancyR, samples]
+          required:
+            [
+              method,
+              confidenceLevel, lowerNetExpectancyR, upperNetExpectancyR,
+              samples,
+            ]
           properties:
             method: { type: string, enum: [bootstrap-percentile] }
             confidenceLevel: { type: number }
@@ -2226,7 +2327,12 @@ components:
     ResearchPromotionReport:
       type: object
       additionalProperties: false
-      required: [schemaVersion, experimentId, manifestFingerprint, generatedAt, control, candidate, attribution, goldenStream, leakageChecks, multipleTesting, gateChecks, recommendation, humanApprovalRequired, limitations, fingerprint]
+      required:
+        [
+          schemaVersion,
+          experimentId, manifestFingerprint, generatedAt, control, candidate, attribution, goldenStream, leakageChecks, multipleTesting, gateChecks, recommendation, humanApprovalRequired, limitations,
+          fingerprint,
+        ]
       properties:
         schemaVersion: { type: string }
         experimentId: { type: string, format: uuid }
@@ -2266,7 +2372,8 @@ components:
               passed: { type: boolean }
               actual: { type: string }
               required: { type: string }
-        recommendation: { type: string, enum: [REJECT, REMAIN_RESEARCH, ELIGIBLE_FOR_HUMAN_REVIEW] }
+        recommendation: { type: string, enum: [REJECT, REMAIN_RESEARCH, ELIGIBLE_FOR_HUMAN_REVIEW],
+          }
         humanApprovalRequired: { type: boolean, enum: [true] }
         limitations:
           type: array
@@ -2276,13 +2383,19 @@ components:
     ResearchExperiment:
       type: object
       additionalProperties: false
-      required: [id, section, name, status, stage, progress, cancelRequested, decisionEventCount, managementEventCount, mode, cannotExecute, request, createdAt]
+      required:
+        [
+          id,
+          section, name, status, stage, progress, cancelRequested, decisionEventCount, managementEventCount, mode, cannotExecute, request,
+          createdAt,
+        ]
       properties:
         id: { type: integer }
         section: { type: string, enum: [crypto, forex] }
         experimentId: { type: [string, "null"], format: uuid }
         name: { type: string }
-        status: { type: string, enum: [preparing, pending, running, completed, failed, cancelled] }
+        status: { type: string, enum: [preparing, pending, running, completed, failed, cancelled],
+          }
         stage: { type: string }
         progress: { type: integer, minimum: 0, maximum: 100 }
         cancelRequested: { type: boolean }
@@ -2306,7 +2419,12 @@ components:
     ResearchReplayEvent:
       type: object
       additionalProperties: false
-      required: [sequence, kind, partitionId, observedAt, symbol, tradeId, eventFingerprint, event]
+      required:
+        [
+          sequence,
+          kind, partitionId, observedAt, symbol, tradeId, eventFingerprint,
+          event,
+        ]
       properties:
         sequence: { type: integer, minimum: 0 }
         kind: { type: string, enum: [decision, management] }
@@ -2330,7 +2448,12 @@ components:
 
     BotStatus:
       type: object
-      required: [running, dailyPnl, openPositions, totalTradesToday, winRateToday, circuitBreakerActive, riskPaused, newEntriesAllowed, entryBlockReason, mode]
+      required:
+        [
+          running,
+          dailyPnl, openPositions, totalTradesToday, winRateToday, circuitBreakerActive, riskPaused, newEntriesAllowed, entryBlockReason,
+          mode,
+        ]
       properties:
         running:
           type: boolean
@@ -2382,7 +2505,12 @@ components:
 
     ScannerRow:
       type: object
-      required: [symbol, confidence, rsi, atrPercent, status, ema5AboveEma20, macroBullish, volumeRatio, regime, adx, macdHistogram, atrAbs, votes]
+      required:
+        [
+          symbol,
+          confidence, rsi, atrPercent, status, ema5AboveEma20, macroBullish, volumeRatio, regime, adx, macdHistogram, atrAbs,
+          votes,
+        ]
       properties:
         symbol:
           type: string
@@ -2443,7 +2571,12 @@ components:
 
     SymbolDecision:
       type: object
-      required: [symbol, timestamp, confidence, finalDecision, blockStage, blockReason, stages]
+      required:
+        [
+          symbol,
+          timestamp, confidence, finalDecision, blockStage, blockReason,
+          stages,
+        ]
       properties:
         symbol:
           type: string
@@ -2501,16 +2634,30 @@ components:
 
     Recommendation:
       type: object
-      required: [id, status, authoredBy, symbol, strategyId, side, confidence, entryPrice, slPrice, tpPrice, qty, leverage, planFingerprint, expiresAt, createdAt]
+      required:
+        [
+          id,
+          status, authoredBy, symbol, strategyId, side, confidence, entryPrice, slPrice, tpPrice, qty, leverage, planFingerprint, expiresAt,
+          createdAt,
+          approvalState,
+        ]
       properties:
         id: { type: integer }
         status:
           type: string
-          enum: [created, executing, executed, rejected, expired, superseded, blocked]
+          enum:
+            [
+              created,
+              executing, executed, rejected, expired,
+              stale,
+              invalidated,
+              superseded,
+              blocked,
+            ]
         authoredBy:
           type: string
           enum: [engine, user]
-          description: "\"user\" marks a plan the trader modified — outcome attribution depends on it."
+          description: '"user" marks a plan the trader modified — outcome attribution depends on it.'
         derivedFromId:
           type: ["integer", "null"]
         symbol: { type: string }
@@ -2532,6 +2679,21 @@ components:
         actedAt: { type: ["string", "null"] }
         tradeId: { type: ["integer", "null"] }
         resolutionReason: { type: ["string", "null"] }
+        executionTarget: { type: ["string", "null"], enum: [demo, live, null] }
+        decisionBundleFingerprint: { type: ["string", "null"] }
+        approvalState:
+          type: string
+          enum:
+            [
+              PROPOSED,
+              APPROVABLE,
+              APPROVED,
+              REJECTED,
+              EXPIRED,
+              STALE,
+              INVALIDATED,
+              EXECUTION_BLOCKED,
+            ]
 
     RecommendationList:
       type: object
@@ -2557,7 +2719,15 @@ components:
         ok: { type: boolean }
         status:
           type: string
-          enum: [created, executing, executed, rejected, expired, superseded, blocked]
+          enum:
+            [
+              created,
+              executing, executed, rejected, expired,
+              stale,
+              invalidated,
+              superseded,
+              blocked,
+            ]
         reason: { type: string }
         checks:
           type: array
@@ -2568,10 +2738,17 @@ components:
         newRecommendationId:
           type: integer
           description: "Set by modify(): the new user-authored plan."
+        code: { type: string }
+        idempotentReplay: { type: boolean }
 
     PortfolioImpact:
       type: object
-      required: [currentOpenPositions, maxOpenPositions, candidateRiskUsdt, currentPortfolioRiskUsdt, afterPortfolioRiskUsdt, maxPortfolioRiskUsdt]
+      required:
+        [
+          currentOpenPositions,
+          maxOpenPositions, candidateRiskUsdt, currentPortfolioRiskUsdt, afterPortfolioRiskUsdt,
+          maxPortfolioRiskUsdt,
+        ]
       properties:
         currentOpenPositions: { type: integer }
         maxOpenPositions: { type: integer }
@@ -2586,7 +2763,12 @@ components:
 
     CellStats:
       type: object
-      required: [samples, wins, losses, scratches, gated, minSamples, winRate, winRateLow, winRateHigh, expectancyUsdt, profitFactor, avgR, netPnlUsdt]
+      required:
+        [
+          samples,
+          wins, losses, scratches, gated, minSamples, winRate, winRateLow, winRateHigh, expectancyUsdt, profitFactor, avgR,
+          netPnlUsdt,
+        ]
       description: >-
         Outcome summary for one bucket of closed trades. Counts and net P&L are
         facts and are always present; every rate is null while `gated` is true.
@@ -2668,7 +2850,12 @@ components:
 
     CalibrationReport:
       type: object
-      required: [gated, minSamples, totalSamples, trainSamples, validationSamples, samplesNeeded, raw, calibrated, climatologyBrier, beatsClimatology, bins]
+      required:
+        [
+          gated,
+          minSamples, totalSamples, trainSamples, validationSamples, samplesNeeded, raw, calibrated, climatologyBrier, beatsClimatology,
+          bins,
+        ]
       description: >-
         Whether strategy confidence behaves like a probability on this account's
         record. Fitted on an earlier chronological slice and scored on a later
@@ -2700,7 +2887,8 @@ components:
 
     KnowledgeOverview:
       type: object
-      required: [executionTarget, asOf, totalTrades, baselineWinRate, minSamples, fdr, cellsTested, cells, calibration]
+      required: [executionTarget, asOf, totalTrades, baselineWinRate, minSamples, fdr, cellsTested, cells, calibration,
+        ]
       properties:
         executionTarget:
           type: string
@@ -2729,7 +2917,8 @@ components:
 
     InfluenceRule:
       type: object
-      required: [dimension, key, label, samples, winRate, baselineWinRate, qValue, delta]
+      required: [dimension, key, label, samples, winRate, baselineWinRate, qValue, delta,
+        ]
       description: >-
         One knowledge cell memory is acting on. Present only for cells that
         cleared the sample gate AND whose q-value survived the
@@ -2761,7 +2950,8 @@ components:
 
     MemoryValidationSummary:
       type: object
-      required: [id, status, verdict, summary, stateVersion, executionTarget, trainTrades, validationTrades, withheld, withheldPnlUsdt, expectancyDelta, createdAt]
+      required: [id, status, verdict, summary, stateVersion, executionTarget, trainTrades, validationTrades, withheld, withheldPnlUsdt, expectancyDelta, createdAt,
+        ]
       properties:
         id: { type: integer }
         status:
@@ -2784,7 +2974,8 @@ components:
 
     MemoryValidationResult:
       type: object
-      required: [verdict, summary, stateVersion, trainTrades, validationTrades, withheld, withheldPnlUsdt, expectancyDelta, baseline, withMemory, rules]
+      required: [verdict, summary, stateVersion, trainTrades, validationTrades, withheld, withheldPnlUsdt, expectancyDelta, baseline, withMemory, rules,
+        ]
       properties:
         verdict:
           type: string
@@ -2811,7 +3002,8 @@ components:
 
     AppliedInfluence:
       type: object
-      required: [id, symbol, strategyId, admitted, confidence, requiredConfidence, delta, memoryVersion, executionTarget, reason, createdAt]
+      required: [id, symbol, strategyId, admitted, confidence, requiredConfidence, delta, memoryVersion, executionTarget, reason, createdAt,
+        ]
       description: >-
         One time memory raised a plan's bar. Both outcomes are recorded —
         logging only the withheld trades would read as a list of saves and hide
@@ -2833,7 +3025,12 @@ components:
 
     MemoryInfluenceStatus:
       type: object
-      required: [enabled, maxDelta, approvedVersion, active, needsValidation, executionTarget, reason, summary, version, rules, latestValidation, recent]
+      required:
+        [
+          enabled,
+          maxDelta, approvedVersion, active, needsValidation, executionTarget, reason, summary, version, rules, latestValidation,
+          recent,
+        ]
       properties:
         enabled:
           type: boolean
@@ -2853,7 +3050,7 @@ components:
         summary: { type: string }
         version:
           type: string
-          description: "\"memory-0\" when inert; \"memory-1:<hash>\" when it carries rules."
+          description: '"memory-0" when inert; "memory-1:<hash>" when it carries rules.'
         rules:
           type: array
           items:
@@ -2889,12 +3086,18 @@ components:
 
     SimilarMatch:
       type: object
-      required: [tradeId, symbol, strategyId, closedAt, similarity, pnl, rMultiple, outcome]
+      required:
+        [
+          tradeId,
+          symbol, strategyId, closedAt, similarity, pnl, rMultiple,
+          outcome,
+        ]
       properties:
         tradeId: { type: integer }
         symbol: { type: string }
         strategyId: { type: ["string", "null"] }
-        closedAt: { type: number, description: "Epoch milliseconds the outcome was settled." }
+        closedAt: { type: number, description: "Epoch milliseconds the outcome was settled.",
+          }
         similarity:
           type: number
           description: "Cosine similarity on z-score-normalised feature vectors, in [-1, 1]."
@@ -2906,7 +3109,12 @@ components:
 
     SimilarTrades:
       type: object
-      required: [available, reason, poolSize, minPoolSize, similarityFloor, matches, stats, featuresUsed]
+      required:
+        [
+          available,
+          reason, poolSize, minPoolSize, similarityFloor, matches, stats,
+          featuresUsed,
+        ]
       description: >-
         Closed trades whose entry conditions resembled the candidate. Cosine
         similarity over z-scored vectors — raw cosine would be dominated by
@@ -2938,7 +3146,19 @@ components:
 
     RecommendationWorkspace:
       type: object
-      required: [recommendation, decisionTrace, portfolioImpact, similarTrades]
+      required:
+        [
+          recommendation,
+          decisionTrace, portfolioImpact,
+          similarTrades,
+          decisionBundle,
+          decisionBundleFingerprint,
+          executionTarget,
+          approvalChallenge,
+          approvalState,
+          approvalReadiness,
+          auditEvents,
+        ]
       properties:
         recommendation:
           $ref: "#/components/schemas/Recommendation"
@@ -2950,6 +3170,156 @@ components:
           $ref: "#/components/schemas/PortfolioImpact"
         similarTrades:
           $ref: "#/components/schemas/SimilarTrades"
+        decisionBundle:
+          oneOf:
+            - $ref: "#/components/schemas/Phase9DecisionBundle"
+            - type: "null"
+        decisionBundleFingerprint: { type: ["string", "null"] }
+        executionTarget: { type: ["string", "null"], enum: [demo, live, null] }
+        approvalChallenge: { type: ["string", "null"], format: uuid }
+        approvalState:
+          type: string
+          enum:
+            [
+              PROPOSED,
+              APPROVABLE,
+              APPROVED,
+              REJECTED,
+              EXPIRED,
+              STALE,
+              INVALIDATED,
+              EXECUTION_BLOCKED,
+            ]
+        approvalReadiness:
+          $ref: "#/components/schemas/ApprovalReadiness"
+        auditEvents:
+          type: array
+          items: { $ref: "#/components/schemas/RecommendationAuditEvent" }
+
+    ApprovalReadiness:
+      type: object
+      required: [approvable, reason, checks]
+      properties:
+        approvable: { type: boolean }
+        reason: { type: string }
+        checks:
+          type: array
+          items: { $ref: "#/components/schemas/RevalidationCheck" }
+
+    RecommendationAuditEvent:
+      type: object
+      required:
+        [
+          id,
+          eventType,
+          actorType,
+          actorUserId,
+          fromStatus,
+          toStatus,
+          reasonCode,
+          reason,
+          occurredAt,
+        ]
+      properties:
+        id: { type: integer }
+        eventType: { type: string }
+        actorType: { type: string, enum: [engine, user, system] }
+        actorUserId: { type: ["integer", "null"] }
+        fromStatus: { type: ["string", "null"] }
+        toStatus: { type: string }
+        reasonCode: { type: string }
+        reason: { type: string }
+        occurredAt: { type: string, format: date-time }
+
+    Phase9DecisionBundle:
+      type: object
+      required:
+        [
+          schemaVersion,
+          createdAt,
+          planFingerprint,
+          executionTarget,
+          tradingMode,
+          authorizationScope,
+          approvalPolicyVersion,
+          revalidationPolicyVersion,
+          decisionAuthority,
+          unifiedBrain,
+          marketState,
+          specialistCouncil,
+          portfolio,
+          risk,
+          managementAuthority,
+          versions,
+          limitations,
+        ]
+      properties:
+        schemaVersion: { type: string, enum: [phase9-copilot-bundle-v1] }
+        createdAt: { type: string, format: date-time }
+        planFingerprint: { type: string }
+        executionTarget: { type: string, enum: [demo, live] }
+        tradingMode: { type: string, enum: [copilot] }
+        authorizationScope:
+          { type: string, enum: [single-controlled-execution-attempt] }
+        approvalPolicyVersion: { type: string }
+        revalidationPolicyVersion: { type: string }
+        decisionAuthority: { type: string, enum: [brain-v0] }
+        unifiedBrain:
+          type: object
+          required: [status, reason, run]
+          properties:
+            status: { type: string, enum: [shadow_context] }
+            reason: { type: string }
+            run: { $ref: "#/components/schemas/ShadowCouncilRun" }
+        marketState: { $ref: "#/components/schemas/MarketState" }
+        specialistCouncil:
+          { $ref: "#/components/schemas/SpecialistCouncilSnapshot" }
+        portfolio:
+          { $ref: "#/components/schemas/PortfolioIntelligenceProjection" }
+        risk:
+          type: object
+          required:
+            [
+              verdict,
+              checks,
+              candidateMaximumLoss,
+              candidateNotional,
+              policyVersion,
+            ]
+          properties:
+            verdict: { type: string, enum: [PASSED] }
+            checks:
+              type: array
+              items: { $ref: "#/components/schemas/RevalidationCheck" }
+            candidateMaximumLoss: { type: number }
+            candidateNotional: { type: number }
+            policyVersion: { type: string }
+        managementAuthority:
+          type: ["object", "null"]
+          additionalProperties: true
+        versions:
+          type: object
+          required:
+            [
+              plan,
+              brain,
+              council,
+              marketState,
+              portfolio,
+              riskPolicy,
+              managementPolicy,
+            ]
+          properties:
+            plan: { type: string }
+            brain: { type: string }
+            council: { type: string }
+            marketState: { type: string }
+            portfolio: { type: string }
+            riskPolicy: { type: string }
+            managementPolicy: { type: ["string", "null"] }
+        limitations:
+          type: array
+          items: { type: string }
 
     Notification:
       type: object
@@ -2982,7 +3352,12 @@ components:
 
     JournalEntry:
       type: object
-      required: [id, tradeId, outcome, findings, summary, createdAt, symbol, side, entryPrice, entryTime]
+      required:
+        [
+          id,
+          tradeId, outcome, findings, summary, createdAt, symbol, side, entryPrice,
+          entryTime,
+        ]
       properties:
         id:
           type: integer
@@ -3031,7 +3406,12 @@ components:
 
     LiveTicker:
       type: object
-      required: [symbol, last, bid, ask, spread, spreadPercent, baseVolume, quoteVolume, changePercent, timestamp]
+      required:
+        [
+          symbol,
+          last, bid, ask, spread, spreadPercent, baseVolume, quoteVolume, changePercent,
+          timestamp,
+        ]
       properties:
         symbol:
           type: string
@@ -3056,7 +3436,12 @@ components:
 
     ConnectionStatus:
       type: object
-      required: [connected, mode, exchange, marketsLoaded, credentialsVerified, lastTickerFetchAt, lastTickerLatencyMs, lastError]
+      required:
+        [
+          connected,
+          mode, exchange, marketsLoaded, credentialsVerified, lastTickerFetchAt, lastTickerLatencyMs,
+          lastError,
+        ]
       properties:
         connected:
           type: boolean
@@ -3090,14 +3475,19 @@ components:
         reference: { type: string, minLength: 1, maxLength: 500 }
         fingerprint:
           type: string
-          pattern: '^[a-fA-F0-9]{64}$'
+          pattern: "^[a-fA-F0-9]{64}$"
         dataTimestamp: { type: string, format: date-time }
         strength: { type: number, minimum: 0, maximum: 1 }
 
     ProposedTradePlan:
       type: object
       additionalProperties: false
-      required: [schemaVersion, strategyId, strategyName, symbol, side, confidence, entryPrice, stopPrice, targetPrice, quantity, leverage, expectedHoldSeconds, maxHoldSeconds, regime, netRewardRisk, report]
+      required:
+        [
+          schemaVersion,
+          strategyId, strategyName, symbol, side, confidence, entryPrice, stopPrice, targetPrice, quantity, leverage, expectedHoldSeconds, maxHoldSeconds, regime, netRewardRisk,
+          report,
+        ]
       properties:
         schemaVersion: { type: string, enum: ["1.0.0"] }
         strategyId: { type: string, minLength: 1, maxLength: 120 }
@@ -3140,10 +3530,49 @@ components:
               type: object
               additionalProperties: true
 
+    TradeThesis:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          thesisId,
+          symbol,
+          side,
+          context,
+          trigger,
+          invalidationConditions,
+          targetRationale,
+          expectedPath,
+          expectedDurationSeconds,
+          managementPolicyVersion,
+        ]
+      properties:
+        schemaVersion: { type: string, enum: ["1.0.0"] }
+        thesisId: { type: string, format: uuid }
+        symbol: { type: string }
+        side: { type: string, enum: [long, short] }
+        context: { type: string }
+        trigger: { type: string }
+        invalidationConditions:
+          type: array
+          items: { type: string }
+        targetRationale: { type: string }
+        expectedPath:
+          type: array
+          items: { type: string }
+        expectedDurationSeconds: { type: integer, minimum: 1 }
+        managementPolicyVersion: { type: string }
+
     BrainDecision:
       type: object
       additionalProperties: false
-      required: [schemaVersion, decisionId, action, symbol, marketStateFingerprint, supportingEvidence, opposingEvidence, uncertainty, dataTimestamp, expiresAt, invalidationConditions, versions, reasonCode, thesis, proposedTrade]
+      required:
+        [
+          schemaVersion,
+          decisionId, action, symbol, marketStateFingerprint, supportingEvidence, opposingEvidence, uncertainty, dataTimestamp, expiresAt, invalidationConditions, versions, reasonCode, thesis,
+          proposedTrade,
+        ]
       properties:
         schemaVersion: { type: string, enum: ["1.0.0"] }
         decisionId: { type: string, format: uuid }
@@ -3153,7 +3582,7 @@ components:
         symbol: { type: string, minLength: 1, maxLength: 80 }
         marketStateFingerprint:
           type: string
-          pattern: '^[a-fA-F0-9]{64}$'
+          pattern: "^[a-fA-F0-9]{64}$"
         supportingEvidence:
           type: array
           maxItems: 100
@@ -3193,10 +3622,11 @@ components:
             marketState: { type: string }
         reasonCode:
           type: string
-          pattern: '^[A-Z0-9_]{3,120}$'
+          pattern: "^[A-Z0-9_]{3,120}$"
         thesis:
-          type: [object, "null"]
-          additionalProperties: true
+          oneOf:
+            - $ref: "#/components/schemas/TradeThesis"
+            - type: "null"
         proposedTrade:
           oneOf:
             - $ref: "#/components/schemas/ProposedTradePlan"
@@ -3205,13 +3635,18 @@ components:
     MarketState:
       type: object
       additionalProperties: false
-      required: [schemaVersion, marketStateVersion, fingerprint, symbol, venue, provider, dataTimestamp, observedAt, freshness, dataQuality, observations, inferences, context]
+      required:
+        [
+          schemaVersion,
+          marketStateVersion, fingerprint, symbol, venue, provider, dataTimestamp, observedAt, freshness, dataQuality, observations, inferences,
+          context,
+        ]
       properties:
         schemaVersion: { type: string, enum: ["1.0.0"] }
         marketStateVersion: { type: string, enum: [market-state-v1] }
         fingerprint:
           type: string
-          pattern: '^[a-fA-F0-9]{64}$'
+          pattern: "^[a-fA-F0-9]{64}$"
         symbol: { type: string, minLength: 1, maxLength: 80 }
         venue: { type: string, enum: [spot, futures, forex] }
         provider: { type: string, enum: [binance, oanda, fixture] }
@@ -3238,7 +3673,12 @@ components:
         observations:
           type: object
           additionalProperties: true
-          required: [lastPrice, timeframes, trend, volatility, momentum, liquidity, structure]
+          required:
+            [
+              lastPrice,
+              timeframes, trend, volatility, momentum, liquidity,
+              structure,
+            ]
           properties:
             lastPrice: { type: number, exclusiveMinimum: 0 }
             timeframes:
@@ -3248,7 +3688,12 @@ components:
               items:
                 type: object
                 additionalProperties: false
-                required: [timeframe, intervalMs, candleCount, lastClosedAt, lastClose, excludedOpenCandles]
+                required:
+                  [
+                    timeframe,
+                    intervalMs, candleCount, lastClosedAt, lastClose,
+                    excludedOpenCandles,
+                  ]
                 properties:
                   timeframe: { type: string, enum: [1m, 3m, 5m, 15m, 1h] }
                   intervalMs: { type: integer, minimum: 1 }
@@ -3266,10 +3711,17 @@ components:
           additionalProperties: false
           required: [regime, regimeConfidence, dominantDirection, session, anomaly]
           properties:
-            regime: { type: string, enum: [strong_trend, weak_trend, range, high_volatility, low_volatility] }
+            regime: { type: string, enum:
+                  [
+                    strong_trend,
+                    weak_trend, range, high_volatility,
+                    low_volatility,
+                  ],
+              }
             regimeConfidence: { type: number, minimum: 0, maximum: 1 }
             dominantDirection: { type: string, enum: [bullish, bearish, neutral] }
-            session: { type: string, enum: [asia, europe, us, europe_us_overlap, off_hours] }
+            session: { type: string, enum: [asia, europe, us, europe_us_overlap, off_hours],
+              }
             anomaly: { type: object, additionalProperties: true }
         context:
           type: object
@@ -3378,7 +3830,12 @@ components:
 
     BlockingSummary:
       type: object
-      required: [tradingActive, running, globalBlock, entered, totalEvaluated, reasons, lastScanAt]
+      required:
+        [
+          tradingActive,
+          running, globalBlock, entered, totalEvaluated, reasons,
+          lastScanAt,
+        ]
       properties:
         tradingActive:
           type: boolean
@@ -3399,7 +3856,12 @@ components:
 
     Trade:
       type: object
-      required: [id, symbol, side, entryPrice, quantity, status, confidence, stopLoss, takeProfit, entryTime, managementAuthority, managementMode, managementPolicyVersion, thesisId, phase7ReductionApplied]
+      required:
+        [
+          id,
+          symbol, side, entryPrice, quantity, status, confidence, stopLoss, takeProfit, entryTime, managementAuthority, managementMode, managementPolicyVersion, thesisId,
+          phase7ReductionApplied,
+        ]
       properties:
         id:
           type: integer
@@ -3435,7 +3897,12 @@ components:
           type: ["string", "null"]
           # "timeout" is the on-the-wire value for the Phase 4 TIME_LIMIT exit —
           # see lib/exitTypes.ts for the canonical mapping.
-          enum: [take_profit, stop_loss, signal_exit, timeout, break_even, trailing_stop, manual, emergency_stop, circuit_breaker, reconciled_missing, null]
+          enum:
+            [
+              take_profit,
+              stop_loss, signal_exit, timeout, break_even, trailing_stop, manual, emergency_stop, circuit_breaker, reconciled_missing,
+              null,
+            ]
         isBacktest:
           type: boolean
         plannedStopLoss:
@@ -3492,7 +3959,12 @@ components:
 
     PositionThesis:
       type: object
-      required: [schemaVersion, thesisId, symbol, side, context, trigger, invalidationConditions, targetRationale, expectedPath, expectedDurationSeconds, maximumDurationSeconds, managementPolicyVersion, permittedActions, entry, createdAt, fingerprint]
+      required:
+        [
+          schemaVersion,
+          thesisId, symbol, side, context, trigger, invalidationConditions, targetRationale, expectedPath, expectedDurationSeconds, maximumDurationSeconds, managementPolicyVersion, permittedActions, entry, createdAt,
+          fingerprint,
+        ]
       properties:
         schemaVersion: { type: string, const: position-thesis-v1 }
         thesisId: { type: string, format: uuid }
@@ -3508,15 +3980,27 @@ components:
         managementPolicyVersion: { type: string, const: phase7-bounded-management-v1 }
         permittedActions:
           type: array
-          items: { type: string, enum: [HOLD, REDUCE, TIGHTEN_STOP, APPLY_TRAILING, EXIT, FREEZE] }
+          items: { type: string, enum: [HOLD, REDUCE, TIGHTEN_STOP, APPLY_TRAILING, EXIT, FREEZE],
+            }
         entry:
           type: object
-          required: [price, initialStopPrice, targetPrice, regime, dominantDirection, marketStateFingerprint, marketStateVersion, dataTimestamp]
+          required:
+            [
+              price,
+              initialStopPrice, targetPrice, regime, dominantDirection, marketStateFingerprint, marketStateVersion,
+              dataTimestamp,
+            ]
           properties:
             price: { type: number }
             initialStopPrice: { type: number }
             targetPrice: { type: number }
-            regime: { type: string, enum: [strong_trend, weak_trend, range, high_volatility, low_volatility] }
+            regime: { type: string, enum:
+                  [
+                    strong_trend,
+                    weak_trend, range, high_volatility,
+                    low_volatility,
+                  ],
+              }
             dominantDirection: { type: string, enum: [bullish, bearish, neutral] }
             marketStateFingerprint: { type: string }
             marketStateVersion: { type: string }
@@ -3526,12 +4010,18 @@ components:
 
     PositionThesisEvaluation:
       type: object
-      required: [schemaVersion, thesisId, tradeId, state, marketStateFingerprint, evaluatedAt, progressR, elapsedFraction, supportingEvidence, contraryEvidence, reasonCodes, fingerprint]
+      required:
+        [
+          schemaVersion,
+          thesisId, tradeId, state, marketStateFingerprint, evaluatedAt, progressR, elapsedFraction, supportingEvidence, contraryEvidence, reasonCodes,
+          fingerprint,
+        ]
       properties:
         schemaVersion: { type: string, const: position-thesis-evaluation-v1 }
         thesisId: { type: string, format: uuid }
         tradeId: { type: integer }
-        state: { type: string, enum: [VALID, WEAKENING, INVALIDATED, TARGET_DEGRADED, DATA_UNCERTAIN] }
+        state: { type: string, enum: [VALID, WEAKENING, INVALIDATED, TARGET_DEGRADED, DATA_UNCERTAIN],
+          }
         marketStateFingerprint: { type: ["string", "null"] }
         evaluatedAt: { type: string, format: date-time }
         progressR: { type: number }
@@ -3543,14 +4033,21 @@ components:
 
     PositionManagementAction:
       type: object
-      required: [schemaVersion, actionId, thesisId, tradeId, type, state, policyVersion, proposedStopPrice, reductionFraction, trailingMode, reasonCodes, marketStateFingerprint, proposedAt, fingerprint]
+      required:
+        [
+          schemaVersion,
+          actionId, thesisId, tradeId, type, state, policyVersion, proposedStopPrice, reductionFraction, trailingMode, reasonCodes, marketStateFingerprint, proposedAt,
+          fingerprint,
+        ]
       properties:
         schemaVersion: { type: string, const: position-management-action-v1 }
         actionId: { type: string, format: uuid }
         thesisId: { type: string, format: uuid }
         tradeId: { type: integer }
-        type: { type: string, enum: [HOLD, REDUCE, TIGHTEN_STOP, APPLY_TRAILING, EXIT, FREEZE] }
-        state: { type: string, enum: [VALID, WEAKENING, INVALIDATED, TARGET_DEGRADED, DATA_UNCERTAIN] }
+        type: { type: string, enum: [HOLD, REDUCE, TIGHTEN_STOP, APPLY_TRAILING, EXIT, FREEZE],
+          }
+        state: { type: string, enum: [VALID, WEAKENING, INVALIDATED, TARGET_DEGRADED, DATA_UNCERTAIN],
+          }
         policyVersion: { type: string, const: phase7-bounded-management-v1 }
         proposedStopPrice: { type: ["number", "null"] }
         reductionFraction: { type: ["number", "null"] }
@@ -3562,7 +4059,12 @@ components:
 
     PositionActionValidation:
       type: object
-      required: [schemaVersion, actionFingerprint, valid, currentMaximumLoss, proposedMaximumLoss, reasonCodes, validatedAt, fingerprint]
+      required:
+        [
+          schemaVersion,
+          actionFingerprint, valid, currentMaximumLoss, proposedMaximumLoss, reasonCodes, validatedAt,
+          fingerprint,
+        ]
       properties:
         schemaVersion: { type: string, const: position-action-validation-v1 }
         actionFingerprint: { type: string }
@@ -3575,12 +4077,19 @@ components:
 
     PositionManagementEvent:
       type: object
-      required: [eventId, stage, thesisState, actionType, policyVersion, marketStateFingerprint, validationPassed, evaluation, action, validation, result, observedAt, createdAt]
+      required:
+        [
+          eventId,
+          stage, thesisState, actionType, policyVersion, marketStateFingerprint, validationPassed, evaluation, action, validation, result, observedAt,
+          createdAt,
+        ]
       properties:
         eventId: { type: string, format: uuid }
         stage: { type: string, enum: [PROPOSED, SHADOW, APPLIED, FAILED, REFUSED] }
-        thesisState: { type: string, enum: [VALID, WEAKENING, INVALIDATED, TARGET_DEGRADED, DATA_UNCERTAIN] }
-        actionType: { type: string, enum: [HOLD, REDUCE, TIGHTEN_STOP, APPLY_TRAILING, EXIT, FREEZE] }
+        thesisState: { type: string, enum: [VALID, WEAKENING, INVALIDATED, TARGET_DEGRADED, DATA_UNCERTAIN],
+          }
+        actionType: { type: string, enum: [HOLD, REDUCE, TIGHTEN_STOP, APPLY_TRAILING, EXIT, FREEZE],
+          }
         policyVersion: { type: string }
         marketStateFingerprint: { type: ["string", "null"] }
         validationPassed: { type: boolean }
@@ -3602,7 +4111,12 @@ components:
 
     StatsSummary:
       type: object
-      required: [totalTrades, winRate, totalPnl, maxDrawdown, avgConfidence, bestTrade, worstTrade, streakCurrent, streakType]
+      required:
+        [
+          totalTrades,
+          winRate, totalPnl, maxDrawdown, avgConfidence, bestTrade, worstTrade, streakCurrent,
+          streakType,
+        ]
       properties:
         totalTrades:
           type: integer
@@ -3656,7 +4170,12 @@ components:
           format: date-time
         summary:
           type: object
-          required: [totalTrades, wins, losses, winRate, totalPnl, totalFeesUsdt, bestTrade, worstTrade, openPositions]
+          required:
+            [
+              totalTrades,
+              wins, losses, winRate, totalPnl, totalFeesUsdt, bestTrade, worstTrade,
+              openPositions,
+            ]
           properties:
             totalTrades:
               type: integer
@@ -3832,7 +4351,8 @@ components:
 
     BotConfig:
       type: object
-      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, maxSymbolConcentrationPercent, maxNetExposurePercent, maxCorrelatedExposurePercent, correlationThreshold, correlationUnknownPolicy, confidenceThreshold, riskModel, stopLossPercent, takeProfitPercent, maxLossUsdt, targetProfitUsdt, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode, broker, executionTarget, mode, positionManagementMode, demoStartingBalanceUsdt, demoDataAvailable]
+      required: [positionSizeUsdt, riskPercent, maxOpenPositions, maxPortfolioRiskPercent, dailyLossLimitUsdt, maxSymbolConcentrationPercent, maxNetExposurePercent, maxCorrelatedExposurePercent, correlationThreshold, correlationUnknownPolicy, confidenceThreshold, riskModel, stopLossPercent, takeProfitPercent, maxLossUsdt, targetProfitUsdt, cooldownMinutes, scanIntervalSeconds, pairs, testnet, backtestMode, highFrequencyTestMode, marketType, leverage, marginMode, broker, executionTarget, mode, positionManagementMode, demoStartingBalanceUsdt, demoDataAvailable,
+        ]
       properties:
         demoDataAvailable:
           type: boolean
@@ -4073,14 +4593,19 @@ components:
           type: boolean
         apiKeyPreview:
           type: ["string", "null"]
-          description: "Last 4 chars of the stored API key, e.g. \"...ab12\" — never the full key."
+          description: 'Last 4 chars of the stored API key, e.g. "...ab12" — never the full key.'
         updatedAt:
           type: ["string", "null"]
           format: date-time
 
     ConnectionTestResult:
       type: object
-      required: [ok, provider, environment, marketType, accountAccessible, tradingEnabled, serverTimeOffsetMs, ipRestrictionEnabled, permissions, warnings, message]
+      required:
+        [
+          ok,
+          provider, environment, marketType, accountAccessible, tradingEnabled, serverTimeOffsetMs, ipRestrictionEnabled, permissions, warnings,
+          message,
+        ]
       properties:
         ok:
           type: boolean
@@ -4115,7 +4640,12 @@ components:
 
     AutopsyWindowMetrics:
       type: object
-      required: [totalTrades, winRate, profitFactor, sharpeRatio, maxDrawdown, totalPnl, exitReasons]
+      required:
+        [
+          totalTrades,
+          winRate, profitFactor, sharpeRatio, maxDrawdown, totalPnl,
+          exitReasons,
+        ]
       properties:
         totalTrades: { type: integer }
         winRate: { type: number }
@@ -4162,10 +4692,17 @@ components:
 
     AutopsyRun:
       type: object
-      required: [id, displayNo, strategyId, symbols, timeframe, trainStart, trainEnd, valStart, valEnd, status, progress, totalBacktests, truncated, currentParams, createdAt]
+      required:
+        [
+          id,
+          displayNo, strategyId, symbols, timeframe, trainStart, trainEnd, valStart, valEnd, status, progress, totalBacktests, truncated, currentParams,
+          createdAt,
+        ]
       properties:
-        id: { type: integer, description: "Global DB id — for links/API only, never shown as the run number." }
-        displayNo: { type: integer, description: "Per-section run number (1..N) shown in the UI." }
+        id: { type: integer, description: "Global DB id — for links/API only, never shown as the run number.",
+          }
+        displayNo: { type: integer, description: "Per-section run number (1..N) shown in the UI.",
+          }
         strategyId: { type: string }
         strategyName: { type: ["string", "null"] }
         symbols:
@@ -4220,14 +4757,19 @@ components:
           type: boolean
         accountIdPreview:
           type: ["string", "null"]
-          description: "Last 4 chars of the stored account id, e.g. \"...4567\" — never the full id or token."
+          description: 'Last 4 chars of the stored account id, e.g. "...4567" — never the full id or token.'
         updatedAt:
           type: ["string", "null"]
           format: date-time
 
     BacktestRun:
       type: object
-      required: [id, displayNo, strategyVersion, strategyName, symbols, timeframe, startDate, endDate, startingBalance, status, progress, createdAt]
+      required:
+        [
+          id,
+          displayNo, strategyVersion, strategyName, symbols, timeframe, startDate, endDate, startingBalance, status, progress,
+          createdAt,
+        ]
       properties:
         id:
           type: integer
@@ -4316,7 +4858,12 @@ components:
 
     BacktestTrade:
       type: object
-      required: [id, runId, symbol, side, entryTime, entryPrice, quantity, stopLoss, takeProfit]
+      required:
+        [
+          id,
+          runId, symbol, side, entryTime, entryPrice, quantity, stopLoss,
+          takeProfit,
+        ]
       properties:
         id:
           type: integer
@@ -4406,7 +4953,12 @@ components:
 
     OptimizationResult:
       type: object
-      required: [id, parameterSet, score, winRate, pnl, drawdown, profitFactor, totalTrades]
+      required:
+        [
+          id,
+          parameterSet, score, winRate, pnl, drawdown, profitFactor,
+          totalTrades,
+        ]
       properties:
         id:
           type: integer
@@ -4454,7 +5006,7 @@ components:
             type: string
         timeframe:
           type: string
-          enum: ["1m","3m","5m","15m","30m","1h","4h","1d"]
+          enum: ["1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"]
         startDate:
           type: string
           format: date-time
@@ -4574,7 +5126,7 @@ components:
             type: string
         timeframe:
           type: string
-          enum: ["1m","3m","5m","15m","30m","1h","4h","1d"]
+          enum: ["1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"]
         startDate:
           type: string
           format: date-time
@@ -4618,7 +5170,12 @@ components:
 
     StrategyConfig:
       type: object
-      required: [strategyId, enabled, riskPercent, confidenceThreshold, stopLossPercent, takeProfitPercent, maxHoldingSeconds, maxConcurrentPositions, cooldownMinutes]
+      required:
+        [
+          strategyId,
+          enabled, riskPercent, confidenceThreshold, stopLossPercent, takeProfitPercent, maxHoldingSeconds, maxConcurrentPositions,
+          cooldownMinutes,
+        ]
       properties:
         strategyId:
           type: string
@@ -4767,7 +5324,12 @@ components:
 
     StrategyPerformance:
       type: object
-      required: [totalTrades, winningTrades, losingTrades, totalPnl, avgWin, avgLoss, avgDurationSeconds]
+      required:
+        [
+          totalTrades,
+          winningTrades, losingTrades, totalPnl, avgWin, avgLoss,
+          avgDurationSeconds,
+        ]
       properties:
         totalTrades:
           type: integer
@@ -4789,13 +5351,18 @@ components:
     StrategyOpinion:
       type: object
       additionalProperties: false
-      required: [schemaVersion, opinionId, specialistId, specialistVersion, marketStateFingerprint, symbol, stance, strength, applicableRegimes, supportingEvidence, opposingEvidence, trigger, invalidationConditions, expectedDurationSeconds, proposedRewardRisk, uncertainty, abstentionReason, dataTimestamp, expiresAt]
+      required:
+        [
+          schemaVersion,
+          opinionId, specialistId, specialistVersion, marketStateFingerprint, symbol, stance, strength, applicableRegimes, supportingEvidence, opposingEvidence, trigger, invalidationConditions, expectedDurationSeconds, proposedRewardRisk, uncertainty, abstentionReason, dataTimestamp,
+          expiresAt,
+        ]
       properties:
         schemaVersion: { type: string, enum: ["1.0.0"] }
         opinionId: { type: string, format: uuid }
         specialistId: { type: string }
         specialistVersion: { type: string }
-        marketStateFingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}$' }
+        marketStateFingerprint: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
         symbol: { type: string }
         stance: { type: string, enum: [long, short, neutral, abstain] }
         strength: { type: number, minimum: 0, maximum: 1 }
@@ -4826,11 +5393,21 @@ components:
     SpecialistOpinionView:
       type: object
       additionalProperties: false
-      required: [role, correlationGroup, correlationDiscount, effectiveStrength, operationalStatus, opinion]
+      required:
+        [
+          role,
+          correlationGroup, correlationDiscount, effectiveStrength, operationalStatus,
+          opinion,
+        ]
       properties:
         role:
           type: string
-          enum: [trend, breakout, mean_reversion, volatility, market_structure, execution_quality, portfolio_conflict]
+          enum:
+            [
+              trend,
+              breakout, mean_reversion, volatility, market_structure, execution_quality,
+              portfolio_conflict,
+            ]
         correlationGroup: { type: string }
         correlationDiscount: { type: number, minimum: 0, maximum: 1 }
         effectiveStrength: { type: number, minimum: 0, maximum: 1 }
@@ -4840,7 +5417,12 @@ components:
     SpecialistConsensus:
       type: object
       additionalProperties: false
-      required: [stance, longScore, shortScore, actionableOpinions, abstentions, disagreement, explanation]
+      required:
+        [
+          stance,
+          longScore, shortScore, actionableOpinions, abstentions, disagreement,
+          explanation,
+        ]
       properties:
         stance: { type: string, enum: [long, short, mixed, abstain] }
         longScore: { type: number, minimum: 0 }
@@ -4853,14 +5435,19 @@ components:
     SpecialistCouncilSnapshot:
       type: object
       additionalProperties: false
-      required: [schemaVersion, councilVersion, mode, cannotExecute, symbol, marketStateFingerprint, dataTimestamp, generatedAt, consensus, opinions]
+      required:
+        [
+          schemaVersion,
+          councilVersion, mode, cannotExecute, symbol, marketStateFingerprint, dataTimestamp, generatedAt, consensus,
+          opinions,
+        ]
       properties:
         schemaVersion: { type: string, enum: ["1.0.0"] }
         councilVersion: { type: string, enum: [specialist-council-v1] }
         mode: { type: string, enum: [observational] }
         cannotExecute: { type: boolean, const: true }
         symbol: { type: string }
-        marketStateFingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}$' }
+        marketStateFingerprint: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
         dataTimestamp: { type: string, format: date-time }
         generatedAt: { type: string, format: date-time }
         consensus: { $ref: "#/components/schemas/SpecialistConsensus" }
@@ -5021,7 +5608,8 @@ components:
         sourceFingerprint: { type: string, pattern: "^[a-f0-9]{64}$" }
         symbol: { type: string, minLength: 1 }
         side: { type: ["string", "null"], enum: [long, short, null] }
-        action: { type: string, enum: [ENTER_NOW, WAIT_FOR_TRIGGER, OBSERVE, REJECT, REDUCE, EXIT] }
+        action: { type: string, enum: [ENTER_NOW, WAIT_FOR_TRIGGER, OBSERVE, REJECT, REDUCE, EXIT],
+          }
         strategyId: { type: ["string", "null"] }
         strategyName: { type: ["string", "null"] }
         dataTimestamp: { type: string, format: date-time }
@@ -5040,7 +5628,8 @@ components:
         allocatedNotional: { type: number, minimum: 0 }
         allocatedQuantity: { type: number, minimum: 0 }
         allocationFraction: { type: number, minimum: 0, maximum: 1 }
-        disposition: { type: string, enum: [SHADOW_ALLOCATED, WAIT_FOR_TRIGGER, OBSERVE, REJECTED] }
+        disposition: { type: string, enum: [SHADOW_ALLOCATED, WAIT_FOR_TRIGGER, OBSERVE, REJECTED],
+          }
         reasonCodes:
           type: array
           items: { type: string }
@@ -5136,7 +5725,12 @@ components:
     PreliminaryPortfolioContext:
       type: object
       additionalProperties: false
-      required: [status, currency, availableBalance, openPositionCount, observedAt, limitations]
+      required:
+        [
+          status,
+          currency, availableBalance, openPositionCount, observedAt,
+          limitations,
+        ]
       properties:
         status: { type: string, enum: [partial, unavailable] }
         currency: { type: string }
@@ -5190,7 +5784,12 @@ components:
     DeterministicAssessment:
       type: object
       additionalProperties: false
-      required: [version, longScore, shortScore, dominantShare, averageEffectiveStrength, regimeSuitability, costPenalty, decisionStrength, thresholds, ruleTrace]
+      required:
+        [
+          version,
+          longScore, shortScore, dominantShare, averageEffectiveStrength, regimeSuitability, costPenalty, decisionStrength, thresholds,
+          ruleTrace,
+        ]
       properties:
         version: { type: string, enum: [deterministic-council-v1] }
         longScore: { type: number, minimum: 0 }
@@ -5224,9 +5823,20 @@ components:
     CouncilReasoningReport:
       type: object
       additionalProperties: false
-      required: [status, providerId, modelVersion, summary, claims, challenges, uncertaintyNotes, validationFailures, attempts, latencyMs, usage]
+      required:
+        [
+          status,
+          providerId, modelVersion, summary, claims, challenges, uncertaintyNotes, validationFailures, attempts, latencyMs,
+          usage,
+        ]
       properties:
-        status: { type: string, enum: [not_configured, validated, degraded, circuit_open, provider_error] }
+        status: { type: string, enum:
+              [
+                not_configured,
+                validated, degraded, circuit_open,
+                provider_error,
+              ],
+          }
         providerId: { type: ["string", "null"] }
         modelVersion: { type: ["string", "null"] }
         summary: { type: string }
@@ -5256,7 +5866,12 @@ components:
     ShadowReplayBundle:
       type: object
       additionalProperties: false
-      required: [marketState, specialistCouncil, executionCosts, portfolio, historicalEvidence, brainV0]
+      required:
+        [
+          marketState,
+          specialistCouncil, executionCosts, portfolio, historicalEvidence,
+          brainV0,
+        ]
       properties:
         marketState: { $ref: "#/components/schemas/MarketState" }
         specialistCouncil: { $ref: "#/components/schemas/SpecialistCouncilSnapshot" }
@@ -5268,25 +5883,35 @@ components:
     ShadowCouncilRun:
       type: object
       additionalProperties: false
-      required: [schemaVersion, councilVersion, runId, inputFingerprint, runFingerprint, mode, cannotExecute, generatedAt, decision, decisionFingerprint, deterministicAssessment, reasoning, replay]
+      required:
+        [
+          schemaVersion,
+          councilVersion, runId, inputFingerprint, runFingerprint, mode, cannotExecute, generatedAt, decision, decisionFingerprint, deterministicAssessment, reasoning,
+          replay,
+        ]
       properties:
         schemaVersion: { type: string, enum: ["1.0.0"] }
         councilVersion: { type: string, enum: [shadow-decision-council-v1] }
         runId: { type: string, format: uuid }
-        inputFingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}$' }
-        runFingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}$' }
+        inputFingerprint: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
+        runFingerprint: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
         mode: { type: string, enum: [shadow] }
         cannotExecute: { type: boolean, const: true }
         generatedAt: { type: string, format: date-time }
         decision: { $ref: "#/components/schemas/BrainDecision" }
-        decisionFingerprint: { type: string, pattern: '^[a-fA-F0-9]{64}$' }
+        decisionFingerprint: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
         deterministicAssessment: { $ref: "#/components/schemas/DeterministicAssessment" }
         reasoning: { $ref: "#/components/schemas/CouncilReasoningReport" }
         replay: { $ref: "#/components/schemas/ShadowReplayBundle" }
 
     StrategyInfo:
       type: object
-      required: [strategyId, strategyName, supportedRegimes, indicators, decisionMaker, config, performance]
+      required:
+        [
+          strategyId,
+          strategyName, supportedRegimes, indicators, decisionMaker, config,
+          performance,
+        ]
       properties:
         strategyId:
           type: string
@@ -5374,7 +5999,12 @@ components:
 
     CustomStrategy:
       type: object
-      required: [id, strategyId, section, name, rules, indicators, rulesValid, backtested, rulesUpdatedAt, createdAt, updatedAt]
+      required:
+        [
+          id,
+          strategyId, section, name, rules, indicators, rulesValid, backtested, rulesUpdatedAt, createdAt,
+          updatedAt,
+        ]
       properties:
         id:
           type: integer

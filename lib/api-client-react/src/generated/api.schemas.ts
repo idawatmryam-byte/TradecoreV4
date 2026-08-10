@@ -964,6 +964,8 @@ export const RecommendationStatus = {
   executed: 'executed',
   rejected: 'rejected',
   expired: 'expired',
+  stale: 'stale',
+  invalidated: 'invalidated',
   superseded: 'superseded',
   blocked: 'blocked',
 } as const;
@@ -985,6 +987,31 @@ export type RecommendationSide = typeof RecommendationSide[keyof typeof Recommen
 export const RecommendationSide = {
   long: 'long',
   short: 'short',
+} as const;
+
+/**
+ * @nullable
+ */
+export type RecommendationExecutionTarget = typeof RecommendationExecutionTarget[keyof typeof RecommendationExecutionTarget] | null;
+
+
+export const RecommendationExecutionTarget = {
+  demo: 'demo',
+  live: 'live',
+} as const;
+
+export type RecommendationApprovalState = typeof RecommendationApprovalState[keyof typeof RecommendationApprovalState];
+
+
+export const RecommendationApprovalState = {
+  PROPOSED: 'PROPOSED',
+  APPROVABLE: 'APPROVABLE',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  EXPIRED: 'EXPIRED',
+  STALE: 'STALE',
+  INVALIDATED: 'INVALIDATED',
+  EXECUTION_BLOCKED: 'EXECUTION_BLOCKED',
 } as const;
 
 export interface Recommendation {
@@ -1017,6 +1044,11 @@ export interface Recommendation {
   tradeId?: number | null;
   /** @nullable */
   resolutionReason?: string | null;
+  /** @nullable */
+  executionTarget?: RecommendationExecutionTarget;
+  /** @nullable */
+  decisionBundleFingerprint?: string | null;
+  approvalState: RecommendationApprovalState;
 }
 
 export interface RecommendationList {
@@ -1038,6 +1070,8 @@ export const RecommendationActionResultStatus = {
   executed: 'executed',
   rejected: 'rejected',
   expired: 'expired',
+  stale: 'stale',
+  invalidated: 'invalidated',
   superseded: 'superseded',
   blocked: 'blocked',
 } as const;
@@ -1051,6 +1085,8 @@ export interface RecommendationActionResult {
   tradeId?: number;
   /** Set by modify(): the new user-authored plan. */
   newRecommendationId?: number;
+  code?: string;
+  idempotentReplay?: boolean;
 }
 
 export interface PortfolioImpact {
@@ -1406,11 +1442,1328 @@ export interface SimilarTrades {
   featuresUsed: string[];
 }
 
+/**
+ * @nullable
+ */
+export type RecommendationWorkspaceExecutionTarget = typeof RecommendationWorkspaceExecutionTarget[keyof typeof RecommendationWorkspaceExecutionTarget] | null;
+
+
+export const RecommendationWorkspaceExecutionTarget = {
+  demo: 'demo',
+  live: 'live',
+} as const;
+
+export type RecommendationWorkspaceApprovalState = typeof RecommendationWorkspaceApprovalState[keyof typeof RecommendationWorkspaceApprovalState];
+
+
+export const RecommendationWorkspaceApprovalState = {
+  PROPOSED: 'PROPOSED',
+  APPROVABLE: 'APPROVABLE',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  EXPIRED: 'EXPIRED',
+  STALE: 'STALE',
+  INVALIDATED: 'INVALIDATED',
+  EXECUTION_BLOCKED: 'EXECUTION_BLOCKED',
+} as const;
+
+export type Phase9DecisionBundleSchemaVersion = typeof Phase9DecisionBundleSchemaVersion[keyof typeof Phase9DecisionBundleSchemaVersion];
+
+
+export const Phase9DecisionBundleSchemaVersion = {
+  'phase9-copilot-bundle-v1': 'phase9-copilot-bundle-v1',
+} as const;
+
+export type Phase9DecisionBundleExecutionTarget = typeof Phase9DecisionBundleExecutionTarget[keyof typeof Phase9DecisionBundleExecutionTarget];
+
+
+export const Phase9DecisionBundleExecutionTarget = {
+  demo: 'demo',
+  live: 'live',
+} as const;
+
+export type Phase9DecisionBundleTradingMode = typeof Phase9DecisionBundleTradingMode[keyof typeof Phase9DecisionBundleTradingMode];
+
+
+export const Phase9DecisionBundleTradingMode = {
+  copilot: 'copilot',
+} as const;
+
+export type Phase9DecisionBundleAuthorizationScope = typeof Phase9DecisionBundleAuthorizationScope[keyof typeof Phase9DecisionBundleAuthorizationScope];
+
+
+export const Phase9DecisionBundleAuthorizationScope = {
+  'single-controlled-execution-attempt': 'single-controlled-execution-attempt',
+} as const;
+
+export type Phase9DecisionBundleDecisionAuthority = typeof Phase9DecisionBundleDecisionAuthority[keyof typeof Phase9DecisionBundleDecisionAuthority];
+
+
+export const Phase9DecisionBundleDecisionAuthority = {
+  'brain-v0': 'brain-v0',
+} as const;
+
+export type Phase9DecisionBundleUnifiedBrainStatus = typeof Phase9DecisionBundleUnifiedBrainStatus[keyof typeof Phase9DecisionBundleUnifiedBrainStatus];
+
+
+export const Phase9DecisionBundleUnifiedBrainStatus = {
+  shadow_context: 'shadow_context',
+} as const;
+
+export type ShadowCouncilRunSchemaVersion = typeof ShadowCouncilRunSchemaVersion[keyof typeof ShadowCouncilRunSchemaVersion];
+
+
+export const ShadowCouncilRunSchemaVersion = {
+  '100': '1.0.0',
+} as const;
+
+export type ShadowCouncilRunCouncilVersion = typeof ShadowCouncilRunCouncilVersion[keyof typeof ShadowCouncilRunCouncilVersion];
+
+
+export const ShadowCouncilRunCouncilVersion = {
+  'shadow-decision-council-v1': 'shadow-decision-council-v1',
+} as const;
+
+export type ShadowCouncilRunMode = typeof ShadowCouncilRunMode[keyof typeof ShadowCouncilRunMode];
+
+
+export const ShadowCouncilRunMode = {
+  shadow: 'shadow',
+} as const;
+
+export type BrainDecisionSchemaVersion = typeof BrainDecisionSchemaVersion[keyof typeof BrainDecisionSchemaVersion];
+
+
+export const BrainDecisionSchemaVersion = {
+  '100': '1.0.0',
+} as const;
+
+export type BrainDecisionAction = typeof BrainDecisionAction[keyof typeof BrainDecisionAction];
+
+
+export const BrainDecisionAction = {
+  ENTER_NOW: 'ENTER_NOW',
+  WAIT_FOR_TRIGGER: 'WAIT_FOR_TRIGGER',
+  OBSERVE: 'OBSERVE',
+  REJECT: 'REJECT',
+  REDUCE: 'REDUCE',
+  EXIT: 'EXIT',
+} as const;
+
+export type EvidenceReferenceKind = typeof EvidenceReferenceKind[keyof typeof EvidenceReferenceKind];
+
+
+export const EvidenceReferenceKind = {
+  observation: 'observation',
+  specialist: 'specialist',
+  statistical: 'statistical',
+  memory: 'memory',
+  portfolio: 'portfolio',
+  execution: 'execution',
+} as const;
+
+export interface EvidenceReference {
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  evidenceId: string;
+  kind: EvidenceReferenceKind;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  source: string;
+  /**
+     * @minLength 1
+     * @maxLength 1000
+     */
+  summary: string;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  reference: string;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  fingerprint?: string;
+  dataTimestamp: string;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  strength: number;
+}
+
+export type TradeThesisSchemaVersion = typeof TradeThesisSchemaVersion[keyof typeof TradeThesisSchemaVersion];
+
+
+export const TradeThesisSchemaVersion = {
+  '100': '1.0.0',
+} as const;
+
+export type TradeThesisSide = typeof TradeThesisSide[keyof typeof TradeThesisSide];
+
+
+export const TradeThesisSide = {
+  long: 'long',
+  short: 'short',
+} as const;
+
+export interface TradeThesis {
+  schemaVersion: TradeThesisSchemaVersion;
+  thesisId: string;
+  symbol: string;
+  side: TradeThesisSide;
+  context: string;
+  trigger: string;
+  invalidationConditions: string[];
+  targetRationale: string;
+  expectedPath: string[];
+  /** @minimum 1 */
+  expectedDurationSeconds: number;
+  managementPolicyVersion: string;
+}
+
+export type ProposedTradePlanSchemaVersion = typeof ProposedTradePlanSchemaVersion[keyof typeof ProposedTradePlanSchemaVersion];
+
+
+export const ProposedTradePlanSchemaVersion = {
+  '100': '1.0.0',
+} as const;
+
+export type ProposedTradePlanSide = typeof ProposedTradePlanSide[keyof typeof ProposedTradePlanSide];
+
+
+export const ProposedTradePlanSide = {
+  long: 'long',
+  short: 'short',
+} as const;
+
+export type ProposedTradePlanReportChecksItem = {
+  name: string;
+  passed: boolean;
+  detail: string;
+};
+
+export type ProposedTradePlanReportData = { [key: string]: unknown };
+
+export type ProposedTradePlanReport = {
+  /** @minLength 1 */
+  summary: string;
+  marketView: string[];
+  entryLogic: string[];
+  riskLogic: string[];
+  exitLogic: string[];
+  checks: ProposedTradePlanReportChecksItem[];
+  data?: ProposedTradePlanReportData;
+};
+
+export interface ProposedTradePlan {
+  schemaVersion: ProposedTradePlanSchemaVersion;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  strategyId: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  strategyName: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  symbol: string;
+  side: ProposedTradePlanSide;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  confidence: number;
+  /** @exclusiveMinimum 0 */
+  entryPrice: number;
+  /** @exclusiveMinimum 0 */
+  stopPrice: number;
+  /** @exclusiveMinimum 0 */
+  targetPrice: number;
+  /** @exclusiveMinimum 0 */
+  quantity: number;
+  /** @minimum 1 */
+  leverage: number;
+  /** @minimum 1 */
+  expectedHoldSeconds: number;
+  /** @minimum 1 */
+  maxHoldSeconds: number;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  regime: string;
+  /**
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  netRewardRisk: number | null;
+  report: ProposedTradePlanReport;
+}
+
+export type BrainDecisionUncertainty = {
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  score: number;
+  /**
+     * @minItems 1
+     * @maxItems 20
+     * @items.minLength 1
+     * @items.maxLength 500
+     */
+  reasons: string[];
+  calibrated: boolean;
+};
+
+export type BrainDecisionVersions = {
+  brain: string;
+  strategy: string;
+  model: string;
+  config: string;
+  marketState: string;
+};
+
+export interface BrainDecision {
+  schemaVersion: BrainDecisionSchemaVersion;
+  decisionId: string;
+  action: BrainDecisionAction;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  symbol: string;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  marketStateFingerprint: string;
+  /** @maxItems 100 */
+  supportingEvidence: EvidenceReference[];
+  /** @maxItems 100 */
+  opposingEvidence: EvidenceReference[];
+  uncertainty: BrainDecisionUncertainty;
+  dataTimestamp: string;
+  expiresAt: string;
+  /**
+     * @minItems 1
+     * @maxItems 20
+     * @items.minLength 1
+     * @items.maxLength 500
+     */
+  invalidationConditions: string[];
+  versions: BrainDecisionVersions;
+  /** @pattern ^[A-Z0-9_]{3,120}$ */
+  reasonCode: string;
+  thesis: TradeThesis | null;
+  proposedTrade: ProposedTradePlan | null;
+}
+
+export type DeterministicAssessmentVersion = typeof DeterministicAssessmentVersion[keyof typeof DeterministicAssessmentVersion];
+
+
+export const DeterministicAssessmentVersion = {
+  'deterministic-council-v1': 'deterministic-council-v1',
+} as const;
+
+export type DeterministicAssessmentThresholds = {
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  enterNow: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  waitForTrigger: number;
+};
+
+export interface DeterministicAssessment {
+  version: DeterministicAssessmentVersion;
+  /** @minimum 0 */
+  longScore: number;
+  /** @minimum 0 */
+  shortScore: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  dominantShare: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  averageEffectiveStrength: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  regimeSuitability: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  costPenalty: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  decisionStrength: number;
+  thresholds: DeterministicAssessmentThresholds;
+  ruleTrace: string[];
+}
+
+export type CouncilReasoningReportStatus = typeof CouncilReasoningReportStatus[keyof typeof CouncilReasoningReportStatus];
+
+
+export const CouncilReasoningReportStatus = {
+  not_configured: 'not_configured',
+  validated: 'validated',
+  degraded: 'degraded',
+  circuit_open: 'circuit_open',
+  provider_error: 'provider_error',
+} as const;
+
+export interface ReasoningClaim {
+  claim: string;
+  evidenceIds: string[];
+}
+
+export type CouncilReasoningReportUsage = {
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  inputTokens: number | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  outputTokens: number | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  costUsd: number | null;
+};
+
+export interface CouncilReasoningReport {
+  status: CouncilReasoningReportStatus;
+  /** @nullable */
+  providerId: string | null;
+  /** @nullable */
+  modelVersion: string | null;
+  summary: string;
+  claims: ReasoningClaim[];
+  challenges: ReasoningClaim[];
+  uncertaintyNotes: string[];
+  validationFailures: string[];
+  /** @minimum 0 */
+  attempts: number;
+  /** @minimum 0 */
+  latencyMs: number;
+  usage: CouncilReasoningReportUsage;
+}
+
+export type MarketStateSchemaVersion = typeof MarketStateSchemaVersion[keyof typeof MarketStateSchemaVersion];
+
+
+export const MarketStateSchemaVersion = {
+  '100': '1.0.0',
+} as const;
+
+export type MarketStateMarketStateVersion = typeof MarketStateMarketStateVersion[keyof typeof MarketStateMarketStateVersion];
+
+
+export const MarketStateMarketStateVersion = {
+  'market-state-v1': 'market-state-v1',
+} as const;
+
+export type MarketStateVenue = typeof MarketStateVenue[keyof typeof MarketStateVenue];
+
+
+export const MarketStateVenue = {
+  spot: 'spot',
+  futures: 'futures',
+  forex: 'forex',
+} as const;
+
+export type MarketStateProvider = typeof MarketStateProvider[keyof typeof MarketStateProvider];
+
+
+export const MarketStateProvider = {
+  binance: 'binance',
+  oanda: 'oanda',
+  fixture: 'fixture',
+} as const;
+
+export type MarketStateFreshnessStatus = typeof MarketStateFreshnessStatus[keyof typeof MarketStateFreshnessStatus];
+
+
+export const MarketStateFreshnessStatus = {
+  fresh: 'fresh',
+  stale: 'stale',
+} as const;
+
+export type MarketStateDataQualityStatus = typeof MarketStateDataQualityStatus[keyof typeof MarketStateDataQualityStatus];
+
+
+export const MarketStateDataQualityStatus = {
+  healthy: 'healthy',
+  degraded: 'degraded',
+} as const;
+
+export type MarketStateObservationsTimeframesItemTimeframe = typeof MarketStateObservationsTimeframesItemTimeframe[keyof typeof MarketStateObservationsTimeframesItemTimeframe];
+
+
+export const MarketStateObservationsTimeframesItemTimeframe = {
+  '1m': '1m',
+  '3m': '3m',
+  '5m': '5m',
+  '15m': '15m',
+  '1h': '1h',
+} as const;
+
+export type MarketStateInferencesRegime = typeof MarketStateInferencesRegime[keyof typeof MarketStateInferencesRegime];
+
+
+export const MarketStateInferencesRegime = {
+  strong_trend: 'strong_trend',
+  weak_trend: 'weak_trend',
+  range: 'range',
+  high_volatility: 'high_volatility',
+  low_volatility: 'low_volatility',
+} as const;
+
+export type MarketStateInferencesDominantDirection = typeof MarketStateInferencesDominantDirection[keyof typeof MarketStateInferencesDominantDirection];
+
+
+export const MarketStateInferencesDominantDirection = {
+  bullish: 'bullish',
+  bearish: 'bearish',
+  neutral: 'neutral',
+} as const;
+
+export type MarketStateInferencesSession = typeof MarketStateInferencesSession[keyof typeof MarketStateInferencesSession];
+
+
+export const MarketStateInferencesSession = {
+  asia: 'asia',
+  europe: 'europe',
+  us: 'us',
+  europe_us_overlap: 'europe_us_overlap',
+  off_hours: 'off_hours',
+} as const;
+
+export type MarketStateFreshness = {
+  status: MarketStateFreshnessStatus;
+  /** @minimum 0 */
+  ageMs: number;
+  /** @minimum 1 */
+  maximumAgeMs: number;
+};
+
+export type MarketStateDataQuality = {
+  status: MarketStateDataQualityStatus;
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     */
+  issues: string[];
+};
+
+export type MarketStateObservationsTimeframesItem = {
+  timeframe: MarketStateObservationsTimeframesItemTimeframe;
+  /** @minimum 1 */
+  intervalMs: number;
+  /** @minimum 1 */
+  candleCount: number;
+  lastClosedAt: string;
+  /** @exclusiveMinimum 0 */
+  lastClose: number;
+  /** @minimum 0 */
+  excludedOpenCandles: number;
+};
+
+export type MarketStateObservationsTrend = { [key: string]: unknown };
+
+export type MarketStateObservationsVolatility = { [key: string]: unknown };
+
+export type MarketStateObservationsMomentum = { [key: string]: unknown };
+
+export type MarketStateObservationsLiquidity = { [key: string]: unknown };
+
+export type MarketStateObservationsStructure = { [key: string]: unknown };
+
+export type MarketStateObservations = {
+  /** @exclusiveMinimum 0 */
+  lastPrice: number;
+  /**
+     * @minItems 5
+     * @maxItems 5
+     */
+  timeframes: MarketStateObservationsTimeframesItem[];
+  trend: MarketStateObservationsTrend;
+  volatility: MarketStateObservationsVolatility;
+  momentum: MarketStateObservationsMomentum;
+  liquidity: MarketStateObservationsLiquidity;
+  structure: MarketStateObservationsStructure;
+  [key: string]: unknown;
+ };
+
+export type MarketStateInferencesAnomaly = { [key: string]: unknown };
+
+export type MarketStateInferences = {
+  regime: MarketStateInferencesRegime;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  regimeConfidence: number;
+  dominantDirection: MarketStateInferencesDominantDirection;
+  session: MarketStateInferencesSession;
+  anomaly: MarketStateInferencesAnomaly;
+};
+
+export type MarketStateContextBreadth = { [key: string]: unknown };
+
+export type MarketStateContextLeadership = { [key: string]: unknown };
+
+export type MarketStateContextCorrelation = { [key: string]: unknown };
+
+export type MarketStateContext = {
+  breadth: MarketStateContextBreadth;
+  leadership: MarketStateContextLeadership;
+  correlation: MarketStateContextCorrelation;
+};
+
+export interface MarketState {
+  schemaVersion: MarketStateSchemaVersion;
+  marketStateVersion: MarketStateMarketStateVersion;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  fingerprint: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  symbol: string;
+  venue: MarketStateVenue;
+  provider: MarketStateProvider;
+  dataTimestamp: string;
+  observedAt: string;
+  freshness: MarketStateFreshness;
+  dataQuality: MarketStateDataQuality;
+  observations: MarketStateObservations;
+  inferences: MarketStateInferences;
+  context: MarketStateContext;
+}
+
+export type SpecialistCouncilSnapshotSchemaVersion = typeof SpecialistCouncilSnapshotSchemaVersion[keyof typeof SpecialistCouncilSnapshotSchemaVersion];
+
+
+export const SpecialistCouncilSnapshotSchemaVersion = {
+  '100': '1.0.0',
+} as const;
+
+export type SpecialistCouncilSnapshotCouncilVersion = typeof SpecialistCouncilSnapshotCouncilVersion[keyof typeof SpecialistCouncilSnapshotCouncilVersion];
+
+
+export const SpecialistCouncilSnapshotCouncilVersion = {
+  'specialist-council-v1': 'specialist-council-v1',
+} as const;
+
+export type SpecialistCouncilSnapshotMode = typeof SpecialistCouncilSnapshotMode[keyof typeof SpecialistCouncilSnapshotMode];
+
+
+export const SpecialistCouncilSnapshotMode = {
+  observational: 'observational',
+} as const;
+
+export type SpecialistConsensusStance = typeof SpecialistConsensusStance[keyof typeof SpecialistConsensusStance];
+
+
+export const SpecialistConsensusStance = {
+  long: 'long',
+  short: 'short',
+  mixed: 'mixed',
+  abstain: 'abstain',
+} as const;
+
+export interface SpecialistConsensus {
+  stance: SpecialistConsensusStance;
+  /** @minimum 0 */
+  longScore: number;
+  /** @minimum 0 */
+  shortScore: number;
+  /** @minimum 0 */
+  actionableOpinions: number;
+  /** @minimum 0 */
+  abstentions: number;
+  disagreement: boolean;
+  explanation: string;
+}
+
+export type SpecialistOpinionViewRole = typeof SpecialistOpinionViewRole[keyof typeof SpecialistOpinionViewRole];
+
+
+export const SpecialistOpinionViewRole = {
+  trend: 'trend',
+  breakout: 'breakout',
+  mean_reversion: 'mean_reversion',
+  volatility: 'volatility',
+  market_structure: 'market_structure',
+  execution_quality: 'execution_quality',
+  portfolio_conflict: 'portfolio_conflict',
+} as const;
+
+export type SpecialistOpinionViewOperationalStatus = typeof SpecialistOpinionViewOperationalStatus[keyof typeof SpecialistOpinionViewOperationalStatus];
+
+
+export const SpecialistOpinionViewOperationalStatus = {
+  active: 'active',
+  abstained: 'abstained',
+} as const;
+
+export type StrategyOpinionSchemaVersion = typeof StrategyOpinionSchemaVersion[keyof typeof StrategyOpinionSchemaVersion];
+
+
+export const StrategyOpinionSchemaVersion = {
+  '100': '1.0.0',
+} as const;
+
+export type StrategyOpinionStance = typeof StrategyOpinionStance[keyof typeof StrategyOpinionStance];
+
+
+export const StrategyOpinionStance = {
+  long: 'long',
+  short: 'short',
+  neutral: 'neutral',
+  abstain: 'abstain',
+} as const;
+
+export interface StrategyOpinion {
+  schemaVersion: StrategyOpinionSchemaVersion;
+  opinionId: string;
+  specialistId: string;
+  specialistVersion: string;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  marketStateFingerprint: string;
+  symbol: string;
+  stance: StrategyOpinionStance;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  strength: number;
+  /** @minItems 1 */
+  applicableRegimes: string[];
+  /** @maxItems 50 */
+  supportingEvidence: EvidenceReference[];
+  /** @maxItems 50 */
+  opposingEvidence: EvidenceReference[];
+  /** @nullable */
+  trigger: string | null;
+  /** @maxItems 20 */
+  invalidationConditions: string[];
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  expectedDurationSeconds: number | null;
+  /**
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  proposedRewardRisk: number | null;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  uncertainty: number;
+  /** @nullable */
+  abstentionReason: string | null;
+  dataTimestamp: string;
+  expiresAt: string;
+}
+
+export interface SpecialistOpinionView {
+  role: SpecialistOpinionViewRole;
+  correlationGroup: string;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  correlationDiscount: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  effectiveStrength: number;
+  operationalStatus: SpecialistOpinionViewOperationalStatus;
+  opinion: StrategyOpinion;
+}
+
+export interface SpecialistCouncilSnapshot {
+  schemaVersion: SpecialistCouncilSnapshotSchemaVersion;
+  councilVersion: SpecialistCouncilSnapshotCouncilVersion;
+  mode: SpecialistCouncilSnapshotMode;
+  cannotExecute: true;
+  symbol: string;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  marketStateFingerprint: string;
+  dataTimestamp: string;
+  generatedAt: string;
+  consensus: SpecialistConsensus;
+  opinions: SpecialistOpinionView[];
+}
+
+export type ExecutionCostContextSource = typeof ExecutionCostContextSource[keyof typeof ExecutionCostContextSource];
+
+
+export const ExecutionCostContextSource = {
+  'engine-market-cost-model': 'engine-market-cost-model',
+} as const;
+
+export interface ExecutionCostContext {
+  /** @minimum 0 */
+  feeRatePerLeg: number;
+  /** @minimum 0 */
+  slippageRatePerLeg: number;
+  source: ExecutionCostContextSource;
+  version: string;
+}
+
+export type PreliminaryPortfolioContextStatus = typeof PreliminaryPortfolioContextStatus[keyof typeof PreliminaryPortfolioContextStatus];
+
+
+export const PreliminaryPortfolioContextStatus = {
+  partial: 'partial',
+  unavailable: 'unavailable',
+} as const;
+
+export interface PreliminaryPortfolioContext {
+  status: PreliminaryPortfolioContextStatus;
+  currency: string;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  availableBalance: number | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  openPositionCount: number | null;
+  observedAt: string;
+  limitations: string[];
+}
+
+export type HistoricalEvidenceContextStatus = typeof HistoricalEvidenceContextStatus[keyof typeof HistoricalEvidenceContextStatus];
+
+
+export const HistoricalEvidenceContextStatus = {
+  unavailable: 'unavailable',
+  observational: 'observational',
+  approved: 'approved',
+} as const;
+
+export type HistoricalEvidenceContextItemsItem = { [key: string]: unknown };
+
+export interface HistoricalEvidenceContext {
+  status: HistoricalEvidenceContextStatus;
+  /** @nullable */
+  ruleVersion: string | null;
+  items: HistoricalEvidenceContextItemsItem[];
+  limitations: string[];
+}
+
+export type BrainV0ComparisonMode = typeof BrainV0ComparisonMode[keyof typeof BrainV0ComparisonMode];
+
+
+export const BrainV0ComparisonMode = {
+  control: 'control',
+} as const;
+
+export type BrainV0ComparisonDisposition = typeof BrainV0ComparisonDisposition[keyof typeof BrainV0ComparisonDisposition];
+
+
+export const BrainV0ComparisonDisposition = {
+  CANDIDATE_PRODUCED: 'CANDIDATE_PRODUCED',
+  NO_CANDIDATE: 'NO_CANDIDATE',
+} as const;
+
+export type BrainV0CandidateSide = typeof BrainV0CandidateSide[keyof typeof BrainV0CandidateSide];
+
+
+export const BrainV0CandidateSide = {
+  long: 'long',
+  short: 'short',
+} as const;
+
+export interface BrainV0Candidate {
+  strategyId: string;
+  strategyName: string;
+  side: BrainV0CandidateSide;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  confidence: number;
+  /**
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  netRewardRisk: number | null;
+}
+
+export interface BrainV0Comparison {
+  mode: BrainV0ComparisonMode;
+  /** @minimum 0 */
+  candidateCount: number;
+  disposition: BrainV0ComparisonDisposition;
+  topCandidate: BrainV0Candidate | null;
+}
+
+export interface ShadowReplayBundle {
+  marketState: MarketState;
+  specialistCouncil: SpecialistCouncilSnapshot;
+  executionCosts: ExecutionCostContext;
+  portfolio: PreliminaryPortfolioContext;
+  historicalEvidence: HistoricalEvidenceContext;
+  brainV0: BrainV0Comparison;
+}
+
+export interface ShadowCouncilRun {
+  schemaVersion: ShadowCouncilRunSchemaVersion;
+  councilVersion: ShadowCouncilRunCouncilVersion;
+  runId: string;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  inputFingerprint: string;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  runFingerprint: string;
+  mode: ShadowCouncilRunMode;
+  cannotExecute: true;
+  generatedAt: string;
+  decision: BrainDecision;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  decisionFingerprint: string;
+  deterministicAssessment: DeterministicAssessment;
+  reasoning: CouncilReasoningReport;
+  replay: ShadowReplayBundle;
+}
+
+export type PortfolioIntelligenceProjectionDataStatus = typeof PortfolioIntelligenceProjectionDataStatus[keyof typeof PortfolioIntelligenceProjectionDataStatus];
+
+
+export const PortfolioIntelligenceProjectionDataStatus = {
+  healthy: 'healthy',
+  degraded: 'degraded',
+  blocked: 'blocked',
+} as const;
+
+export type PortfolioPolicyUnknownCorrelationPolicy = typeof PortfolioPolicyUnknownCorrelationPolicy[keyof typeof PortfolioPolicyUnknownCorrelationPolicy];
+
+
+export const PortfolioPolicyUnknownCorrelationPolicy = {
+  allow: 'allow',
+  block: 'block',
+} as const;
+
+export interface PortfolioPolicy {
+  policyVersion: 'shadow-portfolio-policy-v1';
+  /** @minLength 1 */
+  riskPolicyVersion: string;
+  /** @minimum 0 */
+  maxOpenPositions: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  maxPortfolioRiskFraction: number;
+  /** @minimum 0 */
+  maxSymbolNotionalFraction: number;
+  /** @minimum 0 */
+  maxNetExposureFraction: number;
+  /** @minimum 0 */
+  maxCorrelatedNotionalFraction: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  maxStrategyRiskFraction: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  correlationThreshold: number;
+  unknownCorrelationPolicy: PortfolioPolicyUnknownCorrelationPolicy;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  drawdownDeRiskStartFraction: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  drawdownHardFraction: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  minimumAllocationFraction: number;
+}
+
+export type PortfolioContextCorrelationState = typeof PortfolioContextCorrelationState[keyof typeof PortfolioContextCorrelationState];
+
+
+export const PortfolioContextCorrelationState = {
+  known: 'known',
+  partial: 'partial',
+  unknown: 'unknown',
+} as const;
+
+export interface PortfolioCorrelationCluster {
+  /** @minLength 1 */
+  clusterId: string;
+  /**
+     * @minItems 1
+     * @maxItems 100
+     * @items.minLength 1
+     */
+  symbols: string[];
+  /** @minimum 0 */
+  exposure: number;
+}
+
+export interface PortfolioContext {
+  schemaVersion: '1.0.0';
+  contextId: string;
+  asOf: string;
+  /** @minLength 1 */
+  currency: string;
+  /** @minimum 0 */
+  equity: number;
+  /** @minimum 0 */
+  availableBalance: number;
+  /** @minimum 0 */
+  openPositionCount: number;
+  /** @minimum 0 */
+  remainingStopRisk: number;
+  /** @minimum 0 */
+  grossExposure: number;
+  netExposure: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  drawdownFraction: number;
+  /** @minimum 0 */
+  reservedRisk: number;
+  correlationState: PortfolioContextCorrelationState;
+  /** @maxItems 100 */
+  correlationClusters: PortfolioCorrelationCluster[];
+  /** @minLength 1 */
+  riskPolicyVersion: string;
+  /** @pattern ^[a-f0-9]{64}$ */
+  fingerprint: string;
+}
+
+export interface PortfolioRiskUsage {
+  /** @minimum 0 */
+  maximumStopRisk: number;
+  /** @minimum 0 */
+  openStopRisk: number;
+  /** @minimum 0 */
+  initiallyReservedRisk: number;
+  /** @minimum 0 */
+  shadowReservedRisk: number;
+  /** @minimum 0 */
+  remainingRisk: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  drawdownScale: number;
+  /** @minimum 0 */
+  openPositions: number;
+  /** @minimum 0 */
+  shadowAllocatedPositions: number;
+  /** @minimum 0 */
+  remainingPositionSlots: number;
+}
+
+/**
+ * @nullable
+ */
+export type PortfolioOpportunityAssessmentSide = typeof PortfolioOpportunityAssessmentSide[keyof typeof PortfolioOpportunityAssessmentSide] | null;
+
+
+export const PortfolioOpportunityAssessmentSide = {
+  long: 'long',
+  short: 'short',
+} as const;
+
+export type PortfolioOpportunityAssessmentAction = typeof PortfolioOpportunityAssessmentAction[keyof typeof PortfolioOpportunityAssessmentAction];
+
+
+export const PortfolioOpportunityAssessmentAction = {
+  ENTER_NOW: 'ENTER_NOW',
+  WAIT_FOR_TRIGGER: 'WAIT_FOR_TRIGGER',
+  OBSERVE: 'OBSERVE',
+  REJECT: 'REJECT',
+  REDUCE: 'REDUCE',
+  EXIT: 'EXIT',
+} as const;
+
+export interface OpportunityScoreComponents {
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  rewardRiskQuality: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  decisionSupport: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  regimeSuitability: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  liquidityQuality: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  diversificationBenefit: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  costQuality: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  uncertaintyQuality: number;
+}
+
+export type PortfolioOpportunityAssessmentDisposition = typeof PortfolioOpportunityAssessmentDisposition[keyof typeof PortfolioOpportunityAssessmentDisposition];
+
+
+export const PortfolioOpportunityAssessmentDisposition = {
+  SHADOW_ALLOCATED: 'SHADOW_ALLOCATED',
+  WAIT_FOR_TRIGGER: 'WAIT_FOR_TRIGGER',
+  OBSERVE: 'OBSERVE',
+  REJECTED: 'REJECTED',
+} as const;
+
+export interface PortfolioOpportunityAssessment {
+  /** @minimum 1 */
+  rank: number;
+  decisionId: string;
+  /** @pattern ^[a-f0-9]{64}$ */
+  sourceFingerprint: string;
+  /** @minLength 1 */
+  symbol: string;
+  /** @nullable */
+  side: PortfolioOpportunityAssessmentSide;
+  action: PortfolioOpportunityAssessmentAction;
+  /** @nullable */
+  strategyId: string | null;
+  /** @nullable */
+  strategyName: string | null;
+  dataTimestamp: string;
+  expiresAt: string;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  score: number;
+  scoreComponents: OpportunityScoreComponents;
+  /**
+     * Unavailable until calibrated expectancy exists.
+     * @nullable
+     */
+  estimatedNetR: null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  netRewardRisk: number | null;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  uncertainty: number;
+  /** @minimum 0 */
+  requestedRisk: number;
+  /** @minimum 0 */
+  requestedNotional: number;
+  /** @minimum 0 */
+  allocatedRisk: number;
+  /** @minimum 0 */
+  allocatedNotional: number;
+  /** @minimum 0 */
+  allocatedQuantity: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  allocationFraction: number;
+  disposition: PortfolioOpportunityAssessmentDisposition;
+  reasonCodes: string[];
+  explanation: string;
+  correlationUnknownWith: string[];
+  reinforcingClusterSymbols: string[];
+}
+
+export interface RetainedCash {
+  /** @minimum 0 */
+  amount: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  fractionOfAvailableBalance: number;
+  reasonCodes: string[];
+  explanation: string;
+}
+
+export interface PortfolioIntelligenceProjection {
+  schemaVersion: '1.0.0';
+  portfolioVersion: 'shadow-portfolio-intelligence-v1';
+  mode: 'shadow';
+  cannotExecute: true;
+  projectionId: string;
+  /** @pattern ^[a-f0-9]{64}$ */
+  fingerprint: string;
+  generatedAt: string;
+  /** @nullable */
+  sourceScanTimestamp: string | null;
+  dataStatus: PortfolioIntelligenceProjectionDataStatus;
+  dataIssues: string[];
+  policy: PortfolioPolicy;
+  context: PortfolioContext;
+  riskUsage: PortfolioRiskUsage;
+  opportunities: PortfolioOpportunityAssessment[];
+  retainedCash: RetainedCash;
+}
+
+export type Phase9DecisionBundleRiskVerdict = typeof Phase9DecisionBundleRiskVerdict[keyof typeof Phase9DecisionBundleRiskVerdict];
+
+
+export const Phase9DecisionBundleRiskVerdict = {
+  PASSED: 'PASSED',
+} as const;
+
+export type Phase9DecisionBundleUnifiedBrain = {
+  status: Phase9DecisionBundleUnifiedBrainStatus;
+  reason: string;
+  run: ShadowCouncilRun;
+};
+
+export type Phase9DecisionBundleRisk = {
+  verdict: Phase9DecisionBundleRiskVerdict;
+  checks: RevalidationCheck[];
+  candidateMaximumLoss: number;
+  candidateNotional: number;
+  policyVersion: string;
+};
+
+/**
+ * @nullable
+ */
+export type Phase9DecisionBundleManagementAuthority = { [key: string]: unknown } | null;
+
+export type Phase9DecisionBundleVersions = {
+  plan: string;
+  brain: string;
+  council: string;
+  marketState: string;
+  portfolio: string;
+  riskPolicy: string;
+  /** @nullable */
+  managementPolicy: string | null;
+};
+
+export interface Phase9DecisionBundle {
+  schemaVersion: Phase9DecisionBundleSchemaVersion;
+  createdAt: string;
+  planFingerprint: string;
+  executionTarget: Phase9DecisionBundleExecutionTarget;
+  tradingMode: Phase9DecisionBundleTradingMode;
+  authorizationScope: Phase9DecisionBundleAuthorizationScope;
+  approvalPolicyVersion: string;
+  revalidationPolicyVersion: string;
+  decisionAuthority: Phase9DecisionBundleDecisionAuthority;
+  unifiedBrain: Phase9DecisionBundleUnifiedBrain;
+  marketState: MarketState;
+  specialistCouncil: SpecialistCouncilSnapshot;
+  portfolio: PortfolioIntelligenceProjection;
+  risk: Phase9DecisionBundleRisk;
+  /** @nullable */
+  managementAuthority: Phase9DecisionBundleManagementAuthority;
+  versions: Phase9DecisionBundleVersions;
+  limitations: string[];
+}
+
+export interface ApprovalReadiness {
+  approvable: boolean;
+  reason: string;
+  checks: RevalidationCheck[];
+}
+
+export type RecommendationAuditEventActorType = typeof RecommendationAuditEventActorType[keyof typeof RecommendationAuditEventActorType];
+
+
+export const RecommendationAuditEventActorType = {
+  engine: 'engine',
+  user: 'user',
+  system: 'system',
+} as const;
+
+export interface RecommendationAuditEvent {
+  id: number;
+  eventType: string;
+  actorType: RecommendationAuditEventActorType;
+  /** @nullable */
+  actorUserId: number | null;
+  /** @nullable */
+  fromStatus: string | null;
+  toStatus: string;
+  reasonCode: string;
+  reason: string;
+  occurredAt: string;
+}
+
 export interface RecommendationWorkspace {
   recommendation: Recommendation;
   decisionTrace: PipelineStage[];
   portfolioImpact: PortfolioImpact;
   similarTrades: SimilarTrades;
+  decisionBundle: Phase9DecisionBundle | null;
+  /** @nullable */
+  decisionBundleFingerprint: string | null;
+  /** @nullable */
+  executionTarget: RecommendationWorkspaceExecutionTarget;
+  /** @nullable */
+  approvalChallenge: string | null;
+  approvalState: RecommendationWorkspaceApprovalState;
+  approvalReadiness: ApprovalReadiness;
+  auditEvents: RecommendationAuditEvent[];
 }
 
 export type NotificationSeverity = typeof NotificationSeverity[keyof typeof NotificationSeverity];
@@ -1518,408 +2871,6 @@ export interface ConnectionStatus {
   lastTickerLatencyMs: number | null;
   /** @nullable */
   lastError: string | null;
-}
-
-export type EvidenceReferenceKind = typeof EvidenceReferenceKind[keyof typeof EvidenceReferenceKind];
-
-
-export const EvidenceReferenceKind = {
-  observation: 'observation',
-  specialist: 'specialist',
-  statistical: 'statistical',
-  memory: 'memory',
-  portfolio: 'portfolio',
-  execution: 'execution',
-} as const;
-
-export interface EvidenceReference {
-  /**
-     * @minLength 1
-     * @maxLength 160
-     */
-  evidenceId: string;
-  kind: EvidenceReferenceKind;
-  /**
-     * @minLength 1
-     * @maxLength 120
-     */
-  source: string;
-  /**
-     * @minLength 1
-     * @maxLength 1000
-     */
-  summary: string;
-  /**
-     * @minLength 1
-     * @maxLength 500
-     */
-  reference: string;
-  /** @pattern ^[a-fA-F0-9]{64}$ */
-  fingerprint?: string;
-  dataTimestamp: string;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  strength: number;
-}
-
-export type ProposedTradePlanSchemaVersion = typeof ProposedTradePlanSchemaVersion[keyof typeof ProposedTradePlanSchemaVersion];
-
-
-export const ProposedTradePlanSchemaVersion = {
-  '100': '1.0.0',
-} as const;
-
-export type ProposedTradePlanSide = typeof ProposedTradePlanSide[keyof typeof ProposedTradePlanSide];
-
-
-export const ProposedTradePlanSide = {
-  long: 'long',
-  short: 'short',
-} as const;
-
-export type ProposedTradePlanReportChecksItem = {
-  name: string;
-  passed: boolean;
-  detail: string;
-};
-
-export type ProposedTradePlanReportData = { [key: string]: unknown };
-
-export type ProposedTradePlanReport = {
-  /** @minLength 1 */
-  summary: string;
-  marketView: string[];
-  entryLogic: string[];
-  riskLogic: string[];
-  exitLogic: string[];
-  checks: ProposedTradePlanReportChecksItem[];
-  data?: ProposedTradePlanReportData;
-};
-
-export interface ProposedTradePlan {
-  schemaVersion: ProposedTradePlanSchemaVersion;
-  /**
-     * @minLength 1
-     * @maxLength 120
-     */
-  strategyId: string;
-  /**
-     * @minLength 1
-     * @maxLength 200
-     */
-  strategyName: string;
-  /**
-     * @minLength 1
-     * @maxLength 80
-     */
-  symbol: string;
-  side: ProposedTradePlanSide;
-  /**
-     * @minimum 0
-     * @maximum 100
-     */
-  confidence: number;
-  /** @exclusiveMinimum 0 */
-  entryPrice: number;
-  /** @exclusiveMinimum 0 */
-  stopPrice: number;
-  /** @exclusiveMinimum 0 */
-  targetPrice: number;
-  /** @exclusiveMinimum 0 */
-  quantity: number;
-  /** @minimum 1 */
-  leverage: number;
-  /** @minimum 1 */
-  expectedHoldSeconds: number;
-  /** @minimum 1 */
-  maxHoldSeconds: number;
-  /**
-     * @minLength 1
-     * @maxLength 120
-     */
-  regime: string;
-  /**
-     * @exclusiveMinimum 0
-     * @nullable
-     */
-  netRewardRisk: number | null;
-  report: ProposedTradePlanReport;
-}
-
-export type BrainDecisionSchemaVersion = typeof BrainDecisionSchemaVersion[keyof typeof BrainDecisionSchemaVersion];
-
-
-export const BrainDecisionSchemaVersion = {
-  '100': '1.0.0',
-} as const;
-
-export type BrainDecisionAction = typeof BrainDecisionAction[keyof typeof BrainDecisionAction];
-
-
-export const BrainDecisionAction = {
-  ENTER_NOW: 'ENTER_NOW',
-  WAIT_FOR_TRIGGER: 'WAIT_FOR_TRIGGER',
-  OBSERVE: 'OBSERVE',
-  REJECT: 'REJECT',
-  REDUCE: 'REDUCE',
-  EXIT: 'EXIT',
-} as const;
-
-export type BrainDecisionUncertainty = {
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  score: number;
-  /**
-     * @minItems 1
-     * @maxItems 20
-     * @items.minLength 1
-     * @items.maxLength 500
-     */
-  reasons: string[];
-  calibrated: boolean;
-};
-
-export type BrainDecisionVersions = {
-  brain: string;
-  strategy: string;
-  model: string;
-  config: string;
-  marketState: string;
-};
-
-/**
- * @nullable
- */
-export type BrainDecisionThesis = { [key: string]: unknown } | null;
-
-export interface BrainDecision {
-  schemaVersion: BrainDecisionSchemaVersion;
-  decisionId: string;
-  action: BrainDecisionAction;
-  /**
-     * @minLength 1
-     * @maxLength 80
-     */
-  symbol: string;
-  /** @pattern ^[a-fA-F0-9]{64}$ */
-  marketStateFingerprint: string;
-  /** @maxItems 100 */
-  supportingEvidence: EvidenceReference[];
-  /** @maxItems 100 */
-  opposingEvidence: EvidenceReference[];
-  uncertainty: BrainDecisionUncertainty;
-  dataTimestamp: string;
-  expiresAt: string;
-  /**
-     * @minItems 1
-     * @maxItems 20
-     * @items.minLength 1
-     * @items.maxLength 500
-     */
-  invalidationConditions: string[];
-  versions: BrainDecisionVersions;
-  /** @pattern ^[A-Z0-9_]{3,120}$ */
-  reasonCode: string;
-  /** @nullable */
-  thesis: BrainDecisionThesis;
-  proposedTrade: ProposedTradePlan | null;
-}
-
-export type MarketStateSchemaVersion = typeof MarketStateSchemaVersion[keyof typeof MarketStateSchemaVersion];
-
-
-export const MarketStateSchemaVersion = {
-  '100': '1.0.0',
-} as const;
-
-export type MarketStateMarketStateVersion = typeof MarketStateMarketStateVersion[keyof typeof MarketStateMarketStateVersion];
-
-
-export const MarketStateMarketStateVersion = {
-  'market-state-v1': 'market-state-v1',
-} as const;
-
-export type MarketStateVenue = typeof MarketStateVenue[keyof typeof MarketStateVenue];
-
-
-export const MarketStateVenue = {
-  spot: 'spot',
-  futures: 'futures',
-  forex: 'forex',
-} as const;
-
-export type MarketStateProvider = typeof MarketStateProvider[keyof typeof MarketStateProvider];
-
-
-export const MarketStateProvider = {
-  binance: 'binance',
-  oanda: 'oanda',
-  fixture: 'fixture',
-} as const;
-
-export type MarketStateFreshnessStatus = typeof MarketStateFreshnessStatus[keyof typeof MarketStateFreshnessStatus];
-
-
-export const MarketStateFreshnessStatus = {
-  fresh: 'fresh',
-  stale: 'stale',
-} as const;
-
-export type MarketStateFreshness = {
-  status: MarketStateFreshnessStatus;
-  /** @minimum 0 */
-  ageMs: number;
-  /** @minimum 1 */
-  maximumAgeMs: number;
-};
-
-export type MarketStateDataQualityStatus = typeof MarketStateDataQualityStatus[keyof typeof MarketStateDataQualityStatus];
-
-
-export const MarketStateDataQualityStatus = {
-  healthy: 'healthy',
-  degraded: 'degraded',
-} as const;
-
-export type MarketStateDataQuality = {
-  status: MarketStateDataQualityStatus;
-  /**
-     * @maxItems 50
-     * @items.minLength 1
-     */
-  issues: string[];
-};
-
-export type MarketStateObservationsTimeframesItemTimeframe = typeof MarketStateObservationsTimeframesItemTimeframe[keyof typeof MarketStateObservationsTimeframesItemTimeframe];
-
-
-export const MarketStateObservationsTimeframesItemTimeframe = {
-  '1m': '1m',
-  '3m': '3m',
-  '5m': '5m',
-  '15m': '15m',
-  '1h': '1h',
-} as const;
-
-export type MarketStateObservationsTimeframesItem = {
-  timeframe: MarketStateObservationsTimeframesItemTimeframe;
-  /** @minimum 1 */
-  intervalMs: number;
-  /** @minimum 1 */
-  candleCount: number;
-  lastClosedAt: string;
-  /** @exclusiveMinimum 0 */
-  lastClose: number;
-  /** @minimum 0 */
-  excludedOpenCandles: number;
-};
-
-export type MarketStateObservationsTrend = { [key: string]: unknown };
-
-export type MarketStateObservationsVolatility = { [key: string]: unknown };
-
-export type MarketStateObservationsMomentum = { [key: string]: unknown };
-
-export type MarketStateObservationsLiquidity = { [key: string]: unknown };
-
-export type MarketStateObservationsStructure = { [key: string]: unknown };
-
-export type MarketStateObservations = {
-  /** @exclusiveMinimum 0 */
-  lastPrice: number;
-  /**
-     * @minItems 5
-     * @maxItems 5
-     */
-  timeframes: MarketStateObservationsTimeframesItem[];
-  trend: MarketStateObservationsTrend;
-  volatility: MarketStateObservationsVolatility;
-  momentum: MarketStateObservationsMomentum;
-  liquidity: MarketStateObservationsLiquidity;
-  structure: MarketStateObservationsStructure;
-  [key: string]: unknown;
- };
-
-export type MarketStateInferencesRegime = typeof MarketStateInferencesRegime[keyof typeof MarketStateInferencesRegime];
-
-
-export const MarketStateInferencesRegime = {
-  strong_trend: 'strong_trend',
-  weak_trend: 'weak_trend',
-  range: 'range',
-  high_volatility: 'high_volatility',
-  low_volatility: 'low_volatility',
-} as const;
-
-export type MarketStateInferencesDominantDirection = typeof MarketStateInferencesDominantDirection[keyof typeof MarketStateInferencesDominantDirection];
-
-
-export const MarketStateInferencesDominantDirection = {
-  bullish: 'bullish',
-  bearish: 'bearish',
-  neutral: 'neutral',
-} as const;
-
-export type MarketStateInferencesSession = typeof MarketStateInferencesSession[keyof typeof MarketStateInferencesSession];
-
-
-export const MarketStateInferencesSession = {
-  asia: 'asia',
-  europe: 'europe',
-  us: 'us',
-  europe_us_overlap: 'europe_us_overlap',
-  off_hours: 'off_hours',
-} as const;
-
-export type MarketStateInferencesAnomaly = { [key: string]: unknown };
-
-export type MarketStateInferences = {
-  regime: MarketStateInferencesRegime;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  regimeConfidence: number;
-  dominantDirection: MarketStateInferencesDominantDirection;
-  session: MarketStateInferencesSession;
-  anomaly: MarketStateInferencesAnomaly;
-};
-
-export type MarketStateContextBreadth = { [key: string]: unknown };
-
-export type MarketStateContextLeadership = { [key: string]: unknown };
-
-export type MarketStateContextCorrelation = { [key: string]: unknown };
-
-export type MarketStateContext = {
-  breadth: MarketStateContextBreadth;
-  leadership: MarketStateContextLeadership;
-  correlation: MarketStateContextCorrelation;
-};
-
-export interface MarketState {
-  schemaVersion: MarketStateSchemaVersion;
-  marketStateVersion: MarketStateMarketStateVersion;
-  /** @pattern ^[a-fA-F0-9]{64}$ */
-  fingerprint: string;
-  /**
-     * @minLength 1
-     * @maxLength 80
-     */
-  symbol: string;
-  venue: MarketStateVenue;
-  provider: MarketStateProvider;
-  dataTimestamp: string;
-  observedAt: string;
-  freshness: MarketStateFreshness;
-  dataQuality: MarketStateDataQuality;
-  observations: MarketStateObservations;
-  inferences: MarketStateInferences;
-  context: MarketStateContext;
 }
 
 export interface MarketStateBuildIssue {
@@ -3466,732 +4417,6 @@ export interface StrategyPerformance {
   avgDurationSeconds: number;
 }
 
-export type StrategyOpinionSchemaVersion = typeof StrategyOpinionSchemaVersion[keyof typeof StrategyOpinionSchemaVersion];
-
-
-export const StrategyOpinionSchemaVersion = {
-  '100': '1.0.0',
-} as const;
-
-export type StrategyOpinionStance = typeof StrategyOpinionStance[keyof typeof StrategyOpinionStance];
-
-
-export const StrategyOpinionStance = {
-  long: 'long',
-  short: 'short',
-  neutral: 'neutral',
-  abstain: 'abstain',
-} as const;
-
-export interface StrategyOpinion {
-  schemaVersion: StrategyOpinionSchemaVersion;
-  opinionId: string;
-  specialistId: string;
-  specialistVersion: string;
-  /** @pattern ^[a-fA-F0-9]{64}$ */
-  marketStateFingerprint: string;
-  symbol: string;
-  stance: StrategyOpinionStance;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  strength: number;
-  /** @minItems 1 */
-  applicableRegimes: string[];
-  /** @maxItems 50 */
-  supportingEvidence: EvidenceReference[];
-  /** @maxItems 50 */
-  opposingEvidence: EvidenceReference[];
-  /** @nullable */
-  trigger: string | null;
-  /** @maxItems 20 */
-  invalidationConditions: string[];
-  /**
-     * @minimum 1
-     * @nullable
-     */
-  expectedDurationSeconds: number | null;
-  /**
-     * @exclusiveMinimum 0
-     * @nullable
-     */
-  proposedRewardRisk: number | null;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  uncertainty: number;
-  /** @nullable */
-  abstentionReason: string | null;
-  dataTimestamp: string;
-  expiresAt: string;
-}
-
-export type SpecialistOpinionViewRole = typeof SpecialistOpinionViewRole[keyof typeof SpecialistOpinionViewRole];
-
-
-export const SpecialistOpinionViewRole = {
-  trend: 'trend',
-  breakout: 'breakout',
-  mean_reversion: 'mean_reversion',
-  volatility: 'volatility',
-  market_structure: 'market_structure',
-  execution_quality: 'execution_quality',
-  portfolio_conflict: 'portfolio_conflict',
-} as const;
-
-export type SpecialistOpinionViewOperationalStatus = typeof SpecialistOpinionViewOperationalStatus[keyof typeof SpecialistOpinionViewOperationalStatus];
-
-
-export const SpecialistOpinionViewOperationalStatus = {
-  active: 'active',
-  abstained: 'abstained',
-} as const;
-
-export interface SpecialistOpinionView {
-  role: SpecialistOpinionViewRole;
-  correlationGroup: string;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  correlationDiscount: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  effectiveStrength: number;
-  operationalStatus: SpecialistOpinionViewOperationalStatus;
-  opinion: StrategyOpinion;
-}
-
-export type SpecialistConsensusStance = typeof SpecialistConsensusStance[keyof typeof SpecialistConsensusStance];
-
-
-export const SpecialistConsensusStance = {
-  long: 'long',
-  short: 'short',
-  mixed: 'mixed',
-  abstain: 'abstain',
-} as const;
-
-export interface SpecialistConsensus {
-  stance: SpecialistConsensusStance;
-  /** @minimum 0 */
-  longScore: number;
-  /** @minimum 0 */
-  shortScore: number;
-  /** @minimum 0 */
-  actionableOpinions: number;
-  /** @minimum 0 */
-  abstentions: number;
-  disagreement: boolean;
-  explanation: string;
-}
-
-export type SpecialistCouncilSnapshotSchemaVersion = typeof SpecialistCouncilSnapshotSchemaVersion[keyof typeof SpecialistCouncilSnapshotSchemaVersion];
-
-
-export const SpecialistCouncilSnapshotSchemaVersion = {
-  '100': '1.0.0',
-} as const;
-
-export type SpecialistCouncilSnapshotCouncilVersion = typeof SpecialistCouncilSnapshotCouncilVersion[keyof typeof SpecialistCouncilSnapshotCouncilVersion];
-
-
-export const SpecialistCouncilSnapshotCouncilVersion = {
-  'specialist-council-v1': 'specialist-council-v1',
-} as const;
-
-export type SpecialistCouncilSnapshotMode = typeof SpecialistCouncilSnapshotMode[keyof typeof SpecialistCouncilSnapshotMode];
-
-
-export const SpecialistCouncilSnapshotMode = {
-  observational: 'observational',
-} as const;
-
-export interface SpecialistCouncilSnapshot {
-  schemaVersion: SpecialistCouncilSnapshotSchemaVersion;
-  councilVersion: SpecialistCouncilSnapshotCouncilVersion;
-  mode: SpecialistCouncilSnapshotMode;
-  cannotExecute: true;
-  symbol: string;
-  /** @pattern ^[a-fA-F0-9]{64}$ */
-  marketStateFingerprint: string;
-  dataTimestamp: string;
-  generatedAt: string;
-  consensus: SpecialistConsensus;
-  opinions: SpecialistOpinionView[];
-}
-
-export type ExecutionCostContextSource = typeof ExecutionCostContextSource[keyof typeof ExecutionCostContextSource];
-
-
-export const ExecutionCostContextSource = {
-  'engine-market-cost-model': 'engine-market-cost-model',
-} as const;
-
-export interface ExecutionCostContext {
-  /** @minimum 0 */
-  feeRatePerLeg: number;
-  /** @minimum 0 */
-  slippageRatePerLeg: number;
-  source: ExecutionCostContextSource;
-  version: string;
-}
-
-export interface PortfolioCorrelationCluster {
-  /** @minLength 1 */
-  clusterId: string;
-  /**
-     * @minItems 1
-     * @maxItems 100
-     * @items.minLength 1
-     */
-  symbols: string[];
-  /** @minimum 0 */
-  exposure: number;
-}
-
-export type PortfolioContextCorrelationState = typeof PortfolioContextCorrelationState[keyof typeof PortfolioContextCorrelationState];
-
-
-export const PortfolioContextCorrelationState = {
-  known: 'known',
-  partial: 'partial',
-  unknown: 'unknown',
-} as const;
-
-export interface PortfolioContext {
-  schemaVersion: '1.0.0';
-  contextId: string;
-  asOf: string;
-  /** @minLength 1 */
-  currency: string;
-  /** @minimum 0 */
-  equity: number;
-  /** @minimum 0 */
-  availableBalance: number;
-  /** @minimum 0 */
-  openPositionCount: number;
-  /** @minimum 0 */
-  remainingStopRisk: number;
-  /** @minimum 0 */
-  grossExposure: number;
-  netExposure: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  drawdownFraction: number;
-  /** @minimum 0 */
-  reservedRisk: number;
-  correlationState: PortfolioContextCorrelationState;
-  /** @maxItems 100 */
-  correlationClusters: PortfolioCorrelationCluster[];
-  /** @minLength 1 */
-  riskPolicyVersion: string;
-  /** @pattern ^[a-f0-9]{64}$ */
-  fingerprint: string;
-}
-
-export type PortfolioPolicyUnknownCorrelationPolicy = typeof PortfolioPolicyUnknownCorrelationPolicy[keyof typeof PortfolioPolicyUnknownCorrelationPolicy];
-
-
-export const PortfolioPolicyUnknownCorrelationPolicy = {
-  allow: 'allow',
-  block: 'block',
-} as const;
-
-export interface PortfolioPolicy {
-  policyVersion: 'shadow-portfolio-policy-v1';
-  /** @minLength 1 */
-  riskPolicyVersion: string;
-  /** @minimum 0 */
-  maxOpenPositions: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  maxPortfolioRiskFraction: number;
-  /** @minimum 0 */
-  maxSymbolNotionalFraction: number;
-  /** @minimum 0 */
-  maxNetExposureFraction: number;
-  /** @minimum 0 */
-  maxCorrelatedNotionalFraction: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  maxStrategyRiskFraction: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  correlationThreshold: number;
-  unknownCorrelationPolicy: PortfolioPolicyUnknownCorrelationPolicy;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  drawdownDeRiskStartFraction: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  drawdownHardFraction: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  minimumAllocationFraction: number;
-}
-
-export interface OpportunityScoreComponents {
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  rewardRiskQuality: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  decisionSupport: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  regimeSuitability: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  liquidityQuality: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  diversificationBenefit: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  costQuality: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  uncertaintyQuality: number;
-}
-
-/**
- * @nullable
- */
-export type PortfolioOpportunityAssessmentSide = typeof PortfolioOpportunityAssessmentSide[keyof typeof PortfolioOpportunityAssessmentSide] | null;
-
-
-export const PortfolioOpportunityAssessmentSide = {
-  long: 'long',
-  short: 'short',
-} as const;
-
-export type PortfolioOpportunityAssessmentAction = typeof PortfolioOpportunityAssessmentAction[keyof typeof PortfolioOpportunityAssessmentAction];
-
-
-export const PortfolioOpportunityAssessmentAction = {
-  ENTER_NOW: 'ENTER_NOW',
-  WAIT_FOR_TRIGGER: 'WAIT_FOR_TRIGGER',
-  OBSERVE: 'OBSERVE',
-  REJECT: 'REJECT',
-  REDUCE: 'REDUCE',
-  EXIT: 'EXIT',
-} as const;
-
-export type PortfolioOpportunityAssessmentDisposition = typeof PortfolioOpportunityAssessmentDisposition[keyof typeof PortfolioOpportunityAssessmentDisposition];
-
-
-export const PortfolioOpportunityAssessmentDisposition = {
-  SHADOW_ALLOCATED: 'SHADOW_ALLOCATED',
-  WAIT_FOR_TRIGGER: 'WAIT_FOR_TRIGGER',
-  OBSERVE: 'OBSERVE',
-  REJECTED: 'REJECTED',
-} as const;
-
-export interface PortfolioOpportunityAssessment {
-  /** @minimum 1 */
-  rank: number;
-  decisionId: string;
-  /** @pattern ^[a-f0-9]{64}$ */
-  sourceFingerprint: string;
-  /** @minLength 1 */
-  symbol: string;
-  /** @nullable */
-  side: PortfolioOpportunityAssessmentSide;
-  action: PortfolioOpportunityAssessmentAction;
-  /** @nullable */
-  strategyId: string | null;
-  /** @nullable */
-  strategyName: string | null;
-  dataTimestamp: string;
-  expiresAt: string;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  score: number;
-  scoreComponents: OpportunityScoreComponents;
-  /**
-     * Unavailable until calibrated expectancy exists.
-     * @nullable
-     */
-  estimatedNetR: null;
-  /**
-     * @minimum 0
-     * @nullable
-     */
-  netRewardRisk: number | null;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  uncertainty: number;
-  /** @minimum 0 */
-  requestedRisk: number;
-  /** @minimum 0 */
-  requestedNotional: number;
-  /** @minimum 0 */
-  allocatedRisk: number;
-  /** @minimum 0 */
-  allocatedNotional: number;
-  /** @minimum 0 */
-  allocatedQuantity: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  allocationFraction: number;
-  disposition: PortfolioOpportunityAssessmentDisposition;
-  reasonCodes: string[];
-  explanation: string;
-  correlationUnknownWith: string[];
-  reinforcingClusterSymbols: string[];
-}
-
-export interface PortfolioRiskUsage {
-  /** @minimum 0 */
-  maximumStopRisk: number;
-  /** @minimum 0 */
-  openStopRisk: number;
-  /** @minimum 0 */
-  initiallyReservedRisk: number;
-  /** @minimum 0 */
-  shadowReservedRisk: number;
-  /** @minimum 0 */
-  remainingRisk: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  drawdownScale: number;
-  /** @minimum 0 */
-  openPositions: number;
-  /** @minimum 0 */
-  shadowAllocatedPositions: number;
-  /** @minimum 0 */
-  remainingPositionSlots: number;
-}
-
-export interface RetainedCash {
-  /** @minimum 0 */
-  amount: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  fractionOfAvailableBalance: number;
-  reasonCodes: string[];
-  explanation: string;
-}
-
-export type PortfolioIntelligenceProjectionDataStatus = typeof PortfolioIntelligenceProjectionDataStatus[keyof typeof PortfolioIntelligenceProjectionDataStatus];
-
-
-export const PortfolioIntelligenceProjectionDataStatus = {
-  healthy: 'healthy',
-  degraded: 'degraded',
-  blocked: 'blocked',
-} as const;
-
-export interface PortfolioIntelligenceProjection {
-  schemaVersion: '1.0.0';
-  portfolioVersion: 'shadow-portfolio-intelligence-v1';
-  mode: 'shadow';
-  cannotExecute: true;
-  projectionId: string;
-  /** @pattern ^[a-f0-9]{64}$ */
-  fingerprint: string;
-  generatedAt: string;
-  /** @nullable */
-  sourceScanTimestamp: string | null;
-  dataStatus: PortfolioIntelligenceProjectionDataStatus;
-  dataIssues: string[];
-  policy: PortfolioPolicy;
-  context: PortfolioContext;
-  riskUsage: PortfolioRiskUsage;
-  opportunities: PortfolioOpportunityAssessment[];
-  retainedCash: RetainedCash;
-}
-
-export type PreliminaryPortfolioContextStatus = typeof PreliminaryPortfolioContextStatus[keyof typeof PreliminaryPortfolioContextStatus];
-
-
-export const PreliminaryPortfolioContextStatus = {
-  partial: 'partial',
-  unavailable: 'unavailable',
-} as const;
-
-export interface PreliminaryPortfolioContext {
-  status: PreliminaryPortfolioContextStatus;
-  currency: string;
-  /**
-     * @minimum 0
-     * @nullable
-     */
-  availableBalance: number | null;
-  /**
-     * @minimum 0
-     * @nullable
-     */
-  openPositionCount: number | null;
-  observedAt: string;
-  limitations: string[];
-}
-
-export type HistoricalEvidenceContextStatus = typeof HistoricalEvidenceContextStatus[keyof typeof HistoricalEvidenceContextStatus];
-
-
-export const HistoricalEvidenceContextStatus = {
-  unavailable: 'unavailable',
-  observational: 'observational',
-  approved: 'approved',
-} as const;
-
-export type HistoricalEvidenceContextItemsItem = { [key: string]: unknown };
-
-export interface HistoricalEvidenceContext {
-  status: HistoricalEvidenceContextStatus;
-  /** @nullable */
-  ruleVersion: string | null;
-  items: HistoricalEvidenceContextItemsItem[];
-  limitations: string[];
-}
-
-export type BrainV0CandidateSide = typeof BrainV0CandidateSide[keyof typeof BrainV0CandidateSide];
-
-
-export const BrainV0CandidateSide = {
-  long: 'long',
-  short: 'short',
-} as const;
-
-export interface BrainV0Candidate {
-  strategyId: string;
-  strategyName: string;
-  side: BrainV0CandidateSide;
-  /**
-     * @minimum 0
-     * @maximum 100
-     */
-  confidence: number;
-  /**
-     * @exclusiveMinimum 0
-     * @nullable
-     */
-  netRewardRisk: number | null;
-}
-
-export type BrainV0ComparisonMode = typeof BrainV0ComparisonMode[keyof typeof BrainV0ComparisonMode];
-
-
-export const BrainV0ComparisonMode = {
-  control: 'control',
-} as const;
-
-export type BrainV0ComparisonDisposition = typeof BrainV0ComparisonDisposition[keyof typeof BrainV0ComparisonDisposition];
-
-
-export const BrainV0ComparisonDisposition = {
-  CANDIDATE_PRODUCED: 'CANDIDATE_PRODUCED',
-  NO_CANDIDATE: 'NO_CANDIDATE',
-} as const;
-
-export interface BrainV0Comparison {
-  mode: BrainV0ComparisonMode;
-  /** @minimum 0 */
-  candidateCount: number;
-  disposition: BrainV0ComparisonDisposition;
-  topCandidate: BrainV0Candidate | null;
-}
-
-export type DeterministicAssessmentVersion = typeof DeterministicAssessmentVersion[keyof typeof DeterministicAssessmentVersion];
-
-
-export const DeterministicAssessmentVersion = {
-  'deterministic-council-v1': 'deterministic-council-v1',
-} as const;
-
-export type DeterministicAssessmentThresholds = {
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  enterNow: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  waitForTrigger: number;
-};
-
-export interface DeterministicAssessment {
-  version: DeterministicAssessmentVersion;
-  /** @minimum 0 */
-  longScore: number;
-  /** @minimum 0 */
-  shortScore: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  dominantShare: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  averageEffectiveStrength: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  regimeSuitability: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  costPenalty: number;
-  /**
-     * @minimum 0
-     * @maximum 1
-     */
-  decisionStrength: number;
-  thresholds: DeterministicAssessmentThresholds;
-  ruleTrace: string[];
-}
-
-export interface ReasoningClaim {
-  claim: string;
-  evidenceIds: string[];
-}
-
-export type CouncilReasoningReportStatus = typeof CouncilReasoningReportStatus[keyof typeof CouncilReasoningReportStatus];
-
-
-export const CouncilReasoningReportStatus = {
-  not_configured: 'not_configured',
-  validated: 'validated',
-  degraded: 'degraded',
-  circuit_open: 'circuit_open',
-  provider_error: 'provider_error',
-} as const;
-
-export type CouncilReasoningReportUsage = {
-  /**
-     * @minimum 0
-     * @nullable
-     */
-  inputTokens: number | null;
-  /**
-     * @minimum 0
-     * @nullable
-     */
-  outputTokens: number | null;
-  /**
-     * @minimum 0
-     * @nullable
-     */
-  costUsd: number | null;
-};
-
-export interface CouncilReasoningReport {
-  status: CouncilReasoningReportStatus;
-  /** @nullable */
-  providerId: string | null;
-  /** @nullable */
-  modelVersion: string | null;
-  summary: string;
-  claims: ReasoningClaim[];
-  challenges: ReasoningClaim[];
-  uncertaintyNotes: string[];
-  validationFailures: string[];
-  /** @minimum 0 */
-  attempts: number;
-  /** @minimum 0 */
-  latencyMs: number;
-  usage: CouncilReasoningReportUsage;
-}
-
-export interface ShadowReplayBundle {
-  marketState: MarketState;
-  specialistCouncil: SpecialistCouncilSnapshot;
-  executionCosts: ExecutionCostContext;
-  portfolio: PreliminaryPortfolioContext;
-  historicalEvidence: HistoricalEvidenceContext;
-  brainV0: BrainV0Comparison;
-}
-
-export type ShadowCouncilRunSchemaVersion = typeof ShadowCouncilRunSchemaVersion[keyof typeof ShadowCouncilRunSchemaVersion];
-
-
-export const ShadowCouncilRunSchemaVersion = {
-  '100': '1.0.0',
-} as const;
-
-export type ShadowCouncilRunCouncilVersion = typeof ShadowCouncilRunCouncilVersion[keyof typeof ShadowCouncilRunCouncilVersion];
-
-
-export const ShadowCouncilRunCouncilVersion = {
-  'shadow-decision-council-v1': 'shadow-decision-council-v1',
-} as const;
-
-export type ShadowCouncilRunMode = typeof ShadowCouncilRunMode[keyof typeof ShadowCouncilRunMode];
-
-
-export const ShadowCouncilRunMode = {
-  shadow: 'shadow',
-} as const;
-
-export interface ShadowCouncilRun {
-  schemaVersion: ShadowCouncilRunSchemaVersion;
-  councilVersion: ShadowCouncilRunCouncilVersion;
-  runId: string;
-  /** @pattern ^[a-fA-F0-9]{64}$ */
-  inputFingerprint: string;
-  /** @pattern ^[a-fA-F0-9]{64}$ */
-  runFingerprint: string;
-  mode: ShadowCouncilRunMode;
-  cannotExecute: true;
-  generatedAt: string;
-  decision: BrainDecision;
-  /** @pattern ^[a-fA-F0-9]{64}$ */
-  decisionFingerprint: string;
-  deterministicAssessment: DeterministicAssessment;
-  reasoning: CouncilReasoningReport;
-  replay: ShadowReplayBundle;
-}
-
 export interface StrategyInfo {
   strategyId: string;
   strategyName: string;
@@ -4427,7 +4652,37 @@ status?: string;
 limit?: number;
 };
 
+export type ExecuteRecommendationBodyExecutionTarget = typeof ExecuteRecommendationBodyExecutionTarget[keyof typeof ExecuteRecommendationBodyExecutionTarget];
+
+
+export const ExecuteRecommendationBodyExecutionTarget = {
+  demo: 'demo',
+  live: 'live',
+} as const;
+
+export type ExecuteRecommendationBody = {
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  expectedPlanFingerprint: string;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  expectedDecisionBundleFingerprint: string;
+  executionTarget: ExecuteRecommendationBodyExecutionTarget;
+  approvalChallenge: string;
+  /**
+     * @minLength 16
+     * @maxLength 200
+     */
+  idempotencyKey: string;
+  /** @maxLength 200 */
+  confirmation: string;
+  /** @maxLength 1024 */
+  password?: string;
+};
+
 export type RejectRecommendationBody = {
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  expectedPlanFingerprint: string;
+  approvalChallenge: string;
+  /** @maxLength 1000 */
   note?: string;
 };
 

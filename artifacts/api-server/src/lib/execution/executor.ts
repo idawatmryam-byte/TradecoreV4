@@ -28,12 +28,15 @@
  */
 import type { SignalRow } from "../strategy";
 import type { StrategyConfig, TradePlan } from "../strategies";
-import type { PipelineStage } from "../decisionTrace";
+import type { PipelineStage, RiskCheck } from "../decisionTrace";
 // Type-only: erased at compile time, so this does NOT create a runtime cycle
 // with botEngine (which imports LiveExecutor).
 import type { BotEngine } from "../botEngine";
 import type { MarketState } from "../intelligence/market-state/types";
 import type { ManagementAuthorityAssignment } from "../intelligence/position";
+import type { ShadowCouncilRun } from "../intelligence/council";
+import type { SpecialistCouncilSnapshot } from "../intelligence/specialists";
+import type { PortfolioIntelligenceProjection } from "../intelligence/portfolio";
 
 /** The engine's resolved per-scan configuration (market type, caps, cooldowns). */
 export type RuntimeConfig = Awaited<ReturnType<BotEngine["loadConfig"]>>;
@@ -41,6 +44,14 @@ export type RuntimeConfig = Awaited<ReturnType<BotEngine["loadConfig"]>>;
 export interface PositionManagementContext {
   assignment: ManagementAuthorityAssignment;
   marketState: MarketState;
+}
+
+export interface CopilotSupervisionContext {
+  readonly marketState: MarketState;
+  readonly specialistCouncil: SpecialistCouncilSnapshot;
+  readonly councilRun: ShadowCouncilRun;
+  readonly portfolio: PortfolioIntelligenceProjection;
+  readonly creationRiskChecks: readonly RiskCheck[];
 }
 
 /** Everything an executor needs to act on one approved plan. */
@@ -68,6 +79,8 @@ export interface ExecutionRequest {
    * columns are that record for an executed position.
    */
   precedingStages?: PipelineStage[];
+  /** Required by RecommendExecutor; ignored by non-Co-Pilot executors. */
+  copilotSupervision?: CopilotSupervisionContext;
 }
 
 export interface ExecutionResult {
