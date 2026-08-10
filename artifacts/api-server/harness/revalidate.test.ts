@@ -12,7 +12,12 @@
  *
  * Run:  tsx harness/revalidate.test.ts   (exit 0 = pass)
  */
-import { revalidate, MAX_ENTRY_DRIFT_R, type RevalidationInputs } from "../src/lib/execution/revalidate";
+import { revalidate, MAX_ENTRY_DRIFT_R, type RevalidationInputs,
+} from "../src/lib/execution/revalidate";
+import {
+  knownSpreadFraction,
+  marketStateFreshAt,
+} from "../src/lib/execution/approvalSafety";
 
 let failures = 0;
 function expect(name: string, cond: boolean, detail = "") {
@@ -27,9 +32,43 @@ function expect(name: string, cond: boolean, detail = "") {
 const NOW = new Date("2025-06-01T12:00:00Z");
 
 /** A plan that should sail through, so each case below changes exactly one thing. */
-function healthy(over: Partial<RevalidationInputs> = {}): RevalidationInputs {
+function healthy(over: Partial<Omit<RevalidationInputs, "safety">> & {
+    safety?: Partial<RevalidationInputs["safety"]>;
+  } = {},
+): RevalidationInputs {
+  const safety: RevalidationInputs["safety"] = {
+    planFingerprintMatches: true,
+    decisionBundleFingerprintMatches: true,
+    tradingMode: "copilot",
+    boundExecutionTarget: "demo",
+    currentExecutionTarget: "demo",
+    reconciliationHealthy: true,
+    reconciliationDetail: "reconciled",
+    executionEligible: true,
+    executionEligibilityDetail: "eligible",
+    marketDataTimestamp: new Date(NOW.getTime() - 5_000),
+    marketStateFresh: true,
+    marketStateHealthy: true,
+    proposalRegime: "strong_trend",
+    currentRegime: "strong_trend",
+    thesisValid: true,
+    thesisDetail: "protective invalidation not crossed",
+    symbolExposureAfterUsdt: 100,
+    maxSymbolExposureUsdt: 500,
+    netExposureAfterUsdt: 100,
+    maxNetExposureUsdt: 500,
+    correlatedExposureAfterUsdt: 100,
+    maxCorrelatedExposureUsdt: 500,
+    correlationKnownOrAllowed: true,
+    sizingValid: true,
+    sizingDetail: "valid",
+    executionCostViable: true,
+    executionCostDetail: "viable",
+    ...over.safety,
+  };
   return {
-    plan: { symbol: "BTCUSDT", side: "long", strategyId: "trend_pullback", entryPrice: 100, slPrice: 95, qty: 1 },
+    plan: { symbol: "BTCUSDT", side: "long", strategyId: "trend_pullback", entryPrice: 100, slPrice: 95, qty: 1,
+    },
     expiresAt: new Date(NOW.getTime() + 5 * 60_000),
     status: "created",
     now: NOW,
@@ -47,6 +86,7 @@ function healthy(over: Partial<RevalidationInputs> = {}): RevalidationInputs {
     blacklisted: false,
     symbolAlreadyOpen: false,
     ...over,
+    safety,
   };
 }
 
@@ -54,8 +94,10 @@ function healthy(over: Partial<RevalidationInputs> = {}): RevalidationInputs {
 {
   const r = revalidate(healthy());
   expect("an unchanged situation still approves", r.ok, r.reason);
-  expect("every check is reported, not just failures", r.checks.length >= 11, String(r.checks.length));
-  expect("all checks pass", r.checks.every((c) => c.passed));
+  expect("every check is reported, not just failures", r.checks.length >= 11, String(r.checks.length),
+  );
+  expect("all checks pass", r.checks.every((c) => c.passed),
+  );
 }
 
 // ── Each gate refuses on its own ────────────────────────────────────────────
@@ -63,30 +105,125 @@ const cases: Array<[string, Partial<RevalidationInputs>, string]> = [
   ["expiry", { expiresAt: new Date(NOW.getTime() - 1) }, "EXPIRED"],
   ["a plan already acted on", { status: "executed" }, "NOT_ACTIONABLE"],
   ["a stopped engine", { engineRunning: false }, "ENGINE_STOPPED"],
-  ["the daily-loss circuit breaker", { circuitBreakerActive: true }, "CIRCUIT_BREAKER"],
+  ["the daily-loss circuit breaker", { circuitBreakerActive: true }, "CIRCUIT_BREAKER",
+  ],
   ["a risk pause", { riskPaused: true }, "RISK_PAUSED"],
-  ["max open positions", { openPositions: 5, maxOpenPositions: 5 }, "MAX_POSITIONS"],
-  ["per-strategy concurrency", { strategyOpenCount: 2, maxConcurrentPerStrategy: 2 }, "STRATEGY_CONCURRENCY"],
-  ["a position already open on the symbol", { symbolAlreadyOpen: true }, "ALREADY_OPEN"],
+  ["max open positions", { openPositions: 5, maxOpenPositions: 5 }, "MAX_POSITIONS",
+  ],
+  ["per-strategy concurrency", { strategyOpenCount: 2, maxConcurrentPerStrategy: 2 }, "STRATEGY_CONCURRENCY",
+  ],
+  ["a position already open on the symbol", { symbolAlreadyOpen: true }, "ALREADY_OPEN",
+  ],
   ["a symbol cooldown", { onCooldown: true }, "SYMBOL_COOLDOWN"],
   ["a blacklisted symbol", { blacklisted: true }, "BLACKLISTED"],
-  ["the portfolio risk cap", { openRiskUsdt: 98, maxPortfolioRiskUsdt: 100 }, "PORTFOLIO_RISK"],
+  ["the portfolio risk cap", { openRiskUsdt: 98, maxPortfolioRiskUsdt: 100 }, "PORTFOLIO_RISK",
+  ],
 ];
 for (const [what, patch, code] of cases) {
   const r = revalidate(healthy(patch));
-  expect(`${what} refuses approval`, !r.ok && r.code === code, `${r.code ?? "approved"}`);
-  expect(`${what} explains itself in prose`, !!r.reason && r.reason.length > 20, r.reason ?? "");
+  expect(`${what} refuses approval`, !r.ok && r.code === code, `${r.code ?? "approved"}`,
+  );
+  expect(`${what} explains itself in prose`, !!r.reason && r.reason.length > 20, r.reason ?? "",
+  );
 }
+
+const phase9Cases: Array<
+  [string, Partial<RevalidationInputs["safety"]>, string]
+> = [
+  ["a mutated plan", { planFingerprintMatches: false }, "PLAN_MUTATED"],
+  [
+    "a mutated decision bundle",
+    { decisionBundleFingerprintMatches: false },
+    "DECISION_BUNDLE_MUTATED",
+  ],
+  ["a mode change", { tradingMode: "autopilot" }, "WRONG_MODE"],
+  ["a target change", { currentExecutionTarget: "live" }, "TARGET_CHANGED"],
+  [
+    "stale market data",
+    { marketDataTimestamp: new Date(NOW.getTime() - 60_001) },
+    "MARKET_DATA_STALE",
+  ],
+  ["changed market regime", { currentRegime: "range" }, "THESIS_INVALIDATED"],
+  ["thesis invalidation", { thesisValid: false }, "THESIS_INVALIDATED"],
+  [
+    "reconciliation failure",
+    { reconciliationHealthy: false },
+    "RECONCILIATION_BLOCKED",
+  ],
+  [
+    "symbol exposure change",
+    { symbolExposureAfterUsdt: 501 },
+    "SYMBOL_EXPOSURE",
+  ],
+  ["net exposure change", { netExposureAfterUsdt: 501 }, "NET_EXPOSURE"],
+  [
+    "correlated exposure change",
+    { correlatedExposureAfterUsdt: 501 },
+    "CORRELATED_EXPOSURE",
+  ],
+  [
+    "unknown blocked correlation",
+    { correlationKnownOrAllowed: false },
+    "CORRELATED_EXPOSURE",
+  ],
+  ["invalid current sizing", { sizingValid: false }, "SIZING_INVALID"],
+  [
+    "changed execution costs",
+    { executionCostViable: false },
+    "EXECUTION_COSTS",
+  ],
+];
+for (const [what, safety, code] of phase9Cases) {
+  const r = revalidate(healthy({ safety }));
+  expect(
+    `${what} fails closed`,
+    !r.ok && r.code === code,
+    `${r.code ?? "approved"}`,
+  );
+}
+
+expect(
+  "cached spread requires positive bid and ask",
+  knownSpreadFraction({ bid: 0, ask: 0 }) === undefined,
+);
+expect(
+  "cached spread accepts a valid locked quote",
+  knownSpreadFraction({ bid: 100, ask: 100 }) === 0,
+);
+expect(
+  "MarketState freshness is recomputed at approval time",
+  marketStateFreshAt(
+    {
+      dataTimestamp: new Date(NOW.getTime() - 60_001).toISOString(),
+      freshness: { status: "fresh", ageMs: 0, maximumAgeMs: 60_000 },
+    },
+    NOW,
+  ) === false,
+);
+expect(
+  "future-dated MarketState fails closed",
+  marketStateFreshAt(
+    {
+      dataTimestamp: new Date(NOW.getTime() + 1).toISOString(),
+      freshness: { status: "fresh", ageMs: 0, maximumAgeMs: 60_000 },
+    },
+    NOW,
+  ) === false,
+);
 
 // Boundary: exactly at the cap is still allowed; a hair over is not.
 {
   // candidate risk = |100-95| × 1 = 5
-  expect("exactly at the portfolio cap is allowed", revalidate(healthy({ openRiskUsdt: 95, maxPortfolioRiskUsdt: 100 })).ok);
-  expect("a hair over the cap is refused", !revalidate(healthy({ openRiskUsdt: 95.01, maxPortfolioRiskUsdt: 100 })).ok);
+  expect("exactly at the portfolio cap is allowed", revalidate(healthy({ openRiskUsdt: 95, maxPortfolioRiskUsdt: 100 })).ok,
+  );
+  expect("a hair over the cap is refused", !revalidate(healthy({ openRiskUsdt: 95.01, maxPortfolioRiskUsdt: 100 })).ok,
+  );
 }
 {
-  expect("one slot free is allowed", revalidate(healthy({ openPositions: 4, maxOpenPositions: 5 })).ok);
-  expect("expiring exactly now is refused", !revalidate(healthy({ expiresAt: NOW })).ok);
+  expect("one slot free is allowed", revalidate(healthy({ openPositions: 4, maxOpenPositions: 5 })).ok,
+  );
+  expect("expiring exactly now is refused", !revalidate(healthy({ expiresAt: NOW })).ok,
+  );
 }
 
 // ── Price drift, measured in the plan's own R ───────────────────────────────
@@ -96,22 +233,31 @@ for (const [what, patch, code] of cases) {
   const riskDistance = 5; // 100 → 95
   const justInside = 100 + riskDistance * (MAX_ENTRY_DRIFT_R - 0.01);
   const justOutside = 100 + riskDistance * (MAX_ENTRY_DRIFT_R + 0.01);
-  expect("a small drift is tolerated", revalidate(healthy({ currentPrice: justInside })).ok);
+  expect("a small drift is tolerated", revalidate(healthy({ currentPrice: justInside })).ok,
+  );
   const drifted = revalidate(healthy({ currentPrice: justOutside }));
-  expect("drift beyond the tolerance refuses", !drifted.ok && drifted.code === "PRICE_DRIFT", String(drifted.code));
-  expect("drift refusal quantifies the move in R", /R/.test(drifted.reason ?? ""), drifted.reason ?? "");
+  expect("drift beyond the tolerance refuses", !drifted.ok && drifted.code === "PRICE_DRIFT", String(drifted.code),
+  );
+  expect("drift refusal quantifies the move in R", /R/.test(drifted.reason ?? ""), drifted.reason ?? "",
+  );
   expect("drift is symmetric — moving against the plan also refuses",
-    !revalidate(healthy({ currentPrice: 100 - riskDistance * (MAX_ENTRY_DRIFT_R + 0.01) })).ok);
+    !revalidate(healthy({ currentPrice: 100 - riskDistance * (MAX_ENTRY_DRIFT_R + 0.01),
+      }),
+    ).ok,
+  );
 
   // A tight stop makes the SAME absolute move intolerable — the whole reason
   // the tolerance is expressed in R rather than percent.
   const tight = healthy({
-    plan: { symbol: "BTCUSDT", side: "long", strategyId: "s", entryPrice: 100, slPrice: 99.5, qty: 1 },
+    plan: { symbol: "BTCUSDT", side: "long", strategyId: "s", entryPrice: 100, slPrice: 99.5, qty: 1,
+    },
     currentPrice: 100.5,
   });
-  expect("the same drift refuses when the stop is tight", !revalidate(tight).ok);
+  expect("the same drift refuses when the stop is tight", !revalidate(tight).ok,
+  );
   const wide = healthy({
-    plan: { symbol: "BTCUSDT", side: "long", strategyId: "s", entryPrice: 100, slPrice: 90, qty: 1 },
+    plan: { symbol: "BTCUSDT", side: "long", strategyId: "s", entryPrice: 100, slPrice: 90, qty: 1,
+    },
     currentPrice: 100.5,
   });
   expect("...and is fine when the stop is wide", revalidate(wide).ok);
@@ -121,19 +267,26 @@ for (const [what, patch, code] of cases) {
 // because the plan's defining entry geometry cannot be re-checked.
 {
   const r = revalidate(healthy({ currentPrice: undefined }));
-  expect("an unobtainable price blocks approval", !r.ok && r.code === "PRICE_UNAVAILABLE", r.reason);
+  expect("an unobtainable price blocks approval", !r.ok && r.code === "PRICE_UNAVAILABLE", r.reason,
+  );
   const check = r.checks.find((c) => c.name === "Price still near the plan");
-  expect("...and reports the unavailable price as failed", check?.passed === false && /unavailable/.test(check.detail), check?.detail ?? "");
+  expect("...and reports the unavailable price as failed", check?.passed === false && /unavailable/.test(check.detail), check?.detail ?? "",
+  );
 }
 
 // ── Reporting: the user sees the whole picture ──────────────────────────────
 {
-  const r = revalidate(healthy({ circuitBreakerActive: true, blacklisted: true, riskPaused: true }));
+  const r = revalidate(healthy({ circuitBreakerActive: true, blacklisted: true, riskPaused: true,
+    }),
+  );
   expect("multiple failures still report every check", r.checks.length >= 11);
-  expect("the first failure in evaluation order is the headline", r.code === "CIRCUIT_BREAKER", String(r.code));
+  expect("the first failure in evaluation order is the headline", r.code === "CIRCUIT_BREAKER", String(r.code),
+  );
   expect("all three failures are visible in the checks", r.checks.filter((c) => !c.passed).length === 3,
-    String(r.checks.filter((c) => !c.passed).length));
+    String(r.checks.filter((c) => !c.passed).length),
+  );
 }
 
-console.log(failures === 0 ? "\nAll revalidation checks passed." : `\n${failures} FAILED`);
+console.log(failures === 0 ? "\nAll revalidation checks passed." : `\n${failures} FAILED`,
+);
 process.exit(failures === 0 ? 0 : 1);

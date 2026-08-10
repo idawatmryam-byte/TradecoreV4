@@ -55,6 +55,7 @@ import type { ExecutionResult, PositionManagementContext, TradeExecutor } from "
 import { LiveExecutor, ResearchExecutor } from "./execution/liveExecutor";
 import { DemoExecutor } from "./execution/demoExecutor";
 import { expireStaleRecommendations, RecommendExecutor } from "./execution/recommendExecutor";
+import { knownSpreadFraction, marketStateFreshAt } from "./execution/approvalSafety";
 import { simulateDemoExit } from "./execution/demoExit";
 import { buildDemoMarketData } from "./execution/demoMarketData";
 import type { FillCosts } from "./execution/fillModel";
@@ -1515,8 +1516,9 @@ class BotEngine {
    * Reads current state only; the verdict is `revalidate()`'s (pure, testable).
    */
   async gatherRevalidationState(plan: {
-    symbol: string; strategyId: string; entryPrice: number; slPrice: number; qty: number;
-  }): Promise<{
+    symbol: string; strategyId: string; side: "long" | "short";
+    entryPrice: number; slPrice: number; tpPrice: number; qty: number;
+  }, now = new Date()): Promise<{
     engineRunning: boolean;
     circuitBreakerActive: boolean;
     riskPaused: boolean;
@@ -1530,8 +1532,30 @@ class BotEngine {
     blacklisted: boolean;
     symbolAlreadyOpen: boolean;
     currentPrice?: number;
+    marketDataTimestamp?: Date;
+    tradingMode: string;
+    currentExecutionTarget: "demo" | "live";
+    reconciliationHealthy: boolean;
+    reconciliationDetail: string;
+    executionEligible: boolean;
+    executionEligibilityDetail: string;
+    marketStateFresh: boolean;
+    marketStateHealthy: boolean;
+    currentRegime?: string;
+    thesisValid: boolean;
+    thesisDetail: string;
+    symbolExposureAfterUsdt: number;
+    maxSymbolExposureUsdt: number;
+    netExposureAfterUsdt: number;
+    maxNetExposureUsdt: number;
+    correlatedExposureAfterUsdt: number;
+    maxCorrelatedExposureUsdt: number;
+    correlationKnownOrAllowed: boolean;
+    sizingValid: boolean;
+    sizingDetail: string;
+    executionCostViable: boolean;
+    executionCostDetail: string;
   }> {
-    const now = new Date();
     const config = await this.loadConfig();
     const openTrades = await db
       .select()
@@ -1540,12 +1564,19 @@ class BotEngine {
 
     const openRiskUsdt = openTrades.reduce((sum, t) => {
       const entry = Number(t.entryPrice);
-      const stop = Number(t.plannedStopLoss ?? t.stopLoss);
+      const stop = Number(t.stopLoss ?? t.plannedStopLoss);
       const qty = Number(t.remainingQuantity ?? t.quantity);
       return sum + Math.abs(entry - stop) * qty;
     }, 0);
 
-    const balance = await this.getBalance();
+    let balance = 0;
+    let financialStateAvailable = true;
+    try {
+      balance = await this.getBalance();
+      financialStateAvailable = Number.isFinite(balance) && balance > 0;
+    } catch {
+      financialStateAvailable = false;
+    }
     const strategyConfigs = await this.getStrategyConfigs();
     const stratCfg = strategyConfigs.get(plan.strategyId);
     const blacklist = await this.loadActiveBlacklist(now);
@@ -1553,16 +1584,87 @@ class BotEngine {
     // Prefer the poller's cached tick; fall back to a direct fetch. Undefined
     // is returned explicitly and the approval validator fails closed: a human
     // click cannot authorize an entry whose current drift is unknowable.
-    let currentPrice: number | undefined = this.liveTickers.get(plan.symbol)?.last;
+    const cachedTicker = this.liveTickers.get(plan.symbol);
+    let currentPrice: number | undefined = cachedTicker?.last;
+    let currentSpreadFraction = knownSpreadFraction(cachedTicker);
+    let marketDataTimestamp: Date | undefined = cachedTicker?.timestamp
+      ? new Date(cachedTicker.timestamp)
+      : undefined;
     if (currentPrice === undefined && this.exchange) {
       try {
         const ticker = await this.exchange.fetchTicker(this.toMarket(plan.symbol));
         const last = Number(ticker?.last ?? ticker?.close);
-        if (Number.isFinite(last) && last > 0) currentPrice = last;
+        if (Number.isFinite(last) && last > 0) {
+          currentPrice = last;
+          marketDataTimestamp = new Date(Number(ticker?.timestamp ?? Date.now()));
+          const bid = Number(ticker?.bid);
+          const ask = Number(ticker?.ask);
+          if (Number.isFinite(bid) && Number.isFinite(ask) && ask > 0 && ask >= bid) {
+            currentSpreadFraction = (ask - bid) / ask;
+          }
+        }
       } catch {
         // Leave undefined — see above.
       }
     }
+
+    const candidateNotional = plan.entryPrice * plan.qty;
+    const existingSymbolNotional = openTrades
+      .filter((trade) => trade.symbol === plan.symbol)
+      .reduce((sum, trade) => sum + Number(trade.entryPrice) * Number(trade.remainingQuantity ?? trade.quantity), 0);
+    const existingNet = openTrades.reduce((sum, trade) => {
+      const notional = Number(trade.entryPrice) * Number(trade.remainingQuantity ?? trade.quantity);
+      return sum + (trade.side === "sell" ? -notional : notional);
+    }, 0);
+    const maxSymbolExposureUsdt = balance * (Number(config.maxSymbolConcentrationPercent) / 100);
+    const maxNetExposureUsdt = balance * (Number(config.maxNetExposurePercent) / 100);
+    const openExposure = openTrades.map((trade) => ({
+      symbol: trade.symbol,
+      side: (trade.side === "sell" ? "short" : "long") as "long" | "short",
+      notionalUsdt: Number(trade.entryPrice) * Number(trade.remainingQuantity ?? trade.quantity),
+    }));
+    const maxCorrelatedExposureUsdt = balance * (Number(config.maxCorrelatedExposurePercent) / 100);
+    let correlatedExposureAfterUsdt = candidateNotional;
+    let correlationKnownOrAllowed = financialStateAvailable
+      && (openExposure.length === 0 || config.correlationUnknownPolicy !== "block");
+    if (financialStateAvailable && openExposure.length > 0) {
+      try {
+        const correlations = await this.correlationsAgainst(
+          plan.symbol, openExposure.map((position) => position.symbol), this.activeMarketType, MIN_CORRELATION_OBSERVATIONS,
+        );
+        const verdict = evaluateCorrelation({
+          candidate: { symbol: plan.symbol, side: plan.side, notionalUsdt: candidateNotional },
+          open: openExposure,
+          correlations,
+          balance,
+          maxCorrelatedExposurePercent: Number(config.maxCorrelatedExposurePercent),
+          threshold: Number(config.correlationThreshold),
+          unknownPolicy: config.correlationUnknownPolicy === "block" ? "block" : "allow",
+        });
+        correlatedExposureAfterUsdt = verdict.clusterNotionalUsdt;
+        correlationKnownOrAllowed = verdict.ok
+          || (verdict.clusterNotionalUsdt > verdict.maxClusterNotionalUsdt && verdict.unmeasured.length === 0);
+      } catch {
+        correlationKnownOrAllowed = config.correlationUnknownPolicy !== "block";
+      }
+    }
+    const sizing = financialStateAvailable
+      ? validateSizing({ balance, entryPrice: plan.entryPrice, slPrice: plan.slPrice, qty: plan.qty, side: plan.side })
+      : { ok: false as const, reason: "Current account equity is unavailable" };
+    const expectedMoveFraction = Math.abs(plan.tpPrice - plan.entryPrice) / plan.entryPrice;
+    const currentRoundTripCost = currentSpreadFraction === undefined
+      ? Number.POSITIVE_INFINITY
+      : 2 * (this.activeTakerFee + this.activeSlippageRate) + currentSpreadFraction;
+    const executionCostViable = Number.isFinite(currentRoundTripCost)
+      && expectedMoveFraction > currentRoundTripCost;
+    const marketStateResult = this.marketStates.get(plan.symbol);
+    const currentMarketState = marketStateResult?.status === "available" ? marketStateResult.state : undefined;
+    const thesisValid = currentPrice !== undefined
+      && (plan.side === "long" ? currentPrice > plan.slPrice : currentPrice < plan.slPrice);
+    const currentExecutionTarget = config.executionTarget === "demo" ? "demo" : "live";
+    const reconciliationHealthy = currentExecutionTarget === "demo" || this.state.newEntriesAllowed;
+    const executionEligible = financialStateAvailable && this.state.running && !this.connectionSuspended
+      && config.mode === "copilot" && reconciliationHealthy;
 
     return {
       engineRunning: this.state.running,
@@ -1578,6 +1680,41 @@ class BotEngine {
       blacklisted: blacklist.has(plan.symbol),
       symbolAlreadyOpen: openTrades.some((t) => t.symbol === plan.symbol),
       ...(currentPrice !== undefined && { currentPrice }),
+      ...(marketDataTimestamp && { marketDataTimestamp }),
+      tradingMode: config.mode ?? "unknown",
+      currentExecutionTarget,
+      reconciliationHealthy,
+      reconciliationDetail: reconciliationHealthy
+        ? "Reconciliation permits new entries"
+        : (this.state.entryBlockReason ?? "Reconciliation blocks new entries"),
+      executionEligible,
+      executionEligibilityDetail: executionEligible
+        ? "Existing controlled executor is eligible for one attempt"
+        : financialStateAvailable
+          ? "Engine, connection, Co-Pilot mode, or entry authority is not currently eligible"
+          : "Current account equity is unavailable; execution eligibility cannot be established",
+      marketStateFresh: marketStateFreshAt(currentMarketState, now),
+      marketStateHealthy: currentMarketState?.dataQuality.status === "healthy",
+      ...(currentMarketState && { currentRegime: currentMarketState.inferences.regime }),
+      thesisValid,
+      thesisDetail: thesisValid
+        ? "Current price has not crossed the proposal's protective invalidation level"
+        : "Current price is unavailable or has crossed the proposal's protective invalidation level",
+      symbolExposureAfterUsdt: existingSymbolNotional + candidateNotional,
+      maxSymbolExposureUsdt,
+      netExposureAfterUsdt: Math.abs(existingNet + (plan.side === "short" ? -candidateNotional : candidateNotional)),
+      maxNetExposureUsdt,
+      correlatedExposureAfterUsdt,
+      maxCorrelatedExposureUsdt,
+      correlationKnownOrAllowed,
+      sizingValid: sizing.ok,
+      sizingDetail: sizing.ok ? "Entry, stop, equity, and quantity remain valid" : (sizing.reason ?? "Sizing rejected"),
+      executionCostViable,
+      executionCostDetail: executionCostViable
+        ? `Expected move ${(expectedMoveFraction * 100).toFixed(3)}% exceeds current round-trip costs ${(currentRoundTripCost * 100).toFixed(3)}%`
+        : Number.isFinite(currentRoundTripCost)
+          ? `Current round-trip costs ${(currentRoundTripCost * 100).toFixed(3)}% consume the expected move ${(expectedMoveFraction * 100).toFixed(3)}%`
+          : "Current bid/ask spread is unavailable; execution cost viability cannot be established",
     };
   }
 
@@ -1587,13 +1724,25 @@ class BotEngine {
    * re-checks — so this deliberately routes through the SAME executor a scan
    * would have used, rather than a separate approval-only order path.
    */
-  async executeApprovedPlan(plan: TradePlan, row: SignalRow, now: Date): Promise<ExecutionResult> {
+  async executeApprovedPlan(
+    plan: TradePlan,
+    row: SignalRow,
+    now: Date,
+    approvedTarget: "demo" | "live",
+  ): Promise<ExecutionResult> {
     if (this.connectionSuspended || !this.state.running) {
       return { entered: false, reason: "Engine stopped or reconnecting before the approved plan could execute" };
     }
     const config = this.applyHighFreqOverrides(await this.loadConfig());
-    this.executionTarget = config.executionTarget === "demo" ? "demo" : "live";
-    if (this.executionTarget === "live" && !this.state.newEntriesAllowed) {
+    const currentTarget = config.executionTarget === "demo" ? "demo" : "live";
+    if (currentTarget !== approvedTarget) {
+      return {
+        entered: false,
+        reason: `Execution target changed from approved ${approvedTarget} to ${currentTarget}; create a new proposal`,
+      };
+    }
+    this.executionTarget = approvedTarget;
+    if (approvedTarget === "live" && !this.state.newEntriesAllowed) {
       return {
         entered: false,
         reason: this.state.entryBlockReason ?? "Live entries are blocked until reconciliation succeeds",
@@ -1603,7 +1752,7 @@ class BotEngine {
     const stratConfig = strategyConfigs.get(plan.strategyId);
     // Co-Pilot's own executor must never be chosen here — that would record a
     // second recommendation instead of opening the position the user approved.
-    const executor = this.executionTarget === "demo" ? this.demoExecutor : this.liveExecutor;
+    const executor = approvedTarget === "demo" ? this.demoExecutor : this.liveExecutor;
     const positionManagementResolution = this.resolvePositionManagementContext(plan, config);
     if (positionManagementResolution.blockingReason) {
       return { entered: false, reason: positionManagementResolution.blockingReason };
@@ -2211,6 +2360,8 @@ class BotEngine {
         const { plans, rejections } = strategySelector.decideSymbol(
           symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt, dollarRisk, customStrategies
         );
+        let sameScanCouncil: Promise<ShadowCouncilRun> | null = null;
+        let sameScanSpecialists: SpecialistCouncilSnapshot | null = null;
         // Phase 3 compatibility mode: translate the exact selector output into
         // specialist opinions AFTER Brain V0 has decided. The council is
         // observational and has no reference to risk, executors, or brokers.
@@ -2223,12 +2374,13 @@ class BotEngine {
             rejections,
             generatedAt: now,
           });
+          sameScanSpecialists = specialistCouncil;
           this.specialistCouncils.set(symbol, specialistCouncil);
 
           // Phase 4 evaluates beside Brain V0 and returns through an
           // append-only Shadow projection. It is deliberately not awaited:
           // an optional reasoning provider can never delay the money path.
-          void this.decisionCouncil.evaluate({
+          const evaluation = this.decisionCouncil.evaluate({
             marketState: marketStateResult.state,
             specialistCouncil,
             brainV0Plans: plans,
@@ -2250,7 +2402,9 @@ class BotEngine {
             },
             historicalEvidence: approvedHistoricalEvidence(memoryPermission.state),
             generatedAt: now.toISOString(),
-          }).then((run) => {
+          });
+          sameScanCouncil = evaluation;
+          void evaluation.then((run) => {
             const current = this.shadowCouncilRuns.get(symbol);
             if (!current || current.decision.dataTimestamp <= run.decision.dataTimestamp) {
               this.shadowCouncilRuns.set(symbol, run);
@@ -2663,6 +2817,36 @@ class BotEngine {
           noteDecision(planToRecord(bestSignal, "approved_not_taken", { stage: "Order", reason: positionManagementResolution.blockingReason }));
           continue;
         }
+        let copilotSupervision;
+        if (executor === this.copilotExecutor) {
+          if (marketStateResult.status !== "available" || !sameScanSpecialists || !sameScanCouncil) {
+            const reason = "Co-Pilot requires an exact same-scan MarketState and unified-brain decision bundle";
+            orderStage.status = "fail";
+            orderStage.detail = reason;
+            record("BLOCKED", "Order", reason, bestSignal.confidence);
+            noteDecision(planToRecord(bestSignal, "approved_not_taken", { stage: "Order", reason }));
+            continue;
+          }
+          try {
+            const councilRun = await sameScanCouncil;
+            const portfolio = await this.getPortfolioIntelligence();
+            copilotSupervision = {
+              marketState: marketStateResult.state,
+              specialistCouncil: sameScanSpecialists,
+              councilRun,
+              portfolio,
+              creationRiskChecks: preChecks.map((check) => ({ ...check })),
+            };
+          } catch (err) {
+            const reason = "Co-Pilot could not freeze the exact unified-brain and portfolio context; no proposal was created";
+            logger.warn({ err, symbol }, reason);
+            orderStage.status = "fail";
+            orderStage.detail = reason;
+            record("BLOCKED", "Order", reason, bestSignal.confidence);
+            noteDecision(planToRecord(bestSignal, "approved_not_taken", { stage: "Order", reason }));
+            continue;
+          }
+        }
         const execResult = await executor.execute({
           symbol, plan: bestSignal, row, config, now, ...(stratConfig && { stratConfig }),
           ...(positionManagementResolution.context && { positionManagement: positionManagementResolution.context }),
@@ -2671,6 +2855,7 @@ class BotEngine {
           // below — copy each so a recommendation's stored trace can never be
           // retroactively changed by that mutation.
           precedingStages: [marketStage, indicatorStage, signalStage, riskStage].map((s) => ({ ...s })),
+          ...(copilotSupervision && { copilotSupervision }),
         });
         const { entered, reason } = execResult;
         if (entered) {

@@ -734,6 +734,25 @@ workspace before granting autonomy.
 - Unified Co-Pilot workspace and complete browser/security tests.
 - Auditable approval/refusal events and documentation.
 
+### Phase 9 implementation record (2026-08-10)
+
+The repository now contains the supervised Phase 9 implementation described in
+`docs/phase-9-copilot-approval.md` and
+`docs/adr/ADR-009-phase-9-copilot-authorization-boundary.md`.
+
+Approval is a single-use authorization to attempt the existing controlled
+execution path, never an instruction to bypass it. Each proposal binds an
+immutable Brain V0 plan to its same-scan Shadow unified-brain evidence, market
+and portfolio context, risk result, versions, target, expiry, and fingerprints.
+Approval is transactionally claimed and then freshly revalidated against current
+market, thesis, portfolio, exposure, risk, reconciliation, mode, target, cost,
+and execution-eligibility state. Refusals and outcomes are attributable,
+append-only audit events.
+
+The Phase 8 council remains Shadow context because its current implementation
+report is `REMAIN_RESEARCH`. Phase 9 does not grant Demo or Live autonomous
+authority and does not satisfy Phase 10's separate promotion prerequisites.
+
 ## 11. Phase 10 — Demo Autopilot and Shadow Promotion
 
 ### Objective

@@ -33,7 +33,10 @@ import { z } from "zod/v4";
  *               there is no path from here to a position.
  */
 export const RECOMMENDATION_STATUSES = [
-  "created", "executing", "executed", "rejected", "expired", "superseded", "blocked",
+  "created", "executing", "executed", "rejected", "expired",
+  "stale",
+  "invalidated",
+  "superseded", "blocked",
 ] as const;
 export type RecommendationStatus = (typeof RECOMMENDATION_STATUSES)[number];
 
@@ -95,6 +98,26 @@ export const recommendationsTable = pgTable("recommendations", {
   decisionTrace: jsonb("decision_trace"),
 
   /**
+   * Phase 9 immutable supervision record. It contains the same-scan unified
+   * decision, council/specialist evidence, MarketState, portfolio projection,
+   * creation-time risk verdict, thesis, authority, and every relevant version.
+   * Older recommendations may be null and are deliberately not approvable.
+   */
+  decisionBundle: jsonb("decision_bundle"),
+  /** SHA-256 over decisionBundle. Recomputed before approval to detect mutation. */
+  decisionBundleFingerprint: text("decision_bundle_fingerprint"),
+  /** demo | live, frozen when proposed. A later config change cannot retarget it. */
+  executionTarget: text("execution_target"),
+  /** Random stale-UI binding. It is never written to logs or lifecycle events. */
+  approvalChallenge: text("approval_challenge"),
+  /** Hash only; the client idempotency key is never persisted or logged raw. */
+  approvalIdempotencyKeyHash: text("approval_idempotency_key_hash"),
+  /** Stable response replayed after a lost response for the same idempotency key. */
+  approvalResult: jsonb("approval_result"),
+  /** Latest deterministic revalidation result, retained for audit/workspace display. */
+  lastValidation: jsonb("last_validation"),
+
+  /**
    * When this plan goes stale. An intraday setup is a statement about a
    * moment; approving it an hour later is a different trade wearing the same
    * numbers, so acting after this is refused rather than quietly allowed.
@@ -108,16 +131,86 @@ export const recommendationsTable = pgTable("recommendations", {
   tradeId: integer("trade_id"),
   /** Why a `blocked` or `rejected` recommendation ended that way. */
   resolutionReason: text("resolution_reason"),
-}, (t) => [
+  approvedByUserId: integer("approved_by_user_id"),
+  rejectedByUserId: integer("rejected_by_user_id"),
+  }, (t) => [
   unique("recommendations_correlation_unique").on(t.correlationId),
   // The inbox query: this user's live recommendations, newest first.
-  index("recommendations_user_status_idx").on(t.userId, t.section, t.status, t.createdAt),
+  index("recommendations_user_status_idx").on(t.userId, t.section, t.status, t.createdAt,
+    ),
   index("recommendations_expiry_idx").on(t.status, t.expiresAt),
-]);
+],
+);
 
-export const insertRecommendationSchema = createInsertSchema(recommendationsTable).omit({
+export const insertRecommendationSchema = createInsertSchema(recommendationsTable,
+).omit({
   id: true,
   createdAt: true,
 });
 export type InsertRecommendation = z.infer<typeof insertRecommendationSchema>;
 export type Recommendation = typeof recommendationsTable.$inferSelect;
+
+export const RECOMMENDATION_EVENT_TYPES = [
+  "PROPOSED",
+  "APPROVAL_REQUESTED",
+  "APPROVAL_AUTHORIZED",
+  "APPROVAL_REFUSED",
+  "EXECUTION_SUCCEEDED",
+  "EXECUTION_BLOCKED",
+  "REJECTED",
+  "EXPIRED",
+  "STALE",
+  "INVALIDATED",
+  "SUPERSEDED",
+] as const;
+export type RecommendationEventType =
+  (typeof RECOMMENDATION_EVENT_TYPES)[number];
+
+/** Append-only lifecycle audit. Never update or delete individual events. */
+export const recommendationEventsTable = pgTable(
+  "recommendation_events",
+  {
+    id: serial("id").primaryKey(),
+    recommendationId: integer("recommendation_id").notNull(),
+    userId: integer("user_id").notNull(),
+    section: text("section").notNull(),
+    eventType: text("event_type").notNull(),
+    actorType: text("actor_type").notNull(), // engine | user | system
+    actorUserId: integer("actor_user_id"),
+    fromStatus: text("from_status"),
+    toStatus: text("to_status").notNull(),
+    planFingerprint: text("plan_fingerprint").notNull(),
+    decisionBundleFingerprint: text("decision_bundle_fingerprint"),
+    executionTarget: text("execution_target"),
+    reasonCode: text("reason_code").notNull(),
+    reason: text("reason").notNull(),
+    validationResult: jsonb("validation_result"),
+    /** Bounded non-secret result linkage only; never credentials/challenges. */
+    payload: jsonb("payload"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("recommendation_events_recommendation_idx").on(
+      t.recommendationId,
+      t.occurredAt,
+    ),
+    index("recommendation_events_user_idx").on(
+      t.userId,
+      t.section,
+      t.occurredAt,
+    ),
+  ],
+);
+
+export const insertRecommendationEventSchema = createInsertSchema(
+  recommendationEventsTable,
+).omit({
+  id: true,
+  occurredAt: true,
+});
+export type InsertRecommendationEvent = z.infer<
+  typeof insertRecommendationEventSchema
+>;
+export type RecommendationEvent = typeof recommendationEventsTable.$inferSelect;
