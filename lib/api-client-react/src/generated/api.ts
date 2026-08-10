@@ -48,6 +48,7 @@ import type {
   EvidenceOverview,
   EvidenceSuspension,
   EvidenceValidationResult,
+  ExecuteRecommendationBody,
   ExportBacktest200One,
   ExportBacktestParams,
   GetAuthStatus200,
@@ -1385,14 +1386,15 @@ export const getExecuteRecommendationUrl = (id: number,) => {
  * Re-validates before placing anything: expiry, price drift measured in the plan's own R units, and every account-level risk gate. Approval means "is this still a good idea?", not "place this order". A plan that fails becomes `blocked`, which is terminal and read-only.
  * @summary Approve and execute a recommendation
  */
-export const executeRecommendation = async (id: number, options?: RequestInit): Promise<RecommendationActionResult> => {
+export const executeRecommendation = async (id: number,
+    executeRecommendationBody: ExecuteRecommendationBody, options?: RequestInit): Promise<RecommendationActionResult> => {
 
   return customFetch<RecommendationActionResult>(getExecuteRecommendationUrl(id),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(executeRecommendationBody)
   }
 );}
 
@@ -1400,8 +1402,8 @@ export const executeRecommendation = async (id: number, options?: RequestInit): 
 
 
 export const getExecuteRecommendationMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof executeRecommendation>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof executeRecommendation>>, TError,{id: number}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof executeRecommendation>>, TError,{id: number;data: BodyType<ExecuteRecommendationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof executeRecommendation>>, TError,{id: number;data: BodyType<ExecuteRecommendationBody>}, TContext> => {
 
 const mutationKey = ['executeRecommendation'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1413,10 +1415,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof executeRecommendation>>, {id: number}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof executeRecommendation>>, {id: number;data: BodyType<ExecuteRecommendationBody>}> = (props) => {
+          const {id,data} = props ?? {};
 
-          return  executeRecommendation(id,requestOptions)
+          return  executeRecommendation(id,data,requestOptions)
         }
 
 
@@ -1427,18 +1429,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type ExecuteRecommendationMutationResult = NonNullable<Awaited<ReturnType<typeof executeRecommendation>>>
-
+    export type ExecuteRecommendationMutationBody = BodyType<ExecuteRecommendationBody>
     export type ExecuteRecommendationMutationError = ErrorType<unknown>
 
     /**
  * @summary Approve and execute a recommendation
  */
 export const useExecuteRecommendation = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof executeRecommendation>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof executeRecommendation>>, TError,{id: number;data: BodyType<ExecuteRecommendationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof executeRecommendation>>,
         TError,
-        {id: number},
+        {id: number;data: BodyType<ExecuteRecommendationBody>},
         TContext
       > => {
       return useMutation(getExecuteRecommendationMutationOptions(options));
@@ -1456,7 +1458,7 @@ export const getRejectRecommendationUrl = (id: number,) => {
  * @summary Decline a recommendation
  */
 export const rejectRecommendation = async (id: number,
-    rejectRecommendationBody?: RejectRecommendationBody, options?: RequestInit): Promise<RecommendationActionResult> => {
+    rejectRecommendationBody: RejectRecommendationBody, options?: RequestInit): Promise<RecommendationActionResult> => {
 
   return customFetch<RecommendationActionResult>(getRejectRecommendationUrl(id),
   {
@@ -1471,8 +1473,8 @@ export const rejectRecommendation = async (id: number,
 
 
 export const getRejectRecommendationMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectRecommendation>>, TError,{id: number;data?: BodyType<RejectRecommendationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof rejectRecommendation>>, TError,{id: number;data?: BodyType<RejectRecommendationBody>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectRecommendation>>, TError,{id: number;data: BodyType<RejectRecommendationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rejectRecommendation>>, TError,{id: number;data: BodyType<RejectRecommendationBody>}, TContext> => {
 
 const mutationKey = ['rejectRecommendation'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1484,7 +1486,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectRecommendation>>, {id: number;data?: BodyType<RejectRecommendationBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectRecommendation>>, {id: number;data: BodyType<RejectRecommendationBody>}> = (props) => {
           const {id,data} = props ?? {};
 
           return  rejectRecommendation(id,data,requestOptions)
@@ -1498,18 +1500,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type RejectRecommendationMutationResult = NonNullable<Awaited<ReturnType<typeof rejectRecommendation>>>
-    export type RejectRecommendationMutationBody = BodyType<RejectRecommendationBody> | undefined
+    export type RejectRecommendationMutationBody = BodyType<RejectRecommendationBody>
     export type RejectRecommendationMutationError = ErrorType<unknown>
 
     /**
  * @summary Decline a recommendation
  */
 export const useRejectRecommendation = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectRecommendation>>, TError,{id: number;data?: BodyType<RejectRecommendationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectRecommendation>>, TError,{id: number;data: BodyType<RejectRecommendationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof rejectRecommendation>>,
         TError,
-        {id: number;data?: BodyType<RejectRecommendationBody>},
+        {id: number;data: BodyType<RejectRecommendationBody>},
         TContext
       > => {
       return useMutation(getRejectRecommendationMutationOptions(options));

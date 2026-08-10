@@ -41,6 +41,7 @@ declare global {
       /** Set by requireAuth once a session cookie or Basic-auth credentials
        *  have been verified — the id of the user making this request. */
       userId?: number;
+      authMethod?: "cookie" | "basic";
     }
   }
 }
@@ -152,16 +153,63 @@ async function verifyBasicAuth(header: string | undefined): Promise<number | nul
  */
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const cookieUserId = await verifyCookieAuth(req.cookies?.[SESSION_COOKIE_NAME]);
-  const userId = cookieUserId ?? (await verifyBasicAuth(req.headers.authorization));
+  const basicUserId = cookieUserId === null ? await verifyBasicAuth(req.headers.authorization) : null;
+  const userId = cookieUserId ?? basicUserId;
 
   if (userId !== null) {
     req.userId = userId;
+    req.authMethod = cookieUserId !== null ? "cookie" : "basic";
     next();
     return;
   }
 
   logger.warn({ path: req.path, method: req.method, ip: req.ip }, "AUTH_REJECTED");
   res.status(401).json({ error: "Unauthorized" });
+}
+
+/**
+ * Live approval step-up. Basic auth is freshly password-verified on this very
+ * request. Cookie sessions must present the account password again; OAuth-only
+ * accounts fail closed until a reviewed phishing-resistant step-up exists.
+ */
+export async function verifyFinancialStepUp(
+  req: Request,
+  userId: number,
+  password: unknown,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  if (req.authMethod === "basic") return { ok: true };
+  if (typeof password !== "string" || password.length === 0) {
+    return { ok: false, reason: "Live approval requires current-password step-up authentication" };
+  }
+  const [user] = await db.select({ passwordHash: usersTable.passwordHash })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  if (!user?.passwordHash) {
+    return { ok: false, reason: "This account cannot satisfy Live step-up authentication; set an account password or use Demo" };
+  }
+  const ok = await verifyPassword(password, user.passwordHash);
+  return ok ? { ok: true } : { ok: false, reason: "Live approval step-up authentication failed" };
+}
+
+/** Fail closed when a cookie-authenticated financial mutation is not same-origin. */
+export function verifyFinancialRequestOrigin(req: Request): { ok: true } | { ok: false; reason: string } {
+  if (req.authMethod === "basic") return { ok: true };
+  const fetchSite = req.get("sec-fetch-site")?.toLowerCase();
+  if (fetchSite && fetchSite !== "same-origin" && fetchSite !== "none") {
+    return { ok: false, reason: "Cross-site financial actions are not permitted" };
+  }
+  const origin = req.get("origin");
+  const host = req.get("host");
+  if (!origin || !host) {
+    return { ok: false, reason: "Financial actions require a verifiable same-origin browser request" };
+  }
+  try {
+    if (new URL(origin).host !== host) return { ok: false, reason: "Cross-origin financial actions are not permitted" };
+  } catch {
+    return { ok: false, reason: "Financial action origin is invalid" };
+  }
+  return { ok: true };
 }
 
 export async function getAuthenticatedUserId(req: Request): Promise<number | null> {
