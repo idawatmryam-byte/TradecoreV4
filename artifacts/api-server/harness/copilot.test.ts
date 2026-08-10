@@ -452,18 +452,24 @@ async function main() {
   let markGatherEntered!: () => void;
   const gatherEntered = new Promise<void>((resolve) => { markGatherEntered = resolve; });
   const gatherHold = new Promise<void>((resolve) => { releaseGather = resolve; });
-  registryEngine.gatherRevalidationState = async (candidate: unknown) => {
+  registryEngine.gatherRevalidationState = async (
+    candidate: unknown,
+    approvalTime: Date,
+  ) => {
     markGatherEntered();
     await gatherHold;
-    return originalGather(candidate);
+    return originalGather(candidate, approvalTime);
   };
 
+  const concurrentApprovalNow = new Date(T0.getTime() + 60_000);
   const firstApproval = executeRecommendation(USER, "crypto", rec4!.id,
     approvalFor(rec4!, "concurrent-approval-0001"),
+    concurrentApprovalNow,
   );
   await gatherEntered; // first request has already won the `created → executing` CAS
   const secondApproval = await executeRecommendation(USER, "crypto", rec4!.id,
     approvalFor(rec4!, "concurrent-approval-0002"),
+    concurrentApprovalNow,
   );
   releaseGather();
   const firstOutcome = await firstApproval;
@@ -502,6 +508,30 @@ async function main() {
   const originalExecuteApprovedPlan = registryEngine.executeApprovedPlan.bind(registryEngine);
   let controlledExecutionCalls = 0;
   const approvalNow = new Date(T0.getTime() + 60_000);
+  const originalLoadConfig = registryEngine.loadConfig.bind(registryEngine);
+  const originalRunning = registryEngine.state.running;
+  const originalConnectionSuspended = registryEngine.connectionSuspended;
+  registryEngine.state.running = true;
+  registryEngine.connectionSuspended = false;
+  registryEngine.loadConfig = async () => ({
+    ...baseConfig,
+    mode: "copilot",
+    executionTarget: "live",
+  });
+  const targetFlip = await originalExecuteApprovedPlan(
+    p5,
+    { confidence: 70 } as any,
+    approvalNow,
+    "demo",
+  );
+  expect(
+    "the execution boundary refuses a Demo-to-Live target flip",
+    !targetFlip.entered && /target changed/i.test(targetFlip.reason),
+    targetFlip.reason,
+  );
+  registryEngine.loadConfig = originalLoadConfig;
+  registryEngine.state.running = originalRunning;
+  registryEngine.connectionSuspended = originalConnectionSuspended;
   registryEngine.gatherRevalidationState = async () => ({
     engineRunning: true,
     circuitBreakerActive: false,
@@ -540,8 +570,16 @@ async function main() {
     executionCostViable: true,
     executionCostDetail: "test execution costs viable",
   });
-  registryEngine.executeApprovedPlan = async () => {
+  registryEngine.executeApprovedPlan = async (
+    _plan: unknown,
+    _row: unknown,
+    _now: Date,
+    approvedTarget: "demo" | "live",
+  ) => {
     controlledExecutionCalls++;
+    if (approvedTarget !== "demo") {
+      return { entered: false, reason: "approved target was not preserved" };
+    }
     return { entered: true, reason: "existing controlled engine path entered", tradeId: 7701 };
   };
   const validApproval = approvalFor(rec5!, "valid-approval-0001");

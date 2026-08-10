@@ -232,11 +232,11 @@ async function currentRevalidation(
     slPrice: Number(rec.slPrice),
     tpPrice: Number(rec.tpPrice),
     qty: Number(rec.qty),
-  });
+  }, now);
   const bundle = isPhase9DecisionBundle(rec.decisionBundle)
     ? rec.decisionBundle
     : null;
-  const boundTarget =
+  const boundTarget: "demo" | "live" =
     rec.executionTarget === "demo" || rec.executionTarget === "live"
       ? rec.executionTarget
       : "live";
@@ -290,7 +290,7 @@ async function currentRevalidation(
       executionCostDetail: state.executionCostDetail,
     },
   });
-  return { engine, plan, state, bundle, verdict };
+  return { engine, plan, state, bundle, boundTarget, verdict };
 }
 
 /**
@@ -534,7 +534,7 @@ export async function executeRecommendation(
     logger.error({ err, recommendationId: rec.id }, "CO-PILOT: current state collection failed closed");
     return outcome;
   }
-  const { engine, plan, verdict } = current;
+  const { engine, plan, boundTarget, verdict } = current;
 
   if (!verdict.ok) {
     // Terminal. The situation that made this plan sensible has passed, so it
@@ -638,7 +638,7 @@ export async function executeRecommendation(
   }) as SignalRow;
   let result: ExecutionResult;
   try {
-    result = await engine.executeApprovedPlan(plan, row, now);
+    result = await engine.executeApprovedPlan(plan, row, now, boundTarget);
   } catch (err) {
     const reason = "Execution failed after approval was claimed; verify broker and execution-intent state before taking any further action";
     const outcome: ActionOutcome = {

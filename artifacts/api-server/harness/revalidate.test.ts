@@ -14,6 +14,10 @@
  */
 import { revalidate, MAX_ENTRY_DRIFT_R, type RevalidationInputs,
 } from "../src/lib/execution/revalidate";
+import {
+  knownSpreadFraction,
+  marketStateFreshAt,
+} from "../src/lib/execution/approvalSafety";
 
 let failures = 0;
 function expect(name: string, cond: boolean, detail = "") {
@@ -177,6 +181,35 @@ for (const [what, safety, code] of phase9Cases) {
     `${r.code ?? "approved"}`,
   );
 }
+
+expect(
+  "cached spread requires positive bid and ask",
+  knownSpreadFraction({ bid: 0, ask: 0 }) === undefined,
+);
+expect(
+  "cached spread accepts a valid locked quote",
+  knownSpreadFraction({ bid: 100, ask: 100 }) === 0,
+);
+expect(
+  "MarketState freshness is recomputed at approval time",
+  marketStateFreshAt(
+    {
+      dataTimestamp: new Date(NOW.getTime() - 60_001).toISOString(),
+      freshness: { status: "fresh", ageMs: 0, maximumAgeMs: 60_000 },
+    },
+    NOW,
+  ) === false,
+);
+expect(
+  "future-dated MarketState fails closed",
+  marketStateFreshAt(
+    {
+      dataTimestamp: new Date(NOW.getTime() + 1).toISOString(),
+      freshness: { status: "fresh", ageMs: 0, maximumAgeMs: 60_000 },
+    },
+    NOW,
+  ) === false,
+);
 
 // Boundary: exactly at the cap is still allowed; a hair over is not.
 {
