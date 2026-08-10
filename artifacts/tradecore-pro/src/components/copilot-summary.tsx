@@ -77,6 +77,11 @@ export function CopilotSummary() {
               <Badge variant="default" className="shrink-0">
                 {pending.length} waiting
               </Badge>
+              {top!.executionTarget && (
+                <Badge variant="outline" className={cn("shrink-0 font-mono", top!.executionTarget === "live" && "border-destructive/40 text-destructive")}>
+                  {top!.executionTarget.toUpperCase()}
+                </Badge>
+              )}
             </p>
             {/* The "why", from the plan the engine actually made. */}
             <p className="truncate text-[13px] text-muted-foreground">

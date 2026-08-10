@@ -19,7 +19,7 @@ import {
   botConfigTable, strategyConfigsTable, tradesTable, tradePartialExitsTable,
   blacklistTable, hourlyStatsTable, tradeAnalysesTable, backtestRunsTable,
   autopsyRunsTable, customStrategiesTable, strategyDecisionsTable,
-  recommendationsTable, notificationsTable, executionIntentsTable,
+  recommendationsTable, recommendationEventsTable, notificationsTable, executionIntentsTable,
   executionEventsTable, scanCountersTable, memoryValidationsTable,
   evidenceRuleSetsTable, capturedDecisionsTable, memoryInfluencesTable,
   evidenceSnapshotsTable, evidenceRuleEventsTable, strategyOpinionsTable,
@@ -186,6 +186,7 @@ router.delete("/me/account", async (req, res) => {
     }
 
     await tx.delete(executionIntentsTable).where(eq(executionIntentsTable.userId, userId));
+    await tx.delete(recommendationEventsTable).where(eq(recommendationEventsTable.userId, userId));
     await tx.delete(recommendationsTable).where(eq(recommendationsTable.userId, userId));
     await tx.delete(notificationsTable).where(eq(notificationsTable.userId, userId));
     await tx.delete(evidenceRuleSetsTable).where(eq(evidenceRuleSetsTable.userId, userId));
