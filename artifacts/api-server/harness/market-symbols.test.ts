@@ -29,7 +29,7 @@ const spotMarkets = {
   "ETH/USDT": { id: "ETHUSDT", symbol: "ETH/USDT", active: true, spot: true },
   "OLD/USDT": { id: "OLDUSDT", symbol: "OLD/USDT", active: false, spot: true }, // delisted
 };
-const spot = buildSymbolMarketMaps(spotMarkets);
+const spot = buildSymbolMarketMaps(spotMarkets, "spot");
 expect("spot: BTCUSDT → BTC/USDT", spot.toUnified.get("BTCUSDT"), "BTC/USDT");
 expect("spot: BTC/USDT → BTCUSDT", spot.toPlain.get("BTC/USDT"), "BTCUSDT");
 expect("spot: inactive market excluded", spot.toUnified.has("OLDUSDT"), false);
@@ -41,10 +41,10 @@ const usdmMarkets = {
   "ETH/USDT:USDT": { id: "ETHUSDT", symbol: "ETH/USDT:USDT", active: true, swap: true, linear: true },
   "BTC/USDT:USDT-240628": { id: "BTCUSDT_240628", symbol: "BTC/USDT:USDT-240628", active: true, future: true },
 };
-const usdm = buildSymbolMarketMaps(usdmMarkets);
+const usdm = buildSymbolMarketMaps(usdmMarkets, "futures");
 expect("futures: BTCUSDT → BTC/USDT:USDT", usdm.toUnified.get("BTCUSDT"), "BTC/USDT:USDT");
 expect("futures: BTC/USDT:USDT → BTCUSDT", usdm.toPlain.get("BTC/USDT:USDT"), "BTCUSDT");
-expect("futures: dated contract kept under its own id, not the perp's", usdm.toUnified.get("BTCUSDT_240628"), "BTC/USDT:USDT-240628");
+expect("futures: dated contract excluded from the perpetual-swap domain", usdm.toUnified.has("BTCUSDT_240628"), false);
 // THE ORIGINAL BUG, asserted: the spot-format conversion does NOT exist on usdm.
 expect("futures: spot-style 'BTC/USDT' is not a valid usdm key", "BTC/USDT" in usdmMarkets, false);
 
@@ -52,8 +52,16 @@ expect("futures: spot-style 'BTC/USDT' is not a valid usdm key", "BTC/USDT" in u
 const collision = buildSymbolMarketMaps({
   a: { id: "XUSDT", symbol: "X/USDT:USDT-250101", active: true, future: true },
   b: { id: "XUSDT", symbol: "X/USDT:USDT", active: true, swap: true },
-});
+}, "futures");
 expect("collision: perpetual swap wins", collision.toUnified.get("XUSDT"), "X/USDT:USDT");
+
+// A mixed ccxt catalog must stay partitioned by the explicit active market.
+const mixed = {
+  "BTC/USDT": { id: "BTCUSDT", symbol: "BTC/USDT", active: true, spot: true, type: "spot" },
+  "BTC/USDT:USDT": { id: "BTCUSDT", symbol: "BTC/USDT:USDT", active: true, swap: true, linear: true, type: "swap" },
+};
+expect("mixed catalog: spot map cannot select futures", buildSymbolMarketMaps(mixed, "spot").toUnified.get("BTCUSDT"), "BTC/USDT");
+expect("mixed catalog: futures map cannot select spot", buildSymbolMarketMaps(mixed, "futures").toUnified.get("BTCUSDT"), "BTC/USDT:USDT");
 
 // ── Fallbacks (used before markets load) ─────────────────────────────────────
 expect("fallback plain→unified (spot)", unifiedFromPlainFallback("BTCUSDT", "spot"), "BTC/USDT");

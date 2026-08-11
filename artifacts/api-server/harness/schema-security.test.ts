@@ -21,6 +21,8 @@ async function main() {
     brainDecisionsTable,
     brainEvidenceReferencesTable,
     db,
+    executionEventsTable,
+    executionIntentsTable,
     positionManagementEventsTable,
     positionThesesTable,
     researchExperimentsTable,
@@ -55,6 +57,26 @@ async function main() {
       expiresAt,
       decision: { test: true },
     }).returning();
+    const [intent] = await db.insert(executionIntentsTable).values({
+      userId: user!.id,
+      section: "crypto",
+      correlationId: `schema-test-correlation-${user!.id}`,
+      clientOrderId: `schema-test-client-${user!.id}`,
+      planFingerprint: "e".repeat(64),
+      symbol: "BTCUSDT",
+      side: "buy",
+      marketType: "spot",
+      plannedEntryPrice: "100",
+      plannedStopLoss: "98",
+      plannedTakeProfit: "104",
+      plannedQuantity: "1",
+    }).returning();
+    await db.insert(executionEventsTable).values({
+      intentId: intent!.id,
+      fromState: null,
+      toState: "INTENT_RECORDED",
+      reason: "schema security fixture",
+    });
     await db.insert(brainEvidenceReferencesTable).values({
       brainDecisionId: decision!.id,
       evidenceId: `e-${user!.id}`,
@@ -191,17 +213,22 @@ async function main() {
       .from(positionManagementEventsTable).where(eq(positionManagementEventsTable.userId, user!.id));
     const remainingResearchEvents = await db.select({ id: researchReplayEventsTable.id })
       .from(researchReplayEventsTable).where(eq(researchReplayEventsTable.userId, user!.id));
+    const remainingExecutionEvents = await db.select({ id: executionEventsTable.id })
+      .from(executionEventsTable).where(eq(executionEventsTable.intentId, intent!.id));
     expect("capture purge removes the user's decision", remainingDecisions.length === 0);
     expect("capture purge removes dependent evidence first", remainingEvidence.length === 0);
     expect("capture purge removes Phase 7 management events", remainingManagementEvents.length === 0);
     expect("capture purge removes Phase 7 theses", remainingTheses.length === 0);
     expect("capture purge removes Phase 8 replay events", remainingResearchEvents.length === 0);
+    expect("capture purge removes append-only public execution events through the definer boundary", remainingExecutionEvents.length === 0);
+    await db.delete(executionIntentsTable).where(eq(executionIntentsTable.id, intent!.id));
     await db.delete(researchExperimentsTable).where(eq(researchExperimentsTable.id, researchExperiment!.id));
     await db.delete(tradesTable).where(eq(tradesTable.id, trade!.id));
   } finally {
     await db.execute(sql`SELECT capture.purge_user_data(${user!.id})`);
     await db.delete(tradesTable).where(eq(tradesTable.userId, user!.id));
     await db.delete(researchExperimentsTable).where(eq(researchExperimentsTable.userId, user!.id));
+    await db.delete(executionIntentsTable).where(eq(executionIntentsTable.userId, user!.id));
     await db.delete(usersTable).where(eq(usersTable.id, user!.id));
   }
 

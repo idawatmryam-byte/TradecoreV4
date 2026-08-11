@@ -36,6 +36,7 @@ process.env.SESSION_SECRET ??= "live-engine-test-session-secret-123";
 import { db, tradesTable, botConfigTable, tradePartialExitsTable, strategyConfigsTable, strategyDecisionsTable, tradeAnalysesTable, executionIntentsTable, executionEventsTable } from "@workspace/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { BotEngine } from "../src/lib/botEngine";
+import { resolveExecutionAuthority } from "../src/lib/execution/authority";
 import { loadStrategyConfigs } from "../src/lib/strategyConfigLoader";
 import type { StrategyConfig } from "../src/lib/strategies";
 
@@ -211,7 +212,20 @@ async function main() {
   const engine = new BotEngine(USER, "crypto");
   primeEngine(engine, mock);
   const e = engine as any;
-  const config = await engine.loadConfig();
+  const storedConfig = await engine.loadConfig();
+  // This harness deliberately exercises the broker execution path against an
+  // in-memory ccxt-shaped venue. The account default may be local Demo, so the
+  // injected test client must pin the same explicit broker authority that a
+  // normal initExchange() call would establish. Leaving either side implicit
+  // should (and now does) fail closed.
+  const config = { ...storedConfig, executionTarget: "live" as const };
+  e.executionTarget = "live";
+  e.activeExecutionAuthority = resolveExecutionAuthority({
+    section: "crypto",
+    marketType: "spot",
+    executionTarget: "live",
+    testnet: config.testnet,
+  });
 
   const configs = await loadStrategyConfigs(USER, "crypto");
   // Deterministic management config: no ladder/trailing for S1/S2.
@@ -305,6 +319,8 @@ async function main() {
   const engine2 = new BotEngine(USER, "crypto");
   primeEngine(engine2, mock);
   const e2 = engine2 as any;
+  e2.executionTarget = "live";
+  e2.activeExecutionAuthority = e.activeExecutionAuthority;
   expect("fresh engine starts with empty tracking", !e2.openOrderIds.get(t4!.id));
   await e2.reconcileOnStartup("spot");
   const [still4] = await db.select().from(tradesTable).where(eq(tradesTable.id, t4!.id));

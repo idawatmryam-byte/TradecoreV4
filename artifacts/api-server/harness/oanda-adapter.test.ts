@@ -58,7 +58,7 @@ const oandaMarkets = {
   EUR_USD: { id: "EUR_USD", symbol: "EUR_USD", active: true },
   XAU_USD: { id: "XAU_USD", symbol: "XAU_USD", active: true },
 };
-const maps = buildSymbolMarketMaps(oandaMarkets);
+const maps = buildSymbolMarketMaps(oandaMarkets, "forex");
 expect("toUnified is identity", maps.toUnified.get("EUR_USD"), "EUR_USD");
 expect("toPlain is identity", maps.toPlain.get("XAU_USD"), "XAU_USD");
 

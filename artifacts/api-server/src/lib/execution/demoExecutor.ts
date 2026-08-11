@@ -139,6 +139,7 @@ export class DemoExecutor implements TradeExecutor {
           userId: this.host.userId(),
           section: this.host.section(),
           executionTarget: "demo",
+          executionAuthority: "simulated_demo",
           symbol: req.symbol,
           side: openSide,
           marketType: config.marketType,
