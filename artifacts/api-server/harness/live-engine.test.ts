@@ -33,7 +33,7 @@ if (!process.env.DATABASE_URL) {
 process.env.CREDENTIALS_ENCRYPTION_KEY ??= "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 process.env.SESSION_SECRET ??= "live-engine-test-session-secret-123";
 
-import { db, tradesTable, botConfigTable, tradePartialExitsTable, strategyConfigsTable, strategyDecisionsTable, tradeAnalysesTable, executionIntentsTable } from "@workspace/db";
+import { db, tradesTable, botConfigTable, tradePartialExitsTable, strategyConfigsTable, strategyDecisionsTable, tradeAnalysesTable, executionIntentsTable, executionEventsTable } from "@workspace/db";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { BotEngine } from "../src/lib/botEngine";
 import { resolveExecutionAuthority } from "../src/lib/execution/authority";
