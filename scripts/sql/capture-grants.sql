@@ -7,8 +7,8 @@
 -- in a GRANT instead: the application role can INSERT and SELECT, and that is
 -- all. An attempted UPDATE or DELETE is a permission error at the database.
 --
--- Run ONCE per environment, as a superuser, AFTER `pnpm --filter @workspace/db
--- run push` has created the schema:
+-- Run through the dedicated migration/owner connection AFTER
+-- `pnpm --filter @workspace/db run push` has created the schema:
 --
 --   psql "$DATABASE_MIGRATION_URL" -v app_role=tradecore_runtime \
 --     -v owner_role=tradecore_owner -f scripts/sql/capture-grants.sql
@@ -25,7 +25,16 @@
 -- owner short of reassigning ownership. Production should use a dedicated,
 -- non-owner application role. Verify with the query at the bottom.
 
-\set app_role :app_role
+\if :{?app_role}
+\else
+  \echo 'app_role is required'
+  \quit 2
+\endif
+\if :{?owner_role}
+\else
+  \echo 'owner_role is required'
+  \quit 2
+\endif
 
 BEGIN;
 
@@ -70,11 +79,9 @@ BEGIN
 END;
 $$;
 
-\if :{?owner_role}
 ALTER FUNCTION capture.purge_user_data(integer) OWNER TO :"owner_role";
-\endif
 
-REVOKE ALL ON FUNCTION capture.purge_user_data(integer) FROM PUBLIC;
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA capture FROM PUBLIC, :"app_role";
 GRANT EXECUTE ON FUNCTION capture.purge_user_data(integer) TO :"app_role";
 
 -- The role must be able to see and write the schema, and nothing more.
@@ -88,10 +95,12 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA capture TO :"app_role";
 
 -- Tables added to the schema later inherit the same shape automatically, so a
 -- future capture table cannot accidentally ship as mutable.
-ALTER DEFAULT PRIVILEGES IN SCHEMA capture
+ALTER DEFAULT PRIVILEGES FOR ROLE :"owner_role" IN SCHEMA capture
   GRANT INSERT, SELECT ON TABLES TO :"app_role";
-ALTER DEFAULT PRIVILEGES IN SCHEMA capture
+ALTER DEFAULT PRIVILEGES FOR ROLE :"owner_role" IN SCHEMA capture
   GRANT USAGE, SELECT ON SEQUENCES TO :"app_role";
+ALTER DEFAULT PRIVILEGES FOR ROLE :"owner_role" IN SCHEMA capture
+  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 
 COMMIT;
 
