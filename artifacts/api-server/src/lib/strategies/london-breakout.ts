@@ -105,7 +105,7 @@ export class LondonBreakoutStrategy implements Strategy {
 
     const rejection = (stage: "setup" | "dollar-plan" | "coin-fit" | "leverage" | "reward-risk", reason: string, report?: DecisionReport): TradeDecision => ({
       kind: "rejection",
-      rejection: { strategyId: this.strategyId, strategyName: this.strategyName, symbol, side, stage, reason, report },
+      rejection: { strategyId: this.strategyId, strategyName: this.strategyName, symbol, side, stage, reason, ...(report && { report }) },
     });
 
     // ── Range quality: a breakout needs a genuine compression to break ──────

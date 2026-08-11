@@ -36,6 +36,47 @@ export class DemoDataUnavailableError extends Error {
   }
 }
 
+export class DemoExecutionIsolationError extends Error {
+  constructor(method: string) {
+    super(`Simulated Demo market-data client cannot call external broker method ${method}`);
+    this.name = "DemoExecutionIsolationError";
+  }
+}
+
+const DEMO_MARKET_DATA_METHODS = new Set([
+  "loadMarkets",
+  "market",
+  "fetchOHLCV",
+  "fetchTicker",
+  "fetchTickers",
+  "amountToPrecision",
+  "priceToPrecision",
+]);
+
+/**
+ * Capability boundary, not merely a convention. The OANDA practice adapter
+ * necessarily holds a platform credential to read prices, so returning the
+ * raw adapter would also expose createOrder/cancelOrder. This proxy exports
+ * only the market-data surface and turns every other method into an explicit
+ * fail-closed error. The same wrapper protects keyless Binance Demo clients
+ * against future accidental signed reads or execution calls.
+ */
+export function restrictToDemoMarketData<T extends object>(source: T): T {
+  return new Proxy(source, {
+    get(target, property, receiver) {
+      const value = Reflect.get(target, property, receiver);
+      if (typeof value !== "function") return value;
+      const method = String(property);
+      if (!DEMO_MARKET_DATA_METHODS.has(method)) {
+        return () => {
+          throw new DemoExecutionIsolationError(method);
+        };
+      }
+      return value.bind(target);
+    },
+  });
+}
+
 /** True when the platform has forex demo data configured. */
 export function forexDemoAvailable(): boolean {
   return Boolean(process.env.OANDA_PLATFORM_TOKEN && process.env.OANDA_PLATFORM_ACCOUNT_ID);
@@ -62,13 +103,13 @@ export async function buildDemoMarketData(marketType: MarketType): Promise<any> 
     }
     // Always the practice endpoint. A demo account must never be able to reach
     // fxtrade, whatever the section's testnet flag happens to say.
-    return new OandaAdapter({ token, accountId, practice: true });
+    return restrictToDemoMarketData(new OandaAdapter({ token, accountId, practice: true }));
   }
 
   // Keyless: public endpoints only. ccxt is happy without credentials and will
   // simply fail any signed call, which is the desired blast radius.
   const ExchangeClass = marketType === "futures" ? BinanceUsdmExchange : BinanceExchange;
-  return new ExchangeClass({
+  return restrictToDemoMarketData(new ExchangeClass({
     options: { defaultType: marketType, adjustForTimeDifference: true },
-  });
+  }));
 }

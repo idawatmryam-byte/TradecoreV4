@@ -139,7 +139,7 @@ async function exerciseCrypto() {
   await engine.refreshConnection({ restartIfDesired: true, reason: "test: Crypto Live to Demo" });
   const demo2 = (engine as any).exchange;
   expect("Crypto returns to Demo", built.at(-1)?.target === "demo");
-  expect("no stale Crypto Live client remains", demo2 !== live2 && (engine as any).exchangeIdentity?.startsWith("demo:"));
+  expect("no stale Crypto Live client remains", demo2 !== live2 && (engine as any).exchangeIdentity?.startsWith("simulated_demo:"));
 
   await deleteBinanceCredentials(CRYPTO_USER);
   await engine.refreshConnection({ restartIfDesired: true, reason: "test: delete Binance credentials in Demo" });

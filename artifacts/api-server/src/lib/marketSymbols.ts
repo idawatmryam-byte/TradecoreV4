@@ -37,6 +37,9 @@ interface CcxtMarketLike {
   active?: boolean;
   /** true for perpetual swaps (ccxt sets this on binanceusdm contracts). */
   swap?: boolean;
+  spot?: boolean;
+  linear?: boolean;
+  type?: string;
 }
 
 /**
@@ -46,7 +49,10 @@ interface CcxtMarketLike {
  * perpetual swap wins over anything else so the engine never trades a dated
  * contract by accident.
  */
-export function buildSymbolMarketMaps(markets: Record<string, unknown>): SymbolMarketMaps {
+export function buildSymbolMarketMaps(
+  markets: Record<string, unknown>,
+  marketType: "spot" | "futures" | "forex",
+): SymbolMarketMaps {
   const toUnified = new Map<string, string>();
   const toPlain = new Map<string, string>();
   const chosen = new Map<string, CcxtMarketLike>();
@@ -55,11 +61,19 @@ export function buildSymbolMarketMaps(markets: Record<string, unknown>): SymbolM
     const m = raw as CcxtMarketLike;
     if (!m || typeof m.symbol !== "string" || m.id == null) continue;
     if (m.active === false) continue;
+    // ccxt's Binance class may expose more than one market family even when
+    // defaultType is set. The active market is an input to mapping; collision
+    // preference must never turn a Spot raw id into a Swap symbol (or vice
+    // versa). OANDA instruments have neither flag and live in their own
+    // section/client, so they are accepted as broker-native forex markets.
+    if (marketType === "spot" && m.spot !== true && m.type !== "spot") continue;
+    if (marketType === "futures" && (m.swap !== true || m.linear === false)) continue;
     const id = String(m.id);
 
     const existing = chosen.get(id);
-    // Prefer a perpetual swap over any other market type sharing the id.
-    if (existing && existing.swap === true && m.swap !== true) continue;
+    // Within the already-isolated futures domain, a perpetual swap wins over
+    // a dated contract if a malformed provider catalog reuses a raw id.
+    if (marketType === "futures" && existing && existing.swap === true && m.swap !== true) continue;
     chosen.set(id, m);
   }
 
