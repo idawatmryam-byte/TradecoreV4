@@ -34,7 +34,7 @@ process.env.CREDENTIALS_ENCRYPTION_KEY ??= "0123456789abcdef0123456789abcdef0123
 process.env.SESSION_SECRET ??= "live-engine-test-session-secret-123";
 
 import { db, tradesTable, botConfigTable, tradePartialExitsTable, strategyConfigsTable, strategyDecisionsTable, tradeAnalysesTable, executionIntentsTable, executionEventsTable } from "@workspace/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { BotEngine } from "../src/lib/botEngine";
 import { resolveExecutionAuthority } from "../src/lib/execution/authority";
 import { loadStrategyConfigs } from "../src/lib/strategyConfigLoader";
@@ -185,11 +185,12 @@ function plan(over: Partial<Record<string, unknown>> = {}) {
 async function cleanup() {
   const ids = (await db.select({ id: tradesTable.id }).from(tradesTable).where(eq(tradesTable.userId, USER))).map((t) => t.id);
   if (ids.length) await db.delete(tradePartialExitsTable).where(inArray(tradePartialExitsTable.tradeId, ids));
+  // Append-only execution events cannot be deleted directly by the runtime
+  // role. Test cleanup must cross the same narrow owner-defined user-erasure
+  // boundary as production rather than weakening immutable evidence grants.
+  await db.execute(sql`SELECT capture.purge_user_data(${USER})`);
   // Execution intents outlive their trades by design (a FAILED intent has no
-  // trade at all), so they are wiped by user, not by trade id.
-  const intentIds = (await db.select({ id: executionIntentsTable.id }).from(executionIntentsTable)
-    .where(eq(executionIntentsTable.userId, USER))).map((i) => i.id);
-  if (intentIds.length) await db.delete(executionEventsTable).where(inArray(executionEventsTable.intentId, intentIds));
+  // trade at all), so their mutable projections are wiped by user afterwards.
   await db.delete(executionIntentsTable).where(eq(executionIntentsTable.userId, USER));
   await db.delete(tradeAnalysesTable).where(eq(tradeAnalysesTable.userId, USER));
   await db.delete(tradesTable).where(eq(tradesTable.userId, USER));

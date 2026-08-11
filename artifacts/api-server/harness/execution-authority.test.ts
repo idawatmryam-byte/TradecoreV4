@@ -4,6 +4,7 @@ import {
 } from "../src/lib/execution/demoMarketData";
 import {
   authorityFromTrade,
+  assertAuthorityMatchesMarket,
   resolveExecutionAuthority,
 } from "../src/lib/execution/authority";
 
@@ -65,6 +66,21 @@ expect(
     executionAuthority: "legacy_unverified",
   }) === "legacy_unverified",
 );
+
+const persistedSpotAuthority = authorityFromTrade({
+  executionTarget: "live",
+  executionAuthority: "binance_spot_testnet",
+});
+let persistedAuthorityRefusedFutures = false;
+try { assertAuthorityMatchesMarket(persistedSpotAuthority, "futures"); } catch { persistedAuthorityRefusedFutures = true; }
+expect(
+  "reconciliation follows persisted execution authority rather than mutable Futures config",
+  persistedAuthorityRefusedFutures,
+);
+
+let legacyAuthorityRefused = false;
+try { assertAuthorityMatchesMarket("legacy_unverified", "spot"); } catch { legacyAuthorityRefused = true; }
+expect("legacy_unverified broker records remain fail-closed", legacyAuthorityRefused);
 
 process.env.DATABASE_URL = "postgres://unused:unused@127.0.0.1:5432/unused";
 const { closeDemoManually, simulateDemoExit } =

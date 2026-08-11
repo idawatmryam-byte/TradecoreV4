@@ -40,12 +40,11 @@ const rowFor = (confidence: number) => ({
 }) as any;
 
 async function cleanup() {
-  const snapIds = (await db.select({ id: featureSnapshotsTable.id }).from(featureSnapshotsTable)
-    .where(sql`${featureSnapshotsTable.symbol} IN ('BTCUSDT','ETHUSDT') AND ${featureSnapshotsTable.provider} = 'test'`)).map((r) => r.id);
-  await db.delete(capturedDecisionsTable).where(eq(capturedDecisionsTable.userId, USER));
-  if (snapIds.length) {
-    for (const id of snapIds) await db.delete(featureSnapshotsTable).where(eq(featureSnapshotsTable.id, id));
-  }
+  // Runtime evidence is append-only. Test cleanup must use the same narrow
+  // owner-defined erasure boundary as production instead of requiring DELETE
+  // on capture tables. Content-addressed feature snapshots are intentionally
+  // shared and remain as immutable, unowned inputs after decisions are purged.
+  await db.execute(sql`SELECT capture.purge_user_data(${USER})`);
   await db.delete(scanCountersTable).where(eq(scanCountersTable.userId, USER));
 }
 
