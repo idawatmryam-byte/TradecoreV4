@@ -35,6 +35,12 @@ export const tradesTable = pgTable("trades", {
    *  them — a demo win rate presented as a live one would be a lie. Existing
    *  rows backfill to "live", which is what they were. */
   executionTarget: text("execution_target").notNull().default("live"),
+  /** Persisted endpoint/execution authority. Unlike mutable bot config, this
+   * remains pinned for the position's lifetime. Existing broker-backed rows
+   * backfill to legacy_unverified and must be reconciled by an operator before
+   * any external adapter may act on them. Existing Demo rows are safely
+   * interpreted as simulated_demo by the execution boundary. */
+  executionAuthority: text("execution_authority").notNull().default("legacy_unverified"),
   /** Exactly one component may mutate management state for this position.
    * Existing rows backfill to fixed, preserving Brain V0 behavior. */
   managementAuthority: text("management_authority").notNull().default("fixed"), // fixed | phase7
@@ -153,6 +159,7 @@ export const tradesTable = pgTable("trades", {
   // Composite for the per-symbol "last 10 closed trades" query in updateBlacklist
   index("trades_user_symbol_status_exit_time_idx").on(t.userId, t.symbol, t.status, t.exitTime),
   check("trades_management_authority_check", sql`${t.managementAuthority} IN ('fixed', 'phase7')`),
+  check("trades_execution_authority_check", sql`${t.executionAuthority} IN ('legacy_unverified', 'simulated_demo', 'binance_spot_testnet', 'binance_futures_demo', 'oanda_practice', 'binance_spot_live', 'binance_futures_live', 'oanda_live')`),
   check("trades_management_mode_check", sql`${t.managementMode} IN ('fixed', 'phase7_shadow', 'phase7_active')`),
   check(
     "trades_management_owner_consistency_check",

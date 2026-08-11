@@ -415,6 +415,29 @@ check("full-brain frame replay is deterministic", () => {
   );
 });
 
+check("full-brain replay fingerprints an optional-report specialist rejection", () => {
+  const rejectionReplay = replayFullBrainFrame({
+    ...replayInput,
+    symbols: replayInput.symbols.map((frame) => ({
+      ...frame,
+      plans: [],
+      rejections: [{
+        strategyId: strategy.strategyId,
+        strategyName: strategy.strategyName,
+        symbol: "BTCUSDT",
+        side: "long" as const,
+        stage: "coin-fit" as const,
+        reason: "target unavailable in this window",
+        report: undefined,
+      }],
+    })),
+    managedPositions: [],
+  });
+  assert.equal(rejectionReplay.decisions.length, 1);
+  assert.match(rejectionReplay.fingerprint, /^[0-9a-f]{64}$/);
+  assert.equal(rejectionReplay.decisions[0]!.council.action, "OBSERVE");
+});
+
 check("crypto and forex replay preserve decisions under identical canonical inputs and costs", () => {
   const forex = replayFullBrainFrame({
     ...replayInput,

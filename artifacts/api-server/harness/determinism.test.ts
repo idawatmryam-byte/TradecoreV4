@@ -25,6 +25,7 @@ import {
 import { evalCondition, indicatorValue } from "../src/lib/strategies/custom";
 import { LondonBreakoutStrategy } from "../src/lib/strategies/london-breakout";
 import type { TradePlan } from "../src/lib/strategies/base";
+import { canonicalJson as intelligenceCanonicalJson } from "../src/lib/intelligence/canonical";
 
 let failures = 0;
 function expect(name: string, cond: boolean, detail = "") {
@@ -61,6 +62,25 @@ expect("canonicalJson: NaN throws rather than becoming null", threw);
 threw = false;
 try { canonicalJson({ price: Infinity }); } catch { threw = true; }
 expect("canonicalJson: Infinity throws rather than becoming null", threw);
+
+expect(
+  "intelligence canonicalization omits only absent optional object members",
+  intelligenceCanonicalJson({ rejection: { reason: "cost floor", report: undefined } }) === '{"rejection":{"reason":"cost floor"}}',
+);
+for (const [name, value] of [
+  ["undefined array element", [1, undefined]],
+  ["Date instance", new Date("2026-08-11T00:00:00.000Z")],
+  ["BigInt", { amount: 1n }],
+] as const) {
+  threw = false;
+  try { intelligenceCanonicalJson(value); } catch { threw = true; }
+  expect(`intelligence canonicalization rejects ${name}`, threw);
+}
+const cyclic: Record<string, unknown> = {};
+cyclic.self = cyclic;
+threw = false;
+try { intelligenceCanonicalJson(cyclic); } catch { threw = true; }
+expect("intelligence canonicalization rejects cycles", threw);
 
 // ── planFingerprint ─────────────────────────────────────────────────────────
 

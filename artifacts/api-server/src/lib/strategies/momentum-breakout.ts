@@ -100,7 +100,7 @@ export class MomentumBreakoutStrategy implements Strategy {
       kind: "rejection",
       rejection: {
         strategyId: this.strategyId, strategyName: this.strategyName,
-        symbol, side, stage, reason, report,
+        symbol, side, stage, reason, ...(report && { report }),
       },
     });
 

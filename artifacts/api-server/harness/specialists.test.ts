@@ -153,6 +153,13 @@ check("reasoned rejections become opposing evidence and abstention", () => {
   assert.match(opinion.opposingEvidence[0]!.summary, /reward:risk/);
 });
 
+check("deployed optional-report rejection remains canonically serializable", () => {
+  const withExplicitUndefined = { ...rejection("trend_pullback"), report: undefined } as TradeRejection;
+  const replay = build([trend], [], [withExplicitUndefined]);
+  assert.equal(replay.opinions[0]!.opinion.stance, "abstain");
+  assert.equal(replay.opinions[0]!.opinion.opposingEvidence.length, 1);
+});
+
 const correlated = build(
   [strategy("mean_reversion"), strategy("vwap_reversion")],
   [plan("mean_reversion", "long", 80), plan("vwap_reversion", "long", 70)],

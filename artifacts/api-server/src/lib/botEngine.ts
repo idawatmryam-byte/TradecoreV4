@@ -56,8 +56,18 @@ import { LiveExecutor, ResearchExecutor } from "./execution/liveExecutor";
 import { DemoExecutor } from "./execution/demoExecutor";
 import { expireStaleRecommendations, RecommendExecutor } from "./execution/recommendExecutor";
 import { knownSpreadFraction, marketStateFreshAt } from "./execution/approvalSafety";
-import { simulateDemoExit } from "./execution/demoExit";
+import { closeDemoManually, simulateDemoExit } from "./execution/demoExit";
 import { buildDemoMarketData } from "./execution/demoMarketData";
+import {
+  assertAuthorityMatchesMarket,
+  authorityFromTrade,
+  isBrokerAuthority,
+  isBrokerSandboxAuthority,
+  isSimulatedAuthority,
+  resolveExecutionAuthority,
+  type ExecutionAuthority,
+} from "./execution/authority";
+import { sweepBinanceFuturesOrphans, type OrphanSweepResult } from "./execution/orphanReconciliation";
 import type { FillCosts } from "./execution/fillModel";
 import { advanceIntent, attachTrade, openIntent, type IntentHandle } from "./execution/intentLog";
 import {
@@ -77,6 +87,7 @@ import { placeSellOco, cancelOco } from "./binanceOco";
 import { placeFuturesStopAndTakeProfit, closeFuturesPositionMarket, configureFuturesLeverage, getLiquidationPrice } from "./binanceFutures";
 import { stopTooCloseToLiquidation, MIN_PROTECTIVE_STOP_PCT } from "./futuresMath";
 import { buildDailyReport, formatDailyReportText } from "./dailyReport";
+import { emitCriticalOperatorAlert } from "./operatorAlerts";
 import {
   buildSymbolMarketMaps,
   supportsShortEntries,
@@ -379,6 +390,7 @@ class BotEngine {
   });
   /** Resolved from config each scan — "demo" | "live". */
   private executionTarget: "demo" | "live" = "live";
+  private activeExecutionAuthority: ExecutionAuthority = "legacy_unverified";
   /** Optional override, used by tests to inject a stand-in executor. */
   private executorOverride: TradeExecutor | null = null;
 
@@ -428,11 +440,11 @@ class BotEngine {
    * Cost model for simulated fills — the SAME rates the backtest uses for this
    * market type, so a demo fill and a backtest fill are comparable.
    */
-  private fillCosts(): FillCosts {
+  private fillCosts(marketType: MarketType = this.activeMarketType): FillCosts {
     return {
-      feeRate: this.activeTakerFee,
-      makerFeeRate: this.activeTakerFee,
-      slippageRate: this.activeSlippageRate,
+      feeRate: marketType === "forex" ? FOREX_COST_RATE : marketType === "futures" ? FUTURES_FEE_RATE : DEFAULT_FEE_RATE,
+      makerFeeRate: marketType === "forex" ? FOREX_COST_RATE : marketType === "futures" ? FUTURES_FEE_RATE : DEFAULT_FEE_RATE,
+      slippageRate: marketType === "forex" ? FOREX_SLIPPAGE_RATE : DEFAULT_SLIPPAGE_RATE,
     };
   }
 
@@ -443,6 +455,15 @@ class BotEngine {
   private readonly exitManager = new ExitManager({
     takerFee: () => this.activeTakerFee,
     sendAlert: (message: string) => this.sendAlert(message),
+    sendCriticalAlert: (alert) => {
+      void emitCriticalOperatorAlert({
+        ...alert,
+        summary: `Protective close failed for ${alert.symbol}; the position may still be open and requires operator verification`,
+        dedupeKey: `trade-${alert.tradeId}`,
+        userId: this.userId,
+        section: this.section,
+      });
+    },
     setCooldown: (symbol: string, minutes: number) => this.setCooldown(symbol, minutes),
     recordHourlyStat: (now: Date, pnl: number, win: boolean) => this.recordHourlyStat(now, pnl, win),
     recordRiskViolation: (tradeId: number, symbol: string, detail: string) => {
@@ -611,28 +632,58 @@ class BotEngine {
   // ---------------------------------------------------------------------------
 
   private async initExchange(testnet: boolean, marketType: MarketType): Promise<any> {
-    const identity = `${this.executionTarget}:${marketType}:${testnet ? "test" : "live"}`;
+    const authority = resolveExecutionAuthority({
+      section: this.section,
+      marketType,
+      executionTarget: this.executionTarget,
+      testnet,
+    });
+    const identity = `${authority}:${marketType}`;
     if (this.exchange && this.exchangeIdentity === identity) return this.exchange;
     // Defense in depth: route mutations perform an orderly reconnect, but a
     // config written by another trusted process must still never make a scan
     // reuse a client from a different target/environment.
     if (this.exchange) this.invalidateConnectionState();
-    const ex = await this.buildExchange(testnet, marketType);
+    const ex = await this.buildExchange(testnet, marketType, authority);
     this.exchange = ex;
     this.exchangeIdentity = identity;
+    this.activeExecutionAuthority = authority;
     return ex;
   }
 
   /** Construct (without caching) an exchange client for the given market
    *  type. Used by initExchange, and directly by closeTradeManually when the
    *  trade's market type differs from whatever the engine is running. */
-  private async buildExchange(testnet: boolean, marketType: MarketType): Promise<any> {
+  private async buildExchange(
+    testnet: boolean,
+    marketType: MarketType,
+    authority: ExecutionAuthority = resolveExecutionAuthority({
+      section: this.section,
+      marketType,
+      executionTarget: this.executionTarget,
+      testnet,
+    }),
+  ): Promise<any> {
     // Demo needs market DATA, not a broker connection: orders are filled by
     // execution/fillModel.ts and never reach a venue. Crypto reads Binance's
     // public endpoints keyless; forex needs the platform's own OANDA practice
     // token, because OANDA publishes no public market data.
-    if (this.executionTarget === "demo") {
+    if (isSimulatedAuthority(authority)) {
       return buildDemoMarketData(marketType);
+    }
+
+    if (!isBrokerAuthority(authority)) {
+      throw new Error("Broker connection refused: execution authority is unverified");
+    }
+    assertAuthorityMatchesMarket(authority, marketType);
+    const expected = resolveExecutionAuthority({
+      section: this.section,
+      marketType,
+      executionTarget: "live",
+      testnet,
+    });
+    if (authority !== expected) {
+      throw new Error(`Broker connection refused: persisted authority ${authority} does not match configured endpoint ${expected}`);
     }
 
     if (marketType === "forex") {
@@ -778,50 +829,58 @@ class BotEngine {
    * trade nor a live exchange position — protection for anything real is
    * never touched.
    */
-  private async sweepOrphanedProtectiveOrders(ex: any): Promise<number> {
-    try {
-      const open = await db
-        .select({ symbol: tradesTable.symbol })
-        .from(tradesTable)
-        .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.section, this.section), eq(tradesTable.status, "open")));
-      const active = new Set(open.map((t) => this.toMarket(t.symbol)));
-      try {
-        const positions = await ex.fetchPositions();
-        for (const p of positions ?? []) {
-          if (Math.abs(Number(p?.contracts ?? 0)) > 0 && p?.symbol) active.add(String(p.symbol));
-        }
-      } catch (posErr) {
-        // Without a live position picture we can't tell orphan from real —
-        // canceling a real position's stop is worse than keeping orphans.
-        logger.warn({ err: posErr }, "Orphan sweep skipped — could not fetch positions");
-        return 0;
-      }
-
-      const orders = await ex.fetchOpenOrders();
-      let cancelled = 0;
-      for (const o of orders ?? []) {
-        const type = String(o?.type ?? "").toUpperCase();
-        const isProtective =
-          o?.reduceOnly === true || type.includes("STOP") || type.includes("TAKE_PROFIT");
-        if (!isProtective || !o?.symbol || active.has(String(o.symbol))) continue;
-        try {
-          await ex.cancelOrder(o.id, o.symbol);
-          cancelled++;
-        } catch (cancelErr) {
-          logger.warn({ err: cancelErr, orderId: o.id, symbol: o.symbol }, "Failed to cancel orphaned order");
-        }
-      }
-      if (cancelled > 0) {
-        logger.warn(
-          { cancelled },
-          "Swept orphaned protective orders — freed Binance stop-order slots (-4045 guard)",
-        );
-      }
-      return cancelled;
-    } catch (err) {
-      logger.warn({ err }, "Orphan-order sweep failed");
-      return 0;
+  private async sweepOrphanedProtectiveOrders(ex: any): Promise<OrphanSweepResult> {
+    if (this.activeMarketType !== "futures" || !isBrokerAuthority(this.activeExecutionAuthority)) {
+      return {
+        state: "unverified",
+        cancelled: 0,
+        inspectedSymbols: 0,
+        reason: "Orphan sweep is not applicable to simulated Demo or non-Futures authorities",
+      };
     }
+    const open = await db
+      .select({ symbol: tradesTable.symbol, executionAuthority: tradesTable.executionAuthority })
+      .from(tradesTable)
+      .where(and(
+        eq(tradesTable.userId, this.userId),
+        eq(tradesTable.section, this.section),
+        eq(tradesTable.status, "open"),
+        eq(tradesTable.executionTarget, "live"),
+        eq(tradesTable.marketType, "futures"),
+      ));
+    const unverified = open.filter((trade) => authorityFromTrade({ executionTarget: "live", executionAuthority: trade.executionAuthority }) === "legacy_unverified");
+    if (unverified.length > 0) {
+      return {
+        state: "unverified",
+        cancelled: 0,
+        inspectedSymbols: 0,
+        reason: `${unverified.length} open Futures trade(s) have legacy unverified execution authority`,
+      };
+    }
+    const config = await this.loadConfig();
+    const result = await sweepBinanceFuturesOrphans({
+      exchange: ex,
+      configuredMarkets: this.getPairs(config).map((symbol) => this.toMarket(symbol)),
+      trackedMarkets: open.map((trade) => this.toMarket(trade.symbol)),
+    });
+    if (result.state === "unverified") {
+      logger.warn({ reason: result.reason, cancelled: result.cancelled }, "Orphan-order sweep UNVERIFIED — no reconciliation success inferred");
+      void emitCriticalOperatorAlert({
+        code: "RECONCILIATION_UNKNOWN",
+        summary: "Binance Futures orphan reconciliation is unverified; no reconciliation success was inferred",
+        dedupeKey: `orphan-sweep-${this.userId}-${this.section}`,
+        userId: this.userId,
+        section: this.section,
+        provider: "binance",
+        executionAuthority: this.activeExecutionAuthority,
+      });
+    } else if (result.cancelled > 0) {
+      logger.warn(
+        { cancelled: result.cancelled, inspectedSymbols: result.inspectedSymbols },
+        "Swept orphaned protective orders — freed Binance stop-order slots (-4045 guard)",
+      );
+    }
+    return result;
   }
 
   private cooldownAfterEntryFlatten(symbol: string, why: string): number {
@@ -1358,11 +1417,11 @@ class BotEngine {
       }
       throw actionableConnectionError("binance", providerErr);
     }
-    this.availableMarkets = new Set(Object.keys(ex.markets));
-    this.marketsLoaded = this.availableMarkets.size;
     // Exact DB-symbol ⟷ unified-symbol maps (spot "BTC/USDT" vs futures
     // "BTC/USDT:USDT") — every toMarket()/fromMarket() resolves through these.
-    this.symbolMaps = buildSymbolMarketMaps(ex.markets);
+    this.symbolMaps = buildSymbolMarketMaps(ex.markets, this.activeMarketType);
+    this.availableMarkets = new Set(this.symbolMaps.toUnified.values());
+    this.marketsLoaded = this.availableMarkets.size;
     logger.info({ count: this.availableMarkets.size, mapped: this.symbolMaps.toUnified.size }, "Markets loaded");
 
     // DEMO: there is nothing to authenticate, and asking would fail.
@@ -1443,7 +1502,24 @@ class BotEngine {
     // balances. Live starts in exit-only mode until venue, database and
     // protection state reconcile. Failure does not stop position management;
     // it only closes the new-entry boundary and retries once per minute.
-    if (this.executionTarget === "demo") {
+    const authorityIssues = await this.openTradeAuthorityIssues();
+    if (authorityIssues.length > 0) {
+      this.state.newEntriesAllowed = false;
+      this.state.entryBlockReason = "Exit-only: one or more open trades have ambiguous or mismatched execution authority";
+      logger.error({ authorityIssues }, "OPEN TRADE AUTHORITY UNVERIFIED — no mismatched broker adapter will be called");
+      void emitCriticalOperatorAlert({
+        code: "EXECUTION_AUTHORITY_AMBIGUOUS",
+        summary: `${authorityIssues.length} open trade(s) have ambiguous or mismatched execution authority; external remediation was refused`,
+        dedupeKey: `open-trades-${this.userId}-${this.section}`,
+        userId: this.userId,
+        section: this.section,
+        executionAuthority: this.activeExecutionAuthority,
+      });
+      await this.sendAlert(
+        `🚨 TradeCore blocked new entries because ${authorityIssues.length} open trade(s) have ambiguous or mismatched execution authority. ` +
+        "No external remediation was attempted; verify provider state before classifying or correcting those records.",
+      );
+    } else if (this.executionTarget === "demo") {
       this.state.newEntriesAllowed = true;
       this.state.entryBlockReason = null;
     } else {
@@ -1848,6 +1924,7 @@ class BotEngine {
     // effect. Stop → Start must always reconnect with the current config.
     this.exchange = null;
     this.exchangeIdentity = null;
+    this.activeExecutionAuthority = "legacy_unverified";
     this.credentialsVerified = false;
     this.symbolMaps = null;
     this.availableMarkets.clear();
@@ -3003,7 +3080,9 @@ class BotEngine {
       // enterTrade) — orphans also accumulate silently between entries.
       if (config.marketType === "futures" && this.exchange && Date.now() - this.lastOrphanSweepAt > 600_000) {
         this.lastOrphanSweepAt = Date.now();
-        void this.sweepOrphanedProtectiveOrders(this.exchange).catch(() => {});
+        void this.sweepOrphanedProtectiveOrders(this.exchange).catch((err) => {
+          logger.warn({ err }, "Orphan-order sweep UNVERIFIED");
+        });
       }
 
       await this.updateBlacklist(pairs, now, blacklisted);
@@ -3035,6 +3114,19 @@ class BotEngine {
     stratConfig?: StrategyConfig,
     positionManagement?: PositionManagementContext,
   ): Promise<ExecutionResult> {
+    const executionAuthority = resolveExecutionAuthority({
+      section: this.section,
+      marketType: toMarketType(config.marketType),
+      executionTarget: config.executionTarget === "demo" ? "demo" : "live",
+      testnet: config.testnet,
+    });
+    if (!isBrokerAuthority(executionAuthority) || executionAuthority !== this.activeExecutionAuthority) {
+      logger.error(
+        { executionAuthority, activeExecutionAuthority: this.activeExecutionAuthority, symbol },
+        "LIVE EXECUTION REFUSED — runtime authority does not match the active broker client",
+      );
+      return { entered: false, reason: "Execution authority is ambiguous or does not match the active broker endpoint" };
+    }
     const ex = this.exchange!;
     const market = this.toMarket(symbol);
     const side = plan.side;
@@ -3451,6 +3543,8 @@ class BotEngine {
             .values({
             userId: this.userId,
             section: this.section,
+            executionTarget: "live",
+            executionAuthority,
             symbol,
             side: openSide,
             marketType: config.marketType,
@@ -3555,10 +3649,10 @@ class BotEngine {
           // account's stop-order budget, making every new position
           // unprotectable. Sweep the orphans and retry ONCE before giving up
           // — observed live turning a flatten-loop day into normal trading.
-          const swept = await this.sweepOrphanedProtectiveOrders(ex);
-          if (swept > 0) {
+          const sweep = await this.sweepOrphanedProtectiveOrders(ex);
+          if (sweep.state === "verified" && sweep.cancelled > 0) {
             logger.warn(
-              { symbol, swept },
+              { symbol, swept: sweep.cancelled },
               "Protective placement failed — retrying after sweeping orphaned stop orders",
             );
             result = await placeFuturesStopAndTakeProfit(ex, market, openSide, filledQty, slPrice, tpPrice);
@@ -3851,7 +3945,8 @@ class BotEngine {
     cooldownMinutes: number,
   ): Promise<{ orderIds: OpenOrderIds | undefined; closed: boolean }> {
     const ex = this.exchange!;
-    const sandboxAuthority = trade.executionTarget === "demo" || this.state.mode === "testnet";
+    const tradeAuthority = authorityFromTrade(trade);
+    const sandboxAuthority = isBrokerSandboxAuthority(tradeAuthority) && tradeAuthority === this.activeExecutionAuthority;
     if (trade.managementAuthority !== "phase7" || trade.managementMode !== "phase7_active" || !sandboxAuthority) {
       await this.recordPhase7(trade, decision, "REFUSED", now, { reason: "Phase 7 mutation authority is not active for this environment" });
       return { orderIds, closed: false };
@@ -3928,6 +4023,21 @@ class BotEngine {
     maxHoldingSeconds?: number,
     stratConfig?: StrategyConfig,
   ): Promise<void> {
+    const tradeAuthority = authorityFromTrade(trade);
+    const tradeMarketType = toMarketType(trade.marketType);
+    if (
+      tradeAuthority !== this.activeExecutionAuthority
+      || tradeMarketType !== this.activeMarketType
+      || (!isSimulatedAuthority(tradeAuthority) && !isBrokerAuthority(tradeAuthority))
+    ) {
+      this.state.newEntriesAllowed = false;
+      this.state.entryBlockReason = "Exit-only: open trade execution authority is unverified";
+      logger.error(
+        { tradeId: trade.id, tradeAuthority, activeExecutionAuthority: this.activeExecutionAuthority, tradeMarketType, activeMarketType: this.activeMarketType },
+        "POSITION MANAGEMENT REFUSED — ambiguous execution authority; no broker call made",
+      );
+      return;
+    }
     const ex = this.exchange!;
     const market = this.toMarket(trade.symbol);
     let orderIds = this.openOrderIds.get(trade.id);
@@ -4083,13 +4193,57 @@ class BotEngine {
     try {
       const config = await this.loadConfig();
       const tradeMarketType = toMarketType(trade.marketType);
+      const tradeAuthority = authorityFromTrade(trade);
+
+      if (isSimulatedAuthority(tradeAuthority)) {
+        const marketData = await buildDemoMarketData(tradeMarketType);
+        await marketData.loadMarkets();
+        const market = unifiedFromPlainFallback(trade.symbol, tradeMarketType);
+        const ticker = await marketData.fetchTicker(market);
+        const outcome = await closeDemoManually({
+          trade,
+          markPrice: Number(ticker?.last ?? ticker?.close),
+          now: new Date(),
+          cooldownMinutes: Number(config.cooldownMinutes),
+          costs: this.fillCosts(tradeMarketType),
+          exitManager: this.exitManager,
+        });
+        if (!outcome.closed) return { ok: false, error: "Demo close could not be settled — no external order was attempted" };
+        this.openOrderIds.delete(trade.id);
+        this.state.openPositions = Math.max(0, this.state.openPositions - 1);
+        logger.info(
+          { tradeId, symbol: trade.symbol, exitPrice: outcome.exitPrice, pnl: outcome.pnl },
+          "Demo trade closed manually through the simulated fill/accounting path",
+        );
+        return { ok: true, exitPrice: outcome.exitPrice ?? undefined, pnl: outcome.pnl ?? undefined };
+      }
+
+      if (!isBrokerAuthority(tradeAuthority)) {
+        return {
+          ok: false,
+          error: "Trade execution authority is unverified. No broker call was made; reconcile the persisted trade with the provider before remediation.",
+        };
+      }
+      assertAuthorityMatchesMarket(tradeAuthority, tradeMarketType);
+      const configuredAuthority = resolveExecutionAuthority({
+        section: this.section,
+        marketType: tradeMarketType,
+        executionTarget: config.executionTarget === "demo" ? "demo" : "live",
+        testnet: config.testnet,
+      });
+      if (tradeAuthority !== configuredAuthority) {
+        return {
+          ok: false,
+          error: `Trade authority ${tradeAuthority} does not match the configured endpoint ${configuredAuthority}. No broker call was made.`,
+        };
+      }
       // Use the engine's live connection when it matches the trade's market;
       // otherwise build a DEDICATED client for this close. Never reuse a spot
       // client to close a futures trade (or vice versa), and never mutate the
       // engine's own activeMarketType/exchange for a one-off user action.
-      const ex = this.exchange && this.activeMarketType === tradeMarketType
+      const ex = this.exchange && this.activeMarketType === tradeMarketType && this.activeExecutionAuthority === tradeAuthority
         ? this.exchange
-        : await this.buildExchange(config.testnet, tradeMarketType);
+        : await this.buildExchange(config.testnet, tradeMarketType, tradeAuthority);
       // Precision helpers inside the close path need market metadata; a
       // freshly created on-demand connection hasn't loaded it yet.
       if (!ex.markets || Object.keys(ex.markets).length === 0) {
@@ -4098,7 +4252,7 @@ class BotEngine {
       // symbolMaps was built for the engine's ACTIVE market type — only valid
       // here when the trade is on that same market; otherwise use the
       // format-rule fallback for the trade's own market type.
-      const market = this.exchange && this.activeMarketType === tradeMarketType
+      const market = this.exchange && this.activeMarketType === tradeMarketType && this.activeExecutionAuthority === tradeAuthority
         ? this.toMarket(trade.symbol)
         : unifiedFromPlainFallback(trade.symbol, tradeMarketType);
       const orderIds = this.openOrderIds.get(trade.id);
@@ -4149,6 +4303,21 @@ class BotEngine {
   // ---------------------------------------------------------------------------
   private async attemptLiveReconciliation(trigger: string): Promise<void> {
     this.lastReconciliationAttemptAt = Date.now();
+    const authorityIssues = await this.openTradeAuthorityIssues();
+    if (authorityIssues.length > 0) {
+      this.state.newEntriesAllowed = false;
+      this.state.entryBlockReason = "Exit-only: open trade execution authority is unverified";
+      logger.error({ trigger, authorityIssues }, "Live reconciliation UNKNOWN — provider calls refused for ambiguous trade authority");
+      void emitCriticalOperatorAlert({
+        code: "EXECUTION_AUTHORITY_AMBIGUOUS",
+        summary: "Live reconciliation was refused because open-trade execution authority is ambiguous",
+        dedupeKey: `open-trades-${this.userId}-${this.section}`,
+        userId: this.userId,
+        section: this.section,
+        executionAuthority: this.activeExecutionAuthority,
+      });
+      return;
+    }
     try {
       await this.reconcileOnStartup(this.activeMarketType);
       const recovered = !this.state.newEntriesAllowed;
@@ -4166,6 +4335,29 @@ class BotEngine {
     }
   }
 
+  private async openTradeAuthorityIssues(): Promise<Array<{ tradeId: number; authority: ExecutionAuthority; marketType: MarketType }>> {
+    const openTrades = await db
+      .select({
+        id: tradesTable.id,
+        executionTarget: tradesTable.executionTarget,
+        executionAuthority: tradesTable.executionAuthority,
+        marketType: tradesTable.marketType,
+      })
+      .from(tradesTable)
+      .where(and(
+        eq(tradesTable.userId, this.userId),
+        eq(tradesTable.section, this.section),
+        eq(tradesTable.status, "open"),
+      ));
+    return openTrades.flatMap((trade) => {
+      const authority = authorityFromTrade(trade);
+      const marketType = toMarketType(trade.marketType);
+      return authority === this.activeExecutionAuthority && marketType === this.activeMarketType
+        ? []
+        : [{ tradeId: trade.id, authority, marketType }];
+    });
+  }
+
   private async reconcileOnStartup(marketType: MarketType): Promise<void> {
     const ex = this.exchange!;
     const openTrades = await db
@@ -4176,6 +4368,8 @@ class BotEngine {
         eq(tradesTable.section, this.section),
         eq(tradesTable.status, "open"),
         eq(tradesTable.executionTarget, "live"),
+        eq(tradesTable.executionAuthority, this.activeExecutionAuthority),
+        eq(tradesTable.marketType, marketType),
       ));
 
     if (marketType === "forex") {
@@ -4364,20 +4558,46 @@ class BotEngine {
 
     // The order side that CLOSES this position — sell for a long, buy for a short.
     const closingSide = trade.side === "sell" ? "buy" : "sell";
-    let exitPrice = Number(trade.entryPrice);
-    let priceSource = "entryPrice (no trade history available — verify manually)";
+    const partials = await db
+      .select()
+      .from(tradePartialExitsTable)
+      .where(eq(tradePartialExitsTable.tradeId, trade.id));
+    const lastPersistedPartialAt = partials.reduce(
+      (latest, partial) => Math.max(latest, new Date(partial.time).getTime()),
+      new Date(trade.entryTime).getTime(),
+    );
+    let exitPrice: number | null = null;
+    let priceSource = "provider closing fills";
     try {
       const ex = this.exchange!;
       const myTrades: any[] = await ex.fetchMyTrades(market, undefined, 20);
-      const entryTime = new Date(trade.entryTime).getTime();
-      const sells = myTrades.filter((t) => t.side === closingSide && t.timestamp >= entryTime);
+      const sells = myTrades.filter((t) => t.side === closingSide && t.timestamp > lastPersistedPartialAt);
       const qty = sells.reduce((s, t) => s + Number(t.amount), 0);
-      if (qty > 0) {
+      const tolerance = Math.max(trackedQty * 0.005, 1e-8);
+      if (qty + tolerance >= trackedQty) {
         exitPrice = sells.reduce((s, t) => s + Number(t.amount) * Number(t.price), 0) / qty;
         priceSource = `weighted average of ${sells.length} closing ${closingSide} fill(s) since entry`;
       }
     } catch (err) {
-      logger.warn({ err, tradeId: trade.id }, "RECONCILE_MISMATCH: fetchMyTrades failed — falling back to entryPrice as a neutral placeholder");
+      logger.warn({ err, tradeId: trade.id }, "RECONCILE_MISMATCH: provider closing-fill history unavailable — state remains UNKNOWN");
+    }
+    if (exitPrice === null || !Number.isFinite(exitPrice) || exitPrice <= 0) {
+      await this.sendAlert(
+        `🚨 RECONCILIATION UNKNOWN: trade #${trade.id} (${trade.symbol}) is not present in the provider position view, ` +
+        "but TradeCore could not verify complete closing fills. The database row remains open; review provider history manually.",
+      );
+      void emitCriticalOperatorAlert({
+        code: "RECONCILIATION_UNKNOWN",
+        summary: `Provider position is absent for trade ${trade.id}, but complete closing fills could not be verified; the row remains open`,
+        dedupeKey: `trade-${trade.id}`,
+        userId: this.userId,
+        section: this.section,
+        tradeId: trade.id,
+        symbol: trade.symbol,
+        provider: trade.marketType === "forex" ? "oanda" : "binance",
+        executionAuthority: authorityFromTrade(trade),
+      });
+      throw new Error(`Provider position absent but closing fills are unverified for trade ${trade.id}`);
     }
 
     // Roll in any TP1/TP2 partial closes so pnl reflects the WHOLE trade, not
@@ -4385,10 +4605,6 @@ class BotEngine {
     // Without this, a trade that took a profitable TP1 fill before the bot
     // went offline silently loses that profit from dailyPnl (circuit breaker)
     // and from the win-rate stats that drive blacklisting.
-    const partials = await db
-      .select()
-      .from(tradePartialExitsTable)
-      .where(eq(tradePartialExitsTable.tradeId, trade.id));
     const partialsNetPnl = partials.reduce((s, p) => s + Number(p.pnl), 0);
 
     const isShort = trade.side === "sell";

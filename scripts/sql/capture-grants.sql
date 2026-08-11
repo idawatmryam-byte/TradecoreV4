@@ -10,7 +10,8 @@
 -- Run ONCE per environment, as a superuser, AFTER `pnpm --filter @workspace/db
 -- run push` has created the schema:
 --
---   psql "$DATABASE_URL" -v app_role=tradecore -f scripts/sql/capture-grants.sql
+--   psql "$DATABASE_MIGRATION_URL" -v app_role=tradecore_runtime \
+--     -v owner_role=tradecore_owner -f scripts/sql/capture-grants.sql
 --
 -- Re-running is safe, and you SHOULD re-run it after any schema push that adds
 -- a capture table (P8 added capture.memory_influences). The ALTER DEFAULT
@@ -40,6 +41,15 @@ SECURITY DEFINER
 SET search_path = pg_catalog, capture
 AS $$
 BEGIN
+  -- Public-schema lifecycle projections are mutable, but their event streams
+  -- are append-only. Account erasure is their only runtime deletion path.
+  DELETE FROM public.execution_events AS event
+  USING public.execution_intents AS intent
+  WHERE event.intent_id = intent.id
+    AND intent.user_id = target_user_id;
+
+  DELETE FROM public.recommendation_events WHERE user_id = target_user_id;
+
   DELETE FROM capture.research_replay_events WHERE user_id = target_user_id;
 
   DELETE FROM capture.position_management_events WHERE user_id = target_user_id;
@@ -59,6 +69,10 @@ BEGIN
   DELETE FROM capture.decisions WHERE user_id = target_user_id;
 END;
 $$;
+
+\if :{?owner_role}
+ALTER FUNCTION capture.purge_user_data(integer) OWNER TO :"owner_role";
+\endif
 
 REVOKE ALL ON FUNCTION capture.purge_user_data(integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION capture.purge_user_data(integer) TO :"app_role";
