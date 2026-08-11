@@ -7,7 +7,8 @@
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:deployment": "bash scripts/deploy/harness/deployment.test.sh"
   },
   "private": true,
   "devDependencies": {
