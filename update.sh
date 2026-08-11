@@ -147,21 +147,36 @@ PORT="$BUILD_PORT" BASE_PATH="$BASE_PATH" pnpm --filter @workspace/tradecore-pro
 pnpm --filter @workspace/api-server run build
 
 if [[ -z "${DATABASE_URL:-}" ]]; then
-  echo "DATABASE_URL is required; refusing to restart without schema verification." >&2
+  echo "DATABASE_URL (non-owner runtime connection) is required." >&2
+  exit 1
+fi
+if [[ -z "${DATABASE_MIGRATION_URL:-}" ]]; then
+  echo "DATABASE_MIGRATION_URL is required for production schema ownership separation." >&2
+  exit 1
+fi
+if [[ -z "${TRADECORE_DATABASE_OWNER_ROLE:-}" || -z "${TRADECORE_RUNTIME_ROLE:-}" ]]; then
+  echo "TRADECORE_DATABASE_OWNER_ROLE and TRADECORE_RUNTIME_ROLE are required." >&2
+  exit 1
+fi
+if ! command -v psql >/dev/null 2>&1; then
+  echo "psql is required for reviewed database security installation and verification." >&2
   exit 1
 fi
 
-log "applying the database schema"
-pnpm --filter @workspace/db run push
+log "applying the database schema with migration authority"
+DATABASE_URL="$DATABASE_MIGRATION_URL" pnpm --filter @workspace/db run push
 
-if [[ -n "${CAPTURE_APP_ROLE:-}" ]]; then
-  if ! command -v psql >/dev/null 2>&1; then
-    echo "psql is required when CAPTURE_APP_ROLE is set." >&2
-    exit 1
-  fi
-  log "applying capture-schema grants and the account purge function"
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v app_role="$CAPTURE_APP_ROLE" -f scripts/sql/capture-grants.sql
-fi
+log "installing capture purge function and immutable-evidence grants"
+psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 \
+  -v app_role="$TRADECORE_RUNTIME_ROLE" \
+  -v owner_role="$TRADECORE_DATABASE_OWNER_ROLE" \
+  -f scripts/sql/capture-grants.sql
+
+log "verifying database owner/runtime separation and immutable evidence"
+psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 \
+  -v app_role="$TRADECORE_RUNTIME_ROLE" \
+  -v owner_role="$TRADECORE_DATABASE_OWNER_ROLE" \
+  -f scripts/sql/verify-database-roles.sql
 
 if [[ "${SEED_DEMO:-}" == "1" ]]; then
   log "refreshing the read-only demo account"

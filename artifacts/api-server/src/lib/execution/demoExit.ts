@@ -99,6 +99,31 @@ export interface DemoPhase7Result {
   reason: string;
 }
 
+export async function closeDemoManually(args: {
+  trade: Trade;
+  markPrice: number;
+  now: Date;
+  cooldownMinutes: number;
+  costs: FillCosts;
+  exitManager: ExitManager;
+}) {
+  if (args.trade.executionTarget !== "demo") {
+    throw new Error("Simulated close refused for a non-Demo trade");
+  }
+  if (!Number.isFinite(args.markPrice) || args.markPrice <= 0) {
+    throw new Error("Demo manual close requires a finite current market price");
+  }
+  const isShort = args.trade.side === "sell";
+  const exitPrice = args.markPrice * (isShort ? 1 + args.costs.slippageRate : 1 - args.costs.slippageRate);
+  return args.exitManager.closeSimulated(
+    args.trade,
+    "manual",
+    exitPrice,
+    args.now,
+    args.cooldownMinutes,
+  );
+}
+
 /**
  * Advance one demo position by one bar. Persists any partial fill or stop
  * move, and closes the trade if the bar resolved it.

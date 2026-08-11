@@ -24,6 +24,7 @@ import { eq } from "drizzle-orm";
 import { logger } from "./logger";
 import { normalizeExitReason, type ExitReason } from "./exitTypes";
 import { closeFuturesPositionMarket } from "./binanceFutures";
+import { authorityFromTrade } from "./execution/authority";
 
 // ccxt OHLCV candle: [timestamp, open, high, low, close, volume]
 type Candle = [number, number, number, number, number, number];
@@ -49,6 +50,13 @@ export interface ExitManagerHost {
    *  A function so it always reflects the engine's ACTIVE market type. */
   readonly takerFee: () => number;
   sendAlert(message: string): Promise<void>;
+  sendCriticalAlert(alert: {
+    code: "PROTECTIVE_CLOSE_FAILED";
+    tradeId: number;
+    symbol: string;
+    provider: string;
+    executionAuthority: string;
+  }): void;
   setCooldown(symbol: string, minutes: number): void;
   recordHourlyStat(now: Date, pnl: number, win: boolean): Promise<void>;
   /** Called after a validated close whose actual loss exceeded the expected max. */
@@ -78,26 +86,33 @@ function looksLikeNoPositionError(err: unknown): boolean {
   return msg.includes("-2022") || msg.includes("-4118") || (msg.includes("reduceonly") && msg.includes("reject"));
 }
 
-/** Best-effort exit price for a position that closed outside our tracking:
- *  weighted average of actual closing fills since entry when the exchange
- *  still has them, else the current ticker, else entry (neutral placeholder). */
-async function bestEffortExitPrice(ex: any, trade: Trade, market: string): Promise<number> {
+/** Verified exit price for a position that closed outside our tracking.
+ * Current ticker and entry price are not closing-fill evidence and must never
+ * be substituted into immutable financial history. */
+async function verifiedClosingFillPrice(ex: any, trade: Trade, market: string): Promise<number | null> {
   const closingSide = trade.side === "sell" ? "buy" : "sell";
   try {
+    const partials = await db
+      .select({ time: tradePartialExitsTable.time })
+      .from(tradePartialExitsTable)
+      .where(eq(tradePartialExitsTable.tradeId, trade.id));
+    const lastPersistedPartialAt = partials.reduce(
+      (latest, partial) => Math.max(latest, new Date(partial.time).getTime()),
+      new Date(trade.entryTime).getTime(),
+    );
     const myTrades: any[] = await ex.fetchMyTrades(market, undefined, 20);
-    const entryTime = new Date(trade.entryTime).getTime();
-    const fills = myTrades.filter((t) => t.side === closingSide && t.timestamp >= entryTime);
+    // Persisted partials are already accounted for separately. Only later
+    // provider fills can prove that the remaining tranche was closed. A fill
+    // sharing the exact persisted timestamp is deliberately left UNKNOWN.
+    const fills = myTrades.filter((t) => t.side === closingSide && t.timestamp > lastPersistedPartialAt);
     const qty = fills.reduce((s, t) => s + Number(t.amount), 0);
-    if (qty > 0) {
+    const expected = Number(trade.remainingQuantity ?? trade.quantity);
+    const tolerance = Math.max(expected * 0.005, 1e-8);
+    if (qty + tolerance >= expected) {
       return fills.reduce((s, t) => s + Number(t.amount) * Number(t.price), 0) / qty;
     }
-  } catch { /* fall through */ }
-  try {
-    const ticker = await ex.fetchTicker(market);
-    const last = Number(ticker?.last ?? ticker?.close ?? 0);
-    if (last > 0) return last;
-  } catch { /* fall through */ }
-  return Number(trade.entryPrice);
+  } catch { /* unknown */ }
+  return null;
 }
 
 export class ExitManager {
@@ -465,15 +480,22 @@ export class ExitManager {
           const positions: any[] = await ex.fetchPositions([market]);
           const live = positions.find((p) => p.symbol === market && Math.abs(Number(p.contracts ?? 0)) > 0);
           if (!live) {
-            const exitPrice = await bestEffortExitPrice(ex, trade, market);
+            const exitPrice = await verifiedClosingFillPrice(ex, trade, market);
+            if (exitPrice === null) {
+              logger.error(
+                { symbol: trade.symbol, tradeId: trade.id },
+                "PHANTOM POSITION remains UNVERIFIED — provider has no position but complete closing fills are unavailable",
+              );
+              throw new Error("Complete provider closing fills are unavailable");
+            }
             logger.error(
               { symbol: trade.symbol, tradeId: trade.id, exitPrice },
-              "PHANTOM POSITION: exchange holds no position for this open trade — it closed/liquidated outside our tracking. Marking reconciled_missing with a best-effort exit price.",
+              "PHANTOM POSITION: exchange holds no position for this open trade and complete closing fills were verified. Marking reconciled_missing.",
             );
             await this.host
               .sendAlert(
                 `⚠️ ${trade.symbol} (trade #${trade.id}) no longer exists on the exchange — it closed or was liquidated ` +
-                  `while untracked. Recorded with a best-effort exit price of ${exitPrice.toFixed(6)}; verify on Binance.`,
+                  `while untracked. Recorded from verified provider closing fills at ${exitPrice.toFixed(6)}; verify on Binance.`,
               )
               .catch(() => {});
             return { exitReason: "reconciled_missing", exitPrice };
@@ -492,6 +514,13 @@ export class ExitManager {
             `Position may still be open on the exchange — please check manually.`,
         )
         .catch(() => {});
+      this.host.sendCriticalAlert({
+        code: "PROTECTIVE_CLOSE_FAILED",
+        tradeId: trade.id,
+        symbol: trade.symbol,
+        provider: trade.marketType === "forex" ? "oanda" : "binance",
+        executionAuthority: authorityFromTrade(trade),
+      });
       // Do not fabricate a close — leave the DB trade "open" and retry next tick.
       return { exitReason: null, exitPrice: null };
     }

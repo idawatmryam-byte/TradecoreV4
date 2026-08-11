@@ -55,6 +55,9 @@ module.exports = {
       time: true,
       // Log files default to PM2's own ~/.pm2/logs/<name>-{out,error}.log —
       // left unset so this config carries no machine-specific absolute paths.
+      // Production rotation/retention is mandatory and operator-managed; see
+      // docs/operations/phase-10-prerequisite-remediation.md. Do not use
+      // `pm2 flush`, which destroys incident evidence unexpectedly.
     },
   ],
 };

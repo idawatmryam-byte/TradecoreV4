@@ -154,12 +154,6 @@ router.delete("/me/account", async (req, res) => {
       await tx.delete(tradePartialExitsTable).where(inArray(tradePartialExitsTable.tradeId, tradeIds));
     }
 
-    const intentIds = (await tx.select({ id: executionIntentsTable.id }).from(executionIntentsTable)
-      .where(eq(executionIntentsTable.userId, userId))).map((row) => row.id);
-    if (intentIds.length > 0) {
-      await tx.delete(executionEventsTable).where(inArray(executionEventsTable.intentId, intentIds));
-    }
-
     if (hasHardenedCapturePurge) {
       // Production's capture schema is INSERT/SELECT-only. This narrowly
       // scoped SECURITY DEFINER function is installed by capture-grants.sql
@@ -168,6 +162,12 @@ router.delete("/me/account", async (req, res) => {
     } else {
       // Development/test databases usually connect as the owner and do not
       // install the grants script. Purge the same rows directly there.
+      const intentIds = (await tx.select({ id: executionIntentsTable.id }).from(executionIntentsTable)
+        .where(eq(executionIntentsTable.userId, userId))).map((row) => row.id);
+      if (intentIds.length > 0) {
+        await tx.delete(executionEventsTable).where(inArray(executionEventsTable.intentId, intentIds));
+      }
+      await tx.delete(recommendationEventsTable).where(eq(recommendationEventsTable.userId, userId));
       const brainIds = (await tx.select({ id: brainDecisionsTable.id }).from(brainDecisionsTable)
         .where(eq(brainDecisionsTable.userId, userId))).map((row) => row.id);
       if (brainIds.length > 0) {
@@ -186,7 +186,6 @@ router.delete("/me/account", async (req, res) => {
     }
 
     await tx.delete(executionIntentsTable).where(eq(executionIntentsTable.userId, userId));
-    await tx.delete(recommendationEventsTable).where(eq(recommendationEventsTable.userId, userId));
     await tx.delete(recommendationsTable).where(eq(recommendationsTable.userId, userId));
     await tx.delete(notificationsTable).where(eq(notificationsTable.userId, userId));
     await tx.delete(evidenceRuleSetsTable).where(eq(evidenceRuleSetsTable.userId, userId));

@@ -20,27 +20,7 @@
  * existing runtime behavior.
  */
 import { logger } from "./logger";
-
-const webhookUrl = () => (process.env["OPS_ALERT_WEBHOOK_URL"] ?? "").trim();
-
-/** Fire-and-forget compact alert to a Discord/Slack-style webhook (both accept
- *  a JSON body with a top-level string field — Discord "content", Slack
- *  "text"; sending both keys is harmless and works with either). */
-async function notify(title: string, detail: string): Promise<void> {
-  const url = webhookUrl();
-  if (!url) return;
-  const text = `🚨 TradeCore Pro — ${title}\n${detail}`.slice(0, 1800);
-  try {
-    await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: text, text }),
-      signal: AbortSignal.timeout(5000),
-    });
-  } catch (err) {
-    logger.warn({ err }, "OPS_ALERT_WEBHOOK delivery failed");
-  }
-}
+import { emitCriticalOperatorAlert } from "./operatorAlerts";
 
 let installed = false;
 
@@ -49,20 +29,29 @@ export function installOpsMonitor(): void {
   if (installed) return;
   installed = true;
 
-  if (webhookUrl()) {
+  if ((process.env["OPS_ALERT_WEBHOOK_URL"] ?? "").trim()) {
     logger.info("OPS monitor: crash alerting enabled (OPS_ALERT_WEBHOOK_URL set)");
   }
 
   process.on("unhandledRejection", (reason) => {
-    const detail = reason instanceof Error ? `${reason.message}\n${reason.stack ?? ""}` : String(reason);
     logger.error({ reason }, "UNHANDLED_REJECTION");
-    void notify("unhandled promise rejection", detail);
+    void emitCriticalOperatorAlert({
+      code: "UNHANDLED_REJECTION",
+      summary: "Unhandled promise rejection; inspect structured local logs for the full error",
+      detail: reason instanceof Error ? reason.name : typeof reason,
+      dedupeKey: reason instanceof Error ? reason.name : typeof reason,
+    });
   });
 
   process.on("uncaughtException", (err) => {
     logger.fatal({ err }, "UNCAUGHT_EXCEPTION — exiting for a clean supervisor restart");
     // Best-effort notify, then exit so PM2/systemd restarts a fresh process.
-    void notify("uncaught exception — process is restarting", `${err.message}\n${err.stack ?? ""}`)
+    void emitCriticalOperatorAlert({
+      code: "UNCAUGHT_EXCEPTION",
+      summary: "Uncaught exception; process is restarting and full details remain in local logs",
+      detail: err.name,
+      dedupeKey: err.name,
+    })
       .finally(() => setTimeout(() => process.exit(1), 250));
   });
 }
