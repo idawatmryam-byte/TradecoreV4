@@ -319,6 +319,8 @@ async function main() {
   const engine2 = new BotEngine(USER, "crypto");
   primeEngine(engine2, mock);
   const e2 = engine2 as any;
+  e2.executionTarget = "live";
+  e2.activeExecutionAuthority = e.activeExecutionAuthority;
   expect("fresh engine starts with empty tracking", !e2.openOrderIds.get(t4!.id));
   await e2.reconcileOnStartup("spot");
   const [still4] = await db.select().from(tradesTable).where(eq(tradesTable.id, t4!.id));
