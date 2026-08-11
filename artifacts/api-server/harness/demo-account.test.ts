@@ -26,9 +26,9 @@ process.env.SESSION_SECRET ??= "demo-account-test-session-secret-123";
 
 import {
   db, tradesTable, botConfigTable, tradePartialExitsTable, strategyConfigsTable,
-  strategyDecisionsTable, tradeAnalysesTable, executionIntentsTable, executionEventsTable,
+  strategyDecisionsTable, tradeAnalysesTable, executionIntentsTable,
 } from "@workspace/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { BotEngine } from "../src/lib/botEngine";
 import { simulateDemoExit } from "../src/lib/execution/demoExit";
 import { loadStrategyConfigs } from "../src/lib/strategyConfigLoader";
@@ -60,9 +60,7 @@ function plan(over: Record<string, unknown> = {}) {
 async function cleanup() {
   const ids = (await db.select({ id: tradesTable.id }).from(tradesTable).where(eq(tradesTable.userId, USER))).map((t) => t.id);
   if (ids.length) await db.delete(tradePartialExitsTable).where(inArray(tradePartialExitsTable.tradeId, ids));
-  const intentIds = (await db.select({ id: executionIntentsTable.id }).from(executionIntentsTable)
-    .where(eq(executionIntentsTable.userId, USER))).map((i) => i.id);
-  if (intentIds.length) await db.delete(executionEventsTable).where(inArray(executionEventsTable.intentId, intentIds));
+  await db.execute(sql`SELECT capture.purge_user_data(${USER})`);
   await db.delete(executionIntentsTable).where(eq(executionIntentsTable.userId, USER));
   await db.delete(tradeAnalysesTable).where(eq(tradeAnalysesTable.userId, USER));
   await db.delete(tradesTable).where(eq(tradesTable.userId, USER));
