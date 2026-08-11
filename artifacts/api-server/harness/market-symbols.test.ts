@@ -15,6 +15,12 @@ import {
   plainFromUnifiedFallback,
   supportsShortEntries,
 } from "../src/lib/marketSymbols";
+import {
+  assertTickerSymbolsMatchMarket,
+  executionClientIdentity,
+  fetchTickersForMarket,
+  MarketScopedCache,
+} from "../src/lib/marketIsolation";
 
 let failures = 0;
 function expect(name: string, actual: unknown, wanted: unknown) {
@@ -75,6 +81,49 @@ expect("fallback unified→plain (futures)", plainFromUnifiedFallback("BTC/USDT:
 expect("spot: short entries unsupported", supportsShortEntries("spot"), false);
 expect("futures: short entries supported", supportsShortEntries("futures"), true);
 expect("forex: short entries supported", supportsShortEntries("forex"), true);
+
+const cache = new MarketScopedCache<{ domain: string }>();
+const spotClient = cache.getOrCreate("spot", () => ({ domain: "spot" }));
+const futuresClient = cache.getOrCreate("futures", () => ({ domain: "futures" }));
+expect("market client cache keeps Spot and Futures identities separate", spotClient !== futuresClient, true);
+expect("market client cache reuses only the same domain", cache.getOrCreate("spot", () => ({ domain: "wrong" })) === spotClient, true);
+expect(
+  "authenticated cache identity includes persisted authority and market",
+  executionClientIdentity("binance_spot_testnet", "spot") !== executionClientIdentity("binance_futures_demo", "futures"),
+  true,
+);
+
+const bulkTickerRequests: string[][] = [];
+const individualTickerRequests: string[] = [];
+const tickerExchange = {
+  async fetchTickers(symbols: string[]) {
+    bulkTickerRequests.push(symbols);
+    return Object.fromEntries(symbols.map((symbol) => [symbol, { last: 1 }]));
+  },
+  async fetchTicker(symbol: string) {
+    individualTickerRequests.push(symbol);
+    return { last: 1 };
+  },
+};
+await fetchTickersForMarket({ exchange: tickerExchange, marketType: "spot", symbols: ["BTC/USDT", "ETH/USDT"] });
+await fetchTickersForMarket({ exchange: tickerExchange, marketType: "futures", symbols: ["BTC/USDT:USDT", "ETH/USDT:USDT"] });
+expect(
+  "Spot fetchTickers receives only Spot symbols",
+  bulkTickerRequests.length === 1 && bulkTickerRequests[0]?.every((symbol) => !symbol.includes(":")),
+  true,
+);
+expect(
+  "Futures ticker reads receive only swap symbols",
+  individualTickerRequests.length === 2 && individualTickerRequests.every((symbol) => symbol.endsWith(":USDT")),
+  true,
+);
+
+let spotRejectedSwap = false;
+let futuresRejectedSpot = false;
+try { assertTickerSymbolsMatchMarket(["BTC/USDT:USDT"], "spot"); } catch { spotRejectedSwap = true; }
+try { assertTickerSymbolsMatchMarket(["BTC/USDT"], "futures"); } catch { futuresRejectedSpot = true; }
+expect("Spot engine refuses Futures/swap symbols before provider polling", spotRejectedSwap, true);
+expect("Futures engine refuses Spot-only symbols before provider polling", futuresRejectedSpot, true);
 
 console.log(failures === 0 ? "\nAll assertions passed." : `\n${failures} assertion(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

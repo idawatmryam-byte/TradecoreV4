@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { HealthCheckResponse } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
 import { getEngineResumeHealth } from "../lib/startupHealth";
+import { readinessState } from "../lib/readiness";
 
 const router: IRouter = Router();
 
@@ -23,14 +24,16 @@ router.get("/readyz", async (_req, res) => {
   try {
     await db.execute(sql`select 1`);
     const engineResume = getEngineResumeHealth();
-    if (engineResume.status !== "healthy") {
-      res.status(503).json({ ready: false, checks: { database: "ok", engineResume } });
+    const readiness = readinessState(true, engineResume);
+    if (!readiness.ready) {
+      res.status(503).json({ ...readiness, checks: { database: "ok", engineResume } });
       return;
     }
-    res.json({ ready: true, checks: { database: "ok", engineResume } });
+    res.json({ ...readiness, checks: { database: "ok", engineResume } });
   } catch (err) {
     logger.error({ err }, "READINESS_CHECK_FAILED");
-    res.status(503).json({ ready: false, checks: { database: "unreachable" } });
+    const readiness = readinessState(false, getEngineResumeHealth());
+    res.status(503).json({ ...readiness, checks: { database: "unreachable" } });
   }
 });
 

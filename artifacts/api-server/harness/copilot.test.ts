@@ -28,9 +28,9 @@ import {
   recommendationEventsTable,
   recommendationsTable, notificationsTable,
   tradePartialExitsTable, strategyConfigsTable, strategyDecisionsTable,
-  tradeAnalysesTable, executionIntentsTable, executionEventsTable,
+  tradeAnalysesTable, executionIntentsTable,
 } from "@workspace/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { BotEngine } from "../src/lib/botEngine";
 import { planFingerprint } from "../src/lib/plan/fingerprint";
 import { expiryFor } from "../src/lib/execution/recommendExecutor";
@@ -127,12 +127,8 @@ function approvalFor(
 async function cleanup() {
   const ids = (await db.select({ id: tradesTable.id }).from(tradesTable).where(eq(tradesTable.userId, USER))).map((t) => t.id);
   if (ids.length) await db.delete(tradePartialExitsTable).where(inArray(tradePartialExitsTable.tradeId, ids));
-  const intentIds = (await db.select({ id: executionIntentsTable.id }).from(executionIntentsTable)
-    .where(eq(executionIntentsTable.userId, USER))).map((i) => i.id);
-  if (intentIds.length) await db.delete(executionEventsTable).where(inArray(executionEventsTable.intentId, intentIds));
+  await db.execute(sql`SELECT capture.purge_user_data(${USER})`);
   await db.delete(executionIntentsTable).where(eq(executionIntentsTable.userId, USER));
-  await db.delete(recommendationEventsTable)
-    .where(eq(recommendationEventsTable.userId, USER));
   await db
     .delete(recommendationsTable).where(eq(recommendationsTable.userId, USER));
   await db.delete(notificationsTable).where(eq(notificationsTable.userId, USER));

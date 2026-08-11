@@ -9,6 +9,88 @@ All commands below are examples to run on the VPS only after the operator has
 confirmed the repository commit and backup destination. Never paste secrets,
 tokens, webhook URLs, or database URLs into issue/PR comments or shell history.
 
+## Corrected deployment lifecycle
+
+Deployment is intentionally two-stage:
+
+1. `update.sh` is a minimal launcher. It fetches `origin/main`, resolves one
+   exact target commit, proves the current commit is its ancestor, records the
+   previous commit and target stage-two blob identity, and extracts
+   `scripts/deploy/` from that target with `git archive`.
+2. The launcher replaces itself with `scripts/deploy/deploy-target.sh` from the
+   target commit. Builds, database migration/security verification, restart,
+   readiness, and rollback therefore use reviewed target-revision logic rather
+   than the stale shell text that happened to be running before Git advanced.
+
+The launcher and target implementation log the previous commit, exact target
+commit, and target deployment-script blob. A non-fast-forward target or tracked
+worktree modification is refused. Stage two verifies that `HEAD` equals the
+resolved target after advancing.
+
+For the first deployment containing this repair, do not invoke the stale
+working-tree updater. Bootstrap the reviewed launcher itself from the target:
+
+```bash
+git fetch origin main
+TARGET_COMMIT="$(git rev-parse origin/main)"
+git show "${TARGET_COMMIT}:update.sh" > /tmp/tradecore-update-stage1.sh
+chmod 700 /tmp/tradecore-update-stage1.sh
+TRADECORE_REPO_ROOT="$PWD" /tmp/tradecore-update-stage1.sh "$TARGET_COMMIT"
+```
+
+After this repair is installed, normal deployments may run `bash update.sh`.
+Supplying a reviewed commit as the first argument remains preferable for an
+auditable change window.
+
+### Readiness and engine resume
+
+`/api/healthz` means only that the API process is serving. `/api/readyz` first
+checks PostgreSQL, then the complete desired-engine resume accounting. It emits
+one explicit reason:
+
+- `database_unhealthy` — PostgreSQL cannot answer;
+- `engine_resume_pending` — discovery/start is incomplete;
+- `engine_resume_failed` — every attempt is accounted, but at least one failed,
+  timed out, or returned exit-only/degraded;
+- `ready` — database healthy and every required engine resumed healthy.
+
+Pending or failed readiness remains HTTP 503. This is not weakened to make a
+deployment pass.
+
+The target updater defaults to a 180-second readiness window, two-second polls,
+five-second HTTP request deadlines, and a separate 60-second liveness window.
+`READINESS_TIMEOUT_SECONDS` is configurable but cannot be below 180. Every
+failed wait logs the final HTTP status, classified state, and bounded final
+response body.
+
+Desired engines resume in stable `(user_id, section)` order through a bounded
+worker pool. Defaults are `ENGINE_RESUME_CONCURRENCY=2` and a 90-second
+per-engine deadline. Concurrency is clamped to 1–4 and the deadline to 10–170
+seconds. A timed-out engine is counted failed exactly once and immediately made
+exit-only. Its worker slot stays occupied until the underlying provider call
+settles, so timeouts cannot create hidden parallel provider bursts. Existing
+position management is preserved; new entries remain closed.
+
+### Rollback outcomes
+
+Rollback mechanics comprise restoring the previous Git revision and artifacts,
+installing its exact lockfile, and restarting the managed service. Reporting
+then distinguishes:
+
+- previous runtime restored and healthy;
+- previous runtime restored, but engine resume is still pending at the bounded
+  readiness deadline;
+- previous runtime restored, but API/database/engine readiness genuinely
+  failed;
+- rollback mechanics themselves failed.
+
+Only the last state is called a rollback mechanics failure. A slow-but-healthy
+resume is accepted inside the same 180-second default window, and a still-
+pending resume is reported accurately rather than as “automatic rollback
+failed.” Rollback artifacts and commit/blob metadata are retained in the logged
+temporary backup path whenever mechanics or restored-runtime readiness remains
+unhealthy; they are deleted only after a healthy deployment or healthy rollback.
+
 ## 1. Pre-deployment read-only capture
 
 Do not restart or deploy yet.
@@ -92,21 +174,42 @@ Required end state:
   updated, deleted, or truncated directly by runtime;
 - account erasure uses the narrow tenant-scoped SECURITY DEFINER function.
 
+Supported legacy starting state:
+
+- database, `public`, `capture`, and their objects are owned by `tradecore`;
+- `tradecore` may also be the old API login;
+- `tradecore_owner` and `tradecore_runtime` do not yet exist.
+
 Forward procedure (explicit database/VPS authorization required):
 
 1. Stop new entries and safely drain/reconcile open broker-backed positions.
 2. Take and verify a database backup and record current owners/grants.
-3. Create `tradecore_owner` and `tradecore_runtime` through the VPS secret-
-   managed role process. Generate passwords outside Git; do not place them in
-   SQL files. The runtime role must not be a member of the owner role.
-4. Set `.env` (mode 0600) with runtime `DATABASE_URL`, owner
-   `DATABASE_MIGRATION_URL`, `TRADECORE_DATABASE_OWNER_ROLE`, and
-   `TRADECORE_RUNTIME_ROLE`.
-5. With the administrative/migration connection, run:
+3. Through an administrator-approved secret-managed role procedure, create
+   login roles `tradecore_owner` and `tradecore_runtime` with independently
+   generated passwords. Both must be `NOSUPERUSER NOCREATEDB NOCREATEROLE
+   NOREPLICATION NOBYPASSRLS`; runtime must not be a member of owner. Do not put
+   password-bearing `CREATE ROLE` statements in repository files or shell
+   history. Grant both roles `CONNECT` only on the exact `tradecore` database so
+   the new owner connection can be verified before ownership transfer.
+4. Retain a one-time `DATABASE_BOOTSTRAP_URL` whose role can reassign objects
+   owned by `tradecore` and alter the database/roles. Keep `.env` mode 0600 with
+   only the runtime `DATABASE_URL`. Create `.env.deploy` mode 0600 from
+   `.env.deploy.example` with:
+
+   - `DATABASE_MIGRATION_URL` authenticating as `tradecore_owner`;
+   - the one-time `DATABASE_BOOTSTRAP_URL`;
+   - `TRADECORE_DATABASE_NAME=tradecore`;
+   - `TRADECORE_LEGACY_ROLE=tradecore`;
+   - `TRADECORE_DATABASE_OWNER_ROLE=tradecore_owner`;
+   - `TRADECORE_RUNTIME_ROLE=tradecore_runtime`.
+
+5. The target deployment performs the following sequence. It refuses an owner
+   other than the exact legacy or target owner:
 
 ```bash
-psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 \
+psql "$DATABASE_BOOTSTRAP_URL" -v ON_ERROR_STOP=1 \
   -v database_name=tradecore \
+  -v legacy_role=tradecore \
   -v owner_role="$TRADECORE_DATABASE_OWNER_ROLE" \
   -v app_role="$TRADECORE_RUNTIME_ROLE" \
   -f scripts/sql/harden-database-roles.sql
@@ -124,13 +227,28 @@ psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 \
   -f scripts/sql/verify-database-roles.sql
 ```
 
-6. Confirm `to_regprocedure('capture.purge_user_data(integer)')` is non-null,
+6. `harden-database-roles.sql` explicitly executes `REASSIGN OWNED BY
+tradecore TO tradecore_owner`, transfers the database and schema owners,
+   removes database/schema creation from runtime, installs least-privilege
+   table/sequence/default grants, and prevents runtime from assuming owner.
+   Schema push then runs only through `tradecore_owner`.
+7. Confirm `to_regprocedure('capture.purge_user_data(integer)')` is non-null,
    owned by the migration role, SECURITY DEFINER, executable by runtime, and not
    executable by PUBLIC.
-7. In a disposable test tenant/database, execute the schema-security harness.
-   Do not test account erasure against production user data.
+8. `verify-database-roles.sql` must exit successfully before restart. It fails
+   the deployment unless the target migration role owns the database, schemas,
+   data objects, and functions; runtime has no administrative/create/ownership
+   authority; evidence is immutable; and runtime can execute only the purge
+   function in `capture`, with PUBLIC execution revoked.
+9. Remove `DATABASE_BOOTSTRAP_URL` from `.env.deploy` after the verified
+   ownership transfer. It is not needed for subsequent deployments. The target
+   updater explicitly strips both deployment URL variables from PM2/restart
+   environments; the API reads only `.env` and must never receive owner or
+   bootstrap credentials.
+10. In a disposable test tenant/database, execute the schema-security harness.
+    Do not test account erasure against production user data.
 
-Rollback/recovery procedure (explicit authorization required):
+Backup and recovery procedure (explicit authorization required):
 
 - Prefer restoring the verified backup into a separate recovery database and
   repointing the stopped service after validation.
@@ -141,6 +259,13 @@ Rollback/recovery procedure (explicit authorization required):
   recovery only, not an accepted steady state.
 - Never delete the new owner role until every owned object and default privilege
   has been audited.
+- The ownership migration is forward-compatible with the previous application
+  runtime. Application rollback does not automatically weaken database roles or
+  reverse immutable-evidence grants.
+- If role migration succeeds but later application verification fails, first
+  verify the restored application using `tradecore_runtime`. Restore the backup
+  into a separate database only if a database invariant or application workflow
+  cannot be recovered safely in place.
 
 ## 4. Critical operator alerts
 

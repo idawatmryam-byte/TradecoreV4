@@ -3,7 +3,8 @@
 -- Run with the migration/administrative connection, never DATABASE_URL used
 -- by the application process:
 --   psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 \
---     -v database_name=tradecore -v owner_role=tradecore_owner \
+--     -v database_name=tradecore -v legacy_role=tradecore \
+--     -v owner_role=tradecore_owner \
 --     -v app_role=tradecore_runtime -f scripts/sql/harden-database-roles.sql
 --
 -- Roles must already exist. Password creation/rotation belongs to the VPS
@@ -20,6 +21,11 @@
   \echo 'owner_role is required'
   \quit 2
 \endif
+\if :{?legacy_role}
+\else
+  \echo 'legacy_role is required'
+  \quit 2
+\endif
 \if :{?app_role}
 \else
   \echo 'app_role is required'
@@ -27,7 +33,9 @@
 \endif
 
 SELECT current_database() = :'database_name' AS database_matches,
-       :'owner_role' <> :'app_role' AS roles_are_distinct,
+       :'legacy_role' <> :'owner_role' AND :'legacy_role' <> :'app_role' AS roles_are_distinct,
+       COALESCE((SELECT pg_get_userbyid(datdba) = :'legacy_role' FROM pg_database WHERE datname = current_database()), false) AS legacy_is_current_owner,
+       EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'legacy_role') AS legacy_exists,
        EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'owner_role') AS owner_exists,
        EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_role') AS app_exists
 \gset
@@ -40,6 +48,16 @@ SELECT current_database() = :'database_name' AS database_matches,
 \if :roles_are_distinct
 \else
   \echo 'owner_role and app_role must be distinct'
+  \quit 3
+\endif
+\if :legacy_is_current_owner
+\else
+  \echo 'Current database owner is not legacy_role; refusing ambiguous ownership transfer'
+  \quit 3
+\endif
+\if :legacy_exists
+\else
+  \echo 'legacy_role does not exist'
   \quit 3
 \endif
 \if :owner_exists
@@ -55,16 +73,20 @@ SELECT current_database() = :'database_name' AS database_matches,
 
 BEGIN;
 
--- Reassign objects in this database that the former single runtime/owner role
--- owns. This is the step that makes later REVOKEs effective.
-REASSIGN OWNED BY :"app_role" TO :"owner_role";
+-- Reassign every object owned by the actual former single owner/runtime role.
+-- Reassigning app_role would be a no-op during the reviewed tradecore ->
+-- tradecore_owner/tradecore_runtime migration because app_role is newly made.
+REASSIGN OWNED BY :"legacy_role" TO :"owner_role";
 ALTER DATABASE :"database_name" OWNER TO :"owner_role";
 ALTER SCHEMA public OWNER TO :"owner_role";
 ALTER SCHEMA capture OWNER TO :"owner_role";
 
+ALTER ROLE :"owner_role" NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT;
 ALTER ROLE :"app_role" NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT;
 REVOKE :"owner_role" FROM :"app_role";
+REVOKE :"legacy_role" FROM :"app_role";
 
+REVOKE CREATE ON DATABASE :"database_name" FROM PUBLIC, :"app_role";
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 REVOKE CREATE ON SCHEMA public, capture FROM :"app_role";
 GRANT CONNECT ON DATABASE :"database_name" TO :"app_role";
@@ -91,6 +113,8 @@ ALTER DEFAULT PRIVILEGES FOR ROLE :"owner_role" IN SCHEMA capture
   GRANT SELECT, INSERT ON TABLES TO :"app_role";
 ALTER DEFAULT PRIVILEGES FOR ROLE :"owner_role" IN SCHEMA capture
   GRANT USAGE, SELECT ON SEQUENCES TO :"app_role";
+ALTER DEFAULT PRIVILEGES FOR ROLE :"owner_role" IN SCHEMA capture
+  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 
 COMMIT;
 

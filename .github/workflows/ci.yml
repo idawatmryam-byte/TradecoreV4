@@ -67,20 +67,50 @@ jobs:
       - name: Test (pure)
         run: pnpm --filter @workspace/api-server run test
 
-      - name: Apply schema
+      - name: Test deployment lifecycle
+        run: pnpm run test:deployment
+
+      - name: Create legacy and separated database roles
+        run: |
+          psql "$DATABASE_ADMIN_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE tradecore LOGIN PASSWORD 'legacy-ci-only';
+          CREATE ROLE tradecore_owner LOGIN PASSWORD 'owner-ci-only';
+          CREATE ROLE tradecore_runtime LOGIN PASSWORD 'runtime-ci-only';
+          ALTER DATABASE tradecore OWNER TO tradecore;
+          ALTER SCHEMA public OWNER TO tradecore;
+          SQL
+        env:
+          DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/tradecore
+
+      - name: Apply schema as the legacy owner
         run: pnpm --filter @workspace/db run push
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/tradecore
+          DATABASE_URL: postgres://tradecore:legacy-ci-only@localhost:5432/tradecore
+
+      - name: Migrate legacy database ownership
+        run: >-
+          psql "$DATABASE_ADMIN_URL" -v ON_ERROR_STOP=1
+          -v database_name=tradecore -v legacy_role=tradecore
+          -v owner_role=tradecore_owner -v app_role=tradecore_runtime
+          -f scripts/sql/harden-database-roles.sql
+        env:
+          DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/tradecore
 
       - name: Apply and verify capture security function
-        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v app_role=postgres -f scripts/sql/capture-grants.sql
+        run: |
+          psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 \
+            -v owner_role=tradecore_owner -v app_role=tradecore_runtime \
+            -f scripts/sql/capture-grants.sql
+          psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 \
+            -v owner_role=tradecore_owner -v app_role=tradecore_runtime \
+            -f scripts/sql/verify-database-roles.sql
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/tradecore
+          DATABASE_MIGRATION_URL: postgres://tradecore_owner:owner-ci-only@localhost:5432/tradecore
 
       - name: Test (integration)
         run: pnpm --filter @workspace/api-server run test:integration
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/tradecore
+          DATABASE_URL: postgres://tradecore_runtime:runtime-ci-only@localhost:5432/tradecore
 
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium

@@ -95,6 +95,7 @@ import {
   plainFromUnifiedFallback,
   type SymbolMarketMaps,
 } from "./marketSymbols";
+import { executionClientIdentity, fetchTickersForMarket, MarketScopedCache } from "./marketIsolation";
 import type {
   StageStatus,
   PipelineStage,
@@ -149,7 +150,7 @@ interface Phase7ManagementDecision {
 // Keyless ccxt clients for PUBLIC market data (chart candles) — shared across
 // all engines, created lazily. Used when an engine has no live authenticated
 // connection of the right market type (candles need no credentials).
-const publicClients: Partial<Record<"spot" | "futures", any>> = {};
+const publicClients = new MarketScopedCache<any>();
 
 
 /** Normalize the DB's free-text marketType column to the typed union. */
@@ -158,11 +159,10 @@ function toMarketType(raw: string): MarketType {
 }
 
 function publicDataClient(marketType: "spot" | "futures"): any {
-  if (!publicClients[marketType]) {
+  return publicClients.getOrCreate(marketType, () => {
     const ExchangeClass = marketType === "futures" ? BinanceUsdmExchange : BinanceExchange;
-    publicClients[marketType] = new ExchangeClass({ options: { defaultType: marketType } });
-  }
-  return publicClients[marketType];
+    return new ExchangeClass({ options: { defaultType: marketType } });
+  });
 }
 
 export interface ScannerRow {
@@ -616,6 +616,9 @@ class BotEngine {
     lastScanAt: null,
   };
   private scanTimer: ReturnType<typeof setInterval> | null = null;
+  /** A boot coordinator timeout permanently closes new entries for this
+   * process. Existing-position management may continue in exit-only mode. */
+  private startupResumeTimedOut = false;
 
   /** Each instance is scoped to exactly one (user, section) pair — their own
    *  trades, config, strategy tuning, and broker credentials for that section.
@@ -638,7 +641,7 @@ class BotEngine {
       executionTarget: this.executionTarget,
       testnet,
     });
-    const identity = `${authority}:${marketType}`;
+    const identity = executionClientIdentity(authority, marketType);
     if (this.exchange && this.exchangeIdentity === identity) return this.exchange;
     // Defense in depth: route mutations perform an orderly reconnect, but a
     // config written by another trusted process must still never make a scan
@@ -1318,22 +1321,12 @@ class BotEngine {
       // weight to the number of pairs (9, not 400). Spot's fetchTickers DOES
       // filter server-side (it forwards a symbols= array), so keep the single
       // call there — it's already minimal.
-      let tickers: Record<string, any>;
-      if (this.activeMarketType === "futures") {
-        const results = await Promise.all(
-          this.monitoredMarkets.map(async (market) => {
-            try {
-              return [market, await ex.fetchTicker(market)] as const;
-            } catch (err) {
-              logger.warn({ err, market }, "Per-symbol ticker fetch failed");
-              return [market, null] as const;
-            }
-          }),
-        );
-        tickers = Object.fromEntries(results.filter((r) => r[1] != null));
-      } else {
-        tickers = (await ex.fetchTickers(this.monitoredMarkets)) as Record<string, any>;
-      }
+      const tickers = await fetchTickersForMarket({
+        exchange: ex,
+        marketType: this.activeMarketType,
+        symbols: this.monitoredMarkets,
+        onSymbolError: (market, err) => logger.warn({ err, market }, "Per-symbol ticker fetch failed"),
+      }) as Record<string, any>;
       this.lastTickerLatencyMs = Date.now() - start;
       for (const [market, t] of Object.entries(tickers)) {
         const symbol = this.fromMarket(market);
@@ -1379,6 +1372,17 @@ class BotEngine {
     } finally {
       if (this.startPromise === operation) this.startPromise = null;
     }
+  }
+
+  /**
+   * Provider calls cannot always be cancelled safely. If the boot coordinator
+   * deadline expires, preserve existing-position management while ensuring a
+   * late start completion cannot silently regain new-entry authority.
+   */
+  failClosedOnResumeTimeout(): void {
+    this.startupResumeTimedOut = true;
+    this.state.newEntriesAllowed = false;
+    this.state.entryBlockReason = "Exit-only: engine startup exceeded its bounded resume deadline";
   }
 
   private async startInternal(): Promise<void> {
@@ -1524,6 +1528,12 @@ class BotEngine {
       this.state.entryBlockReason = null;
     } else {
       await this.attemptLiveReconciliation("startup");
+    }
+
+    if (this.startupResumeTimedOut) {
+      this.state.newEntriesAllowed = false;
+      this.state.entryBlockReason = "Exit-only: engine startup exceeded its bounded resume deadline";
+      logger.error("AUTO-RESUME: startup deadline exceeded; engine remains exit-only for this process");
     }
 
     // Live market monitor: poll real tickers on a fast, independent cadence so

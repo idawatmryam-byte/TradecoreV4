@@ -7,6 +7,7 @@ import { DEMO_IDLE_GRACE_MS, getOrCreateEngine, isSection, startDemoSweeper } fr
 import { installOpsMonitor } from "./lib/opsMonitor";
 import { ensureDemoAccount } from "./lib/demoSeed";
 import { beginEngineResume, failEngineResumeDiscovery, recordEngineResume } from "./lib/startupHealth";
+import { coordinateEngineResume, engineResumeConfiguration, type EngineResumeTarget } from "./lib/engineResumeCoordinator";
 import { resumeIncompleteResearchExperiments } from "./lib/intelligence/research/runner";
 
 // app.ts already called validateEnv() at import time (fail fast before
@@ -37,35 +38,46 @@ async function resumeRunningEngines(): Promise<void> {
     // The read-only demo account must never run a live engine (it holds no
     // exchange keys and every mutation is blocked), so exclude it defensively
     // in case its desired-running flag was ever set outside the API.
-    const resumable = rows.filter((r) => !r.isDemo);
+    const resumable = rows
+      .filter((r) => !r.isDemo)
+      .sort((a, b) => a.userId - b.userId || String(a.section).localeCompare(String(b.section)));
     beginEngineResume(resumable.length);
 
     // Crypto and Forex are independent engines. Resume every valid section
     // the user deliberately left running; never clear one section's intent
     // merely because the other is also active. Doing so strands active
     // position management (trailing, ladder and time exits) after a deploy.
-    for (const { userId, section } of resumable) {
-      if (!isSection(section)) {
-        logger.error({ userId, section }, "AUTO-RESUME: invalid persisted section — skipped");
-        recordEngineResume(false);
-        continue;
-      }
-      try {
-        const engine = getOrCreateEngine(userId, section);
-        await engine.start();
-        const entryGateHealthy = engine.isDemoTarget() || engine.getState().newEntriesAllowed;
-        logger.info(
-          { userId, section, entryGateHealthy },
-          entryGateHealthy
-            ? "AUTO-RESUME: engine restarted after server restart"
-            : "AUTO-RESUME: engine restarted in exit-only mode; readiness remains degraded",
-        );
-        recordEngineResume(entryGateHealthy);
-      } catch (err) {
-        logger.error({ err, userId, section }, "AUTO-RESUME: engine failed to restart — user must press Start manually");
-        recordEngineResume(false);
-      }
-    }
+    const targets: EngineResumeTarget[] = resumable.map(({ userId, section }) => {
+      let engine: ReturnType<typeof getOrCreateEngine> | undefined;
+      return {
+        key: `${userId}:${section}`,
+        async resume() {
+          if (!isSection(section)) throw new Error(`Invalid persisted section: ${section}`);
+          engine = getOrCreateEngine(userId, section);
+          await engine.start();
+          const entryGateHealthy = engine.isDemoTarget() || engine.getState().newEntriesAllowed;
+          return {
+            healthy: entryGateHealthy,
+            detail: entryGateHealthy ? "Engine restarted after server restart" : "Engine restarted in exit-only mode",
+          };
+        },
+        failClosedOnTimeout() {
+          engine?.failClosedOnResumeTimeout();
+        },
+      };
+    });
+    const resumeConfig = engineResumeConfiguration();
+    logger.info({ expected: targets.length, ...resumeConfig }, "AUTO-RESUME: starting bounded engine resume");
+    await coordinateEngineResume(targets, {
+      ...resumeConfig,
+      onOutcome(outcome) {
+        recordEngineResume(outcome.success);
+        const [userId, section] = outcome.key.split(":");
+        const context = { userId: Number(userId), section, ...outcome };
+        if (outcome.success) logger.info(context, "AUTO-RESUME: engine resume succeeded");
+        else logger.error(context, "AUTO-RESUME: engine resume failed; readiness remains degraded");
+      },
+    });
     if (resumable.length === 0) logger.info("AUTO-RESUME: no engines were running before restart");
   } catch (err) {
     failEngineResumeDiscovery();
