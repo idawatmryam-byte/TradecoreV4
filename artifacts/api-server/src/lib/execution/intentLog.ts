@@ -15,17 +15,18 @@
  * position, but not the *intent*: which strategy asked for it, and what stop
  * it was supposed to be protected by. An intent row carries exactly that.
  *
- * Every function here is best-effort by design. The intent log is an
- * observability and recovery aid, and it must never be the reason a trade
- * fails to record or a position goes unprotected — the money path's own
- * guards are authoritative. Failures are logged and swallowed.
+ * Legacy/manual intent writes remain best-effort so logging cannot strand an
+ * already-started money path. Phase 10 autonomous entry is stricter: its
+ * pre-order intent is mandatory and a persistence failure refuses execution.
+ * Later event/projection advances remain recovery evidence and are retried by
+ * normal reconciliation rather than weakening protection.
  */
 import { randomUUID } from "crypto";
 import { db, executionEventsTable, executionIntentsTable } from "@workspace/db";
 import type { ExecutionState } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "../logger";
-import { makeClientOrderId } from "./ids";
+import { makeAutopilotClientOrderId, makeAutopilotCorrelationId, makeClientOrderId } from "./ids";
 
 export { makeClientOrderId };
 
@@ -51,18 +52,29 @@ export interface OpenIntentArgs {
   plannedTakeProfit: number;
   plannedQuantity: number;
   plannedLeverage?: number;
+  autopilot?: {
+    claimId: number;
+    mandateId: number;
+    mandateFingerprint: string;
+    brainVersion: string;
+    decisionFingerprint: string;
+    riskFingerprint: string;
+    idempotencyKey: string;
+  };
 }
 
 /**
  * Record the intent and return a handle. Call immediately before the broker
  * call — after every pre-flight refusal, so a refused entry leaves no row.
  *
- * Returns null if the write fails; callers treat a null handle as "no
- * logging available" and carry on placing the order.
+ * Returns null on a legacy/manual write failure. Autonomous callers throw and
+ * therefore cannot cross the executor boundary without a durable intent.
  */
 export async function openIntent(args: OpenIntentArgs): Promise<IntentHandle | null> {
-  const correlationId = randomUUID();
-  const clientOrderId = makeClientOrderId(args.userId);
+  const correlationId = args.autopilot ? makeAutopilotCorrelationId(args.autopilot.idempotencyKey) : randomUUID();
+  const clientOrderId = args.autopilot
+    ? makeAutopilotClientOrderId(args.userId, args.autopilot.idempotencyKey)
+    : makeClientOrderId(args.userId);
   try {
     const [row] = await db
       .insert(executionIntentsTable)
@@ -72,6 +84,15 @@ export async function openIntent(args: OpenIntentArgs): Promise<IntentHandle | n
         correlationId,
         clientOrderId,
         planFingerprint: args.planFingerprint,
+        ...(args.autopilot && {
+          autopilotClaimId: args.autopilot.claimId,
+          autopilotMandateId: args.autopilot.mandateId,
+          autopilotMandateFingerprint: args.autopilot.mandateFingerprint,
+          brainVersion: args.autopilot.brainVersion,
+          brainDecisionFingerprint: args.autopilot.decisionFingerprint,
+          riskDecisionFingerprint: args.autopilot.riskFingerprint,
+          autopilotIdempotencyKey: args.autopilot.idempotencyKey,
+        }),
         symbol: args.symbol,
         side: args.side,
         marketType: args.marketType,
@@ -89,6 +110,9 @@ export async function openIntent(args: OpenIntentArgs): Promise<IntentHandle | n
     await appendEvent(row.id, null, "INTENT_RECORDED", "intent persisted before broker call");
     return { id: row.id, correlationId, clientOrderId, state: "INTENT_RECORDED" };
   } catch (err) {
+    if (args.autopilot) {
+      throw new Error("Autonomous execution refused because its durable intent could not be persisted", { cause: err });
+    }
     // Never block the trade on the audit trail.
     logger.warn({ err, symbol: args.symbol }, "Could not record execution intent — continuing without it");
     return null;

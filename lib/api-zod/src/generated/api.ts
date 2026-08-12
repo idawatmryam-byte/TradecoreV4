@@ -5176,3 +5176,430 @@ export const CancelResearchExperimentResponse = zod.object({
 })
 
 
+/**
+ * @summary Read the Phase 10 control center
+ */
+export const getAutopilotControlResponseVersionsItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getAutopilotControlResponseMandatesItemConfigFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+
+export const getAutopilotControlResponseMandatesItemMaximumPositionSizeUsdtExclusiveMin = 0;
+
+export const getAutopilotControlResponseMandatesItemMaximumLeverageMax = 125;
+
+export const getAutopilotControlResponseMandatesItemMaximumPortfolioRiskPercentExclusiveMin = 0;
+
+export const getAutopilotControlResponseMandatesItemMaximumSymbolExposurePercentExclusiveMin = 0;
+
+export const getAutopilotControlResponseMandatesItemMaximumNetExposurePercentExclusiveMin = 0;
+
+export const getAutopilotControlResponseMandatesItemMaximumCorrelatedExposurePercentExclusiveMin = 0;
+
+export const getAutopilotControlResponseMandatesItemDailyLossLimitUsdtExclusiveMin = 0;
+
+export const getAutopilotControlResponseMandatesItemMaximumDrawdownPercentExclusiveMin = 0;
+export const getAutopilotControlResponseMandatesItemMaximumDrawdownPercentMax = 100;
+
+
+export const getAutopilotControlResponseMandatesItemMaximumMarketDataAgeSecondsMax = 300;
+
+export const getAutopilotControlResponseMandatesItemAllowedTradingHoursUtcItemDaysOfWeekUtcItemMin = 0;
+export const getAutopilotControlResponseMandatesItemAllowedTradingHoursUtcItemDaysOfWeekUtcItemMax = 6;
+
+export const getAutopilotControlResponseMandatesItemAllowedTradingHoursUtcItemDaysOfWeekUtcMax = 7;
+
+export const getAutopilotControlResponseMandatesItemAllowedTradingHoursUtcItemStartMinuteUtcMin = 0;
+export const getAutopilotControlResponseMandatesItemAllowedTradingHoursUtcItemStartMinuteUtcMax = 1439;
+
+export const getAutopilotControlResponseMandatesItemAllowedTradingHoursUtcItemEndMinuteUtcMax = 1440;
+
+export const getAutopilotControlResponseMandatesItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+
+
+export const GetAutopilotControlResponse = zod.object({
+  "globalSuspended": zod.boolean(),
+  "liveAuthorityEnabled": zod.boolean(),
+  "authorityBoundary": zod.array(zod.enum(['simulated_demo', 'binance_spot_testnet', 'binance_futures_demo', 'oanda_practice'])),
+  "snapshot": zod.record(zod.string(), zod.unknown()),
+  "versions": zod.array(zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "section": zod.enum(['crypto', 'forex']),
+  "version": zod.string(),
+  "implementation": zod.string(),
+  "state": zod.enum(['DRAFT', 'RESEARCH', 'SHADOW', 'COPILOT', 'DEMO_APPROVED', 'LIVE_RESTRICTED', 'SUSPENDED', 'RETIRED']),
+  "fingerprint": zod.string().regex(getAutopilotControlResponseVersionsItemFingerprintRegExp),
+  "sourceCommit": zod.string(),
+  "evidenceReferences": zod.array(zod.string()).optional(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
+  "mandates": zod.array(zod.object({
+  "id": zod.number(),
+  "schemaVersion": zod.literal("phase10-demo-autopilot-v1"),
+  "userId": zod.number(),
+  "section": zod.enum(['crypto', 'forex']),
+  "version": zod.number(),
+  "botConfigId": zod.number(),
+  "configFingerprint": zod.string().regex(getAutopilotControlResponseMandatesItemConfigFingerprintRegExp),
+  "brainVersionId": zod.number(),
+  "brainVersion": zod.string(),
+  "executionAuthority": zod.enum(['simulated_demo', 'binance_spot_testnet', 'binance_futures_demo', 'oanda_practice']),
+  "marketType": zod.enum(['spot', 'futures', 'forex']),
+  "instruments": zod.array(zod.string()).min(1),
+  "strategyVersions": zod.record(zod.string(), zod.string()),
+  "maximumPositionSizeUsdt": zod.number().gt(getAutopilotControlResponseMandatesItemMaximumPositionSizeUsdtExclusiveMin),
+  "maximumLeverage": zod.number().min(1).max(getAutopilotControlResponseMandatesItemMaximumLeverageMax),
+  "maximumPortfolioRiskPercent": zod.number().gt(getAutopilotControlResponseMandatesItemMaximumPortfolioRiskPercentExclusiveMin),
+  "maximumSymbolExposurePercent": zod.number().gt(getAutopilotControlResponseMandatesItemMaximumSymbolExposurePercentExclusiveMin),
+  "maximumNetExposurePercent": zod.number().gt(getAutopilotControlResponseMandatesItemMaximumNetExposurePercentExclusiveMin),
+  "maximumCorrelatedExposurePercent": zod.number().gt(getAutopilotControlResponseMandatesItemMaximumCorrelatedExposurePercentExclusiveMin),
+  "dailyLossLimitUsdt": zod.number().gt(getAutopilotControlResponseMandatesItemDailyLossLimitUsdtExclusiveMin),
+  "maximumDrawdownPercent": zod.number().gt(getAutopilotControlResponseMandatesItemMaximumDrawdownPercentExclusiveMin).max(getAutopilotControlResponseMandatesItemMaximumDrawdownPercentMax),
+  "maximumConcurrentPositions": zod.number().min(1),
+  "maximumMarketDataAgeSeconds": zod.number().min(1).max(getAutopilotControlResponseMandatesItemMaximumMarketDataAgeSecondsMax),
+  "allowedTradingHoursUtc": zod.array(zod.object({
+  "daysOfWeekUtc": zod.array(zod.number().min(getAutopilotControlResponseMandatesItemAllowedTradingHoursUtcItemDaysOfWeekUtcItemMin).max(getAutopilotControlResponseMandatesItemAllowedTradingHoursUtcItemDaysOfWeekUtcItemMax)).min(1).max(getAutopilotControlResponseMandatesItemAllowedTradingHoursUtcItemDaysOfWeekUtcMax),
+  "startMinuteUtc": zod.number().min(getAutopilotControlResponseMandatesItemAllowedTradingHoursUtcItemStartMinuteUtcMin).max(getAutopilotControlResponseMandatesItemAllowedTradingHoursUtcItemStartMinuteUtcMax),
+  "endMinuteUtc": zod.number().min(1).max(getAutopilotControlResponseMandatesItemAllowedTradingHoursUtcItemEndMinuteUtcMax)
+})),
+  "permittedPhase7Actions": zod.array(zod.enum(['HOLD', 'FREEZE', 'REDUCE', 'TIGHTEN_STOP', 'APPLY_TRAILING', 'EXIT'])),
+  "validFrom": zod.coerce.date(),
+  "expiresAt": zod.coerce.date(),
+  "fingerprint": zod.string().regex(getAutopilotControlResponseMandatesItemFingerprintRegExp),
+  "createdAt": zod.coerce.date()
+})),
+  "events": zod.array(zod.record(zod.string(), zod.unknown()))
+})
+
+
+/**
+ * @summary Read a persisted Demo Autopilot forward-soak report
+ */
+export const GetAutopilotForwardSoakResponse = zod.object({
+  "status": zod.enum(['AVAILABLE', 'UNAVAILABLE']),
+  "generatedAt": zod.coerce.date(),
+  "reason": zod.string().optional(),
+  "reportFingerprint": zod.string().nullish(),
+  "mandateId": zod.number().optional(),
+  "mandateVersion": zod.number().optional(),
+  "mandateFingerprint": zod.string().optional(),
+  "brainVersion": zod.string().optional(),
+  "authority": zod.enum(['simulated_demo', 'binance_spot_testnet', 'binance_futures_demo', 'oanda_practice']).optional(),
+  "mandateState": zod.string().optional(),
+  "controlState": zod.string().optional(),
+  "frozenParameters": zod.record(zod.string(), zod.unknown()).optional(),
+  "metrics": zod.record(zod.string(), zod.unknown()).optional(),
+  "calibration": zod.record(zod.string(), zod.unknown()).optional(),
+  "backtestForwardDrift": zod.record(zod.string(), zod.unknown()).optional(),
+  "limitations": zod.array(zod.string()).optional()
+})
+
+
+/**
+ * @summary Register a candidate brain without execution authority
+ */
+export const registerAutopilotBrainVersionBodySourceCommitRegExp = new RegExp('^[a-fA-F0-9]{7,64}$');
+
+
+
+export const RegisterAutopilotBrainVersionBody = zod.object({
+  "version": zod.string(),
+  "implementation": zod.string(),
+  "sourceCommit": zod.string().regex(registerAutopilotBrainVersionBodySourceCommitRegExp),
+  "evidenceReferences": zod.array(zod.string()).min(1),
+  "confirmation": zod.literal("REGISTER_BRAIN_VERSION_WITHOUT_AUTHORITY")
+})
+
+export const registerAutopilotBrainVersionResponseFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+
+
+export const RegisterAutopilotBrainVersionResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "section": zod.enum(['crypto', 'forex']),
+  "version": zod.string(),
+  "implementation": zod.string(),
+  "state": zod.enum(['DRAFT', 'RESEARCH', 'SHADOW', 'COPILOT', 'DEMO_APPROVED', 'LIVE_RESTRICTED', 'SUSPENDED', 'RETIRED']),
+  "fingerprint": zod.string().regex(registerAutopilotBrainVersionResponseFingerprintRegExp),
+  "sourceCommit": zod.string(),
+  "evidenceReferences": zod.array(zod.string()).optional(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Perform an explicit brain lifecycle transition
+ */
+
+
+
+export const TransitionAutopilotBrainVersionParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+export const transitionAutopilotBrainVersionBodyReasonMin = 8;
+
+
+
+export const TransitionAutopilotBrainVersionBody = zod.object({
+  "toState": zod.enum(['RESEARCH', 'SHADOW', 'COPILOT', 'DEMO_APPROVED', 'SUSPENDED', 'RETIRED']),
+  "reason": zod.string().min(transitionAutopilotBrainVersionBodyReasonMin),
+  "confirmation": zod.string()
+})
+
+export const transitionAutopilotBrainVersionResponseFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+
+
+export const TransitionAutopilotBrainVersionResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "section": zod.enum(['crypto', 'forex']),
+  "version": zod.string(),
+  "implementation": zod.string(),
+  "state": zod.enum(['DRAFT', 'RESEARCH', 'SHADOW', 'COPILOT', 'DEMO_APPROVED', 'LIVE_RESTRICTED', 'SUSPENDED', 'RETIRED']),
+  "fingerprint": zod.string().regex(transitionAutopilotBrainVersionResponseFingerprintRegExp),
+  "sourceCommit": zod.string(),
+  "evidenceReferences": zod.array(zod.string()).optional(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Create immutable Demo Autopilot mandate terms
+ */
+
+
+
+export const createAutopilotMandateBodyMaximumPositionSizeUsdtExclusiveMin = 0;
+
+export const createAutopilotMandateBodyMaximumLeverageMax = 125;
+
+export const createAutopilotMandateBodyMaximumPortfolioRiskPercentExclusiveMin = 0;
+
+export const createAutopilotMandateBodyMaximumSymbolExposurePercentExclusiveMin = 0;
+
+export const createAutopilotMandateBodyMaximumNetExposurePercentExclusiveMin = 0;
+
+export const createAutopilotMandateBodyMaximumCorrelatedExposurePercentExclusiveMin = 0;
+
+export const createAutopilotMandateBodyDailyLossLimitUsdtExclusiveMin = 0;
+
+export const createAutopilotMandateBodyMaximumDrawdownPercentExclusiveMin = 0;
+export const createAutopilotMandateBodyMaximumDrawdownPercentMax = 100;
+
+
+export const createAutopilotMandateBodyMaximumMarketDataAgeSecondsMax = 300;
+
+export const createAutopilotMandateBodyAllowedTradingHoursUtcItemDaysOfWeekUtcItemMin = 0;
+export const createAutopilotMandateBodyAllowedTradingHoursUtcItemDaysOfWeekUtcItemMax = 6;
+
+export const createAutopilotMandateBodyAllowedTradingHoursUtcItemDaysOfWeekUtcMax = 7;
+
+export const createAutopilotMandateBodyAllowedTradingHoursUtcItemStartMinuteUtcMin = 0;
+export const createAutopilotMandateBodyAllowedTradingHoursUtcItemStartMinuteUtcMax = 1439;
+
+export const createAutopilotMandateBodyAllowedTradingHoursUtcItemEndMinuteUtcMax = 1440;
+
+export const createAutopilotMandateBodyPermittedPhase7ActionsMin = 3;
+
+
+
+export const CreateAutopilotMandateBody = zod.object({
+  "brainVersionId": zod.number().min(1),
+  "instruments": zod.array(zod.string()).min(1),
+  "strategyIds": zod.array(zod.string()).min(1),
+  "maximumPositionSizeUsdt": zod.number().gt(createAutopilotMandateBodyMaximumPositionSizeUsdtExclusiveMin),
+  "maximumLeverage": zod.number().min(1).max(createAutopilotMandateBodyMaximumLeverageMax),
+  "maximumPortfolioRiskPercent": zod.number().gt(createAutopilotMandateBodyMaximumPortfolioRiskPercentExclusiveMin),
+  "maximumSymbolExposurePercent": zod.number().gt(createAutopilotMandateBodyMaximumSymbolExposurePercentExclusiveMin),
+  "maximumNetExposurePercent": zod.number().gt(createAutopilotMandateBodyMaximumNetExposurePercentExclusiveMin),
+  "maximumCorrelatedExposurePercent": zod.number().gt(createAutopilotMandateBodyMaximumCorrelatedExposurePercentExclusiveMin),
+  "dailyLossLimitUsdt": zod.number().gt(createAutopilotMandateBodyDailyLossLimitUsdtExclusiveMin),
+  "maximumDrawdownPercent": zod.number().gt(createAutopilotMandateBodyMaximumDrawdownPercentExclusiveMin).max(createAutopilotMandateBodyMaximumDrawdownPercentMax),
+  "maximumConcurrentPositions": zod.number().min(1),
+  "maximumMarketDataAgeSeconds": zod.number().min(1).max(createAutopilotMandateBodyMaximumMarketDataAgeSecondsMax),
+  "allowedTradingHoursUtc": zod.array(zod.object({
+  "daysOfWeekUtc": zod.array(zod.number().min(createAutopilotMandateBodyAllowedTradingHoursUtcItemDaysOfWeekUtcItemMin).max(createAutopilotMandateBodyAllowedTradingHoursUtcItemDaysOfWeekUtcItemMax)).min(1).max(createAutopilotMandateBodyAllowedTradingHoursUtcItemDaysOfWeekUtcMax),
+  "startMinuteUtc": zod.number().min(createAutopilotMandateBodyAllowedTradingHoursUtcItemStartMinuteUtcMin).max(createAutopilotMandateBodyAllowedTradingHoursUtcItemStartMinuteUtcMax),
+  "endMinuteUtc": zod.number().min(1).max(createAutopilotMandateBodyAllowedTradingHoursUtcItemEndMinuteUtcMax)
+})),
+  "permittedPhase7Actions": zod.array(zod.enum(['HOLD', 'FREEZE', 'REDUCE', 'TIGHTEN_STOP', 'APPLY_TRAILING', 'EXIT'])).min(createAutopilotMandateBodyPermittedPhase7ActionsMin),
+  "expiresAt": zod.coerce.date(),
+  "confirmation": zod.literal("CREATE_IMMUTABLE_DEMO_MANDATE")
+})
+
+export const createAutopilotMandateResponseConfigFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+
+export const createAutopilotMandateResponseMaximumPositionSizeUsdtExclusiveMin = 0;
+
+export const createAutopilotMandateResponseMaximumLeverageMax = 125;
+
+export const createAutopilotMandateResponseMaximumPortfolioRiskPercentExclusiveMin = 0;
+
+export const createAutopilotMandateResponseMaximumSymbolExposurePercentExclusiveMin = 0;
+
+export const createAutopilotMandateResponseMaximumNetExposurePercentExclusiveMin = 0;
+
+export const createAutopilotMandateResponseMaximumCorrelatedExposurePercentExclusiveMin = 0;
+
+export const createAutopilotMandateResponseDailyLossLimitUsdtExclusiveMin = 0;
+
+export const createAutopilotMandateResponseMaximumDrawdownPercentExclusiveMin = 0;
+export const createAutopilotMandateResponseMaximumDrawdownPercentMax = 100;
+
+
+export const createAutopilotMandateResponseMaximumMarketDataAgeSecondsMax = 300;
+
+export const createAutopilotMandateResponseAllowedTradingHoursUtcItemDaysOfWeekUtcItemMin = 0;
+export const createAutopilotMandateResponseAllowedTradingHoursUtcItemDaysOfWeekUtcItemMax = 6;
+
+export const createAutopilotMandateResponseAllowedTradingHoursUtcItemDaysOfWeekUtcMax = 7;
+
+export const createAutopilotMandateResponseAllowedTradingHoursUtcItemStartMinuteUtcMin = 0;
+export const createAutopilotMandateResponseAllowedTradingHoursUtcItemStartMinuteUtcMax = 1439;
+
+export const createAutopilotMandateResponseAllowedTradingHoursUtcItemEndMinuteUtcMax = 1440;
+
+export const createAutopilotMandateResponseFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+
+
+export const CreateAutopilotMandateResponse = zod.object({
+  "id": zod.number(),
+  "schemaVersion": zod.literal("phase10-demo-autopilot-v1"),
+  "userId": zod.number(),
+  "section": zod.enum(['crypto', 'forex']),
+  "version": zod.number(),
+  "botConfigId": zod.number(),
+  "configFingerprint": zod.string().regex(createAutopilotMandateResponseConfigFingerprintRegExp),
+  "brainVersionId": zod.number(),
+  "brainVersion": zod.string(),
+  "executionAuthority": zod.enum(['simulated_demo', 'binance_spot_testnet', 'binance_futures_demo', 'oanda_practice']),
+  "marketType": zod.enum(['spot', 'futures', 'forex']),
+  "instruments": zod.array(zod.string()).min(1),
+  "strategyVersions": zod.record(zod.string(), zod.string()),
+  "maximumPositionSizeUsdt": zod.number().gt(createAutopilotMandateResponseMaximumPositionSizeUsdtExclusiveMin),
+  "maximumLeverage": zod.number().min(1).max(createAutopilotMandateResponseMaximumLeverageMax),
+  "maximumPortfolioRiskPercent": zod.number().gt(createAutopilotMandateResponseMaximumPortfolioRiskPercentExclusiveMin),
+  "maximumSymbolExposurePercent": zod.number().gt(createAutopilotMandateResponseMaximumSymbolExposurePercentExclusiveMin),
+  "maximumNetExposurePercent": zod.number().gt(createAutopilotMandateResponseMaximumNetExposurePercentExclusiveMin),
+  "maximumCorrelatedExposurePercent": zod.number().gt(createAutopilotMandateResponseMaximumCorrelatedExposurePercentExclusiveMin),
+  "dailyLossLimitUsdt": zod.number().gt(createAutopilotMandateResponseDailyLossLimitUsdtExclusiveMin),
+  "maximumDrawdownPercent": zod.number().gt(createAutopilotMandateResponseMaximumDrawdownPercentExclusiveMin).max(createAutopilotMandateResponseMaximumDrawdownPercentMax),
+  "maximumConcurrentPositions": zod.number().min(1),
+  "maximumMarketDataAgeSeconds": zod.number().min(1).max(createAutopilotMandateResponseMaximumMarketDataAgeSecondsMax),
+  "allowedTradingHoursUtc": zod.array(zod.object({
+  "daysOfWeekUtc": zod.array(zod.number().min(createAutopilotMandateResponseAllowedTradingHoursUtcItemDaysOfWeekUtcItemMin).max(createAutopilotMandateResponseAllowedTradingHoursUtcItemDaysOfWeekUtcItemMax)).min(1).max(createAutopilotMandateResponseAllowedTradingHoursUtcItemDaysOfWeekUtcMax),
+  "startMinuteUtc": zod.number().min(createAutopilotMandateResponseAllowedTradingHoursUtcItemStartMinuteUtcMin).max(createAutopilotMandateResponseAllowedTradingHoursUtcItemStartMinuteUtcMax),
+  "endMinuteUtc": zod.number().min(1).max(createAutopilotMandateResponseAllowedTradingHoursUtcItemEndMinuteUtcMax)
+})),
+  "permittedPhase7Actions": zod.array(zod.enum(['HOLD', 'FREEZE', 'REDUCE', 'TIGHTEN_STOP', 'APPLY_TRAILING', 'EXIT'])),
+  "validFrom": zod.coerce.date(),
+  "expiresAt": zod.coerce.date(),
+  "fingerprint": zod.string().regex(createAutopilotMandateResponseFingerprintRegExp),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Human-authorize an exact mandate for autonomous sandbox entries
+ */
+
+export const activateAutopilotBodyReasonMin = 8;
+
+
+
+export const ActivateAutopilotBody = zod.object({
+  "mandateId": zod.number().min(1),
+  "reason": zod.string().min(activateAutopilotBodyReasonMin),
+  "confirmation": zod.literal("ENABLE_DEMO_AUTOPILOT")
+})
+
+export const ActivateAutopilotResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "section": zod.enum(['crypto', 'forex']),
+  "mandateId": zod.number().nullish(),
+  "state": zod.enum(['AUTOPILOT_ENABLED', 'AUTOPILOT_PAUSED', 'AUTOPILOT_BLOCKED']),
+  "reasonCode": zod.string(),
+  "reason": zod.string(),
+  "globalSuspended": zod.boolean(),
+  "configSuspended": zod.boolean(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Halt new autonomous entries while preserving protective management
+ */
+export const pauseAutopilotBodyReasonMin = 8;
+
+
+
+export const PauseAutopilotBody = zod.object({
+  "reason": zod.string().min(pauseAutopilotBodyReasonMin)
+})
+
+export const PauseAutopilotResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "section": zod.enum(['crypto', 'forex']),
+  "mandateId": zod.number().nullish(),
+  "state": zod.enum(['AUTOPILOT_ENABLED', 'AUTOPILOT_PAUSED', 'AUTOPILOT_BLOCKED']),
+  "reasonCode": zod.string(),
+  "reason": zod.string(),
+  "globalSuspended": zod.boolean(),
+  "configSuspended": zod.boolean(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Human-request revalidation and resume of the exact mandate
+ */
+export const resumeAutopilotBodyReasonMin = 8;
+
+
+
+export const ResumeAutopilotBody = zod.object({
+  "reason": zod.string().min(resumeAutopilotBodyReasonMin),
+  "confirmation": zod.literal("RESUME_DEMO_AUTOPILOT")
+})
+
+export const ResumeAutopilotResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "section": zod.enum(['crypto', 'forex']),
+  "mandateId": zod.number().nullish(),
+  "state": zod.enum(['AUTOPILOT_ENABLED', 'AUTOPILOT_PAUSED', 'AUTOPILOT_BLOCKED']),
+  "reasonCode": zod.string(),
+  "reason": zod.string(),
+  "globalSuspended": zod.boolean(),
+  "configSuspended": zod.boolean(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Irrevocably revoke one immutable mandate
+ */
+
+
+
+export const RevokeAutopilotMandateParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+export const revokeAutopilotMandateBodyReasonMin = 8;
+
+
+
+export const RevokeAutopilotMandateBody = zod.object({
+  "reason": zod.string().min(revokeAutopilotMandateBodyReasonMin),
+  "confirmation": zod.literal("REVOKE_DEMO_AUTOPILOT_MANDATE")
+})
+
+export const RevokeAutopilotMandateResponse = zod.record(zod.string(), zod.unknown())
+
+

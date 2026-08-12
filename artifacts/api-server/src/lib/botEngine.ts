@@ -51,7 +51,7 @@ import { loadStrategyConfigs } from "./strategyConfigLoader";
 import { loadCustomStrategies, liveEligible } from "./customStrategyLoader";
 import type { Strategy } from "./strategies";
 import { ExitManager, type OpenOrderIds } from "./exitManager";
-import type { ExecutionResult, PositionManagementContext, TradeExecutor } from "./execution/executor";
+import type { AutopilotExecutionContext, ExecutionResult, PositionManagementContext, TradeExecutor } from "./execution/executor";
 import { LiveExecutor, ResearchExecutor } from "./execution/liveExecutor";
 import { DemoExecutor } from "./execution/demoExecutor";
 import { expireStaleRecommendations, RecommendExecutor } from "./execution/recommendExecutor";
@@ -132,6 +132,8 @@ import {
   type PositionThesisEvaluation,
 } from "./intelligence/position";
 import { loadPositionThesis, positionThesisInsertValues, recordManagementEvent } from "./intelligence/position/store";
+import { authorizeAutopilotEntry, recordAutopilotExecutionOutcome, suspendAutopilotForSafetyViolation } from "./autopilot/service";
+import { autopilotMandatePermitsManagementAction } from "./autopilot/contracts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -375,7 +377,7 @@ class BotEngine {
   // DemoExecutor and RecommendExecutor slot in here without the intelligence
   // pipeline noticing.
   private readonly liveExecutor: TradeExecutor = new LiveExecutor((req) =>
-    this.enterTrade(req.symbol, req.row, req.plan, req.config, req.now, req.stratConfig, req.positionManagement),
+    this.enterTrade(req.symbol, req.row, req.plan, req.config, req.now, req.stratConfig, req.positionManagement, req.autopilot),
   );
   private readonly researchExecutor: TradeExecutor = new ResearchExecutor();
   private readonly copilotExecutor: TradeExecutor = new RecommendExecutor({
@@ -466,8 +468,18 @@ class BotEngine {
     },
     setCooldown: (symbol: string, minutes: number) => this.setCooldown(symbol, minutes),
     recordHourlyStat: (now: Date, pnl: number, win: boolean) => this.recordHourlyStat(now, pnl, win),
-    recordRiskViolation: (tradeId: number, symbol: string, detail: string) => {
+    recordRiskViolation: async (tradeId: number, symbol: string, detail: string) => {
       this.riskViolationCount++;
+      try {
+        await suspendAutopilotForSafetyViolation({
+          userId: this.userId,
+          section: this.section,
+          reasonCode: "RISK_VIOLATION",
+          reason: `Trade ${tradeId} ${symbol}: ${detail}`,
+        });
+      } catch (err) {
+        logger.error({ err, tradeId, symbol }, "Failed to persist Demo Autopilot risk-violation suspension");
+      }
       logger.warn(
         { symbol, tradeId, consecutiveCount: this.riskViolationCount, detail },
         `RISK VIOLATION #${this.riskViolationCount} (consecutive): actual loss exceeded expected maximum`,
@@ -2821,6 +2833,7 @@ class BotEngine {
         const maxCorrelatedUsdt = balance * (Number(config.maxCorrelatedExposurePercent) / 100);
         const totalPossibleCluster =
           candidateNotionalUsdt + correlationCandidates.reduce((s, p) => s + p.notionalUsdt, 0);
+        let correlatedExposureUsdt = totalPossibleCluster;
         if (correlationCandidates.length > 0 && totalPossibleCluster > maxCorrelatedUsdt) {
           const correlations = await this.correlationsAgainst(
             symbol,
@@ -2837,6 +2850,7 @@ class BotEngine {
             threshold: Number(config.correlationThreshold),
             unknownPolicy: config.correlationUnknownPolicy === "block" ? "block" : "allow",
           });
+          correlatedExposureUsdt = corrVerdict.clusterNotionalUsdt;
           preChecks.push({
             name: "Correlated Exposure",
             passed: corrVerdict.ok,
@@ -2888,7 +2902,10 @@ class BotEngine {
           noteDecision(planToRecord(bestSignal, "approved_not_taken", { stage: "Order", reason }));
           continue;
         }
-        if (executor === this.liveExecutor && !this.state.newEntriesAllowed) {
+        // Autopilot performs its own stricter reconciliation check below so a
+        // sandbox refusal is durably audited. Co-Pilot and manual Live retain
+        // the pre-existing reconciliation gate here.
+        if (executor === this.liveExecutor && config.mode !== "autopilot" && !this.state.newEntriesAllowed) {
           const reason = this.state.entryBlockReason ?? "Live entries are blocked until reconciliation succeeds";
           orderStage.status = "fail";
           orderStage.detail = reason;
@@ -2903,6 +2920,67 @@ class BotEngine {
           record("BLOCKED", "Order", positionManagementResolution.blockingReason, bestSignal.confidence);
           noteDecision(planToRecord(bestSignal, "approved_not_taken", { stage: "Order", reason: positionManagementResolution.blockingReason }));
           continue;
+        }
+        let autopilotContext: AutopilotExecutionContext | undefined;
+        if (config.mode === "autopilot") {
+          let unifiedBrainEvidenceAvailable = false;
+          if (sameScanSpecialists && sameScanCouncil) {
+            try {
+              await sameScanCouncil;
+              unifiedBrainEvidenceAvailable = true;
+            } catch (err) {
+              logger.warn({ err, symbol }, "Demo Autopilot blocked because the same-scan unified-brain observation failed");
+            }
+          }
+          let executionAuthority: ExecutionAuthority = "legacy_unverified";
+          try {
+            executionAuthority = resolveExecutionAuthority({
+              section: this.section,
+              marketType: this.activeMarketType,
+              executionTarget: config.executionTarget === "demo" ? "demo" : "live",
+              testnet: config.testnet,
+            });
+          } catch (err) {
+            logger.warn({ err, symbol }, "Demo Autopilot could not resolve an unambiguous execution authority");
+          }
+          const reconciliationState: "HEALTHY" | "UNHEALTHY" | "UNKNOWN" = this.state.newEntriesAllowed
+            ? "HEALTHY"
+            : /unknown|unverified|ambiguous/i.test(this.state.entryBlockReason ?? "")
+              ? "UNKNOWN"
+              : "UNHEALTHY";
+          const authorization = await authorizeAutopilotEntry({
+            userId: this.userId,
+            section: this.section,
+            config,
+            executionAuthority,
+            providerConfigurationValid: this.credentialsVerified && this.marketsLoaded > 0,
+            reconciliationState,
+            killSwitchActive: this.state.circuitBreakerActive || this.riskPaused || this.connectionSuspended,
+            marketState: marketStateResult.status === "available" ? marketStateResult.state : null,
+            unifiedBrainEvidenceAvailable,
+            plan: bestSignal,
+            ...(stratConfig && { strategyConfig: stratConfig }),
+            riskChecks: preChecks,
+            balanceUsdt: Number.isFinite(balance) && balance > 0 ? balance : null,
+            dailyPnlUsdt: Number.isFinite(this.state.dailyPnl) ? this.state.dailyPnl : null,
+            openPositionCount: openTrades.length + enteredThisScan.length,
+            portfolioRiskPercent: balance > 0 ? ((existingRiskUsdt + candidateRiskUsdt) / balance) * 100 : null,
+            symbolExposurePercent: balance > 0 ? ((existingSymbolNotionalUsdt + candidateNotionalUsdt) / balance) * 100 : null,
+            netExposurePercent: balance > 0 ? (netExposureUsdt / balance) * 100 : null,
+            correlatedExposurePercent: balance > 0 ? (correlatedExposureUsdt / balance) * 100 : null,
+            now,
+          });
+          if (!authorization.allowed) {
+            orderStage.status = "fail";
+            orderStage.detail = authorization.reason;
+            record("BLOCKED", "Order", authorization.reason, bestSignal.confidence);
+            noteDecision(planToRecord(bestSignal, "approved_not_taken", {
+              stage: "Demo Autopilot",
+              reason: `${authorization.reasonCode}: ${authorization.reason}`,
+            }));
+            continue;
+          }
+          autopilotContext = authorization.context;
         }
         let copilotSupervision;
         if (executor === this.copilotExecutor) {
@@ -2934,16 +3012,44 @@ class BotEngine {
             continue;
           }
         }
-        const execResult = await executor.execute({
-          symbol, plan: bestSignal, row, config, now, ...(stratConfig && { stratConfig }),
-          ...(positionManagementResolution.context && { positionManagement: positionManagementResolution.context }),
-          // Snapshot, not a live reference: these four objects are still
-          // owned by this scan-loop iteration and orderStage is mutated right
-          // below — copy each so a recommendation's stored trace can never be
-          // retroactively changed by that mutation.
-          precedingStages: [marketStage, indicatorStage, signalStage, riskStage].map((s) => ({ ...s })),
-          ...(copilotSupervision && { copilotSupervision }),
-        });
+        let execResult: ExecutionResult;
+        try {
+          execResult = await executor.execute({
+            symbol, plan: bestSignal, row, config, now, ...(stratConfig && { stratConfig }),
+            ...(positionManagementResolution.context && { positionManagement: positionManagementResolution.context }),
+            // Snapshot, not a live reference: these four objects are still
+            // owned by this scan-loop iteration and orderStage is mutated right
+            // below — copy each so a recommendation's stored trace can never be
+            // retroactively changed by that mutation.
+            precedingStages: [marketStage, indicatorStage, signalStage, riskStage].map((s) => ({ ...s })),
+            ...(copilotSupervision && { copilotSupervision }),
+            ...(autopilotContext && { autopilot: autopilotContext }),
+          });
+        } catch (error) {
+          if (autopilotContext) {
+            const reason = error instanceof Error ? error.message : "Autonomous executor failed before returning a durable outcome";
+            try {
+              await recordAutopilotExecutionOutcome({
+                context: autopilotContext, userId: this.userId, section: this.section,
+                entered: false, reason,
+              });
+            } catch (auditError) {
+              logger.error({ auditError, symbol, claimId: autopilotContext.claimId }, "Failed to persist autonomous execution-failure outcome");
+            }
+          }
+          throw error;
+        }
+        if (autopilotContext) {
+          await recordAutopilotExecutionOutcome({
+            context: autopilotContext,
+            userId: this.userId,
+            section: this.section,
+            entered: execResult.entered,
+            reason: execResult.reason,
+            ...(execResult.tradeId != null && { tradeId: execResult.tradeId }),
+            ...(execResult.executionIntentId != null && { executionIntentId: execResult.executionIntentId }),
+          });
+        }
         const { entered, reason } = execResult;
         if (entered) {
           // Capture the executed decision with its execution linkage — this is
@@ -3123,6 +3229,7 @@ class BotEngine {
     now: Date,
     stratConfig?: StrategyConfig,
     positionManagement?: PositionManagementContext,
+    autopilot?: AutopilotExecutionContext,
   ): Promise<ExecutionResult> {
     const executionAuthority = resolveExecutionAuthority({
       section: this.section,
@@ -3325,6 +3432,7 @@ class BotEngine {
         plannedTakeProfit: entry.tpPrice,
         plannedQuantity: qty,
         ...(isFutures && { plannedLeverage: effectiveLeverage }),
+        ...(autopilot && { autopilot }),
       });
 
       // Forex: ONE atomic call opens the position WITH its SL/TP attached
@@ -3343,6 +3451,7 @@ class BotEngine {
           market, openSide, qty,
           parseFloat(ex.priceToPrecision(market, entry.slPrice)),
           parseFloat(ex.priceToPrecision(market, entry.tpPrice)),
+          autopilot?.idempotencyKey ? intent?.clientOrderId : undefined,
         );
       } else {
         // newClientOrderId makes the fill findable after a timeout. Never
@@ -3596,6 +3705,15 @@ class BotEngine {
             plannedLeverage: plan.leverage,
             // The join key: plan → execution → this trade → its outcome.
             ...(intent && { correlationId: intent.correlationId }),
+            ...(autopilot && {
+              autopilotClaimId: autopilot.claimId,
+              autopilotMandateId: autopilot.mandateId,
+              autopilotMandateFingerprint: autopilot.mandateFingerprint,
+              brainVersion: autopilot.brainVersion,
+              brainDecisionFingerprint: autopilot.decisionFingerprint,
+              riskDecisionFingerprint: autopilot.riskFingerprint,
+              autopilotPhase7Actions: autopilot.permittedPhase7Actions,
+            }),
             ...(positionManagement && {
               managementAuthority: positionManagement.assignment.authority,
               managementMode: positionManagement.assignment.effectiveMode,
@@ -3789,6 +3907,7 @@ class BotEngine {
         entered: true,
         ...(intent && { correlationId: intent.correlationId }),
         tradeId: trade!.id,
+        ...(intent && { executionIntentId: intent.id }),
         reason: bothPlaced
           ? `market ${openSide.toUpperCase()} filled, TP + SL protection placed`
           : neitherPlaced
@@ -3946,6 +4065,17 @@ class BotEngine {
     });
   }
 
+  private autopilotPermitsPhase7Action(
+    trade: typeof tradesTable.$inferSelect,
+    action: PositionManagementAction["type"],
+  ): boolean {
+    return autopilotMandatePermitsManagementAction(
+      trade.autopilotMandateId,
+      trade.autopilotPhase7Actions,
+      action,
+    );
+  }
+
   private async applyPhase7BrokerAction(
     trade: typeof tradesTable.$inferSelect,
     market: string,
@@ -3967,6 +4097,13 @@ class BotEngine {
     }
     if (!decision.validation.valid) {
       await this.recordPhase7(trade, decision, "REFUSED", now, { reason: "Deterministic validation refused the proposal" });
+      return { orderIds, closed: false };
+    }
+    if (!this.autopilotPermitsPhase7Action(trade, decision.action.type)) {
+      await this.recordPhase7(trade, decision, "REFUSED", now, {
+        reason: `Autopilot mandate does not permit Phase 7 action ${decision.action.type}`,
+        mandateId: trade.autopilotMandateId,
+      });
       return { orderIds, closed: false };
     }
     if (["HOLD", "FREEZE"].includes(decision.action.type)) {
@@ -4073,6 +4210,11 @@ class BotEngine {
       } else if (phase7OwnsManagement && phase7Decision) {
         if (!phase7Decision.validation.valid) {
           await this.recordPhase7(trade, phase7Decision, "REFUSED", now, { reason: "Deterministic validation refused the proposal" });
+        } else if (!this.autopilotPermitsPhase7Action(trade, phase7Decision.action.type)) {
+          await this.recordPhase7(trade, phase7Decision, "REFUSED", now, {
+            reason: `Autopilot mandate does not permit Phase 7 action ${phase7Decision.action.type}`,
+            mandateId: trade.autopilotMandateId,
+          });
         } else if (["HOLD", "FREEZE"].includes(phase7Decision.action.type)) {
           phase7Action = phase7Decision.action;
         } else {

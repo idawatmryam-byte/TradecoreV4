@@ -18,6 +18,7 @@ import { Decisions } from '@/pages/decisions';
 import { Journal } from '@/pages/journal';
 import CoPilot from '@/pages/copilot';
 import CoPilotWorkspace from '@/pages/copilot-workspace';
+import { BrainControlCenter } from '@/pages/brain-control-center';
 import { SectionProvider } from '@/lib/section';
 import { OnboardingWizard } from '@/components/onboarding-wizard';
 import { hasOnboarded, markOnboarded } from '@/lib/onboarding';
@@ -44,6 +45,7 @@ function Router() {
         <Route path="/ai-brain" component={AiBrain} />
         <Route path="/copilot" component={CoPilot} />
         <Route path="/copilot/:id" component={CoPilotWorkspace} />
+        <Route path="/autopilot" component={BrainControlCenter} />
         <Route path="/decisions" component={Decisions} />
         <Route path="/journal" component={Journal} />
         <Route path="/stats" component={Stats} />

@@ -45,6 +45,11 @@ tags:
       Research-only full-brain experiments, deterministic replay evidence,
       stress tests, and human-reviewed promotion reports. These endpoints
       cannot execute trades or change Live authority.
+  - name: autopilot
+    description: >-
+      Phase 10 human-controlled Demo/testnet/practice Autopilot mandates,
+      lifecycle controls, and append-only audit history. No operation grants
+      autonomous Live authority.
 
 # Every operation requires ONE of these by default (either is sufficient —
 # see components.securitySchemes below). /healthz and /auth/* override this
@@ -1934,8 +1939,171 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /autopilot/control:
+    get:
+      operationId: getAutopilotControl
+      tags: [autopilot]
+      summary: Read the Phase 10 control center
+      responses:
+        "200":
+          description: Current mandate, authority state, versions, and audit history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutopilotControlCenter"
+
+  /autopilot/forward-soak:
+    get:
+      operationId: getAutopilotForwardSoak
+      tags: [autopilot]
+      summary: Read a persisted Demo Autopilot forward-soak report
+      responses:
+        "200":
+          description: Honest repository-evidence report; never Live promotion authority
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutopilotForwardSoakReport"
+
+  /autopilot/brain-versions:
+    post:
+      operationId: registerAutopilotBrainVersion
+      tags: [autopilot]
+      summary: Register a candidate brain without execution authority
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterAutopilotBrainVersionRequest"
+      responses:
+        "201":
+          description: Candidate registered in DRAFT
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AutopilotBrainVersion" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /autopilot/brain-versions/{id}/transition:
+    post:
+      operationId: transitionAutopilotBrainVersion
+      tags: [autopilot]
+      summary: Perform an explicit brain lifecycle transition
+      parameters:
+        - $ref: "#/components/parameters/AutopilotRecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TransitionAutopilotBrainVersionRequest" }
+      responses:
+        "200":
+          description: Version lifecycle projection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AutopilotBrainVersion" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /autopilot/mandates:
+    post:
+      operationId: createAutopilotMandate
+      tags: [autopilot]
+      summary: Create immutable Demo Autopilot mandate terms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateAutopilotMandateRequest" }
+      responses:
+        "201":
+          description: Inactive immutable mandate
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AutopilotMandate" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /autopilot/activate:
+    post:
+      operationId: activateAutopilot
+      tags: [autopilot]
+      summary: Human-authorize an exact mandate for autonomous sandbox entries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ActivateAutopilotRequest" }
+      responses:
+        "200":
+          description: Enabled control projection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AutopilotControl" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /autopilot/pause:
+    post:
+      operationId: pauseAutopilot
+      tags: [autopilot]
+      summary: Halt new autonomous entries while preserving protective management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PauseAutopilotRequest" }
+      responses:
+        "200":
+          description: Paused control projection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AutopilotControl" }
+
+  /autopilot/resume:
+    post:
+      operationId: resumeAutopilot
+      tags: [autopilot]
+      summary: Human-request revalidation and resume of the exact mandate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResumeAutopilotRequest" }
+      responses:
+        "200":
+          description: Enabled control projection; runtime gates still apply
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AutopilotControl" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /autopilot/mandates/{id}/revoke:
+    post:
+      operationId: revokeAutopilotMandate
+      tags: [autopilot]
+      summary: Irrevocably revoke one immutable mandate
+      parameters:
+        - $ref: "#/components/parameters/AutopilotRecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RevokeAutopilotMandateRequest" }
+      responses:
+        "200":
+          description: Blocked control snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "409": { $ref: "#/components/responses/Conflict" }
+
 components:
   parameters:
+    AutopilotRecordId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
     ResearchExperimentId:
       name: id
       in: path
@@ -1956,7 +2124,230 @@ components:
         `Authorization: Basic <base64(OPERATOR_USERNAME:OPERATOR_PASSWORD)>`
         — for scripts, curl, or a non-browser client. Same shared credentials
         as sessionCookie; this is just the non-cookie way to present them.
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    Conflict:
+      description: Safety or lifecycle precondition refused the action
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
   schemas:
+    AutopilotForwardSoakReport:
+      type: object
+      additionalProperties: true
+      required: [status, generatedAt]
+      properties:
+        status: { type: string, enum: [AVAILABLE, UNAVAILABLE] }
+        generatedAt: { type: string, format: date-time }
+        reason: { type: string }
+        reportFingerprint: { type: [string, "null"] }
+        mandateId: { type: integer }
+        mandateVersion: { type: integer }
+        mandateFingerprint: { type: string }
+        brainVersion: { type: string }
+        authority: { type: string, enum: [simulated_demo, binance_spot_testnet, binance_futures_demo, oanda_practice] }
+        mandateState: { type: string }
+        controlState: { type: string }
+        frozenParameters: { type: object, additionalProperties: true }
+        metrics:
+          type: object
+          additionalProperties: true
+        calibration:
+          type: object
+          additionalProperties: true
+        backtestForwardDrift:
+          type: object
+          additionalProperties: true
+        limitations:
+          type: array
+          items: { type: string }
+
+    AutopilotControlCenter:
+      type: object
+      additionalProperties: false
+      required: [globalSuspended, snapshot, versions, mandates, events, authorityBoundary, liveAuthorityEnabled]
+      properties:
+        globalSuspended: { type: boolean }
+        liveAuthorityEnabled: { type: boolean, const: false }
+        authorityBoundary:
+          type: array
+          items: { type: string, enum: [simulated_demo, binance_spot_testnet, binance_futures_demo, oanda_practice] }
+        snapshot:
+          type: object
+          additionalProperties: true
+        versions:
+          type: array
+          items: { $ref: "#/components/schemas/AutopilotBrainVersion" }
+        mandates:
+          type: array
+          items: { $ref: "#/components/schemas/AutopilotMandate" }
+        events:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+
+    AutopilotBrainVersion:
+      type: object
+      additionalProperties: true
+      required: [id, userId, section, version, implementation, state, fingerprint, sourceCommit, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        userId: { type: integer }
+        section: { type: string, enum: [crypto, forex] }
+        version: { type: string }
+        implementation: { type: string }
+        state: { type: string, enum: [DRAFT, RESEARCH, SHADOW, COPILOT, DEMO_APPROVED, LIVE_RESTRICTED, SUSPENDED, RETIRED] }
+        fingerprint: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
+        sourceCommit: { type: string }
+        evidenceReferences: { type: array, items: { type: string } }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    AutopilotControl:
+      type: object
+      additionalProperties: true
+      required: [id, userId, section, state, reasonCode, reason, globalSuspended, configSuspended, updatedAt]
+      properties:
+        id: { type: integer }
+        userId: { type: integer }
+        section: { type: string, enum: [crypto, forex] }
+        mandateId: { type: [integer, "null"] }
+        state: { type: string, enum: [AUTOPILOT_ENABLED, AUTOPILOT_PAUSED, AUTOPILOT_BLOCKED] }
+        reasonCode: { type: string }
+        reason: { type: string }
+        globalSuspended: { type: boolean }
+        configSuspended: { type: boolean }
+        updatedAt: { type: string, format: date-time }
+
+    AutopilotTradingWindow:
+      type: object
+      additionalProperties: false
+      required: [daysOfWeekUtc, startMinuteUtc, endMinuteUtc]
+      properties:
+        daysOfWeekUtc: { type: array, minItems: 1, maxItems: 7, items: { type: integer, minimum: 0, maximum: 6 } }
+        startMinuteUtc: { type: integer, minimum: 0, maximum: 1439 }
+        endMinuteUtc: { type: integer, minimum: 1, maximum: 1440 }
+
+    AutopilotMandate:
+      type: object
+      additionalProperties: false
+      required: [id, schemaVersion, userId, section, version, botConfigId, configFingerprint, brainVersionId, brainVersion, executionAuthority, marketType, instruments, strategyVersions, maximumPositionSizeUsdt, maximumLeverage, maximumPortfolioRiskPercent, maximumSymbolExposurePercent, maximumNetExposurePercent, maximumCorrelatedExposurePercent, dailyLossLimitUsdt, maximumDrawdownPercent, maximumConcurrentPositions, maximumMarketDataAgeSeconds, allowedTradingHoursUtc, permittedPhase7Actions, validFrom, expiresAt, fingerprint, createdAt]
+      properties:
+        id: { type: integer }
+        schemaVersion: { type: string, const: phase10-demo-autopilot-v1 }
+        userId: { type: integer }
+        section: { type: string, enum: [crypto, forex] }
+        version: { type: integer }
+        botConfigId: { type: integer }
+        configFingerprint: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
+        brainVersionId: { type: integer }
+        brainVersion: { type: string }
+        executionAuthority: { type: string, enum: [simulated_demo, binance_spot_testnet, binance_futures_demo, oanda_practice] }
+        marketType: { type: string, enum: [spot, futures, forex] }
+        instruments: { type: array, minItems: 1, items: { type: string } }
+        strategyVersions: { type: object, additionalProperties: { type: string } }
+        maximumPositionSizeUsdt: { type: number, exclusiveMinimum: 0 }
+        maximumLeverage: { type: integer, minimum: 1, maximum: 125 }
+        maximumPortfolioRiskPercent: { type: number, exclusiveMinimum: 0 }
+        maximumSymbolExposurePercent: { type: number, exclusiveMinimum: 0 }
+        maximumNetExposurePercent: { type: number, exclusiveMinimum: 0 }
+        maximumCorrelatedExposurePercent: { type: number, exclusiveMinimum: 0 }
+        dailyLossLimitUsdt: { type: number, exclusiveMinimum: 0 }
+        maximumDrawdownPercent: { type: number, exclusiveMinimum: 0, maximum: 100 }
+        maximumConcurrentPositions: { type: integer, minimum: 1 }
+        maximumMarketDataAgeSeconds: { type: integer, minimum: 1, maximum: 300 }
+        allowedTradingHoursUtc: { type: array, items: { $ref: "#/components/schemas/AutopilotTradingWindow" } }
+        permittedPhase7Actions:
+          type: array
+          items: { type: string, enum: [HOLD, FREEZE, REDUCE, TIGHTEN_STOP, APPLY_TRAILING, EXIT] }
+        validFrom: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        fingerprint: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
+        createdAt: { type: string, format: date-time }
+
+    RegisterAutopilotBrainVersionRequest:
+      type: object
+      additionalProperties: false
+      required: [version, implementation, sourceCommit, evidenceReferences, confirmation]
+      properties:
+        version: { type: string }
+        implementation: { type: string }
+        sourceCommit: { type: string, pattern: "^[a-fA-F0-9]{7,64}$" }
+        evidenceReferences: { type: array, minItems: 1, items: { type: string } }
+        confirmation: { type: string, const: REGISTER_BRAIN_VERSION_WITHOUT_AUTHORITY }
+
+    TransitionAutopilotBrainVersionRequest:
+      type: object
+      additionalProperties: false
+      required: [toState, reason, confirmation]
+      properties:
+        toState: { type: string, enum: [RESEARCH, SHADOW, COPILOT, DEMO_APPROVED, SUSPENDED, RETIRED] }
+        reason: { type: string, minLength: 8 }
+        confirmation: { type: string }
+
+    CreateAutopilotMandateRequest:
+      type: object
+      additionalProperties: false
+      required: [brainVersionId, instruments, strategyIds, maximumPositionSizeUsdt, maximumLeverage, maximumPortfolioRiskPercent, maximumSymbolExposurePercent, maximumNetExposurePercent, maximumCorrelatedExposurePercent, dailyLossLimitUsdt, maximumDrawdownPercent, maximumConcurrentPositions, maximumMarketDataAgeSeconds, allowedTradingHoursUtc, permittedPhase7Actions, expiresAt, confirmation]
+      properties:
+        brainVersionId: { type: integer, minimum: 1 }
+        instruments: { type: array, minItems: 1, items: { type: string } }
+        strategyIds: { type: array, minItems: 1, items: { type: string } }
+        maximumPositionSizeUsdt: { type: number, exclusiveMinimum: 0 }
+        maximumLeverage: { type: integer, minimum: 1, maximum: 125 }
+        maximumPortfolioRiskPercent: { type: number, exclusiveMinimum: 0 }
+        maximumSymbolExposurePercent: { type: number, exclusiveMinimum: 0 }
+        maximumNetExposurePercent: { type: number, exclusiveMinimum: 0 }
+        maximumCorrelatedExposurePercent: { type: number, exclusiveMinimum: 0 }
+        dailyLossLimitUsdt: { type: number, exclusiveMinimum: 0 }
+        maximumDrawdownPercent: { type: number, exclusiveMinimum: 0, maximum: 100 }
+        maximumConcurrentPositions: { type: integer, minimum: 1 }
+        maximumMarketDataAgeSeconds: { type: integer, minimum: 1, maximum: 300 }
+        allowedTradingHoursUtc: { type: array, items: { $ref: "#/components/schemas/AutopilotTradingWindow" } }
+        permittedPhase7Actions:
+          type: array
+          minItems: 3
+          items: { type: string, enum: [HOLD, FREEZE, REDUCE, TIGHTEN_STOP, APPLY_TRAILING, EXIT] }
+        expiresAt: { type: string, format: date-time }
+        confirmation: { type: string, const: CREATE_IMMUTABLE_DEMO_MANDATE }
+
+    ActivateAutopilotRequest:
+      type: object
+      additionalProperties: false
+      required: [mandateId, reason, confirmation]
+      properties:
+        mandateId: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 8 }
+        confirmation: { type: string, const: ENABLE_DEMO_AUTOPILOT }
+
+    PauseAutopilotRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 8 }
+
+    ResumeAutopilotRequest:
+      type: object
+      additionalProperties: false
+      required: [reason, confirmation]
+      properties:
+        reason: { type: string, minLength: 8 }
+        confirmation: { type: string, const: RESUME_DEMO_AUTOPILOT }
+
+    RevokeAutopilotMandateRequest:
+      type: object
+      additionalProperties: false
+      required: [reason, confirmation]
+      properties:
+        reason: { type: string, minLength: 8 }
+        confirmation: { type: string, const: REVOKE_DEMO_AUTOPILOT_MANDATE }
+
     EvidenceOverview:
       type: object
       required: [executionTarget, snapshot, activeRuleVersion, ruleSets]

@@ -60,7 +60,7 @@ export interface ExitManagerHost {
   setCooldown(symbol: string, minutes: number): void;
   recordHourlyStat(now: Date, pnl: number, win: boolean): Promise<void>;
   /** Called after a validated close whose actual loss exceeded the expected max. */
-  recordRiskViolation(tradeId: number, symbol: string, detail: string): void;
+  recordRiskViolation(tradeId: number, symbol: string, detail: string): void | Promise<void>;
   /** Called after a validated close that was NOT a risk violation, to reset any streak. */
   recordCleanClose(): void;
   /** Called after every close (the trade row is fully written) so the host can
@@ -692,7 +692,7 @@ export class ExitManager {
       this.host.setCooldown(trade.symbol, cooldownMinutes);
 
       if (isRiskViolation) {
-        this.host.recordRiskViolation(trade.id, trade.symbol, riskViolationReason!);
+        await this.host.recordRiskViolation(trade.id, trade.symbol, riskViolationReason!);
       } else if (storedSlValid) {
         this.host.recordCleanClose();
       }
