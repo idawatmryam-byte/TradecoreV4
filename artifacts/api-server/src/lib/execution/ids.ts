@@ -4,7 +4,7 @@
  * Kept separate from intentLog.ts (which pulls in the database) so the pure
  * test chain can verify the client-order-id format without a DB.
  */
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 
 /**
  * The id sent to the broker as its own order reference (Binance
@@ -23,4 +23,19 @@ import { randomUUID } from "crypto";
 export function makeClientOrderId(userId: number): string {
   const suffix = randomUUID().replace(/-/g, "").slice(0, 8);
   return `tc-${userId}-${Date.now().toString(36)}-${suffix}`;
+}
+
+/** Stable provider id for one already-claimed autonomous decision. */
+export function makeAutopilotClientOrderId(userId: number, idempotencyKey: string): string {
+  const suffix = createHash("sha256").update(idempotencyKey).digest("hex").slice(0, 20);
+  return `tc-a-${userId}-${suffix}`.slice(0, 36);
+}
+
+/** Stable UUID-shaped correlation id for the same autonomous claim. */
+export function makeAutopilotCorrelationId(idempotencyKey: string): string {
+  const hex = createHash("sha256").update(`correlation:${idempotencyKey}`).digest("hex").slice(0, 32).split("");
+  hex[12] = "4";
+  hex[16] = ((parseInt(hex[16]!, 16) & 0x3) | 0x8).toString(16);
+  const value = hex.join("");
+  return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
 }

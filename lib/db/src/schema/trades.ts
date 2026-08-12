@@ -65,6 +65,15 @@ export const tradesTable = pgTable("trades", {
    *  forward to its outcome — the spine of the trade's whole history. Null on
    *  trades opened before the intent log existed, and on seeded demo rows. */
   correlationId: text("correlation_id"),
+  /** Exact Phase 10 authority that created this position. These bindings are
+   * immutable and null outside autonomous Demo/testnet/practice entries. */
+  autopilotClaimId: integer("autopilot_claim_id"),
+  autopilotMandateId: integer("autopilot_mandate_id"),
+  autopilotMandateFingerprint: text("autopilot_mandate_fingerprint"),
+  brainVersion: text("brain_version"),
+  brainDecisionFingerprint: text("brain_decision_fingerprint"),
+  riskDecisionFingerprint: text("risk_decision_fingerprint"),
+  autopilotPhase7Actions: jsonb("autopilot_phase7_actions"),
   /** Maximum FAVOURABLE excursion in quote currency — the best unrealised P&L
    *  this position ever showed. Tracked per scan tick while open. The backtest
    *  engine has computed this since Phase 4C; live trades had no equivalent,
@@ -156,6 +165,7 @@ export const tradesTable = pgTable("trades", {
   // Frequently queried in every scan cycle — open position lookup + blacklist update
   index("trades_user_status_idx").on(t.userId, t.status),
   index("trades_user_symbol_idx").on(t.userId, t.symbol),
+  index("trades_user_section_autopilot_mandate_idx").on(t.userId, t.section, t.autopilotMandateId),
   // Composite for the per-symbol "last 10 closed trades" query in updateBlacklist
   index("trades_user_symbol_status_exit_time_idx").on(t.userId, t.symbol, t.status, t.exitTime),
   check("trades_management_authority_check", sql`${t.managementAuthority} IN ('fixed', 'phase7')`),

@@ -80,6 +80,16 @@ export const executionIntentsTable = pgTable("execution_intents", {
   /** SHA-256 of the TradePlan decision content (lib/plan/fingerprint.ts). */
   planFingerprint: text("plan_fingerprint").notNull(),
 
+  /** Phase 10 immutable autonomous-authority bindings. Null for all manual,
+   * Co-Pilot, Research, and pre-Phase-10 execution. */
+  autopilotClaimId: integer("autopilot_claim_id"),
+  autopilotMandateId: integer("autopilot_mandate_id"),
+  autopilotMandateFingerprint: text("autopilot_mandate_fingerprint"),
+  brainVersion: text("brain_version"),
+  brainDecisionFingerprint: text("brain_decision_fingerprint"),
+  riskDecisionFingerprint: text("risk_decision_fingerprint"),
+  autopilotIdempotencyKey: text("autopilot_idempotency_key"),
+
   symbol: text("symbol").notNull(),
   /** Order side that OPENS the position: "buy" | "sell". */
   side: text("side").notNull(),
@@ -104,6 +114,7 @@ export const executionIntentsTable = pgTable("execution_intents", {
 }, (t) => [
   unique("execution_intents_correlation_unique").on(t.correlationId),
   unique("execution_intents_client_order_unique").on(t.clientOrderId),
+  unique("execution_intents_autopilot_idempotency_unique").on(t.autopilotIdempotencyKey),
   // Startup recovery: "which intents could have left a live position?"
   index("execution_intents_user_state_idx").on(t.userId, t.state),
   index("execution_intents_user_created_idx").on(t.userId, t.createdAt),

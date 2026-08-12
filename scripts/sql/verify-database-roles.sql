@@ -50,10 +50,20 @@ SELECT
   NOT has_table_privilege(:'app_role', 'public.recommendation_events', 'UPDATE')
     AND NOT has_table_privilege(:'app_role', 'public.recommendation_events', 'DELETE')
     AND NOT has_table_privilege(:'app_role', 'public.recommendation_events', 'TRUNCATE') AS recommendation_events_are_immutable,
+  NOT has_table_privilege(:'app_role', 'public.autopilot_events', 'UPDATE')
+    AND NOT has_table_privilege(:'app_role', 'public.autopilot_events', 'DELETE')
+    AND NOT has_table_privilege(:'app_role', 'public.autopilot_events', 'TRUNCATE')
+    AND NOT has_table_privilege(:'app_role', 'public.demo_autopilot_mandates', 'UPDATE')
+    AND NOT has_table_privilege(:'app_role', 'public.demo_autopilot_mandates', 'DELETE')
+    AND NOT has_table_privilege(:'app_role', 'public.demo_autopilot_mandates', 'TRUNCATE') AS autopilot_evidence_is_immutable,
   has_table_privilege(:'app_role', 'public.execution_events', 'SELECT')
     AND has_table_privilege(:'app_role', 'public.execution_events', 'INSERT')
     AND has_table_privilege(:'app_role', 'public.recommendation_events', 'SELECT')
-    AND has_table_privilege(:'app_role', 'public.recommendation_events', 'INSERT') AS public_events_have_required_access,
+    AND has_table_privilege(:'app_role', 'public.recommendation_events', 'INSERT')
+    AND has_table_privilege(:'app_role', 'public.autopilot_events', 'SELECT')
+    AND has_table_privilege(:'app_role', 'public.autopilot_events', 'INSERT')
+    AND has_table_privilege(:'app_role', 'public.demo_autopilot_mandates', 'SELECT')
+    AND has_table_privilege(:'app_role', 'public.demo_autopilot_mandates', 'INSERT') AS public_events_have_required_access,
   COALESCE((
     SELECT pg_get_userbyid(p.proowner) = :'owner_role'
       AND p.prosecdef
@@ -127,6 +137,11 @@ SELECT
   \echo 'FAIL: runtime role can mutate recommendation_events'
   \quit 4
 \endif
+\if :autopilot_evidence_is_immutable
+\else
+  \echo 'FAIL: runtime role can mutate immutable Demo Autopilot evidence'
+  \quit 4
+\endif
 \if :public_events_have_required_access
 \else
   \echo 'FAIL: runtime role lacks required SELECT/INSERT access to public event evidence'
@@ -162,7 +177,7 @@ SELECT table_schema, table_name,
        has_table_privilege(:'app_role', format('%I.%I', table_schema, table_name), 'TRUNCATE') AS can_truncate
 FROM information_schema.tables
 WHERE table_schema = 'capture'
-   OR (table_schema = 'public' AND table_name IN ('execution_events', 'recommendation_events'))
+   OR (table_schema = 'public' AND table_name IN ('execution_events', 'recommendation_events', 'autopilot_events', 'demo_autopilot_mandates'))
 ORDER BY table_schema, table_name;
 
 SELECT p.oid::regprocedure::text AS function_name, pg_get_userbyid(p.proowner) AS owner,

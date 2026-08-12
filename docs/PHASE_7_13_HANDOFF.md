@@ -755,6 +755,16 @@ authority and does not satisfy Phase 10's separate promotion prerequisites.
 
 ## 11. Phase 10 — Demo Autopilot and Shadow Promotion
 
+### Repository implementation disposition (2026-08-12)
+
+Phase 10 is implemented as a fail-closed Demo/testnet/practice authority layer
+around the existing controlled engine. The accepted boundary and operational
+contract are recorded in
+`docs/adr/ADR-010-phase-10-demo-autopilot-authority.md` and
+`docs/phase-10-demo-autopilot.md`. This repository implementation does not
+enable autonomous Live authority, promote Phase 8 Shadow output, or satisfy the
+post-merge VPS/provider validation listed in the Phase 10 operations guide.
+
 ### Objective
 
 Allow only an explicitly approved brain version to operate autonomously in Demo

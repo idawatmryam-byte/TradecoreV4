@@ -17,6 +17,8 @@ import {
   UpdateConfigBody,
   UpdateConfigResponse,
 } from "@workspace/api-zod";
+import { resolveExecutionAuthority } from "../lib/execution/authority";
+import { DemoAutopilotAuthoritySchema } from "../lib/autopilot/contracts";
 
 const router: IRouter = Router();
 
@@ -144,6 +146,7 @@ router.put("/config", async (req, res): Promise<void> => {
   const nextMarketType = u.marketType ?? existing.marketType;
   const nextTestnet = u.testnet ?? existing.testnet;
   const nextPositionManagementMode = u.positionManagementMode ?? existing.positionManagementMode;
+  const nextMode = u.mode ?? existing.mode;
   const connectionChanged =
     nextExecutionTarget !== existing.executionTarget ||
     nextMarketType !== existing.marketType ||
@@ -155,6 +158,27 @@ router.put("/config", async (req, res): Promise<void> => {
       code: "PHASE7_LIVE_AUTHORITY_DISABLED",
     });
     return;
+  }
+
+  if (nextMode === "autopilot") {
+    let authority: string;
+    try {
+      authority = resolveExecutionAuthority({
+        section: req.section!,
+        marketType: nextMarketType as "spot" | "futures" | "forex",
+        executionTarget: nextExecutionTarget === "demo" ? "demo" : "live",
+        testnet: nextTestnet,
+      });
+    } catch {
+      authority = "legacy_unverified";
+    }
+    if (!DemoAutopilotAuthoritySchema.safeParse(authority).success) {
+      res.status(400).json({
+        error: "Autonomous Live authority is categorically disabled. Autopilot is limited to simulated Demo, Binance testnet/Demo, and OANDA practice.",
+        code: "AUTOPILOT_LIVE_AUTHORITY_DISABLED",
+      });
+      return;
+    }
   }
 
   if (connectionChanged) {
