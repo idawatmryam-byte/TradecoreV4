@@ -66,12 +66,19 @@ function positionFromTrade(trade: Trade): SimulatedPosition {
     tp1Price: trade.tp1Price != null ? Number(trade.tp1Price) : 0,
     tp1Qty: trade.tp1Quantity != null ? Number(trade.tp1Quantity) : 0,
     tp1Filled: Boolean(trade.tp1Filled),
+    ...(trade.tp1FillPrice != null && { tp1FillPrice: Number(trade.tp1FillPrice) }),
+    ...(trade.tp1FillTime != null && { tp1FillTime: new Date(trade.tp1FillTime) }),
     tp2Price: trade.tp2Price != null ? Number(trade.tp2Price) : 0,
     tp2Qty: trade.tp2Quantity != null ? Number(trade.tp2Quantity) : 0,
     tp2Filled: Boolean(trade.tp2Filled),
+    ...(trade.tp2FillPrice != null && { tp2FillPrice: Number(trade.tp2FillPrice) }),
+    ...(trade.tp2FillTime != null && { tp2FillTime: new Date(trade.tp2FillTime) }),
     breakEvenActive: trade.breakEvenActive,
     trailingStopActive: trade.trailingStopActive,
     ...(trade.trailingStopMode && { trailingStopMode: trade.trailingStopMode }),
+    ...(trade.trailingStopArmedPrice != null && {
+      trailingStopArmedPrice: Number(trade.trailingStopArmedPrice),
+    }),
     partialExits: [],
   };
 }
@@ -147,7 +154,10 @@ export async function simulateDemoExit(args: DemoExitArgs): Promise<boolean> {
       pos.slPrice = action.proposedStopPrice;
       pos.breakEvenActive ||= action.type === "TIGHTEN_STOP" && pos.slPrice === pos.entryPrice;
       pos.trailingStopActive ||= action.type === "APPLY_TRAILING";
-      if (action.type === "APPLY_TRAILING") pos.trailingStopMode = "phase7-atr";
+      if (action.type === "APPLY_TRAILING") {
+        pos.trailingStopMode = "phase7-atr";
+        pos.trailingStopArmedPrice = pos.slPrice;
+      }
     } else if (action.type === "REDUCE" && action.reductionFraction !== null) {
       const qty = Math.min(pos.remainingQty * action.reductionFraction, pos.remainingQty * 0.5);
       if (qty > 0 && qty < pos.remainingQty) {
@@ -197,22 +207,37 @@ export async function simulateDemoExit(args: DemoExitArgs): Promise<boolean> {
   }
 
   const slMoved = pos.slPrice !== slBefore;
-  if (slMoved || pos.partialExits.length > 0 || pos.mfe !== Number(trade.mfeUsdt ?? 0) || pos.mae !== Number(trade.maeUsdt ?? 0)) {
+  const managementProjectionChanged =
+    slMoved ||
+    pos.partialExits.length > 0 ||
+    pos.tp1Filled !== trade.tp1Filled ||
+    pos.tp2Filled !== trade.tp2Filled ||
+    pos.breakEvenActive !== trade.breakEvenActive ||
+    pos.trailingStopActive !== trade.trailingStopActive ||
+    (pos.trailingStopMode ?? null) !== trade.trailingStopMode ||
+    (pos.trailingStopArmedPrice ?? null) !==
+      (trade.trailingStopArmedPrice != null ? Number(trade.trailingStopArmedPrice) : null) ||
+    pos.mfe !== Number(trade.mfeUsdt ?? 0) ||
+    pos.mae !== Number(trade.maeUsdt ?? 0);
+  if (managementProjectionChanged) {
     try {
       await db
         .update(tradesTable)
         .set({
           stopLoss: pos.slPrice.toFixed(8),
           remainingQuantity: pos.remainingQty.toFixed(8),
-          ...(pos.tp1Filled && { tp1Filled: true }),
-          ...(pos.tp2Filled && { tp2Filled: true }),
+          tp1Filled: pos.tp1Filled,
+          tp1FillPrice: pos.tp1FillPrice != null ? pos.tp1FillPrice.toFixed(8) : null,
+          tp1FillTime: pos.tp1FillTime ?? null,
+          tp2Filled: pos.tp2Filled,
+          tp2FillPrice: pos.tp2FillPrice != null ? pos.tp2FillPrice.toFixed(8) : null,
+          tp2FillTime: pos.tp2FillTime ?? null,
+          breakEvenActive: pos.breakEvenActive,
+          trailingStopActive: pos.trailingStopActive,
+          trailingStopMode: pos.trailingStopMode ?? null,
+          trailingStopArmedPrice:
+            pos.trailingStopArmedPrice != null ? pos.trailingStopArmedPrice.toFixed(8) : null,
           ...(args.phase7Action?.type === "REDUCE" && pos.partialExits.length > 0 && { phase7ReductionApplied: true }),
-          ...(args.phase7Action?.type === "TIGHTEN_STOP" && { breakEvenActive: pos.breakEvenActive }),
-          ...(args.phase7Action?.type === "APPLY_TRAILING" && {
-            trailingStopActive: true,
-            trailingStopMode: "phase7-atr",
-            trailingStopArmedPrice: pos.slPrice.toFixed(8),
-          }),
           mfeUsdt: pos.mfe.toFixed(8),
           maeUsdt: pos.mae.toFixed(8),
         })
@@ -220,8 +245,17 @@ export async function simulateDemoExit(args: DemoExitArgs): Promise<boolean> {
       // Keep the in-memory row in step for the settlement below.
       trade.stopLoss = pos.slPrice.toFixed(8);
       trade.remainingQuantity = pos.remainingQty.toFixed(8);
-      if (pos.tp1Filled) trade.tp1Filled = true;
-      if (pos.tp2Filled) trade.tp2Filled = true;
+      trade.tp1Filled = pos.tp1Filled;
+      trade.tp1FillPrice = pos.tp1FillPrice != null ? pos.tp1FillPrice.toFixed(8) : null;
+      trade.tp1FillTime = pos.tp1FillTime ?? null;
+      trade.tp2Filled = pos.tp2Filled;
+      trade.tp2FillPrice = pos.tp2FillPrice != null ? pos.tp2FillPrice.toFixed(8) : null;
+      trade.tp2FillTime = pos.tp2FillTime ?? null;
+      trade.breakEvenActive = pos.breakEvenActive;
+      trade.trailingStopActive = pos.trailingStopActive;
+      trade.trailingStopMode = pos.trailingStopMode ?? null;
+      trade.trailingStopArmedPrice =
+        pos.trailingStopArmedPrice != null ? pos.trailingStopArmedPrice.toFixed(8) : null;
     } catch (err) {
       logger.warn({ err, tradeId: trade.id }, "DEMO_MANAGE_PERSIST_FAILED");
       if (args.phase7OwnsManagement) throw err;
