@@ -82,6 +82,8 @@ export interface SimulatedPosition {
   breakEvenActive: boolean;
   trailingStopActive: boolean;
   trailingStopMode?: string;
+  /** Best/reference price recorded when the current trailing stop was armed. */
+  trailingStopArmedPrice?: number;
   partialExits: PartialExitRecord[];
 }
 
@@ -235,6 +237,7 @@ export function manageBar(
         pos.slPrice = candidate;
         pos.trailingStopActive = true;
         pos.trailingStopMode = mode;
+        pos.trailingStopArmedPrice = currentClose;
       }
     }
   }
