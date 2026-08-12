@@ -118,12 +118,13 @@ function fakeClientAdapter(state: {
 {
   const state = { openTrades: [] as any[], calls: [] as any[] };
   const ad = fakeClientAdapter(state);
-  const res = await ad.placeProtectedEntry("EUR_USD", "sell", 3000, 1.0900, 1.0800);
+  const res = await ad.placeProtectedEntry("EUR_USD", "sell", 3000, 1.0900, 1.0800, "tc-a-7-deterministic");
   const body: any = state.calls.find((c) => c.path === "/orders")!.body;
   expect("short entry sends NEGATIVE units", body.order.units, "-3000");
   expect("bracket carries SL price string", body.order.stopLossOnFill.price, "1.09000");
   expect("bracket carries TP price string", body.order.takeProfitOnFill.price, "1.08000");
   expect("FOK + market order type", `${body.order.type}/${body.order.timeInForce}`, "MARKET/FOK");
+  expect("Phase 10 provider idempotency is forwarded to OANDA", body.order.clientExtensions.id, "tc-a-7-deterministic");
   expect("returns oandaTradeId + leg ids", `${res.oandaTradeId}/${res.slOrderId}/${res.tpOrderId}`, "777/sl9/tp9");
   expect("filled units reported unsigned", res.filledUnits, 3000);
 }

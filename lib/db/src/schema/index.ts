@@ -15,3 +15,4 @@ export * from "./memoryInfluence";
 export * from "./intelligence";
 export * from "./evidence";
 export * from "./research";
+export * from "./autopilot";

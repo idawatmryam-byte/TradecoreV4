@@ -59,6 +59,13 @@ BEGIN
 
   DELETE FROM public.recommendation_events WHERE user_id = target_user_id;
 
+  DELETE FROM public.autopilot_events WHERE user_id = target_user_id;
+  DELETE FROM public.autopilot_decision_claims WHERE user_id = target_user_id;
+  DELETE FROM public.autopilot_mandate_states WHERE user_id = target_user_id;
+  DELETE FROM public.autopilot_controls WHERE user_id = target_user_id;
+  DELETE FROM public.demo_autopilot_mandates WHERE user_id = target_user_id;
+  DELETE FROM public.brain_versions WHERE user_id = target_user_id;
+
   DELETE FROM capture.research_replay_events WHERE user_id = target_user_id;
 
   DELETE FROM capture.position_management_events WHERE user_id = target_user_id;

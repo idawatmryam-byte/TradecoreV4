@@ -87,6 +87,7 @@ export class DemoExecutor implements TradeExecutor {
       plannedTakeProfit: plan.tpPrice,
       plannedQuantity: plan.qty,
       plannedLeverage: leverage,
+      ...(req.autopilot && { autopilot: req.autopilot }),
     });
     await advanceIntent(intent, "ORDER_SUBMITTED", "simulated market entry");
 
@@ -172,6 +173,15 @@ export class DemoExecutor implements TradeExecutor {
           maxHoldSeconds: Math.round(plan.maxHoldSeconds),
           plannedLeverage: plan.leverage,
           ...(intent && { correlationId: intent.correlationId }),
+          ...(req.autopilot && {
+            autopilotClaimId: req.autopilot.claimId,
+            autopilotMandateId: req.autopilot.mandateId,
+            autopilotMandateFingerprint: req.autopilot.mandateFingerprint,
+            brainVersion: req.autopilot.brainVersion,
+            brainDecisionFingerprint: req.autopilot.decisionFingerprint,
+            riskDecisionFingerprint: req.autopilot.riskFingerprint,
+            autopilotPhase7Actions: req.autopilot.permittedPhase7Actions,
+          }),
           ...(req.positionManagement && {
             managementAuthority: req.positionManagement.assignment.authority,
             managementMode: req.positionManagement.assignment.effectiveMode,
@@ -210,6 +220,7 @@ export class DemoExecutor implements TradeExecutor {
         reason: `simulated ${openSide.toUpperCase()} filled at ${fillPrice.toFixed(6)} — demo account, no real order placed`,
         ...(intent && { correlationId: intent.correlationId }),
         tradeId: trade.id,
+        ...(intent && { executionIntentId: intent.id }),
       };
     } catch (err) {
       await advanceIntent(intent, "FAILED", String((err as Error)?.message ?? err));

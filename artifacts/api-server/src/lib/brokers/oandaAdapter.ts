@@ -313,6 +313,7 @@ export class OandaAdapter implements BrokerAdapter {
     units: number,
     slPrice: number,
     tpPrice: number,
+    clientOrderId?: string,
   ): Promise<{ fillPrice: number; filledUnits: number; oandaTradeId: string; slOrderId: string; tpOrderId: string }> {
     const res = await this.client.acct<{
       orderFillTransaction?: { id: string; price: string; tradeOpened?: { tradeID: string; units: string; price?: string } };
@@ -325,6 +326,7 @@ export class OandaAdapter implements BrokerAdapter {
         units: (side === "buy" ? "" : "-") + this.amountToPrecision(symbol, units),
         timeInForce: "FOK",
         positionFill: "DEFAULT",
+        ...(clientOrderId && { clientExtensions: { id: clientOrderId, tag: "tradecore-phase10" } }),
         stopLossOnFill: { price: this.priceToPrecision(symbol, slPrice), timeInForce: "GTC" },
         takeProfitOnFill: { price: this.priceToPrecision(symbol, tpPrice), timeInForce: "GTC" },
       },

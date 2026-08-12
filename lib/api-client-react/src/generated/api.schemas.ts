@@ -5,6 +5,371 @@
  * TradeCore Pro - Binance Spot Trading Bot API
  * OpenAPI spec version: 0.1.0
  */
+export type AutopilotForwardSoakReportStatus = typeof AutopilotForwardSoakReportStatus[keyof typeof AutopilotForwardSoakReportStatus];
+
+
+export const AutopilotForwardSoakReportStatus = {
+  AVAILABLE: 'AVAILABLE',
+  UNAVAILABLE: 'UNAVAILABLE',
+} as const;
+
+export type AutopilotForwardSoakReportAuthority = typeof AutopilotForwardSoakReportAuthority[keyof typeof AutopilotForwardSoakReportAuthority];
+
+
+export const AutopilotForwardSoakReportAuthority = {
+  simulated_demo: 'simulated_demo',
+  binance_spot_testnet: 'binance_spot_testnet',
+  binance_futures_demo: 'binance_futures_demo',
+  oanda_practice: 'oanda_practice',
+} as const;
+
+export type AutopilotForwardSoakReportFrozenParameters = { [key: string]: unknown };
+
+export type AutopilotForwardSoakReportMetrics = { [key: string]: unknown };
+
+export type AutopilotForwardSoakReportCalibration = { [key: string]: unknown };
+
+export type AutopilotForwardSoakReportBacktestForwardDrift = { [key: string]: unknown };
+
+export interface AutopilotForwardSoakReport {
+  status: AutopilotForwardSoakReportStatus;
+  generatedAt: string;
+  reason?: string;
+  /** @nullable */
+  reportFingerprint?: string | null;
+  mandateId?: number;
+  mandateVersion?: number;
+  mandateFingerprint?: string;
+  brainVersion?: string;
+  authority?: AutopilotForwardSoakReportAuthority;
+  mandateState?: string;
+  controlState?: string;
+  frozenParameters?: AutopilotForwardSoakReportFrozenParameters;
+  metrics?: AutopilotForwardSoakReportMetrics;
+  calibration?: AutopilotForwardSoakReportCalibration;
+  backtestForwardDrift?: AutopilotForwardSoakReportBacktestForwardDrift;
+  limitations?: string[];
+  [key: string]: unknown;
+ }
+
+export type AutopilotControlCenterAuthorityBoundaryItem = typeof AutopilotControlCenterAuthorityBoundaryItem[keyof typeof AutopilotControlCenterAuthorityBoundaryItem];
+
+
+export const AutopilotControlCenterAuthorityBoundaryItem = {
+  simulated_demo: 'simulated_demo',
+  binance_spot_testnet: 'binance_spot_testnet',
+  binance_futures_demo: 'binance_futures_demo',
+  oanda_practice: 'oanda_practice',
+} as const;
+
+export type AutopilotControlCenterSnapshot = { [key: string]: unknown };
+
+export type AutopilotControlCenterEventsItem = { [key: string]: unknown };
+
+export type AutopilotBrainVersionSection = typeof AutopilotBrainVersionSection[keyof typeof AutopilotBrainVersionSection];
+
+
+export const AutopilotBrainVersionSection = {
+  crypto: 'crypto',
+  forex: 'forex',
+} as const;
+
+export type AutopilotBrainVersionState = typeof AutopilotBrainVersionState[keyof typeof AutopilotBrainVersionState];
+
+
+export const AutopilotBrainVersionState = {
+  DRAFT: 'DRAFT',
+  RESEARCH: 'RESEARCH',
+  SHADOW: 'SHADOW',
+  COPILOT: 'COPILOT',
+  DEMO_APPROVED: 'DEMO_APPROVED',
+  LIVE_RESTRICTED: 'LIVE_RESTRICTED',
+  SUSPENDED: 'SUSPENDED',
+  RETIRED: 'RETIRED',
+} as const;
+
+export interface AutopilotBrainVersion {
+  id: number;
+  userId: number;
+  section: AutopilotBrainVersionSection;
+  version: string;
+  implementation: string;
+  state: AutopilotBrainVersionState;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  fingerprint: string;
+  sourceCommit: string;
+  evidenceReferences?: string[];
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: unknown;
+ }
+
+export type AutopilotMandateSection = typeof AutopilotMandateSection[keyof typeof AutopilotMandateSection];
+
+
+export const AutopilotMandateSection = {
+  crypto: 'crypto',
+  forex: 'forex',
+} as const;
+
+export type AutopilotMandateExecutionAuthority = typeof AutopilotMandateExecutionAuthority[keyof typeof AutopilotMandateExecutionAuthority];
+
+
+export const AutopilotMandateExecutionAuthority = {
+  simulated_demo: 'simulated_demo',
+  binance_spot_testnet: 'binance_spot_testnet',
+  binance_futures_demo: 'binance_futures_demo',
+  oanda_practice: 'oanda_practice',
+} as const;
+
+export type AutopilotMandateMarketType = typeof AutopilotMandateMarketType[keyof typeof AutopilotMandateMarketType];
+
+
+export const AutopilotMandateMarketType = {
+  spot: 'spot',
+  futures: 'futures',
+  forex: 'forex',
+} as const;
+
+export interface AutopilotTradingWindow {
+  /**
+     * @minItems 1
+     * @maxItems 7
+     * @items.minimum 0
+     * @items.maximum 6
+     */
+  daysOfWeekUtc: number[];
+  /**
+     * @minimum 0
+     * @maximum 1439
+     */
+  startMinuteUtc: number;
+  /**
+     * @minimum 1
+     * @maximum 1440
+     */
+  endMinuteUtc: number;
+}
+
+export type AutopilotMandatePermittedPhase7ActionsItem = typeof AutopilotMandatePermittedPhase7ActionsItem[keyof typeof AutopilotMandatePermittedPhase7ActionsItem];
+
+
+export const AutopilotMandatePermittedPhase7ActionsItem = {
+  HOLD: 'HOLD',
+  FREEZE: 'FREEZE',
+  REDUCE: 'REDUCE',
+  TIGHTEN_STOP: 'TIGHTEN_STOP',
+  APPLY_TRAILING: 'APPLY_TRAILING',
+  EXIT: 'EXIT',
+} as const;
+
+export type AutopilotMandateStrategyVersions = {[key: string]: string};
+
+export interface AutopilotMandate {
+  id: number;
+  schemaVersion: 'phase10-demo-autopilot-v1';
+  userId: number;
+  section: AutopilotMandateSection;
+  version: number;
+  botConfigId: number;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  configFingerprint: string;
+  brainVersionId: number;
+  brainVersion: string;
+  executionAuthority: AutopilotMandateExecutionAuthority;
+  marketType: AutopilotMandateMarketType;
+  /** @minItems 1 */
+  instruments: string[];
+  strategyVersions: AutopilotMandateStrategyVersions;
+  /** @exclusiveMinimum 0 */
+  maximumPositionSizeUsdt: number;
+  /**
+     * @minimum 1
+     * @maximum 125
+     */
+  maximumLeverage: number;
+  /** @exclusiveMinimum 0 */
+  maximumPortfolioRiskPercent: number;
+  /** @exclusiveMinimum 0 */
+  maximumSymbolExposurePercent: number;
+  /** @exclusiveMinimum 0 */
+  maximumNetExposurePercent: number;
+  /** @exclusiveMinimum 0 */
+  maximumCorrelatedExposurePercent: number;
+  /** @exclusiveMinimum 0 */
+  dailyLossLimitUsdt: number;
+  /**
+     * @maximum 100
+     * @exclusiveMinimum 0
+     */
+  maximumDrawdownPercent: number;
+  /** @minimum 1 */
+  maximumConcurrentPositions: number;
+  /**
+     * @minimum 1
+     * @maximum 300
+     */
+  maximumMarketDataAgeSeconds: number;
+  allowedTradingHoursUtc: AutopilotTradingWindow[];
+  permittedPhase7Actions: AutopilotMandatePermittedPhase7ActionsItem[];
+  validFrom: string;
+  expiresAt: string;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  fingerprint: string;
+  createdAt: string;
+}
+
+export interface AutopilotControlCenter {
+  globalSuspended: boolean;
+  liveAuthorityEnabled: false;
+  authorityBoundary: AutopilotControlCenterAuthorityBoundaryItem[];
+  snapshot: AutopilotControlCenterSnapshot;
+  versions: AutopilotBrainVersion[];
+  mandates: AutopilotMandate[];
+  events: AutopilotControlCenterEventsItem[];
+}
+
+export type AutopilotControlSection = typeof AutopilotControlSection[keyof typeof AutopilotControlSection];
+
+
+export const AutopilotControlSection = {
+  crypto: 'crypto',
+  forex: 'forex',
+} as const;
+
+export type AutopilotControlState = typeof AutopilotControlState[keyof typeof AutopilotControlState];
+
+
+export const AutopilotControlState = {
+  AUTOPILOT_ENABLED: 'AUTOPILOT_ENABLED',
+  AUTOPILOT_PAUSED: 'AUTOPILOT_PAUSED',
+  AUTOPILOT_BLOCKED: 'AUTOPILOT_BLOCKED',
+} as const;
+
+export interface AutopilotControl {
+  id: number;
+  userId: number;
+  section: AutopilotControlSection;
+  /** @nullable */
+  mandateId?: number | null;
+  state: AutopilotControlState;
+  reasonCode: string;
+  reason: string;
+  globalSuspended: boolean;
+  configSuspended: boolean;
+  updatedAt: string;
+  [key: string]: unknown;
+ }
+
+export interface RegisterAutopilotBrainVersionRequest {
+  version: string;
+  implementation: string;
+  /** @pattern ^[a-fA-F0-9]{7,64}$ */
+  sourceCommit: string;
+  /** @minItems 1 */
+  evidenceReferences: string[];
+  confirmation: 'REGISTER_BRAIN_VERSION_WITHOUT_AUTHORITY';
+}
+
+export type TransitionAutopilotBrainVersionRequestToState = typeof TransitionAutopilotBrainVersionRequestToState[keyof typeof TransitionAutopilotBrainVersionRequestToState];
+
+
+export const TransitionAutopilotBrainVersionRequestToState = {
+  RESEARCH: 'RESEARCH',
+  SHADOW: 'SHADOW',
+  COPILOT: 'COPILOT',
+  DEMO_APPROVED: 'DEMO_APPROVED',
+  SUSPENDED: 'SUSPENDED',
+  RETIRED: 'RETIRED',
+} as const;
+
+export interface TransitionAutopilotBrainVersionRequest {
+  toState: TransitionAutopilotBrainVersionRequestToState;
+  /** @minLength 8 */
+  reason: string;
+  confirmation: string;
+}
+
+export type CreateAutopilotMandateRequestPermittedPhase7ActionsItem = typeof CreateAutopilotMandateRequestPermittedPhase7ActionsItem[keyof typeof CreateAutopilotMandateRequestPermittedPhase7ActionsItem];
+
+
+export const CreateAutopilotMandateRequestPermittedPhase7ActionsItem = {
+  HOLD: 'HOLD',
+  FREEZE: 'FREEZE',
+  REDUCE: 'REDUCE',
+  TIGHTEN_STOP: 'TIGHTEN_STOP',
+  APPLY_TRAILING: 'APPLY_TRAILING',
+  EXIT: 'EXIT',
+} as const;
+
+export interface CreateAutopilotMandateRequest {
+  /** @minimum 1 */
+  brainVersionId: number;
+  /** @minItems 1 */
+  instruments: string[];
+  /** @minItems 1 */
+  strategyIds: string[];
+  /** @exclusiveMinimum 0 */
+  maximumPositionSizeUsdt: number;
+  /**
+     * @minimum 1
+     * @maximum 125
+     */
+  maximumLeverage: number;
+  /** @exclusiveMinimum 0 */
+  maximumPortfolioRiskPercent: number;
+  /** @exclusiveMinimum 0 */
+  maximumSymbolExposurePercent: number;
+  /** @exclusiveMinimum 0 */
+  maximumNetExposurePercent: number;
+  /** @exclusiveMinimum 0 */
+  maximumCorrelatedExposurePercent: number;
+  /** @exclusiveMinimum 0 */
+  dailyLossLimitUsdt: number;
+  /**
+     * @maximum 100
+     * @exclusiveMinimum 0
+     */
+  maximumDrawdownPercent: number;
+  /** @minimum 1 */
+  maximumConcurrentPositions: number;
+  /**
+     * @minimum 1
+     * @maximum 300
+     */
+  maximumMarketDataAgeSeconds: number;
+  allowedTradingHoursUtc: AutopilotTradingWindow[];
+  /** @minItems 3 */
+  permittedPhase7Actions: CreateAutopilotMandateRequestPermittedPhase7ActionsItem[];
+  expiresAt: string;
+  confirmation: 'CREATE_IMMUTABLE_DEMO_MANDATE';
+}
+
+export interface ActivateAutopilotRequest {
+  /** @minimum 1 */
+  mandateId: number;
+  /** @minLength 8 */
+  reason: string;
+  confirmation: 'ENABLE_DEMO_AUTOPILOT';
+}
+
+export interface PauseAutopilotRequest {
+  /** @minLength 8 */
+  reason: string;
+}
+
+export interface ResumeAutopilotRequest {
+  /** @minLength 8 */
+  reason: string;
+  confirmation: 'RESUME_DEMO_AUTOPILOT';
+}
+
+export interface RevokeAutopilotMandateRequest {
+  /** @minLength 8 */
+  reason: string;
+  confirmation: 'REVOKE_DEMO_AUTOPILOT_MANDATE';
+}
+
 export type EvidenceOverviewExecutionTarget = typeof EvidenceOverviewExecutionTarget[keyof typeof EvidenceOverviewExecutionTarget];
 
 
@@ -4550,6 +4915,16 @@ export interface StrategySignalItem {
   entryReason?: string;
 }
 
+/**
+ * Invalid request
+ */
+export type BadRequestResponse = ErrorResponse;
+
+/**
+ * Safety or lifecycle precondition refused the action
+ */
+export type ConflictResponse = ErrorResponse;
+
 export type RegisterBody = {
   /**
      * @minLength 3
@@ -4826,4 +5201,6 @@ limit?: number;
 export type CancelResearchExperiment202 = {
   cancelRequested: boolean;
 };
+
+export type RevokeAutopilotMandate200 = { [key: string]: unknown };
 
