@@ -54,6 +54,17 @@ export interface CopilotSupervisionContext {
   readonly creationRiskChecks: readonly RiskCheck[];
 }
 
+export interface AutopilotExecutionContext {
+  readonly claimId: number;
+  readonly mandateId: number;
+  readonly mandateFingerprint: string;
+  readonly brainVersion: string;
+  readonly decisionFingerprint: string;
+  readonly riskFingerprint: string;
+  readonly idempotencyKey: string;
+  readonly permittedPhase7Actions: readonly string[];
+}
+
 /** Everything an executor needs to act on one approved plan. */
 export interface ExecutionRequest {
   symbol: string;
@@ -81,6 +92,9 @@ export interface ExecutionRequest {
   precedingStages?: PipelineStage[];
   /** Required by RecommendExecutor; ignored by non-Co-Pilot executors. */
   copilotSupervision?: CopilotSupervisionContext;
+  /** Present only after Phase 10 has atomically claimed an authorized Demo,
+   * testnet, or practice decision. Executors must make its intent durable. */
+  autopilot?: AutopilotExecutionContext;
 }
 
 export interface ExecutionResult {
@@ -92,6 +106,8 @@ export interface ExecutionResult {
   correlationId?: string;
   /** Set when a trades row was written. */
   tradeId?: number;
+  /** Durable intent projection used to link the autonomous claim. */
+  executionIntentId?: number;
 }
 
 export interface TradeExecutor {

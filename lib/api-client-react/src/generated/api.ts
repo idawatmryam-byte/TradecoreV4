@@ -20,11 +20,18 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ActivateAutopilotRequest,
+  AutopilotBrainVersion,
+  AutopilotControl,
+  AutopilotControlCenter,
+  AutopilotForwardSoakReport,
+  AutopilotMandate,
   AutopsyRun,
   BacktestDetail,
   BacktestRun,
   BacktestRunRequest,
   BacktestStarted,
+  BadRequestResponse,
   BinanceCredentialsStatus,
   BlacklistEntry,
   BlockingSummary,
@@ -32,8 +39,10 @@ import type {
   BotConfigUpdate,
   BotStatus,
   CancelResearchExperiment202,
+  ConflictResponse,
   ConnectionTestResult,
   CorrelationHeatMap,
+  CreateAutopilotMandateRequest,
   CustomStrategy,
   CustomStrategyCreate,
   CustomStrategyUpdate,
@@ -78,12 +87,14 @@ import type {
   NotificationList,
   OandaCredentialsStatus,
   OptimizeRequest,
+  PauseAutopilotRequest,
   PortfolioIntelligenceProjection,
   PositionThesisView,
   RecommendationActionResult,
   RecommendationList,
   RecommendationWorkspace,
   Register201,
+  RegisterAutopilotBrainVersionRequest,
   RegisterBody,
   RejectRecommendationBody,
   ResearchExperiment,
@@ -91,6 +102,9 @@ import type {
   ResearchExperimentStarted,
   ResearchReplayEventPage,
   ResetRiskPause200,
+  ResumeAutopilotRequest,
+  RevokeAutopilotMandate200,
+  RevokeAutopilotMandateRequest,
   ScannerRow,
   SectionsResponse,
   SetBinanceCredentialsBody,
@@ -110,6 +124,7 @@ import type {
   TestOandaConnectionBody,
   ToxicHour,
   Trade,
+  TransitionAutopilotBrainVersionRequest,
   UpdateMemoryInfluence,
   UpdateStrategyConfig200
 } from './api.schemas';
@@ -6194,5 +6209,651 @@ export const useCancelResearchExperiment = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getCancelResearchExperimentMutationOptions(options));
+    }
+
+export const getGetAutopilotControlUrl = () => {
+
+
+
+
+  return `/api/autopilot/control`
+}
+
+/**
+ * @summary Read the Phase 10 control center
+ */
+export const getAutopilotControl = async ( options?: RequestInit): Promise<AutopilotControlCenter> => {
+
+  return customFetch<AutopilotControlCenter>(getGetAutopilotControlUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAutopilotControlQueryKey = () => {
+    return [
+    `/api/autopilot/control`
+    ] as const;
+    }
+
+
+export const getGetAutopilotControlQueryOptions = <TData = Awaited<ReturnType<typeof getAutopilotControl>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAutopilotControl>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAutopilotControlQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAutopilotControl>>> = ({ signal }) => getAutopilotControl({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAutopilotControl>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAutopilotControlQueryResult = NonNullable<Awaited<ReturnType<typeof getAutopilotControl>>>
+export type GetAutopilotControlQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Read the Phase 10 control center
+ */
+
+export function useGetAutopilotControl<TData = Awaited<ReturnType<typeof getAutopilotControl>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAutopilotControl>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAutopilotControlQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAutopilotForwardSoakUrl = () => {
+
+
+
+
+  return `/api/autopilot/forward-soak`
+}
+
+/**
+ * @summary Read a persisted Demo Autopilot forward-soak report
+ */
+export const getAutopilotForwardSoak = async ( options?: RequestInit): Promise<AutopilotForwardSoakReport> => {
+
+  return customFetch<AutopilotForwardSoakReport>(getGetAutopilotForwardSoakUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAutopilotForwardSoakQueryKey = () => {
+    return [
+    `/api/autopilot/forward-soak`
+    ] as const;
+    }
+
+
+export const getGetAutopilotForwardSoakQueryOptions = <TData = Awaited<ReturnType<typeof getAutopilotForwardSoak>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAutopilotForwardSoak>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAutopilotForwardSoakQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAutopilotForwardSoak>>> = ({ signal }) => getAutopilotForwardSoak({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAutopilotForwardSoak>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAutopilotForwardSoakQueryResult = NonNullable<Awaited<ReturnType<typeof getAutopilotForwardSoak>>>
+export type GetAutopilotForwardSoakQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Read a persisted Demo Autopilot forward-soak report
+ */
+
+export function useGetAutopilotForwardSoak<TData = Awaited<ReturnType<typeof getAutopilotForwardSoak>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAutopilotForwardSoak>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAutopilotForwardSoakQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRegisterAutopilotBrainVersionUrl = () => {
+
+
+
+
+  return `/api/autopilot/brain-versions`
+}
+
+/**
+ * @summary Register a candidate brain without execution authority
+ */
+export const registerAutopilotBrainVersion = async (registerAutopilotBrainVersionRequest: RegisterAutopilotBrainVersionRequest, options?: RequestInit): Promise<AutopilotBrainVersion> => {
+
+  return customFetch<AutopilotBrainVersion>(getRegisterAutopilotBrainVersionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(registerAutopilotBrainVersionRequest)
+  }
+);}
+
+
+
+
+export const getRegisterAutopilotBrainVersionMutationOptions = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerAutopilotBrainVersion>>, TError,{data: BodyType<RegisterAutopilotBrainVersionRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerAutopilotBrainVersion>>, TError,{data: BodyType<RegisterAutopilotBrainVersionRequest>}, TContext> => {
+
+const mutationKey = ['registerAutopilotBrainVersion'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerAutopilotBrainVersion>>, {data: BodyType<RegisterAutopilotBrainVersionRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  registerAutopilotBrainVersion(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterAutopilotBrainVersionMutationResult = NonNullable<Awaited<ReturnType<typeof registerAutopilotBrainVersion>>>
+    export type RegisterAutopilotBrainVersionMutationBody = BodyType<RegisterAutopilotBrainVersionRequest>
+    export type RegisterAutopilotBrainVersionMutationError = ErrorType<BadRequestResponse>
+
+    /**
+ * @summary Register a candidate brain without execution authority
+ */
+export const useRegisterAutopilotBrainVersion = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerAutopilotBrainVersion>>, TError,{data: BodyType<RegisterAutopilotBrainVersionRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registerAutopilotBrainVersion>>,
+        TError,
+        {data: BodyType<RegisterAutopilotBrainVersionRequest>},
+        TContext
+      > => {
+      return useMutation(getRegisterAutopilotBrainVersionMutationOptions(options));
+    }
+
+export const getTransitionAutopilotBrainVersionUrl = (id: number,) => {
+
+
+
+
+  return `/api/autopilot/brain-versions/${id}/transition`
+}
+
+/**
+ * @summary Perform an explicit brain lifecycle transition
+ */
+export const transitionAutopilotBrainVersion = async (id: number,
+    transitionAutopilotBrainVersionRequest: TransitionAutopilotBrainVersionRequest, options?: RequestInit): Promise<AutopilotBrainVersion> => {
+
+  return customFetch<AutopilotBrainVersion>(getTransitionAutopilotBrainVersionUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(transitionAutopilotBrainVersionRequest)
+  }
+);}
+
+
+
+
+export const getTransitionAutopilotBrainVersionMutationOptions = <TError = ErrorType<ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transitionAutopilotBrainVersion>>, TError,{id: number;data: BodyType<TransitionAutopilotBrainVersionRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof transitionAutopilotBrainVersion>>, TError,{id: number;data: BodyType<TransitionAutopilotBrainVersionRequest>}, TContext> => {
+
+const mutationKey = ['transitionAutopilotBrainVersion'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof transitionAutopilotBrainVersion>>, {id: number;data: BodyType<TransitionAutopilotBrainVersionRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  transitionAutopilotBrainVersion(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TransitionAutopilotBrainVersionMutationResult = NonNullable<Awaited<ReturnType<typeof transitionAutopilotBrainVersion>>>
+    export type TransitionAutopilotBrainVersionMutationBody = BodyType<TransitionAutopilotBrainVersionRequest>
+    export type TransitionAutopilotBrainVersionMutationError = ErrorType<ConflictResponse>
+
+    /**
+ * @summary Perform an explicit brain lifecycle transition
+ */
+export const useTransitionAutopilotBrainVersion = <TError = ErrorType<ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transitionAutopilotBrainVersion>>, TError,{id: number;data: BodyType<TransitionAutopilotBrainVersionRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof transitionAutopilotBrainVersion>>,
+        TError,
+        {id: number;data: BodyType<TransitionAutopilotBrainVersionRequest>},
+        TContext
+      > => {
+      return useMutation(getTransitionAutopilotBrainVersionMutationOptions(options));
+    }
+
+export const getCreateAutopilotMandateUrl = () => {
+
+
+
+
+  return `/api/autopilot/mandates`
+}
+
+/**
+ * @summary Create immutable Demo Autopilot mandate terms
+ */
+export const createAutopilotMandate = async (createAutopilotMandateRequest: CreateAutopilotMandateRequest, options?: RequestInit): Promise<AutopilotMandate> => {
+
+  return customFetch<AutopilotMandate>(getCreateAutopilotMandateUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createAutopilotMandateRequest)
+  }
+);}
+
+
+
+
+export const getCreateAutopilotMandateMutationOptions = <TError = ErrorType<ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAutopilotMandate>>, TError,{data: BodyType<CreateAutopilotMandateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createAutopilotMandate>>, TError,{data: BodyType<CreateAutopilotMandateRequest>}, TContext> => {
+
+const mutationKey = ['createAutopilotMandate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAutopilotMandate>>, {data: BodyType<CreateAutopilotMandateRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createAutopilotMandate(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateAutopilotMandateMutationResult = NonNullable<Awaited<ReturnType<typeof createAutopilotMandate>>>
+    export type CreateAutopilotMandateMutationBody = BodyType<CreateAutopilotMandateRequest>
+    export type CreateAutopilotMandateMutationError = ErrorType<ConflictResponse>
+
+    /**
+ * @summary Create immutable Demo Autopilot mandate terms
+ */
+export const useCreateAutopilotMandate = <TError = ErrorType<ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAutopilotMandate>>, TError,{data: BodyType<CreateAutopilotMandateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createAutopilotMandate>>,
+        TError,
+        {data: BodyType<CreateAutopilotMandateRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateAutopilotMandateMutationOptions(options));
+    }
+
+export const getActivateAutopilotUrl = () => {
+
+
+
+
+  return `/api/autopilot/activate`
+}
+
+/**
+ * @summary Human-authorize an exact mandate for autonomous sandbox entries
+ */
+export const activateAutopilot = async (activateAutopilotRequest: ActivateAutopilotRequest, options?: RequestInit): Promise<AutopilotControl> => {
+
+  return customFetch<AutopilotControl>(getActivateAutopilotUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(activateAutopilotRequest)
+  }
+);}
+
+
+
+
+export const getActivateAutopilotMutationOptions = <TError = ErrorType<ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activateAutopilot>>, TError,{data: BodyType<ActivateAutopilotRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof activateAutopilot>>, TError,{data: BodyType<ActivateAutopilotRequest>}, TContext> => {
+
+const mutationKey = ['activateAutopilot'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof activateAutopilot>>, {data: BodyType<ActivateAutopilotRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  activateAutopilot(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ActivateAutopilotMutationResult = NonNullable<Awaited<ReturnType<typeof activateAutopilot>>>
+    export type ActivateAutopilotMutationBody = BodyType<ActivateAutopilotRequest>
+    export type ActivateAutopilotMutationError = ErrorType<ConflictResponse>
+
+    /**
+ * @summary Human-authorize an exact mandate for autonomous sandbox entries
+ */
+export const useActivateAutopilot = <TError = ErrorType<ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activateAutopilot>>, TError,{data: BodyType<ActivateAutopilotRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof activateAutopilot>>,
+        TError,
+        {data: BodyType<ActivateAutopilotRequest>},
+        TContext
+      > => {
+      return useMutation(getActivateAutopilotMutationOptions(options));
+    }
+
+export const getPauseAutopilotUrl = () => {
+
+
+
+
+  return `/api/autopilot/pause`
+}
+
+/**
+ * @summary Halt new autonomous entries while preserving protective management
+ */
+export const pauseAutopilot = async (pauseAutopilotRequest: PauseAutopilotRequest, options?: RequestInit): Promise<AutopilotControl> => {
+
+  return customFetch<AutopilotControl>(getPauseAutopilotUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(pauseAutopilotRequest)
+  }
+);}
+
+
+
+
+export const getPauseAutopilotMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pauseAutopilot>>, TError,{data: BodyType<PauseAutopilotRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pauseAutopilot>>, TError,{data: BodyType<PauseAutopilotRequest>}, TContext> => {
+
+const mutationKey = ['pauseAutopilot'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pauseAutopilot>>, {data: BodyType<PauseAutopilotRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  pauseAutopilot(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PauseAutopilotMutationResult = NonNullable<Awaited<ReturnType<typeof pauseAutopilot>>>
+    export type PauseAutopilotMutationBody = BodyType<PauseAutopilotRequest>
+    export type PauseAutopilotMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Halt new autonomous entries while preserving protective management
+ */
+export const usePauseAutopilot = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pauseAutopilot>>, TError,{data: BodyType<PauseAutopilotRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof pauseAutopilot>>,
+        TError,
+        {data: BodyType<PauseAutopilotRequest>},
+        TContext
+      > => {
+      return useMutation(getPauseAutopilotMutationOptions(options));
+    }
+
+export const getResumeAutopilotUrl = () => {
+
+
+
+
+  return `/api/autopilot/resume`
+}
+
+/**
+ * @summary Human-request revalidation and resume of the exact mandate
+ */
+export const resumeAutopilot = async (resumeAutopilotRequest: ResumeAutopilotRequest, options?: RequestInit): Promise<AutopilotControl> => {
+
+  return customFetch<AutopilotControl>(getResumeAutopilotUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(resumeAutopilotRequest)
+  }
+);}
+
+
+
+
+export const getResumeAutopilotMutationOptions = <TError = ErrorType<ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resumeAutopilot>>, TError,{data: BodyType<ResumeAutopilotRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resumeAutopilot>>, TError,{data: BodyType<ResumeAutopilotRequest>}, TContext> => {
+
+const mutationKey = ['resumeAutopilot'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resumeAutopilot>>, {data: BodyType<ResumeAutopilotRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  resumeAutopilot(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResumeAutopilotMutationResult = NonNullable<Awaited<ReturnType<typeof resumeAutopilot>>>
+    export type ResumeAutopilotMutationBody = BodyType<ResumeAutopilotRequest>
+    export type ResumeAutopilotMutationError = ErrorType<ConflictResponse>
+
+    /**
+ * @summary Human-request revalidation and resume of the exact mandate
+ */
+export const useResumeAutopilot = <TError = ErrorType<ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resumeAutopilot>>, TError,{data: BodyType<ResumeAutopilotRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resumeAutopilot>>,
+        TError,
+        {data: BodyType<ResumeAutopilotRequest>},
+        TContext
+      > => {
+      return useMutation(getResumeAutopilotMutationOptions(options));
+    }
+
+export const getRevokeAutopilotMandateUrl = (id: number,) => {
+
+
+
+
+  return `/api/autopilot/mandates/${id}/revoke`
+}
+
+/**
+ * @summary Irrevocably revoke one immutable mandate
+ */
+export const revokeAutopilotMandate = async (id: number,
+    revokeAutopilotMandateRequest: RevokeAutopilotMandateRequest, options?: RequestInit): Promise<RevokeAutopilotMandate200> => {
+
+  return customFetch<RevokeAutopilotMandate200>(getRevokeAutopilotMandateUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(revokeAutopilotMandateRequest)
+  }
+);}
+
+
+
+
+export const getRevokeAutopilotMandateMutationOptions = <TError = ErrorType<ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeAutopilotMandate>>, TError,{id: number;data: BodyType<RevokeAutopilotMandateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeAutopilotMandate>>, TError,{id: number;data: BodyType<RevokeAutopilotMandateRequest>}, TContext> => {
+
+const mutationKey = ['revokeAutopilotMandate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeAutopilotMandate>>, {id: number;data: BodyType<RevokeAutopilotMandateRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  revokeAutopilotMandate(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeAutopilotMandateMutationResult = NonNullable<Awaited<ReturnType<typeof revokeAutopilotMandate>>>
+    export type RevokeAutopilotMandateMutationBody = BodyType<RevokeAutopilotMandateRequest>
+    export type RevokeAutopilotMandateMutationError = ErrorType<ConflictResponse>
+
+    /**
+ * @summary Irrevocably revoke one immutable mandate
+ */
+export const useRevokeAutopilotMandate = <TError = ErrorType<ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeAutopilotMandate>>, TError,{id: number;data: BodyType<RevokeAutopilotMandateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revokeAutopilotMandate>>,
+        TError,
+        {id: number;data: BodyType<RevokeAutopilotMandateRequest>},
+        TContext
+      > => {
+      return useMutation(getRevokeAutopilotMandateMutationOptions(options));
     }
 
