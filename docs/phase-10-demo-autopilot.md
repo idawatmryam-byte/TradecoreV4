@@ -146,3 +146,147 @@ Then, with explicit operator authorization and no real-Live orders:
    to persisted claims, intents, and trades. Treat it as Demo evidence only.
 
 Provider-backed validation is unresolved until those VPS checks actually run.
+
+## Deterministic simulated Demo completion validation
+
+The operator CLI provides a deterministic market/decision fixture for the one
+case that cannot be scheduled reliably: a naturally qualifying strategy
+signal. It is not an executor and it is not an API endpoint. After producing
+the fixture, it calls the normal scan path, unified Brain V0 contract,
+deterministic risk and portfolio checks, exact active mandate evaluation,
+reconciliation, atomic claim, executor seam, `DemoExecutor`, intent/trade
+persistence, and Phase 7 management.
+
+The path has categorical and operational locks:
+
+- `PHASE10_VALIDATION_ENABLED=true`, a secret token of at least 32 characters,
+  the exact confirmation phrase, and a UUID run id are all required;
+- only crypto Spot `executionTarget=demo`, `mode=autopilot`, and
+  `executionAuthority=simulated_demo` are accepted;
+- the normal engine must be stopped with `engineDesiredRunning=false`;
+- the exact short-lived mandate must already be active and must pin the bot
+  configuration, Brain V0, symbol, strategy version, risk limits, and Phase 7
+  actions;
+- entry starts only when that isolated user/section has no open position;
+- executor overrides are refused and the fixture exchange contains no order,
+  credential, balance, position, or provider method;
+- Binance testnet/Demo, OANDA practice, every Live authority, global/config
+  suspension, reconciliation ambiguity, risk/portfolio refusal, kill switches,
+  mandate mismatch, and duplicate claims all fail closed.
+
+The CLI never creates a mandate, inserts a trade, calls an executor directly,
+or modifies a provider. Create and activate the expiring mandate through the
+existing Brain Control Center after human review. Use a dedicated validation
+user/config so the zero-open-position invariant does not disturb protected
+legacy positions.
+
+### Exact VPS workflow
+
+Run this only after the reviewed commit has merged and an operator has approved
+the VPS deployment and temporary simulated Demo activation. Set every shell
+variable to its reviewed value. Do not store or print the token.
+
+1. Deploy the exact merged revision through the target-revision deployment and
+   verify the revision, single PM2 fork, health, readiness, schema, and roles:
+
+   ```bash
+   cd /path/to/TradecoreV4
+   TARGET_COMMIT=0123456789abcdef0123456789abcdef01234567
+   ./update.sh "$TARGET_COMMIT"
+   git rev-parse HEAD
+   git status --short
+   pm2 status
+   curl --fail --silent http://127.0.0.1:8080/api/healthz
+   curl --fail --silent http://127.0.0.1:8080/api/readyz
+   ```
+
+2. In the Brain Control Center, use a dedicated crypto Spot simulated Demo
+   config, stop its normal engine, approve exact Brain V0, and create a
+   short-lived mandate with the intended risk/portfolio/Phase 7 limits. After
+   the separate temporary activation approval, export
+   `AUTOPILOT_GLOBAL_SUSPENDED=false` into the managed API environment, restart
+   with `pm2 restart tradecore-api --update-env`, verify readiness, and only
+   then activate that exact mandate. Confirm `engineDesiredRunning=false`
+   before continuing.
+
+3. In an access-controlled operator shell, arm only the CLI process and run the
+   pre-restart stage once:
+
+   ```bash
+   export PHASE10_VALIDATION_ENABLED=true
+   read -rsp 'Phase 10 validation token: ' PHASE10_VALIDATION_TOKEN; echo
+   export PHASE10_VALIDATION_TOKEN
+   export AUTOPILOT_GLOBAL_SUSPENDED=false
+   VALIDATION_USER_ID=123
+   VALIDATION_MANDATE_ID=456
+   VALIDATION_SYMBOL=BTCUSDT
+   VALIDATION_STRATEGY_ID=trend_pullback
+   RUN_ID="$(node -e 'console.log(require("crypto").randomUUID())')"
+   pnpm --filter @workspace/api-server run validate:phase10 -- before-restart \
+     --user-id "$VALIDATION_USER_ID" --mandate-id "$VALIDATION_MANDATE_ID" \
+     --symbol "$VALIDATION_SYMBOL" --strategy-id "$VALIDATION_STRATEGY_ID" \
+     --run-id "$RUN_ID" \
+     --confirmation RUN_ONE_SIMULATED_DEMO_PHASE10_VALIDATION
+   ```
+
+   The command succeeds only after one accepted claim, one durable duplicate
+   refusal, one protected intent, one simulated trade, and a persisted Phase 7
+   management projection. Retain its JSON output and the run id.
+
+4. Exercise process restart/reload, keeping the normal engine stopped, then run
+   the post-restart stage with the same shell token and run id:
+
+   ```bash
+   pm2 restart tradecore-api --update-env
+   curl --fail --silent http://127.0.0.1:8080/api/readyz
+   pnpm --filter @workspace/api-server run validate:phase10 -- after-restart \
+     --user-id "$VALIDATION_USER_ID" --mandate-id "$VALIDATION_MANDATE_ID" \
+     --symbol "$VALIDATION_SYMBOL" --strategy-id "$VALIDATION_STRATEGY_ID" \
+     --run-id "$RUN_ID" \
+     --confirmation RUN_ONE_SIMULATED_DEMO_PHASE10_VALIDATION
+   ```
+
+   This stage reads the persisted evidence with fresh engine instances, proves
+   the claim is still `EXECUTED`, proves exactly one trade exists, verifies the
+   management projection fingerprint, reconciles/manages once more, closes via
+   the normal simulated Demo fill/accounting path, and pauses the config.
+
+5. Immediately restore the managed API environment to
+   `AUTOPILOT_GLOBAL_SUSPENDED=true`, restart with `--update-env`, verify
+   readiness, and durably confirm the restored suspension:
+
+   ```bash
+   export AUTOPILOT_GLOBAL_SUSPENDED=true
+   pm2 restart tradecore-api --update-env
+   curl --fail --silent http://127.0.0.1:8080/api/readyz
+   pnpm --filter @workspace/api-server run validate:phase10 -- confirm-suspended \
+     --user-id "$VALIDATION_USER_ID" --mandate-id "$VALIDATION_MANDATE_ID" \
+     --symbol "$VALIDATION_SYMBOL" --strategy-id "$VALIDATION_STRATEGY_ID" \
+     --run-id "$RUN_ID" \
+     --confirmation RUN_ONE_SIMULATED_DEMO_PHASE10_VALIDATION
+   unset PHASE10_VALIDATION_TOKEN PHASE10_VALIDATION_ENABLED RUN_ID \
+     VALIDATION_USER_ID VALIDATION_MANDATE_ID VALIDATION_SYMBOL \
+     VALIDATION_STRATEGY_ID
+   ```
+
+6. Reconcile the run-scoped append-only events, claim, intent, trade, position
+   management events, final closed status, paused control, and restored global
+   suspension. Verify no provider-side order, position, balance, or credential
+   changed. Retain the evidence as simulated Demo evidence only.
+
+### Independent provider completion status
+
+Classify each sandbox authority independently. A missing credential or provider
+permission is `BLOCKED`, not `FAIL`, when the authority remains disabled, its
+provider state remains `UNKNOWN`, authority-isolation tests pass, and there is
+no fallback to Live. `PASS` requires real provider-backed VPS evidence; `FAIL`
+means a tested safety or correctness invariant actually failed.
+
+| Authority            | Allowed status without usable credentials | Required safety state                          |
+| -------------------- | ----------------------------------------- | ---------------------------------------------- |
+| Binance Spot testnet | `BLOCKED`                                 | disabled, provider `UNKNOWN`, no Live fallback |
+| Binance Futures Demo | `BLOCKED`                                 | disabled, provider `UNKNOWN`, no Live fallback |
+| OANDA practice       | `BLOCKED`                                 | disabled, provider `UNKNOWN`, no Live fallback |
+
+The deterministic simulated Demo run does not upgrade any provider authority to
+`PASS` and never substitutes fabricated database evidence for provider proof.

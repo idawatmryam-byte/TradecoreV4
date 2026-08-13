@@ -19,6 +19,7 @@ import {
   listMandates,
   nextMandateVersion,
   registerBrainVersion,
+  refuseAutopilotActivationWhileGloballySuspended,
   revokeMandate,
   setAutopilotState,
   transitionBrainVersion,
@@ -243,7 +244,15 @@ router.post("/autopilot/activate", async (req, res): Promise<void> => {
   const parsed = activationSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   try {
-    if (globalAutopilotSuspended()) throw new Error("Global Demo Autopilot suspension is active; activation is refused");
+    if (globalAutopilotSuspended()) {
+      await refuseAutopilotActivationWhileGloballySuspended({
+        userId: req.userId!,
+        section: req.section!,
+        requestedMandateId: parsed.data.mandateId,
+        actorUserId: req.userId!,
+      });
+      throw new Error("Global Demo Autopilot suspension is active; activation is refused");
+    }
     const config = await getOrCreateEngine(req.userId!, req.section!, { resumeIdleDemo: false }).loadConfig();
     const mandate = (await listMandates(req.userId!, req.section!)).find((item) => item.id === parsed.data.mandateId);
     if (!mandate) throw new Error("Mandate not found");
