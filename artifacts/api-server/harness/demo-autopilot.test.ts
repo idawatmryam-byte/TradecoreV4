@@ -94,6 +94,12 @@ function evaluate(overrides: Partial<AutopilotRuntimeEvidence> = {}, mandateOver
 }
 
 expect("valid autonomous simulated Demo decision is authorized", evaluate().allowed);
+expect("persisted immutable mandate is authorized by the same strict evaluator", evaluateAutopilotEntry({
+  ...mandate,
+  id: 1,
+  fingerprint: "c".repeat(64),
+  createdAt: "2026-08-11T23:59:00.000Z",
+}, evidence).allowed);
 expect("missing mandate fails closed", evaluateAutopilotEntry(null, evidence).reasonCode === "MANDATE_MISSING");
 expect("expired mandate fails closed", evaluate({}, { expiresAt: now.toISOString() }).reasonCode === "MANDATE_EXPIRED");
 expect("real Live authority is categorically refused", evaluate({ executionAuthority: "binance_spot_live" }).reasonCode === "AUTHORITY_NOT_APPROVED_DEMO");
