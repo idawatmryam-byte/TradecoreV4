@@ -205,10 +205,6 @@ deploy_log "typechecking and running the database-independent test suite"
 pnpm run typecheck
 pnpm --filter @workspace/api-server run test
 
-deploy_log "building frontend and backend"
-PORT="$BUILD_PORT" BASE_PATH="$BASE_PATH" pnpm --filter @workspace/tradecore-pro run build
-pnpm --filter @workspace/api-server run build
-
 if [[ -z "${DATABASE_URL:-}" || -z "${DATABASE_MIGRATION_URL:-}" ]]; then
   echo "DATABASE_URL (runtime) and DATABASE_MIGRATION_URL (owner) are required." >&2
   exit 1
@@ -256,7 +252,11 @@ if [[ "$RUNTIME_USER" != "$TRADECORE_RUNTIME_ROLE" ]]; then
 fi
 
 deploy_log "applying the database schema with migration authority"
-DATABASE_URL="$DATABASE_MIGRATION_URL" pnpm --filter @workspace/db run push
+apply_database_schema \
+  "$DATABASE_MIGRATION_URL" \
+  scripts/sql/reconcile-blacklist-constraint.sql \
+  scripts/sql/verify-deployment-schema.sql \
+  pnpm --filter @workspace/db run push
 
 deploy_log "installing and verifying post-schema database security"
 apply_post_schema_database_security \
@@ -265,6 +265,10 @@ apply_post_schema_database_security \
   "$TRADECORE_RUNTIME_ROLE" \
   scripts/sql/capture-grants.sql \
   scripts/sql/verify-database-roles.sql
+
+deploy_log "building frontend and backend"
+PORT="$BUILD_PORT" BASE_PATH="$BASE_PATH" pnpm --filter @workspace/tradecore-pro run build
+pnpm --filter @workspace/api-server run build
 
 if [[ "${SEED_DEMO:-}" == "1" ]]; then
   deploy_log "refreshing the read-only demo account"
