@@ -164,6 +164,45 @@ verify_database_security() {
     -v owner_role="$owner_role" -v app_role="$app_role" -f "$verify_script"
 }
 
+apply_database_schema() {
+  local migration_url="$1"
+  local reconcile_script="$2"
+  local verify_script="$3"
+  shift 3
+  local output_file
+  local command_status=0
+  local normalized_output
+
+  "${PSQL_BIN:-psql}" "$migration_url" -v ON_ERROR_STOP=1 -f "$reconcile_script"
+  output_file="$(mktemp "${TMPDIR:-/tmp}/tradecore-schema.XXXXXX")"
+
+  if CI=1 DATABASE_URL="$migration_url" "$@" >"$output_file" 2>&1; then
+    command_status=0
+  else
+    command_status=$?
+  fi
+  cat "$output_file"
+
+  if (( command_status != 0 )); then
+    echo "Database schema application failed with status $command_status." >&2
+    rm -f -- "$output_file"
+    return "$command_status"
+  fi
+
+  # Drizzle 0.31.10 catches PostgreSQL push errors and may return zero. Strip
+  # terminal color before matching the stable prompt/error phrases.
+  normalized_output="$(sed -E $'s/\\x1B\\[[0-9;]*[[:alpha:]]//g' "$output_file")"
+  rm -f -- "$output_file"
+  if grep -Eiq \
+    "Do you want to truncate|You're about to add .* unique constraint|All changes were aborted|PostgresError|(^|[[:space:]])Error:" \
+    <<<"$normalized_output"; then
+    echo "Database schema application emitted an interactive prompt, abort, or error despite returning zero." >&2
+    return 1
+  fi
+
+  "${PSQL_BIN:-psql}" "$migration_url" -v ON_ERROR_STOP=1 -f "$verify_script"
+}
+
 normalize_autopilot_global_suspended() {
   local configured="${1:-true}"
   case "${configured,,}" in

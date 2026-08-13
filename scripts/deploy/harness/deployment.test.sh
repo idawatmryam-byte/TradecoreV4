@@ -95,6 +95,59 @@ TRADECORE_REPO_ROOT="$fixture" bash "$fixture/update.sh" origin/main >/dev/null
 marker="$(<"$TEST_DIR/stage-marker")"
 expect "target revision updater executes instead of stale launcher logic" "$([[ "$marker" == "target" ]] && echo 1 || echo 0)"
 
+schema_psql="$TEST_DIR/schema-psql.sh"
+schema_command="$TEST_DIR/schema-command.sh"
+schema_calls="$TEST_DIR/schema-calls"
+printf '#!/usr/bin/env bash\nprintf '\''%%s\\n'\'' "$*" >> "$DEPLOY_SCHEMA_CALLS"\n' > "$schema_psql"
+printf '#!/usr/bin/env bash\nprintf '\''%%s\\n'\'' "${SCHEMA_COMMAND_OUTPUT:-[✓] Changes applied}"\nexit "${SCHEMA_COMMAND_STATUS:-0}"\n' > "$schema_command"
+chmod +x "$schema_psql" "$schema_command"
+export DEPLOY_SCHEMA_CALLS="$schema_calls"
+PSQL_BIN="$schema_psql"
+unset SCHEMA_COMMAND_OUTPUT SCHEMA_COMMAND_STATUS
+schema_succeeded=0
+if apply_database_schema \
+  "postgres://redacted" reconcile.sql verify-schema.sql "$schema_command" \
+  >"$TEST_DIR/schema-success.log" 2>&1; then
+  schema_succeeded=1
+fi
+expect "non-interactive schema application verifies reconciliation and postconditions" \
+  "$([[ "$schema_succeeded" -eq 1 ]] && echo 1 || echo 0)"
+expect "schema reconciliation runs before the schema command" \
+  "$([[ "$(sed -n '1p' "$schema_calls")" == *'-f reconcile.sql'* ]] && echo 1 || echo 0)"
+expect "schema postconditions run after a clean schema command" \
+  "$([[ "$(sed -n '2p' "$schema_calls")" == *'-f verify-schema.sql'* ]] && echo 1 || echo 0)"
+
+: > "$schema_calls"
+export SCHEMA_COMMAND_OUTPUT='PostgresError: relation "autopilot_controls" does not exist'
+export SCHEMA_COMMAND_STATUS=0
+false_success_blocked=0
+if ! apply_database_schema \
+  "postgres://redacted" reconcile.sql verify-schema.sql "$schema_command" \
+  >"$TEST_DIR/schema-false-success.log" 2>&1; then
+  false_success_blocked=1
+fi
+expect "Drizzle error text with exit code zero blocks deployment" "$false_success_blocked"
+expect "schema verification is not reached after false-success error output" \
+  "$([[ "$(wc -l < "$schema_calls")" -eq 1 ]] && echo 1 || echo 0)"
+
+: > "$schema_calls"
+export SCHEMA_COMMAND_OUTPUT=$'· You'\''re about to add blacklist_user_section_symbol_unique unique constraint to the table, which contains 38 items. Do you want to truncate blacklist_entries table?'
+unset SCHEMA_COMMAND_STATUS
+interactive_blocked=0
+if ! apply_database_schema \
+  "postgres://redacted" reconcile.sql verify-schema.sql "$schema_command" \
+  >"$TEST_DIR/schema-interactive.log" 2>&1; then
+  interactive_blocked=1
+fi
+expect "interactive Drizzle prompt output blocks deployment" "$interactive_blocked"
+
+schema_line="$(grep -n 'apply_database_schema' "$REPO_ROOT/scripts/deploy/deploy-target.sh" | cut -d: -f1)"
+security_line="$(grep -n 'apply_post_schema_database_security' "$REPO_ROOT/scripts/deploy/deploy-target.sh" | cut -d: -f1)"
+build_line="$(grep -n 'building frontend and backend' "$REPO_ROOT/scripts/deploy/deploy-target.sh" | cut -d: -f1)"
+restart_line="$(grep -n 'restarting the service' "$REPO_ROOT/scripts/deploy/deploy-target.sh" | cut -d: -f1)"
+expect "schema verification precedes security, build, and restart" \
+  "$([[ "$schema_line" -lt "$security_line" && "$security_line" -lt "$build_line" && "$build_line" -lt "$restart_line" ]] && echo 1 || echo 0)"
+
 security_psql="$TEST_DIR/security-psql.sh"
 security_calls="$TEST_DIR/security-calls"
 printf '#!/usr/bin/env bash\nprintf '\''%%s\\n'\'' "$*" >> "$DEPLOY_SECURITY_CALLS"\n' > "$security_psql"
