@@ -154,7 +154,9 @@ overrides:
   esbuild: 0.27.3
 
 patchedDependencies:
-  drizzle-kit@0.31.10: 2fb9c10e57a31548d041cd055be21f5d078d54ffca934458e320b77fda851190
+  drizzle-kit@0.31.10:
+    hash: 2fb9c10e57a31548d041cd055be21f5d078d54ffca934458e320b77fda851190
+    path: patches/drizzle-kit@0.31.10.patch
 
 importers:
 
