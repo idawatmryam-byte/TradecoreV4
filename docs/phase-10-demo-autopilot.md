@@ -87,7 +87,12 @@ validates every adaptive action and cannot exceed that list; protective
 `HOLD`, `FREEZE`, and `EXIT` are mandatory.
 
 The environment variable `AUTOPILOT_GLOBAL_SUSPENDED=true` is the deployment
-global entry suspension. The Control Center exposes both global and per-config
+global entry suspension. It is explicit in both environment templates, the
+deployment process defaults it to `true`, and a production process with the
+variable absent or malformed also fails closed to suspended. Setting it to
+`false` requires an operator-reviewed configuration change; that override only
+lifts this global gate and does not bypass mandate, control, risk, authority, or
+reconciliation checks. The Control Center exposes both global and per-config
 state. Resume requires an explicit human reason and exact mandate/config
 revalidation; the next entry still passes all runtime gates.
 
@@ -111,10 +116,16 @@ Then, with explicit operator authorization and no real-Live orders:
 
 1. Capture deployed commit, clean status, PM2 single-fork topology, migration
    output, `/api/healthz`, `/api/readyz`, and database connectivity.
-2. Verify all six Phase 10 tables and new execution/trade bindings exist. Run
-   `capture-grants.sql` and `verify-database-roles.sql`; prove mandates/events
-   are runtime-immutable and account purge removes Phase 10 rows.
-3. Confirm `AUTOPILOT_GLOBAL_SUSPENDED` is explicitly configured. Exercise
+2. Verify all six Phase 10 tables and new execution/trade bindings exist. The
+   regular deployment must run `capture-grants.sql` after every schema push,
+   including on an already-hardened database, then run
+   `verify-database-roles.sql`. Prove mandate terms, audit events, and decision
+   claim identity are runtime-immutable; prove lifecycle projections expose
+   only their reviewed update columns; and prove account purge removes Phase 10
+   rows.
+3. Confirm `AUTOPILOT_GLOBAL_SUSPENDED=true` is explicitly configured before
+   restart. Any later `false` override requires a separate operator review.
+   Exercise
    global and per-config pause/resume and verify new entries halt immediately
    while an existing Demo position continues protective management.
 4. For simulated Crypto Demo, create/approve/activate an expiring mandate,

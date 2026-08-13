@@ -9,6 +9,7 @@ import { autopilotConfigFingerprint, autonomousIdempotencyKey } from "../src/lib
 import { makeAutopilotClientOrderId, makeAutopilotCorrelationId } from "../src/lib/execution/ids";
 import { resolveExecutionAuthority } from "../src/lib/execution/authority";
 import { DemoExecutionIsolationError, restrictToDemoMarketData } from "../src/lib/execution/demoMarketData";
+import { globalAutopilotSuspended } from "../src/lib/autopilot/config";
 
 let failures = 0;
 function expect(name: string, condition: boolean, detail = "") {
@@ -17,6 +18,12 @@ function expect(name: string, condition: boolean, detail = "") {
 }
 
 const now = new Date("2026-08-12T12:00:00.000Z");
+
+expect("production defaults global Autopilot suspension fail-closed", globalAutopilotSuspended({ NODE_ENV: "production" }));
+expect("invalid global suspension configuration fails closed", globalAutopilotSuspended({ NODE_ENV: "production", AUTOPILOT_GLOBAL_SUSPENDED: "invalid" }));
+expect("explicit reviewed false can lift only the global deployment suspension", !globalAutopilotSuspended({ NODE_ENV: "production", AUTOPILOT_GLOBAL_SUSPENDED: "false" }));
+expect("development remains opt-in compatible when suspension is absent", !globalAutopilotSuspended({ NODE_ENV: "development" }));
+
 const mandate: DemoAutopilotMandateCore = {
   schemaVersion: "phase10-demo-autopilot-v1",
   userId: 10,

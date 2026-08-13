@@ -4,7 +4,7 @@ if (!process.env.DATABASE_URL) {
   process.exit(0);
 }
 
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, type SQL } from "drizzle-orm";
 import { makeAutopilotClientOrderId, makeAutopilotCorrelationId } from "../src/lib/execution/ids";
 import { autonomousIdempotencyKey } from "../src/lib/autopilot/fingerprints";
 
@@ -24,6 +24,24 @@ let failures = 0;
 function expect(name: string, condition: boolean, detail = "") {
   if (!condition) failures++;
   console.log(`${condition ? "✓" : "✗ FAIL"}  ${name}${condition ? "" : `  ${detail}`}`);
+}
+
+class UnexpectedlyAllowedMutation extends Error {}
+
+async function mutationIsRefused(statement: SQL, rollbackIfAllowed = false): Promise<boolean> {
+  try {
+    if (rollbackIfAllowed) {
+      await db.transaction(async (tx) => {
+        await tx.execute(statement);
+        throw new UnexpectedlyAllowedMutation();
+      });
+    } else {
+      await db.execute(statement);
+    }
+    return false;
+  } catch (error) {
+    return !(error instanceof UnexpectedlyAllowedMutation);
+  }
 }
 
 async function cleanup() {
@@ -133,12 +151,33 @@ async function main() {
     expect("audit records autonomous refusal", eventTypes.has("AUTONOMOUS_DECISION_REFUSED"));
     expect("audit records suspension and resume", eventTypes.has("AUTOPILOT_PAUSED") && eventTypes.has("AUTOPILOT_RESUMED"));
 
-    let mandateMutationRefused = false;
-    try { await db.delete(demoMandatesTable).where(eq(demoMandatesTable.id, mandate.id)); } catch { mandateMutationRefused = true; }
-    expect("runtime role cannot delete an immutable mandate", mandateMutationRefused);
-    let auditMutationRefused = false;
-    try { await db.delete(autopilotEventsTable).where(eq(autopilotEventsTable.userId, USER)); } catch { auditMutationRefused = true; }
-    expect("runtime role cannot delete append-only Autopilot audit evidence", auditMutationRefused);
+    expect("runtime role cannot update immutable mandate terms", await mutationIsRefused(
+      sql`UPDATE public.demo_autopilot_mandates SET fingerprint = fingerprint WHERE id = -1`,
+    ));
+    expect("runtime role cannot delete an immutable mandate", await mutationIsRefused(
+      sql`DELETE FROM public.demo_autopilot_mandates WHERE id = -1`,
+    ));
+    expect("runtime role cannot truncate immutable mandates", await mutationIsRefused(
+      sql`TRUNCATE TABLE public.demo_autopilot_mandates`, true,
+    ));
+    expect("runtime role cannot update append-only Autopilot audit evidence", await mutationIsRefused(
+      sql`UPDATE public.autopilot_events SET reason = reason WHERE id = -1`,
+    ));
+    expect("runtime role cannot delete append-only Autopilot audit evidence", await mutationIsRefused(
+      sql`DELETE FROM public.autopilot_events WHERE id = -1`,
+    ));
+    expect("runtime role cannot truncate append-only Autopilot audit evidence", await mutationIsRefused(
+      sql`TRUNCATE TABLE public.autopilot_events`, true,
+    ));
+    expect("runtime role cannot rewrite autonomous claim identity", await mutationIsRefused(
+      sql`UPDATE public.autopilot_decision_claims SET mandate_fingerprint = mandate_fingerprint WHERE id = -1`,
+    ));
+    expect("runtime role cannot delete autonomous decision claims", await mutationIsRefused(
+      sql`DELETE FROM public.autopilot_decision_claims WHERE id = -1`,
+    ));
+    expect("runtime role cannot truncate autonomous decision claims", await mutationIsRefused(
+      sql`TRUNCATE TABLE public.autopilot_decision_claims`, true,
+    ));
 
     await db.execute(sql`SELECT capture.purge_user_data(${USER})`);
     const remaining = await Promise.all([

@@ -96,12 +96,11 @@ REVOKE ALL ON ALL TABLES IN SCHEMA public FROM :"app_role";
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO :"app_role";
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO :"app_role";
 
--- These public tables are immutable event evidence. Account erasure goes
--- through capture.purge_user_data(integer), not direct runtime DELETE.
+-- Existing immutable public evidence. Phase 10's complete table/column policy
+-- is shared with the regular post-schema security installation below.
 REVOKE UPDATE, DELETE, TRUNCATE ON TABLE public.execution_events FROM :"app_role";
 REVOKE UPDATE, DELETE, TRUNCATE ON TABLE public.recommendation_events FROM :"app_role";
-REVOKE UPDATE, DELETE, TRUNCATE ON TABLE public.autopilot_events FROM :"app_role";
-REVOKE UPDATE, DELETE, TRUNCATE ON TABLE public.demo_autopilot_mandates FROM :"app_role";
+\ir phase-10-runtime-grants.sql
 
 REVOKE ALL ON ALL TABLES IN SCHEMA capture FROM :"app_role";
 GRANT SELECT, INSERT ON ALL TABLES IN SCHEMA capture TO :"app_role";

@@ -201,10 +201,14 @@ Forward procedure (explicit database/VPS authorization required):
    - `TRADECORE_DATABASE_NAME=tradecore`;
    - `TRADECORE_LEGACY_ROLE=tradecore`;
    - `TRADECORE_DATABASE_OWNER_ROLE=tradecore_owner`;
-   - `TRADECORE_RUNTIME_ROLE=tradecore_runtime`.
+   - `TRADECORE_RUNTIME_ROLE=tradecore_runtime`;
+   - `AUTOPILOT_GLOBAL_SUSPENDED=true` (the production fail-closed default;
+     `false` requires a separately reviewed operator decision).
 
 5. The target deployment performs the following sequence. It refuses an owner
-   other than the exact legacy or target owner:
+   other than the exact legacy or target owner. The ownership hardening command
+   runs only for the legacy owner; schema push, post-schema grants, and strict
+   verification run on every deployment:
 
 ```bash
 psql "$DATABASE_BOOTSTRAP_URL" -v ON_ERROR_STOP=1 \
@@ -231,11 +235,16 @@ psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 \
 tradecore TO tradecore_owner`, transfers the database and schema owners,
    removes database/schema creation from runtime, installs least-privilege
    table/sequence/default grants, and prevents runtime from assuming owner.
-   Schema push then runs only through `tradecore_owner`.
+   Schema push then runs only through `tradecore_owner`. The regular
+   `capture-grants.sql` step includes the idempotent Phase 10 policy: immutable
+   mandates/events and claim identity cannot be updated or deleted, while the
+   mutable projections and claim outcome expose only their reviewed columns.
 7. Confirm `to_regprocedure('capture.purge_user_data(integer)')` is non-null,
    owned by the migration role, SECURITY DEFINER, executable by runtime, and not
    executable by PUBLIC.
-8. `verify-database-roles.sql` must exit successfully before restart. It fails
+8. `verify-database-roles.sql` must exit successfully before restart. It raises
+   a PostgreSQL error under `ON_ERROR_STOP` for any failed invariant, so psql 12
+   and later return nonzero without relying on numeric `\quit`. It fails
    the deployment unless the target migration role owns the database, schemas,
    data objects, and functions; runtime has no administrative/create/ownership
    authority; evidence is immutable; and runtime can execute only the purge
