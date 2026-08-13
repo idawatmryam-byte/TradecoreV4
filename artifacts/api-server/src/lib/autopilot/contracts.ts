@@ -72,7 +72,7 @@ const DemoAutopilotMandateFieldsSchema = z.object({
   permittedPhase7Actions: z.array(Phase7MandateActionSchema).min(1).max(6),
   validFrom: z.string().datetime(),
   expiresAt: z.string().datetime(),
-}).strict();
+});
 
 function validateMandate(
   value: z.infer<typeof DemoAutopilotMandateFieldsSchema>,
@@ -109,7 +109,7 @@ function validateMandate(
   }
 }
 
-export const DemoAutopilotMandateCoreSchema = DemoAutopilotMandateFieldsSchema.superRefine(validateMandate);
+export const DemoAutopilotMandateCoreSchema = DemoAutopilotMandateFieldsSchema.strict().superRefine(validateMandate);
 
 export const DemoAutopilotMandateSchema = DemoAutopilotMandateFieldsSchema.extend({
   id: z.number().int().positive(),

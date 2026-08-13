@@ -1,6 +1,7 @@
 import type { BotConfig } from "@workspace/db";
 import type { ExecutionAuthority } from "../src/lib/execution/authority";
 import type { DemoAutopilotMandate } from "../src/lib/autopilot/contracts";
+import { DemoAutopilotMandateSchema } from "../src/lib/autopilot/contracts";
 import {
   assertSimulatedDemoValidationBoundary,
   authorizePhase10Validation,
@@ -103,9 +104,40 @@ const config = {
   marketType: "spot",
 } as BotConfig;
 const mandate = {
+  id: 1,
+  schemaVersion: "phase10-demo-autopilot-v1",
+  userId: 1,
+  section: "crypto",
+  version: 1,
+  botConfigId: 1,
+  configFingerprint: "a".repeat(64),
+  brainVersionId: 1,
+  brainVersion: "brain-v0",
   executionAuthority: "simulated_demo",
   marketType: "spot",
+  instruments: ["BTCUSDT"],
+  strategyVersions: { trend_pullback: "strategy-v1" },
+  maximumPositionSizeUsdt: 100,
+  maximumLeverage: 1,
+  maximumPortfolioRiskPercent: 5,
+  maximumSymbolExposurePercent: 50,
+  maximumNetExposurePercent: 50,
+  maximumCorrelatedExposurePercent: 50,
+  dailyLossLimitUsdt: 100,
+  maximumDrawdownPercent: 10,
+  maximumConcurrentPositions: 1,
+  maximumMarketDataAgeSeconds: 30,
+  allowedTradingHoursUtc: [],
+  permittedPhase7Actions: ["HOLD", "FREEZE", "EXIT"],
+  validFrom: "2026-08-13T11:59:00.000Z",
+  expiresAt: "2026-08-13T12:15:00.000Z",
+  fingerprint: "b".repeat(64),
+  createdAt: "2026-08-13T11:58:00.000Z",
 } as DemoAutopilotMandate;
+expect(
+  "persisted mandate schema accepts its immutable persistence fields",
+  DemoAutopilotMandateSchema.safeParse(mandate).success,
+);
 expect(
   "simulated_demo Spot boundary accepts the exact Demo authority",
   !refused(() =>
