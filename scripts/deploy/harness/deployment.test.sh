@@ -50,6 +50,13 @@ expect "readiness failure has an explicit classification" "$([[ "$(classify_read
 expect "API unavailability has an explicit classification" "$([[ "$(classify_readiness_response 000 '')" == "api_unavailable" ]] && echo 1 || echo 0)"
 database_body='{"ready":false,"reason":"database_unhealthy","checks":{"database":"unreachable"}}'
 expect "database failure has an explicit classification" "$([[ "$(classify_readiness_response 503 "$database_body")" == "database_unhealthy" ]] && echo 1 || echo 0)"
+expect "production deployment defaults global Demo Autopilot suspension fail-closed" \
+  "$([[ "$(normalize_autopilot_global_suspended '')" == "true" ]] && echo 1 || echo 0)"
+expect "an explicit reviewed false suspension value is preserved" \
+  "$([[ "$(normalize_autopilot_global_suspended false)" == "false" ]] && echo 1 || echo 0)"
+invalid_suspension_refused=0
+if ! normalize_autopilot_global_suspended invalid >/dev/null 2>&1; then invalid_suspension_refused=1; fi
+expect "invalid global suspension configuration cannot fail open" "$invalid_suspension_refused"
 
 printf '0' > "$state"
 printf '0' > "$clock"
@@ -87,6 +94,19 @@ git -C "$fixture" reset -q --hard "$old_commit"
 TRADECORE_REPO_ROOT="$fixture" bash "$fixture/update.sh" origin/main >/dev/null
 marker="$(<"$TEST_DIR/stage-marker")"
 expect "target revision updater executes instead of stale launcher logic" "$([[ "$marker" == "target" ]] && echo 1 || echo 0)"
+
+security_psql="$TEST_DIR/security-psql.sh"
+security_calls="$TEST_DIR/security-calls"
+printf '#!/usr/bin/env bash\nprintf '\''%%s\\n'\'' "$*" >> "$DEPLOY_SECURITY_CALLS"\n' > "$security_psql"
+chmod +x "$security_psql"
+export DEPLOY_SECURITY_CALLS="$security_calls"
+PSQL_BIN="$security_psql"
+apply_post_schema_database_security \
+  "postgres://redacted" owner runtime capture-grants.sql verify-database-roles.sql
+expect "regular post-schema security installs grants on an already-hardened database" \
+  "$(grep -q -- '-f capture-grants.sql' "$security_calls" && echo 1 || echo 0)"
+expect "regular post-schema security always runs the strict verifier" \
+  "$(grep -q -- '-f verify-database-roles.sql' "$security_calls" && echo 1 || echo 0)"
 
 fake_psql="$TEST_DIR/failing-psql.sh"
 printf '#!/usr/bin/env bash\nexit 4\n' > "$fake_psql"

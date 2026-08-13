@@ -100,6 +100,11 @@ GRANT INSERT, SELECT ON ALL TABLES IN SCHEMA capture TO :"app_role";
 -- serial primary keys need the sequence.
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA capture TO :"app_role";
 
+-- Phase 10 lives in public rather than capture. Reapply its exact runtime
+-- policy after every schema push so later tables cannot retain the broader
+-- public-schema defaults installed during the one-time role migration.
+\ir phase-10-runtime-grants.sql
+
 -- Tables added to the schema later inherit the same shape automatically, so a
 -- future capture table cannot accidentally ship as mutable.
 ALTER DEFAULT PRIVILEGES FOR ROLE :"owner_role" IN SCHEMA capture
