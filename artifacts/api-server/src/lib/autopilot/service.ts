@@ -4,6 +4,7 @@ import type { ExecutionAuthority } from "../execution/authority";
 import type { AutopilotExecutionContext } from "../execution/executor";
 import { BRAIN_V0_VERSION } from "../intelligence/baseline";
 import { brainDecisionFingerprint } from "../intelligence/contracts";
+import { sha256Fingerprint } from "../intelligence/canonical";
 import type { MarketState } from "../intelligence/market-state/types";
 import { brainDecisionFromV0TradePlan } from "../intelligence/trade-plan-adapter";
 import type { StrategyConfig, TradePlan } from "../strategies";
@@ -85,6 +86,11 @@ const AUTO_BLOCK_CODES = new Set([
   "REQUIRED_EVIDENCE_UNAVAILABLE",
 ]);
 
+function deterministicUuid(value: unknown): string {
+  const hash = sha256Fingerprint(value);
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-5${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+}
+
 export async function authorizeAutopilotEntry(input: AuthorizeAutopilotInput): Promise<AuthorizeAutopilotResult> {
   const snapshot = await getAutopilotSnapshot(input.userId, input.section);
   const configFingerprint = autopilotConfigFingerprint(input.config);
@@ -92,7 +98,10 @@ export async function authorizeAutopilotEntry(input: AuthorizeAutopilotInput): P
   const dataTimestamp = input.marketState?.dataTimestamp ?? input.now.toISOString();
   const maximumAgeSeconds = snapshot.mandate?.maximumMarketDataAgeSeconds ?? 1;
   const expiresAt = new Date(Date.parse(dataTimestamp) + maximumAgeSeconds * 1000).toISOString();
-  const decision = brainDecisionFromV0TradePlan(input.plan, {
+  const decisionIdentity = {
+    userId: input.userId,
+    section: input.section,
+    plan: input.plan,
     marketStateFingerprint: input.marketState?.fingerprint ?? "0".repeat(64),
     dataTimestamp,
     expiresAt: Date.parse(expiresAt) > Date.parse(dataTimestamp) ? expiresAt : new Date(Date.parse(dataTimestamp) + 1).toISOString(),
@@ -100,6 +109,17 @@ export async function authorizeAutopilotEntry(input: AuthorizeAutopilotInput): P
     strategyVersion,
     configVersion: configFingerprint,
     marketStateVersion: input.marketState?.marketStateVersion ?? "market-state-unavailable",
+  };
+  const decision = brainDecisionFromV0TradePlan(input.plan, {
+    marketStateFingerprint: input.marketState?.fingerprint ?? "0".repeat(64),
+    dataTimestamp,
+    expiresAt: decisionIdentity.expiresAt,
+    brainVersion: BRAIN_V0_VERSION,
+    strategyVersion,
+    configVersion: configFingerprint,
+    marketStateVersion: input.marketState?.marketStateVersion ?? "market-state-unavailable",
+    decisionId: deterministicUuid({ type: "phase10-brain-v0-decision", ...decisionIdentity }),
+    thesisId: deterministicUuid({ type: "phase10-brain-v0-thesis", ...decisionIdentity }),
   });
   const decisionFingerprint = brainDecisionFingerprint(decision);
 
