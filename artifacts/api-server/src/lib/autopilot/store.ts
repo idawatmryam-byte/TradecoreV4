@@ -12,7 +12,7 @@ import {
   type BrainVersionRecord,
   type DemoMandateRecord,
 } from "@workspace/db";
-import { and, desc, eq, max } from "drizzle-orm";
+import { and, desc, eq, max, sql } from "drizzle-orm";
 import { BRAIN_V0_CONTROL_COMMIT, BRAIN_V0_VERSION } from "../intelligence/baseline";
 import { sha256Fingerprint } from "../intelligence/canonical";
 import {
@@ -310,6 +310,93 @@ async function ensureControl(userId: number, section: "crypto" | "forex"): Promi
   return existing;
 }
 
+/**
+ * Persist the global-suspension activation refusal and the reduced control
+ * state in one transaction. The requested mandate is never activated and no
+ * autonomous decision claim is created.
+ */
+export async function refuseAutopilotActivationWhileGloballySuspended(input: {
+  userId: number;
+  section: "crypto" | "forex";
+  requestedMandateId: number;
+  actorUserId: number;
+}): Promise<void> {
+  await ensureControl(input.userId, input.section);
+  const reasonCode = "GLOBAL_SUSPENSION_ACTIVE";
+  const reason = "Global Demo Autopilot suspension is active; activation is refused";
+  await db.transaction(async (tx) => {
+    const [current] = await tx.select().from(autopilotControlsTable).where(and(
+      eq(autopilotControlsTable.userId, input.userId),
+      eq(autopilotControlsTable.section, input.section),
+    )).limit(1).for("update");
+    if (!current) throw new Error("Autopilot control row not found while recording activation refusal");
+    const [requestedMandate] = await tx.select({ id: demoMandatesTable.id }).from(demoMandatesTable).where(and(
+      eq(demoMandatesTable.id, input.requestedMandateId),
+      eq(demoMandatesTable.userId, input.userId),
+      eq(demoMandatesTable.section, input.section),
+    )).limit(1);
+
+    await tx.update(autopilotControlsTable).set({
+      state: "AUTOPILOT_BLOCKED",
+      reasonCode,
+      reason,
+      globalSuspended: true,
+      configSuspended: true,
+      lastEvaluatedAt: new Date(),
+    }).where(eq(autopilotControlsTable.id, current.id));
+
+    if (current.mandateId) {
+      const [lifecycle] = await tx.select().from(autopilotMandateStatesTable)
+        .where(eq(autopilotMandateStatesTable.mandateId, current.mandateId))
+        .limit(1)
+        .for("update");
+      if (lifecycle && lifecycle.state !== "REVOKED" && lifecycle.state !== "EXPIRED" && lifecycle.state !== "SUSPENDED") {
+        await tx.update(autopilotMandateStatesTable).set({
+          state: "SUSPENDED",
+          reasonCode,
+          reason,
+        }).where(eq(autopilotMandateStatesTable.id, lifecycle.id));
+        await appendEvent({
+          userId: input.userId,
+          section: input.section,
+          eventType: "MANDATE_SUSPENDED",
+          actor: { actorType: "user", actorUserId: input.actorUserId },
+          mandateId: current.mandateId,
+          fromState: lifecycle.state,
+          toState: "SUSPENDED",
+          reasonCode,
+          reason,
+        }, tx);
+      }
+    }
+
+    await appendEvent({
+      userId: input.userId,
+      section: input.section,
+      eventType: "AUTOPILOT_ACTIVATION_REFUSED",
+      actor: { actorType: "user", actorUserId: input.actorUserId },
+      ...(requestedMandate && { mandateId: requestedMandate.id }),
+      fromState: current.state,
+      toState: "AUTOPILOT_BLOCKED",
+      reasonCode,
+      reason,
+      fingerprint: sha256Fingerprint({
+        userId: input.userId,
+        section: input.section,
+        requestedMandateId: input.requestedMandateId,
+        reasonCode,
+      }),
+      payload: {
+        requestedMandateId: input.requestedMandateId,
+        requestedMandateExists: Boolean(requestedMandate),
+        claimCreated: false,
+        intentCreated: false,
+        tradeCreated: false,
+      },
+    }, tx);
+  });
+}
+
 export async function setAutopilotState(input: {
   userId: number;
   section: "crypto" | "forex";
@@ -477,6 +564,72 @@ export async function listMandates(userId: number, section: "crypto" | "forex"):
 
 export async function listAutopilotEvents(userId: number, section: "crypto" | "forex", limit = 100) {
   return db.select().from(autopilotEventsTable).where(and(eq(autopilotEventsTable.userId, userId), eq(autopilotEventsTable.section, section))).orderBy(desc(autopilotEventsTable.occurredAt)).limit(Math.max(1, Math.min(limit, 500)));
+}
+
+const PHASE10_VALIDATION_EVENT_TYPES = new Set([
+  "PHASE10_VALIDATION_STAGE_STARTED",
+  "PHASE10_VALIDATION_RECONCILIATION_HEALTHY",
+  "PHASE10_VALIDATION_ENTRY_SUCCEEDED",
+  "PHASE10_VALIDATION_MANAGEMENT_PERSISTED",
+  "PHASE10_VALIDATION_RELOAD_VERIFIED",
+  "PHASE10_VALIDATION_CLOSE_SUCCEEDED",
+  "PHASE10_VALIDATION_COMPLETED",
+  "PHASE10_VALIDATION_GLOBAL_SUSPENSION_RESTORED",
+  "PHASE10_VALIDATION_REFUSED",
+] as const);
+
+export async function recordPhase10ValidationEvent(input: {
+  userId: number;
+  section: "crypto" | "forex";
+  eventType: string;
+  operatorUserId: number;
+  runId: string;
+  reasonCode: string;
+  reason: string;
+  mandateId?: number;
+  decisionClaimId?: number;
+  fromState?: string | null;
+  toState?: string | null;
+  payload?: Record<string, unknown>;
+}): Promise<void> {
+  if (!PHASE10_VALIDATION_EVENT_TYPES.has(input.eventType as never)) {
+    throw new Error(`Unsupported Phase 10 validation audit event ${input.eventType}`);
+  }
+  await db.transaction(async (tx) => {
+    await appendEvent({
+      userId: input.userId,
+      section: input.section,
+      eventType: input.eventType,
+      actor: { actorType: "operator", actorUserId: input.operatorUserId },
+      ...(input.mandateId != null && { mandateId: input.mandateId }),
+      ...(input.decisionClaimId != null && { decisionClaimId: input.decisionClaimId }),
+      ...(input.fromState !== undefined && { fromState: input.fromState }),
+      ...(input.toState !== undefined && { toState: input.toState }),
+      reasonCode: input.reasonCode,
+      reason: input.reason,
+      fingerprint: sha256Fingerprint({
+        runId: input.runId,
+        eventType: input.eventType,
+        reasonCode: input.reasonCode,
+        mandateId: input.mandateId ?? null,
+        decisionClaimId: input.decisionClaimId ?? null,
+        payload: input.payload ?? null,
+      }),
+      payload: { runId: input.runId, ...(input.payload ?? {}) },
+    }, tx);
+  });
+}
+
+export async function listPhase10ValidationEvents(
+  userId: number,
+  section: "crypto" | "forex",
+  runId: string,
+) {
+  return db.select().from(autopilotEventsTable).where(and(
+    eq(autopilotEventsTable.userId, userId),
+    eq(autopilotEventsTable.section, section),
+    sql`${autopilotEventsTable.payload}->>'runId' = ${runId}`,
+  )).orderBy(autopilotEventsTable.occurredAt, autopilotEventsTable.id);
 }
 
 export async function claimAutonomousDecision(input: {

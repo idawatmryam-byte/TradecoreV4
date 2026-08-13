@@ -134,6 +134,16 @@ import {
 import { loadPositionThesis, positionThesisInsertValues, recordManagementEvent } from "./intelligence/position/store";
 import { authorizeAutopilotEntry, recordAutopilotExecutionOutcome, suspendAutopilotForSafetyViolation } from "./autopilot/service";
 import { autopilotMandatePermitsManagementAction } from "./autopilot/contracts";
+import { autopilotConfigFingerprint, strategyConfigVersion } from "./autopilot/fingerprints";
+import { getAutopilotSnapshot } from "./autopilot/store";
+import {
+  assertPhase10ValidationAuthorization,
+  assertSimulatedDemoValidationBoundary,
+  buildPhase10ValidationCandles,
+  buildPhase10ValidationPlan,
+  phase10ManagementProjection,
+  type Phase10ValidationAuthorization,
+} from "./autopilot/validation";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -148,6 +158,35 @@ interface Phase7ManagementDecision {
   action: PositionManagementAction;
   validation: PositionActionValidation;
 }
+
+interface Phase10ValidationScanFixture {
+  authorization: Phase10ValidationAuthorization;
+  stage: "entry" | "manage" | "close";
+  symbol: string;
+  mandateId: number;
+  strategyId: string;
+  candles: MultiTimeframeCandles;
+  plan?: TradePlan;
+}
+
+export type Phase10ValidationScanResult =
+  | {
+      stage: "entry";
+      entered: boolean;
+      reason: string;
+      reasonCode?: string;
+      tradeId?: number;
+      executionIntentId?: number;
+      claimId?: number;
+      decisionFingerprint?: string;
+      duplicateRefused: boolean;
+    }
+  | {
+      stage: "manage" | "close";
+      tradeId: number;
+      status: string;
+      managementProjection: ReturnType<typeof phase10ManagementProjection>;
+    };
 
 // Keyless ccxt clients for PUBLIC market data (chart candles) — shared across
 // all engines, created lazily. Used when an engine has no live authenticated
@@ -1607,6 +1646,220 @@ class BotEngine {
   }
 
   /**
+   * Run one operator-authorized deterministic scan without starting timers or
+   * opening a provider connection. Only the market/decision input is synthetic;
+   * the scan's existing risk, mandate, claim, executor, intent, trade, and
+   * Phase 7 paths remain unchanged.
+   */
+  async runPhase10ValidationScan(input: {
+    authorization: Phase10ValidationAuthorization;
+    stage: "entry" | "manage" | "close";
+    mandateId: number;
+    symbol: string;
+    strategyId: string;
+    tradeId?: number;
+  }): Promise<Phase10ValidationScanResult> {
+    assertPhase10ValidationAuthorization(
+      input.authorization,
+      input.authorization.runId,
+      this.userId,
+    );
+    if (this.section !== "crypto") {
+      throw new Error("Deterministic Phase 10 validation is restricted to the crypto simulated Demo section");
+    }
+    if (this.state.running || this.scanning || this.scanTimer || this.tickerTimer) {
+      throw new Error("Stop the normal engine before running the isolated deterministic Phase 10 validation scan");
+    }
+    if (this.executorOverride) {
+      throw new Error("Phase 10 validation refuses any executor override");
+    }
+    if (this.connectionSuspended || this.startupResumeTimedOut) {
+      throw new Error("Phase 10 validation refuses a quiescing or startup-timeout engine");
+    }
+
+    const config = await this.loadConfig();
+    if (config.engineDesiredRunning) {
+      throw new Error("Stop the normal engine and persist engineDesiredRunning=false before deterministic validation");
+    }
+    const snapshot = await getAutopilotSnapshot(this.userId, this.section);
+    if (
+      !snapshot.mandate
+      || snapshot.mandate.id !== input.mandateId
+      || snapshot.mandateState?.state !== "ACTIVE"
+      || snapshot.control.state !== "AUTOPILOT_ENABLED"
+      || snapshot.control.mandateId !== input.mandateId
+    ) {
+      throw new Error("The exact active Demo mandate must be enabled before deterministic validation");
+    }
+    const authority = resolveExecutionAuthority({
+      section: this.section,
+      marketType: toMarketType(config.marketType),
+      executionTarget: config.executionTarget === "demo" ? "demo" : "live",
+      testnet: config.testnet,
+    });
+    assertSimulatedDemoValidationBoundary({ authority, config, mandate: snapshot.mandate });
+    const validationStartedAt = Date.now();
+    const mandateStartsAt = Date.parse(snapshot.mandate.validFrom);
+    const mandateExpiresAt = Date.parse(snapshot.mandate.expiresAt);
+    if (
+      !Number.isFinite(mandateStartsAt)
+      || !Number.isFinite(mandateExpiresAt)
+      || mandateStartsAt > validationStartedAt
+      || mandateExpiresAt <= validationStartedAt
+      || mandateExpiresAt - validationStartedAt > 30 * 60_000
+    ) {
+      throw new Error("Deterministic Phase 10 validation requires an already-valid mandate expiring within 30 minutes");
+    }
+    if (autopilotConfigFingerprint(config) !== snapshot.mandate.configFingerprint) {
+      throw new Error("The bot configuration changed after the validation mandate was created");
+    }
+    if (!snapshot.mandate.instruments.includes(input.symbol) || !config.pairs.split(",").map((item) => item.trim()).includes(input.symbol)) {
+      throw new Error("The validation symbol is not pinned by both the configuration and immutable mandate");
+    }
+
+    const strategyConfigs = await this.getStrategyConfigs();
+    const strategyConfig = strategyConfigs.get(input.strategyId);
+    if (!strategyConfig || !strategyConfig.enabled) {
+      throw new Error("The validation strategy must be enabled in the exact stored configuration");
+    }
+    if (snapshot.mandate.strategyVersions[input.strategyId] !== strategyConfigVersion(input.strategyId, strategyConfig)) {
+      throw new Error("The validation strategy version does not match the immutable mandate");
+    }
+
+    const openTrades = await db.select().from(tradesTable).where(and(
+      eq(tradesTable.userId, this.userId),
+      eq(tradesTable.section, this.section),
+      eq(tradesTable.status, "open"),
+    ));
+    let validationTrade: typeof tradesTable.$inferSelect | undefined;
+    if (input.stage === "entry") {
+      if (openTrades.length !== 0) {
+        throw new Error("The isolated validation section must have no open positions before the deterministic entry");
+      }
+    } else {
+      if (!input.tradeId) throw new Error("Management/close validation requires the exact persisted validation trade id");
+      validationTrade = openTrades.find((trade) => trade.id === input.tradeId);
+      const validationRunId = (validationTrade?.tradePlan as any)?.report?.data?.phase10ValidationRunId;
+      if (
+        !validationTrade
+        || validationRunId !== input.authorization.runId
+        || validationTrade.executionAuthority !== "simulated_demo"
+        || validationTrade.executionTarget !== "demo"
+        || validationTrade.autopilotMandateId !== input.mandateId
+      ) {
+        throw new Error("The requested position is not the open simulated_demo trade created by this validation run");
+      }
+    }
+
+    const observedAt = new Date();
+    const entryPrice = validationTrade ? Number(validationTrade.entryPrice) : 100;
+    const stopPrice = validationTrade ? Number(validationTrade.stopLoss) : 99;
+    const targetPrice = validationTrade ? Number(validationTrade.takeProfit) : 104;
+    const riskDistance = Math.max(entryPrice - stopPrice, entryPrice * 0.001);
+    const finalPrice = input.stage === "close"
+      ? targetPrice
+      : input.stage === "manage"
+        ? entryPrice + riskDistance * 0.25
+        : 100;
+    const candles = buildPhase10ValidationCandles({
+      observedAt,
+      finalPrice,
+      ...(input.stage === "close" && { terminalHigh: targetPrice + riskDistance * 0.25 }),
+      ...(input.stage !== "close" && { terminalHigh: finalPrice + riskDistance * 0.05 }),
+      terminalLow: input.stage === "close" ? Math.max(stopPrice + riskDistance * 0.25, entryPrice) : stopPrice + riskDistance * 0.5,
+    });
+    const balanceUsdt = await this.getDemoBalance();
+    const plan = input.stage === "entry"
+      ? buildPhase10ValidationPlan({
+          authorization: input.authorization,
+          symbol: input.symbol,
+          strategyId: input.strategyId,
+          row: buildSignalRow(input.symbol, candles),
+          balanceUsdt,
+          config,
+          mandate: snapshot.mandate,
+          strategyConfig,
+        })
+      : undefined;
+
+    const previous = {
+      exchange: this.exchange,
+      exchangeIdentity: this.exchangeIdentity,
+      availableMarkets: this.availableMarkets,
+      symbolMaps: this.symbolMaps,
+      activeMarketType: this.activeMarketType,
+      executionTarget: this.executionTarget,
+      activeExecutionAuthority: this.activeExecutionAuthority,
+      credentialsVerified: this.credentialsVerified,
+      marketsLoaded: this.marketsLoaded,
+      cachedBalance: this.cachedBalance,
+      lastBalanceFetch: this.lastBalanceFetch,
+      riskPaused: this.riskPaused,
+      riskViolationCount: this.riskViolationCount,
+      state: this.state,
+      highFreqActive: this.highFreqActive,
+    };
+    const market = unifiedFromPlainFallback(input.symbol, "spot");
+    try {
+      this.activeMarketType = "spot";
+      this.executionTarget = "demo";
+      this.activeExecutionAuthority = "simulated_demo";
+      this.exchangeIdentity = null;
+      this.symbolMaps = null;
+      this.availableMarkets = new Set([market]);
+      this.exchange = { markets: { [market]: { id: input.symbol, symbol: market, spot: true, info: { type: "spot" } } } };
+      this.credentialsVerified = true;
+      this.marketsLoaded = 1;
+      this.cachedBalance = balanceUsdt;
+      this.lastBalanceFetch = Date.now();
+      this.riskPaused = config.riskPaused;
+      this.riskViolationCount = config.riskViolationCount;
+      this.state = {
+        ...previous.state,
+        running: true,
+        balanceUsdt,
+        openPositions: openTrades.length,
+        newEntriesAllowed: false,
+        entryBlockReason: "Validation reconciliation has not completed",
+        startedAt: observedAt.toISOString(),
+      };
+      const authorityIssues = await this.openTradeAuthorityIssues();
+      if (authorityIssues.length > 0) {
+        throw new Error("Validation reconciliation refused an ambiguous or mismatched open-trade authority");
+      }
+      this.state.newEntriesAllowed = true;
+      this.state.entryBlockReason = null;
+      const result = await this.runScan({
+        authorization: input.authorization,
+        stage: input.stage,
+        symbol: input.symbol,
+        mandateId: input.mandateId,
+        strategyId: input.strategyId,
+        candles,
+        ...(plan && { plan }),
+      });
+      if (!result) throw new Error("The deterministic validation scan produced no auditable outcome");
+      return result;
+    } finally {
+      this.exchange = previous.exchange;
+      this.exchangeIdentity = previous.exchangeIdentity;
+      this.availableMarkets = previous.availableMarkets;
+      this.symbolMaps = previous.symbolMaps;
+      this.activeMarketType = previous.activeMarketType;
+      this.executionTarget = previous.executionTarget;
+      this.activeExecutionAuthority = previous.activeExecutionAuthority;
+      this.credentialsVerified = previous.credentialsVerified;
+      this.marketsLoaded = previous.marketsLoaded;
+      this.cachedBalance = previous.cachedBalance;
+      this.lastBalanceFetch = previous.lastBalanceFetch;
+      this.riskPaused = previous.riskPaused;
+      this.riskViolationCount = previous.riskViolationCount;
+      this.state = previous.state;
+      this.highFreqActive = previous.highFreqActive;
+    }
+  }
+
+  /**
    * Gather the live account state a Co-Pilot approval must be re-checked
    * against. Everything here can have changed since the plan was produced —
    * that is the entire reason approval is not the same as execution.
@@ -2006,14 +2259,15 @@ class BotEngine {
   // Core scan loop
   // ---------------------------------------------------------------------------
 
-  private async runScan(): Promise<void> {
-    if (this.connectionSuspended || !this.state.running) return;
+  private async runScan(validationFixture?: Phase10ValidationScanFixture): Promise<Phase10ValidationScanResult | null> {
+    if (this.connectionSuspended || !this.state.running) return null;
     // Single-flight guard — skip this tick if previous scan is still in progress
     if (this.scanning) {
       logger.warn("Scan skipped — previous scan still running");
-      return;
+      return null;
     }
     this.scanning = true;
+    let validationResult: Phase10ValidationScanResult | null = null;
     try {
       // Effective config for this scan = stored settings + high-frequency test
       // overrides (a no-op unless highFrequencyTestMode is on AND on testnet).
@@ -2022,8 +2276,9 @@ class BotEngine {
       // Re-resolved each scan so a mid-session switch takes effect on the next
       // tick rather than requiring a restart.
       this.executionTarget = config.executionTarget === "demo" ? "demo" : "live";
-      const ex = await this.initExchange(config.testnet, toMarketType(config.marketType));
-      const now = new Date();
+      const ex = validationFixture ? this.exchange : await this.initExchange(config.testnet, toMarketType(config.marketType));
+      const fixtureTimestamp = validationFixture?.candles.tf1m.at(-1)?.[0];
+      const now = fixtureTimestamp != null ? new Date(fixtureTimestamp) : new Date();
       this.state.lastScanAt = now.toISOString();
 
       if (
@@ -2102,9 +2357,11 @@ class BotEngine {
       // symbols that still need exit-monitoring. (When the breaker is not
       // active, this is exactly the same full pair list as before.)
       const openSymbols = new Set(openTrades.map((t) => t.symbol));
-      let pairs = this.state.circuitBreakerActive
-        ? this.getPairs(config).filter((s) => openSymbols.has(s) && this.availableMarkets.has(this.toMarket(s)))
-        : this.getPairs(config).filter((s) => this.availableMarkets.has(this.toMarket(s)));
+      let pairs = validationFixture
+        ? [validationFixture.symbol]
+        : this.state.circuitBreakerActive
+          ? this.getPairs(config).filter((s) => openSymbols.has(s) && this.availableMarkets.has(this.toMarket(s)))
+          : this.getPairs(config).filter((s) => this.availableMarkets.has(this.toMarket(s)));
 
       // ── Forex market-hours gate (see lib/marketHours.ts) ─────────────────
       // Closed instruments are skipped entirely: no candle fetches, no entry
@@ -2151,7 +2408,7 @@ class BotEngine {
             { closed: closedNow.length, reopensAt: reopens.toISOString() },
             "FOREX market closed — scan skipped; open positions remain protected by resting OANDA SL/TP",
           );
-          return;
+          return null;
         }
       }
 
@@ -2169,8 +2426,10 @@ class BotEngine {
       type CandleResult =
         | { symbol: string; ok: true; tf1m: Candle[]; tf3m: Candle[]; tf5m: Candle[]; tf15m: Candle[]; tf1h: Candle[] }
         | { symbol: string; ok: false; error: string };
-      const candleResults: CandleResult[] = await Promise.all(
-        pairs.map(async (symbol): Promise<CandleResult> => {
+      const candleResults: CandleResult[] = validationFixture
+        ? [{ symbol: validationFixture.symbol, ok: true, ...validationFixture.candles }]
+        : await Promise.all(
+          pairs.map(async (symbol): Promise<CandleResult> => {
           const market = this.toMarket(symbol);
           try {
             const [tf1m, tf3m, tf5m, tf15m, tf1h] = await Promise.all([
@@ -2184,8 +2443,8 @@ class BotEngine {
           } catch (err) {
             return { symbol, ok: false, error: String((err as Error)?.message ?? err) };
           }
-        })
-      );
+          })
+        );
 
       // Rebuild observational projections fresh every scan so stopped,
       // removed, or data-blocked symbols never retain an actionable-looking
@@ -2309,7 +2568,7 @@ class BotEngine {
         const marketStateResult = buildMarketStateResult({
           symbol,
           venue: this.activeMarketType,
-          provider: this.activeMarketType === "forex" ? "oanda" : "binance",
+          provider: validationFixture ? "fixture" : this.activeMarketType === "forex" ? "oanda" : "binance",
           candles: mtf,
           observedAt: now,
           maximumAgeMs: 3 * 60_000,
@@ -2367,6 +2626,16 @@ class BotEngine {
           await this.checkExitCondition(
             openForSymbol, tf1m, now, cooldownMinutes, stratMaxHold, openStratConfig
           );
+          if (validationFixture && validationFixture.stage !== "entry") {
+            const [persistedTrade] = await db.select().from(tradesTable).where(eq(tradesTable.id, openForSymbol.id)).limit(1);
+            if (!persistedTrade) throw new Error("Validation trade disappeared during Phase 7 management");
+            validationResult = {
+              stage: validationFixture.stage,
+              tradeId: persistedTrade.id,
+              status: persistedTrade.status,
+              managementProjection: phase10ManagementProjection(persistedTrade),
+            };
+          }
           this.scannerData.set(symbol, { ...row, status: "entered" });
           signalStage.status = "skip";
           signalStage.detail = "Position already open — not seeking a new entry";
@@ -2456,9 +2725,11 @@ class BotEngine {
             globalTargetProfitUsdt: Number(config.targetProfitUsdt),
           }),
         };
-        const { plans, rejections } = strategySelector.decideSymbol(
-          symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt, dollarRisk, customStrategies
-        );
+        const { plans, rejections } = validationFixture?.stage === "entry"
+          ? { plans: [validationFixture.plan!], rejections: [] }
+          : strategySelector.decideSymbol(
+              symbol, mtf, row, strategyConfigs, balance, notionalCapUsdt, dollarRisk, customStrategies
+            );
         let sameScanCouncil: Promise<ShadowCouncilRun> | null = null;
         let sameScanSpecialists: SpecialistCouncilSnapshot | null = null;
         // Phase 3 compatibility mode: translate the exact selector output into
@@ -2948,7 +3219,7 @@ class BotEngine {
             : /unknown|unverified|ambiguous/i.test(this.state.entryBlockReason ?? "")
               ? "UNKNOWN"
               : "UNHEALTHY";
-          const authorization = await authorizeAutopilotEntry({
+          const authorizationInput: Parameters<typeof authorizeAutopilotEntry>[0] = {
             userId: this.userId,
             section: this.section,
             config,
@@ -2969,7 +3240,8 @@ class BotEngine {
             netExposurePercent: balance > 0 ? (netExposureUsdt / balance) * 100 : null,
             correlatedExposurePercent: balance > 0 ? (correlatedExposureUsdt / balance) * 100 : null,
             now,
-          });
+          };
+          const authorization = await authorizeAutopilotEntry(authorizationInput);
           if (!authorization.allowed) {
             orderStage.status = "fail";
             orderStage.detail = authorization.reason;
@@ -2978,9 +3250,50 @@ class BotEngine {
               stage: "Demo Autopilot",
               reason: `${authorization.reasonCode}: ${authorization.reason}`,
             }));
+            if (validationFixture?.stage === "entry") {
+              validationResult = {
+                stage: "entry",
+                entered: false,
+                reason: authorization.reason,
+                reasonCode: authorization.reasonCode,
+                duplicateRefused: authorization.reasonCode === "DUPLICATE_AUTONOMOUS_DECISION",
+              };
+            }
             continue;
           }
           autopilotContext = authorization.context;
+          if (validationFixture?.stage === "entry") {
+            const duplicate = await authorizeAutopilotEntry(authorizationInput);
+            if (duplicate.allowed || duplicate.reasonCode !== "DUPLICATE_AUTONOMOUS_DECISION") {
+              const reason = "Validation idempotency probe failed closed before executor submission";
+              await recordAutopilotExecutionOutcome({
+                context: authorization.context,
+                userId: this.userId,
+                section: this.section,
+                entered: false,
+                reason,
+              });
+              if (duplicate.allowed) {
+                await recordAutopilotExecutionOutcome({
+                  context: duplicate.context,
+                  userId: this.userId,
+                  section: this.section,
+                  entered: false,
+                  reason,
+                });
+              }
+              validationResult = {
+                stage: "entry",
+                entered: false,
+                reason,
+                reasonCode: "VALIDATION_DUPLICATE_PROBE_FAILED",
+                claimId: authorization.context.claimId,
+                decisionFingerprint: authorization.context.decisionFingerprint,
+                duplicateRefused: false,
+              };
+              continue;
+            }
+          }
         }
         let copilotSupervision;
         if (executor === this.copilotExecutor) {
@@ -3049,6 +3362,20 @@ class BotEngine {
             ...(execResult.tradeId != null && { tradeId: execResult.tradeId }),
             ...(execResult.executionIntentId != null && { executionIntentId: execResult.executionIntentId }),
           });
+        }
+        if (validationFixture?.stage === "entry") {
+          validationResult = {
+            stage: "entry",
+            entered: execResult.entered,
+            reason: execResult.reason,
+            ...(execResult.tradeId != null && { tradeId: execResult.tradeId }),
+            ...(execResult.executionIntentId != null && { executionIntentId: execResult.executionIntentId }),
+            ...(autopilotContext && {
+              claimId: autopilotContext.claimId,
+              decisionFingerprint: autopilotContext.decisionFingerprint,
+            }),
+            duplicateRefused: true,
+          };
         }
         const { entered, reason } = execResult;
         if (entered) {
@@ -3160,7 +3487,7 @@ class BotEngine {
         void captureDecisions({
           userId: this.userId,
           section: this.section,
-          provider: this.section === "forex" ? "oanda" : "binance",
+          provider: validationFixture ? "fixture" : this.section === "forex" ? "oanda" : "binance",
           venue: config.marketType,
           timeframe: "1m",
           configVersion: configVersionOf([...strategyConfigs.entries()].sort(([a], [b]) => (a < b ? -1 : 1))),
@@ -3204,10 +3531,12 @@ class BotEngine {
       await this.updateBlacklist(pairs, now, blacklisted);
     } catch (err) {
       logger.error({ err }, "Scan loop error");
+      if (validationFixture) throw err;
     } finally {
       this.scanning = false;
       this.notifyProviderWorkIdle();
     }
+    return validationResult;
   }
 
   // ---------------------------------------------------------------------------
