@@ -82,10 +82,43 @@ jobs:
         env:
           DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/tradecore
 
-      - name: Apply schema as the legacy owner
-        run: pnpm --filter @workspace/db run push
+      - name: Prepare populated legacy blacklist schema
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE TABLE public.blacklist_entries (
+            id serial PRIMARY KEY,
+            symbol text NOT NULL,
+            user_id integer NOT NULL,
+            section text DEFAULT 'crypto' NOT NULL,
+            win_rate numeric(5, 4) NOT NULL,
+            trade_count integer NOT NULL,
+            blacklisted_at timestamp with time zone DEFAULT now() NOT NULL,
+            expires_at timestamp with time zone NOT NULL,
+            CONSTRAINT blacklist_user_section_symbol_unique
+              UNIQUE (user_id, section, symbol)
+          );
+          CREATE INDEX blacklist_user_expires_at_idx
+            ON public.blacklist_entries (user_id, expires_at);
+          INSERT INTO public.blacklist_entries (
+            user_id, section, symbol, win_rate, trade_count, blacklisted_at, expires_at
+          )
+          SELECT
+            910000 + series,
+            CASE WHEN series % 2 = 0 THEN 'crypto' ELSE 'forex' END,
+            'PHASE10-REGRESSION-' || series,
+            0.2500,
+            10,
+            now(),
+            now() + interval '1 day'
+          FROM generate_series(1, 38) series;
+          SQL
         env:
           DATABASE_URL: postgres://tradecore:legacy-ci-only@localhost:5432/tradecore
+
+      - name: Test populated schema deployment regression
+        run: bash scripts/sql/harness/schema-deployment.test.sh
+        env:
+          DATABASE_MIGRATION_URL: postgres://tradecore:legacy-ci-only@localhost:5432/tradecore
 
       - name: Migrate legacy database ownership
         run: >-

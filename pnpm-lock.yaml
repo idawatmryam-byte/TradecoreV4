@@ -153,6 +153,9 @@ overrides:
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0
   esbuild: 0.27.3
 
+patchedDependencies:
+  drizzle-kit@0.31.10: 2fb9c10e57a31548d041cd055be21f5d078d54ffca934458e320b77fda851190
+
 importers:
 
   .:
@@ -648,7 +651,7 @@ importers:
         version: 8.20.0
       drizzle-kit:
         specifier: ^0.31.10
-        version: 0.31.10
+        version: 0.31.10(patch_hash=2fb9c10e57a31548d041cd055be21f5d078d54ffca934458e320b77fda851190)
 
   scripts:
     devDependencies:
@@ -4687,7 +4690,7 @@ snapshots:
       '@babel/runtime': 7.29.7
       csstype: 3.2.3
 
-  drizzle-kit@0.31.10:
+  drizzle-kit@0.31.10(patch_hash=2fb9c10e57a31548d041cd055be21f5d078d54ffca934458e320b77fda851190):
     dependencies:
       '@drizzle-team/brocli': 0.10.2
       '@esbuild-kit/esm-loader': tsx@4.22.4
