@@ -164,6 +164,30 @@ verify_database_security() {
     -v owner_role="$owner_role" -v app_role="$app_role" -f "$verify_script"
 }
 
+normalize_autopilot_global_suspended() {
+  local configured="${1:-true}"
+  case "${configured,,}" in
+    1|true|yes) printf 'true' ;;
+    0|false|no) printf 'false' ;;
+    *)
+      echo "AUTOPILOT_GLOBAL_SUSPENDED must be true or false (accepted aliases: 1/0, yes/no)." >&2
+      return 1
+      ;;
+  esac
+}
+
+apply_post_schema_database_security() {
+  local migration_url="$1"
+  local owner_role="$2"
+  local app_role="$3"
+  local grants_script="$4"
+  local verify_script="$5"
+
+  "${PSQL_BIN:-psql}" "$migration_url" -v ON_ERROR_STOP=1 \
+    -v app_role="$app_role" -v owner_role="$owner_role" -f "$grants_script"
+  verify_database_security "$migration_url" "$owner_role" "$app_role" "$verify_script"
+}
+
 rollback_readiness_outcome() {
   if [[ "$WAIT_LAST_STATE" == "ready" ]]; then
     printf 'healthy'

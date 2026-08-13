@@ -96,16 +96,17 @@ jobs:
         env:
           DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/tradecore
 
-      - name: Apply and verify capture security function
+      - name: Apply and test post-schema database security
         run: |
           psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 \
             -v owner_role=tradecore_owner -v app_role=tradecore_runtime \
             -f scripts/sql/capture-grants.sql
-          psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 \
-            -v owner_role=tradecore_owner -v app_role=tradecore_runtime \
-            -f scripts/sql/verify-database-roles.sql
+          bash scripts/sql/harness/database-security.test.sh
         env:
           DATABASE_MIGRATION_URL: postgres://tradecore_owner:owner-ci-only@localhost:5432/tradecore
+          TRADECORE_DATABASE_OWNER_ROLE: tradecore_owner
+          TRADECORE_RUNTIME_ROLE: tradecore_runtime
+          RUN_PSQL12_COMPAT: "1"
 
       - name: Test (integration)
         run: pnpm --filter @workspace/api-server run test:integration

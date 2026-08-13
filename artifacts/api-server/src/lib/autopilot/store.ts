@@ -26,6 +26,7 @@ import {
   type DemoAutopilotMandate,
   type DemoAutopilotMandateCore,
 } from "./contracts";
+export { globalAutopilotSuspended } from "./config";
 
 type AutopilotTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type AutopilotWriter = typeof db | AutopilotTransaction;
@@ -606,8 +607,4 @@ export async function updateEquityWatermark(input: {
     }).where(eq(autopilotControlsTable.id, current.id));
     return { drawdownPercent };
   });
-}
-
-export function globalAutopilotSuspended(): boolean {
-  return /^(1|true|yes)$/i.test(process.env.AUTOPILOT_GLOBAL_SUSPENDED ?? "");
 }

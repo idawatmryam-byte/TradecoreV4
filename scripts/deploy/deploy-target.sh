@@ -51,6 +51,14 @@ READINESS_TIMEOUT_SECONDS="${READINESS_TIMEOUT_SECONDS:-180}"
 HEALTH_INTERVAL_SECONDS="${HEALTH_INTERVAL_SECONDS:-2}"
 HEALTH_REQUEST_TIMEOUT_SECONDS="${HEALTH_REQUEST_TIMEOUT_SECONDS:-5}"
 
+# Production deployment defaults Demo Autopilot to suspended. An explicit,
+# reviewed false value is accepted, while empty/invalid values cannot fail open.
+AUTOPILOT_GLOBAL_SUSPENDED="$(normalize_autopilot_global_suspended "${AUTOPILOT_GLOBAL_SUSPENDED:-}")"
+if [[ "$AUTOPILOT_GLOBAL_SUSPENDED" == "false" ]]; then
+  deploy_warn "AUTOPILOT_GLOBAL_SUSPENDED is explicitly disabled; retain the approval record for this deployment"
+fi
+export AUTOPILOT_GLOBAL_SUSPENDED
+
 require_positive_integer LIVENESS_TIMEOUT_SECONDS "$LIVENESS_TIMEOUT_SECONDS"
 require_positive_integer READINESS_TIMEOUT_SECONDS "$READINESS_TIMEOUT_SECONDS"
 require_positive_integer HEALTH_INTERVAL_SECONDS "$HEALTH_INTERVAL_SECONDS"
@@ -250,14 +258,13 @@ fi
 deploy_log "applying the database schema with migration authority"
 DATABASE_URL="$DATABASE_MIGRATION_URL" pnpm --filter @workspace/db run push
 
-deploy_log "installing the constrained account-erasure function and immutable-evidence grants"
-psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 \
-  -v app_role="$TRADECORE_RUNTIME_ROLE" -v owner_role="$TRADECORE_DATABASE_OWNER_ROLE" \
-  -f scripts/sql/capture-grants.sql
-
-deploy_log "verifying database owner/runtime separation and immutable evidence"
-verify_database_security "$DATABASE_MIGRATION_URL" "$TRADECORE_DATABASE_OWNER_ROLE" \
-  "$TRADECORE_RUNTIME_ROLE" scripts/sql/verify-database-roles.sql
+deploy_log "installing and verifying post-schema database security"
+apply_post_schema_database_security \
+  "$DATABASE_MIGRATION_URL" \
+  "$TRADECORE_DATABASE_OWNER_ROLE" \
+  "$TRADECORE_RUNTIME_ROLE" \
+  scripts/sql/capture-grants.sql \
+  scripts/sql/verify-database-roles.sql
 
 if [[ "${SEED_DEMO:-}" == "1" ]]; then
   deploy_log "refreshing the read-only demo account"
