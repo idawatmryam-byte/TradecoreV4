@@ -222,7 +222,7 @@ variable to its reviewed value. Do not store or print the token.
    VALIDATION_SYMBOL=BTCUSDT
    VALIDATION_STRATEGY_ID=trend_pullback
    RUN_ID="$(node -e 'console.log(require("crypto").randomUUID())')"
-   pnpm --filter @workspace/api-server run validate:phase10 -- before-restart \
+   pnpm --filter @workspace/api-server run validate:phase10 before-restart \
      --user-id "$VALIDATION_USER_ID" --mandate-id "$VALIDATION_MANDATE_ID" \
      --symbol "$VALIDATION_SYMBOL" --strategy-id "$VALIDATION_STRATEGY_ID" \
      --run-id "$RUN_ID" \
@@ -239,7 +239,7 @@ variable to its reviewed value. Do not store or print the token.
    ```bash
    pm2 restart tradecore-api --update-env
    curl --fail --silent http://127.0.0.1:8080/api/readyz
-   pnpm --filter @workspace/api-server run validate:phase10 -- after-restart \
+   pnpm --filter @workspace/api-server run validate:phase10 after-restart \
      --user-id "$VALIDATION_USER_ID" --mandate-id "$VALIDATION_MANDATE_ID" \
      --symbol "$VALIDATION_SYMBOL" --strategy-id "$VALIDATION_STRATEGY_ID" \
      --run-id "$RUN_ID" \
@@ -259,7 +259,7 @@ variable to its reviewed value. Do not store or print the token.
    export AUTOPILOT_GLOBAL_SUSPENDED=true
    pm2 restart tradecore-api --update-env
    curl --fail --silent http://127.0.0.1:8080/api/readyz
-   pnpm --filter @workspace/api-server run validate:phase10 -- confirm-suspended \
+   pnpm --filter @workspace/api-server run validate:phase10 confirm-suspended \
      --user-id "$VALIDATION_USER_ID" --mandate-id "$VALIDATION_MANDATE_ID" \
      --symbol "$VALIDATION_SYMBOL" --strategy-id "$VALIDATION_STRATEGY_ID" \
      --run-id "$RUN_ID" \

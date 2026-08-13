@@ -1,3 +1,7 @@
+import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { BotConfig } from "@workspace/db";
 import type { ExecutionAuthority } from "../src/lib/execution/authority";
 import type { DemoAutopilotMandate } from "../src/lib/autopilot/contracts";
@@ -11,6 +15,17 @@ import {
 
 const RUN_ID = "00000000-0000-4000-8000-000000000010";
 const TOKEN = "phase10-pure-validation-token-000000000000000000";
+const WORKSPACE_ROOT = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../..",
+);
+const RUNBOOK_PATH = resolve(WORKSPACE_ROOT, "docs/phase-10-demo-autopilot.md");
+const ROOT_ENV_PATH = resolve(WORKSPACE_ROOT, ".env");
+const CLI_STAGES = [
+  "before-restart",
+  "after-restart",
+  "confirm-suspended",
+] as const;
 let failures = 0;
 
 function expect(name: string, condition: boolean, detail = "") {
@@ -27,6 +42,79 @@ function refused(action: () => unknown): boolean {
   } catch {
     return true;
   }
+}
+
+function smokeCliStage(stage: (typeof CLI_STAGES)[number]): {
+  passed: boolean;
+  detail: string;
+} {
+  const pnpmEntrypoint = process.env.npm_execpath;
+  if (!pnpmEntrypoint) {
+    return {
+      passed: false,
+      detail: "npm_execpath is unavailable; run this harness through pnpm",
+    };
+  }
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      pnpmEntrypoint,
+      "--filter",
+      "@workspace/api-server",
+      "run",
+      "validate:phase10",
+      stage,
+    ],
+    {
+      cwd: WORKSPACE_ROOT,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        DATABASE_URL:
+          "postgres://phase10_cli_smoke:unused@127.0.0.1:1/phase10_cli_smoke",
+      },
+      timeout: 30_000,
+    },
+  );
+  const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+  const expectedBoundary = "Missing required --user-id option";
+  const passed = result.status === 1 && output.includes(expectedBoundary);
+  return {
+    passed,
+    detail: result.error?.message ?? output.trim().slice(-500),
+  };
+}
+
+const runbook = readFileSync(RUNBOOK_PATH, "utf8");
+const createdRootEnv = !existsSync(ROOT_ENV_PATH);
+if (createdRootEnv) {
+  writeFileSync(
+    ROOT_ENV_PATH,
+    "# Temporary file for the Phase 10 CLI argument-wiring smoke test.\n",
+    { flag: "wx" },
+  );
+}
+try {
+  for (const stage of CLI_STAGES) {
+    expect(
+      `runbook forwards ${stage} as the first script argument`,
+      runbook.includes(
+        `pnpm --filter @workspace/api-server run validate:phase10 ${stage}`,
+      ) &&
+        !runbook.includes(
+          `pnpm --filter @workspace/api-server run validate:phase10 -- ${stage}`,
+        ),
+    );
+    const smoke = smokeCliStage(stage);
+    expect(
+      `${stage} reaches the Phase 10 CLI before the database boundary`,
+      smoke.passed,
+      smoke.detail,
+    );
+  }
+} finally {
+  if (createdRootEnv) unlinkSync(ROOT_ENV_PATH);
 }
 
 const baseEnvironment = {
