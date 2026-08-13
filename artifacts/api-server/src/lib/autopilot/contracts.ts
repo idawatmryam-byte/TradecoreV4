@@ -204,7 +204,10 @@ export function evaluateAutopilotEntry(
     const check = { name: "Mandate", passed: false, reasonCode: "MANDATE_MISSING", detail: "No immutable Demo Autopilot mandate is available" };
     return { allowed: false, reasonCode: check.reasonCode, reason: check.detail, checks: [check] };
   }
-  const mandate = DemoAutopilotMandateCoreSchema.parse(mandateInput);
+  const persistedMandate = DemoAutopilotMandateSchema.safeParse(mandateInput);
+  const mandate = persistedMandate.success
+    ? persistedMandate.data
+    : DemoAutopilotMandateCoreSchema.parse(mandateInput);
   const marketAgeMs = evidence.marketState.dataTimestamp
     ? evidence.now.getTime() - evidence.marketState.dataTimestamp.getTime()
     : Number.POSITIVE_INFINITY;
