@@ -101,4 +101,6 @@ export interface BrokerAdapter {
   createOrder(symbol: string, type: string, side: string, amount: number, price?: number, params?: Record<string, unknown>): Promise<unknown>;
   cancelOrder(id: string, symbol?: string): Promise<unknown>;
   fetchOrder(id: string, symbol?: string): Promise<unknown>;
+  /** Optional trade-id close used for idempotent provider recovery. */
+  closeTradeById?(tradeId: string, symbol: string, amount: number): Promise<unknown>;
 }

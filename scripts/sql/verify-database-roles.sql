@@ -50,6 +50,9 @@ SELECT
   NOT has_table_privilege(:'app_role', 'public.recommendation_events', 'UPDATE')
     AND NOT has_table_privilege(:'app_role', 'public.recommendation_events', 'DELETE')
     AND NOT has_table_privilege(:'app_role', 'public.recommendation_events', 'TRUNCATE') AS recommendation_events_are_immutable,
+  NOT has_table_privilege(:'app_role', 'public.live_safety_events', 'UPDATE')
+    AND NOT has_table_privilege(:'app_role', 'public.live_safety_events', 'DELETE')
+    AND NOT has_table_privilege(:'app_role', 'public.live_safety_events', 'TRUNCATE') AS live_safety_events_are_immutable,
   (
     SELECT count(*) = 6
     FROM information_schema.tables
@@ -63,6 +66,17 @@ SELECT
         'autopilot_events'
       )
   ) AS phase10_tables_exist,
+  (
+    SELECT count(*) = 4
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name IN (
+        'live_execution_states',
+        'live_global_equity_state',
+        'live_kill_switches',
+        'live_safety_events'
+      )
+  ) AS phase11_tables_exist,
   NOT EXISTS (
     SELECT 1
     FROM information_schema.tables
@@ -127,6 +141,63 @@ SELECT
         ELSE false
       END
   ) AS autopilot_projection_updates_are_bounded,
+  NOT EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name IN (
+        'live_execution_states',
+        'live_global_equity_state',
+        'live_kill_switches',
+        'live_safety_events'
+      )
+      AND (
+        NOT has_table_privilege(:'app_role', format('%I.%I', table_schema, table_name), 'SELECT')
+        OR NOT has_table_privilege(:'app_role', format('%I.%I', table_schema, table_name), 'INSERT')
+        OR has_table_privilege(:'app_role', format('%I.%I', table_schema, table_name), 'DELETE')
+        OR has_table_privilege(:'app_role', format('%I.%I', table_schema, table_name), 'TRUNCATE')
+      )
+  )
+    AND NOT has_table_privilege(:'app_role', 'public.live_safety_events', 'UPDATE')
+    AND NOT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name IN (
+          'live_execution_states',
+          'live_global_equity_state',
+          'live_kill_switches'
+        )
+        AND has_column_privilege(
+          :'app_role',
+          format('%I.%I', table_schema, table_name),
+          column_name,
+          'UPDATE'
+        ) IS DISTINCT FROM CASE
+          WHEN table_name = 'live_execution_states'
+            THEN column_name IN (
+              'operating_mode', 'operating_mode_source',
+              'reconciliation_state', 'protection_state',
+              'global_drawdown_state', 'ownership_generation',
+               'owner_instance_id', 'current_equity_minor',
+               'peak_equity_minor', 'equity_source',
+               'equity_observed_at', 'equity_fresh_until',
+               'account_drawdown_state', 'account_drawdown_limit_bps',
+              'global_drawdown_limit_bps', 'entry_block_reason',
+              'owner_claimed_at', 'last_reconciled_at',
+              'last_incident_at', 'updated_at'
+             )
+          WHEN table_name = 'live_global_equity_state'
+            THEN column_name IN (
+              'current_equity_minor', 'peak_equity_minor', 'source_count',
+              'observed_at', 'fresh_until', 'drawdown_state',
+              'drawdown_limit_bps', 'updated_at'
+            )
+          WHEN table_name = 'live_kill_switches'
+            THEN column_name IN ('active', 'deactivated_at', 'updated_at')
+          ELSE false
+        END
+    ) AS phase11_privileges_are_bounded,
   has_table_privilege(:'app_role', 'public.execution_events', 'SELECT')
     AND has_table_privilege(:'app_role', 'public.execution_events', 'INSERT')
     AND has_table_privilege(:'app_role', 'public.recommendation_events', 'SELECT')
@@ -221,10 +292,20 @@ SELECT
   \echo 'FAIL: runtime role can mutate recommendation_events'
   DO $failure$ BEGIN RAISE EXCEPTION 'database security verification failed: runtime role can mutate recommendation_events'; END $failure$;
 \endif
+\if :live_safety_events_are_immutable
+\else
+  \echo 'FAIL: runtime role can mutate live_safety_events'
+  DO $failure$ BEGIN RAISE EXCEPTION 'database security verification failed: runtime role can mutate live_safety_events'; END $failure$;
+\endif
 \if :phase10_tables_exist
 \else
   \echo 'FAIL: one or more required Demo Autopilot tables are missing'
   DO $failure$ BEGIN RAISE EXCEPTION 'database security verification failed: one or more required Demo Autopilot tables are missing'; END $failure$;
+\endif
+\if :phase11_tables_exist
+\else
+  \echo 'FAIL: one or more required Phase 11 Live safety tables are missing'
+  DO $failure$ BEGIN RAISE EXCEPTION 'database security verification failed: one or more required Phase 11 tables are missing'; END $failure$;
 \endif
 \if :autopilot_evidence_is_immutable
 \else
@@ -235,6 +316,11 @@ SELECT
 \else
   \echo 'FAIL: runtime role can update unapproved Demo Autopilot columns'
   DO $failure$ BEGIN RAISE EXCEPTION 'database security verification failed: runtime role can update unapproved Demo Autopilot columns'; END $failure$;
+\endif
+\if :phase11_privileges_are_bounded
+\else
+  \echo 'FAIL: Phase 11 Live safety table privileges are broader than required'
+  DO $failure$ BEGIN RAISE EXCEPTION 'database security verification failed: Phase 11 Live safety privileges are not bounded'; END $failure$;
 \endif
 \if :public_events_have_required_access
 \else
@@ -279,7 +365,11 @@ WHERE table_schema = 'capture'
      'autopilot_mandate_states',
      'autopilot_controls',
      'autopilot_decision_claims',
-     'autopilot_events'
+     'autopilot_events',
+     'live_execution_states',
+     'live_global_equity_state',
+     'live_kill_switches',
+     'live_safety_events'
    ))
 ORDER BY table_schema, table_name;
 

@@ -1174,6 +1174,300 @@ export interface BotStatus {
   lastScanAt?: string | null;
 }
 
+export type SetExecutionOperatingModeBodyAction = typeof SetExecutionOperatingModeBodyAction[keyof typeof SetExecutionOperatingModeBodyAction];
+
+
+export const SetExecutionOperatingModeBodyAction = {
+  STOP_NEW_TRADES: 'STOP_NEW_TRADES',
+  EXIT_ONLY: 'EXIT_ONLY',
+} as const;
+
+export interface SetExecutionOperatingModeBody {
+  action: SetExecutionOperatingModeBodyAction;
+  /** Exact phrase STOP NEW TRADES or EXIT ONLY. */
+  confirmation: string;
+  /**
+     * @minLength 8
+     * @maxLength 500
+     */
+  reason: string;
+  password?: string;
+}
+
+export type ResolveExecutionIntentBodyAction = typeof ResolveExecutionIntentBodyAction[keyof typeof ResolveExecutionIntentBodyAction];
+
+
+export const ResolveExecutionIntentBodyAction = {
+  RETRY_RECOVERY: 'RETRY_RECOVERY',
+  ACKNOWLEDGE_BLOCKED: 'ACKNOWLEDGE_BLOCKED',
+} as const;
+
+export interface ResolveExecutionIntentBody {
+  action: ResolveExecutionIntentBodyAction;
+  /** Exact phrase RETRY RECOVERY or ACKNOWLEDGE BLOCKED. */
+  confirmation: string;
+  /**
+     * @minLength 8
+     * @maxLength 500
+     */
+  reason: string;
+  /**
+     * @minLength 16
+     * @maxLength 128
+     * @pattern ^[A-Za-z0-9:_-]+$
+     */
+  idempotencyKey: string;
+  /** @minimum 1 */
+  ownershipGeneration: number;
+  password?: string;
+}
+
+export type ExecutionHealthStatus = typeof ExecutionHealthStatus[keyof typeof ExecutionHealthStatus];
+
+
+export const ExecutionHealthStatus = {
+  HEALTHY: 'HEALTHY',
+  BLOCKED: 'BLOCKED',
+} as const;
+
+export type ExecutionHealthOperatingMode = typeof ExecutionHealthOperatingMode[keyof typeof ExecutionHealthOperatingMode];
+
+
+export const ExecutionHealthOperatingMode = {
+  NORMAL: 'NORMAL',
+  NO_NEW_ENTRY: 'NO_NEW_ENTRY',
+  EXIT_ONLY: 'EXIT_ONLY',
+  MAINTENANCE: 'MAINTENANCE',
+  PROTECTION_DEGRADED: 'PROTECTION_DEGRADED',
+} as const;
+
+export type ExecutionHealthOperatingModeSource = typeof ExecutionHealthOperatingModeSource[keyof typeof ExecutionHealthOperatingModeSource];
+
+
+export const ExecutionHealthOperatingModeSource = {
+  SYSTEM: 'SYSTEM',
+  OPERATOR: 'OPERATOR',
+} as const;
+
+export type ExecutionHealthReconciliationState = typeof ExecutionHealthReconciliationState[keyof typeof ExecutionHealthReconciliationState];
+
+
+export const ExecutionHealthReconciliationState = {
+  HEALTHY: 'HEALTHY',
+  INCOMPLETE: 'INCOMPLETE',
+  UNKNOWN: 'UNKNOWN',
+  ESCALATED: 'ESCALATED',
+} as const;
+
+export type ExecutionHealthProtectionState = typeof ExecutionHealthProtectionState[keyof typeof ExecutionHealthProtectionState];
+
+
+export const ExecutionHealthProtectionState = {
+  HEALTHY: 'HEALTHY',
+  DEGRADED: 'DEGRADED',
+  UNKNOWN: 'UNKNOWN',
+} as const;
+
+export type ExecutionHealthGlobalDrawdownState = typeof ExecutionHealthGlobalDrawdownState[keyof typeof ExecutionHealthGlobalDrawdownState];
+
+
+export const ExecutionHealthGlobalDrawdownState = {
+  HEALTHY: 'HEALTHY',
+  BREACHED: 'BREACHED',
+  UNKNOWN: 'UNKNOWN',
+} as const;
+
+export type ExecutionHealthAccountDrawdownState = typeof ExecutionHealthAccountDrawdownState[keyof typeof ExecutionHealthAccountDrawdownState];
+
+
+export const ExecutionHealthAccountDrawdownState = {
+  HEALTHY: 'HEALTHY',
+  BREACHED: 'BREACHED',
+  UNKNOWN: 'UNKNOWN',
+} as const;
+
+export type ExecutionHealthRuntime = {
+  running: boolean;
+  newEntriesAllowed: boolean;
+  /** @nullable */
+  entryBlockReason: string | null;
+  /** @minimum 0 */
+  openPositions: number;
+  /** @nullable */
+  lastScanAt: string | null;
+};
+
+export type ExecutionHealthActiveSwitchesItemScope = typeof ExecutionHealthActiveSwitchesItemScope[keyof typeof ExecutionHealthActiveSwitchesItemScope];
+
+
+export const ExecutionHealthActiveSwitchesItemScope = {
+  GLOBAL: 'GLOBAL',
+  EXCHANGE: 'EXCHANGE',
+  MARKET: 'MARKET',
+  SYMBOL: 'SYMBOL',
+  STRATEGY_MODEL: 'STRATEGY_MODEL',
+  USER: 'USER',
+  SECTION: 'SECTION',
+  AUTOPILOT: 'AUTOPILOT',
+} as const;
+
+export type ExecutionHealthActiveSwitchesItemSource = typeof ExecutionHealthActiveSwitchesItemSource[keyof typeof ExecutionHealthActiveSwitchesItemSource];
+
+
+export const ExecutionHealthActiveSwitchesItemSource = {
+  PLATFORM: 'PLATFORM',
+  USER: 'USER',
+} as const;
+
+export type ExecutionHealthActiveSwitchesItem = {
+  scope: ExecutionHealthActiveSwitchesItemScope;
+  scopeKey: string;
+  reason: string;
+  activatedAt: string;
+  source: ExecutionHealthActiveSwitchesItemSource;
+};
+
+/**
+ * @nullable
+ */
+export type ExecutionHealthUnresolvedIntentsItemRecoveryState = typeof ExecutionHealthUnresolvedIntentsItemRecoveryState[keyof typeof ExecutionHealthUnresolvedIntentsItemRecoveryState] | null;
+
+
+export const ExecutionHealthUnresolvedIntentsItemRecoveryState = {
+  SUBMITTED: 'SUBMITTED',
+  CONFIRMED: 'CONFIRMED',
+  UNKNOWN: 'UNKNOWN',
+  FAILED: 'FAILED',
+} as const;
+
+export type ExecutionHealthUnresolvedIntentsItem = {
+  id: number;
+  symbol: string;
+  state: string;
+  clientOrderId: string;
+  /** @nullable */
+  resolutionCode: string | null;
+  /** @nullable */
+  filledQuantity: string | null;
+  /** @nullable */
+  averageFillPrice: string | null;
+  /** @nullable */
+  brokerOrderId: string | null;
+  /** @nullable */
+  brokerTradeId: string | null;
+  /** @nullable */
+  recoveryClientOrderId: string | null;
+  /** @nullable */
+  recoveryState: ExecutionHealthUnresolvedIntentsItemRecoveryState;
+  /** @nullable */
+  recoveryBrokerOrderId: string | null;
+  /** @nullable */
+  recoveryAttemptedAt: string | null;
+  createdAt: string;
+  /** @nullable */
+  lastReconciledAt: string | null;
+};
+
+/**
+ * Counts derived from the current projection and the latest 100 durable incident events.
+ */
+export type ExecutionHealthMetrics = {
+  /** @minimum 0 */
+  unresolvedIntents: number;
+  /** @minimum 0 */
+  reconciliationFailures: number;
+  /** @minimum 0 */
+  recoveredExposure: number;
+  /** @minimum 0 */
+  protectionFailures: number;
+  /** @minimum 0 */
+  activeKillSwitches: number;
+  /** @minimum 0 */
+  operatingModeChanges: number;
+  /** @minimum 0 */
+  drawdownBreaches: number;
+  /** @minimum 0 */
+  ownershipChanges: number;
+  /** @minimum 0 */
+  criticalAlerts: number;
+};
+
+export type ExecutionHealthIncidentsItemSource = typeof ExecutionHealthIncidentsItemSource[keyof typeof ExecutionHealthIncidentsItemSource];
+
+
+export const ExecutionHealthIncidentsItemSource = {
+  PLATFORM: 'PLATFORM',
+  USER: 'USER',
+} as const;
+
+export type ExecutionHealthIncidentsItem = {
+  id: number;
+  eventType: string;
+  reasonCode: string;
+  reason: string;
+  actorType: string;
+  occurredAt: string;
+  source: ExecutionHealthIncidentsItemSource;
+};
+
+export interface ExecutionHealth {
+  status: ExecutionHealthStatus;
+  operatingMode: ExecutionHealthOperatingMode;
+  operatingModeSource: ExecutionHealthOperatingModeSource;
+  reconciliationState: ExecutionHealthReconciliationState;
+  protectionState: ExecutionHealthProtectionState;
+  globalDrawdownState: ExecutionHealthGlobalDrawdownState;
+  accountDrawdownState: ExecutionHealthAccountDrawdownState;
+  /** @nullable */
+  entryBlockReason: string | null;
+  /** @minimum 0 */
+  ownershipGeneration: number;
+  /** @nullable */
+  ownerClaimedAt: string | null;
+  /** @nullable */
+  lastReconciledAt: string | null;
+  /** @nullable */
+  lastIncidentAt: string | null;
+  /** @nullable */
+  currentEquityMinor: string | null;
+  /** @nullable */
+  peakEquityMinor: string | null;
+  /** @nullable */
+  equitySource: string | null;
+  /** @nullable */
+  equityObservedAt: string | null;
+  /** @nullable */
+  equityFreshUntil: string | null;
+  /** @nullable */
+  globalCurrentEquityMinor: string | null;
+  /** @nullable */
+  globalPeakEquityMinor: string | null;
+  /** @nullable */
+  globalEquityObservedAt: string | null;
+  /** @nullable */
+  globalEquityFreshUntil: string | null;
+  /** @minimum 0 */
+  globalEquitySourceCount: number;
+  /**
+     * @minimum 1
+     * @maximum 10000
+     */
+  accountDrawdownLimitBps: number;
+  /**
+     * @minimum 1
+     * @maximum 10000
+     */
+  globalDrawdownLimitBps: number;
+  runtime: ExecutionHealthRuntime;
+  activeSwitches: ExecutionHealthActiveSwitchesItem[];
+  /** @maxItems 100 */
+  unresolvedIntents: ExecutionHealthUnresolvedIntentsItem[];
+  /** Counts derived from the current projection and the latest 100 durable incident events. */
+  metrics: ExecutionHealthMetrics;
+  /** @maxItems 100 */
+  incidents: ExecutionHealthIncidentsItem[];
+}
+
 export type IndicatorVoteSignal = typeof IndicatorVoteSignal[keyof typeof IndicatorVoteSignal];
 
 

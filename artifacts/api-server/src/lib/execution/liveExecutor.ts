@@ -13,21 +13,42 @@
  * money path for no capability gained today. What matters for the other
  * executors is the SEAM — they consume a TradePlan, not enterTrade's guts.
  *
- * This class is also where live-only gating belongs when it arrives: the Pro
- * entitlement check before real execution, and the kill-switch. Neither is
- * built yet; both have exactly one correct home.
+ * This class owns the final Live authorization callback. The callback checks
+ * persisted operating mode, reconciliation, protection, drawdown, layered
+ * kill switches, command identity, and ownership generation immediately
+ * before the injected broker path can run.
  */
-import type { ExecutionRequest, ExecutionResult, TradeExecutor } from "./executor";
+import type {
+  ExecutionRequest,
+  ExecutionResult,
+  TradeExecutor,
+} from "./executor";
+import type { LiveEntrySafetyVerdict } from "./liveSafety";
 
 /** The real order path, injected so this module never imports BotEngine. */
-export type LiveOrderPlacer = (req: ExecutionRequest) => Promise<ExecutionResult>;
+export type LiveOrderPlacer = (
+  req: ExecutionRequest,
+) => Promise<ExecutionResult>;
+export type LiveExecutionAuthorizer = (
+  req: ExecutionRequest,
+) => Promise<LiveEntrySafetyVerdict>;
 
 export class LiveExecutor implements TradeExecutor {
   readonly kind = "live" as const;
 
-  constructor(private readonly place: LiveOrderPlacer) {}
+  constructor(
+    private readonly place: LiveOrderPlacer,
+    private readonly authorize: LiveExecutionAuthorizer,
+  ) {}
 
-  execute(req: ExecutionRequest): Promise<ExecutionResult> {
+  async execute(req: ExecutionRequest): Promise<ExecutionResult> {
+    const verdict = await this.authorize(req);
+    if (!verdict.allowed) {
+      return {
+        entered: false,
+        reason: `${verdict.code}: ${verdict.reason}`,
+      };
+    }
     return this.place(req);
   }
 }

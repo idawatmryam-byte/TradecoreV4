@@ -105,6 +105,27 @@ function fakeClientAdapter(state: {
       if (path === "/orders/sl9" && method === "GET") {
         return Promise.resolve({ order: { id: "sl9", state: "FILLED", price: "1.0800", type: "STOP_LOSS" } });
       }
+      if (path === "/orders/@tc-c-timeout" && method === "GET") {
+        return Promise.resolve({
+          order: {
+            id: "902",
+            state: "FILLED",
+            units: "-3000",
+            type: "MARKET",
+            fillingTransactionID: "903",
+          },
+        });
+      }
+      if (path === "/transactions/903" && method === "GET") {
+        return Promise.resolve({
+          transaction: {
+            id: "903",
+            price: "1.0849",
+            units: "-3000",
+            tradeOpened: { tradeID: "778", units: "-3000", price: "1.0849" },
+          },
+        });
+      }
       return Promise.reject(new Error(`fake client: unhandled ${method} ${path}`));
     },
     request() { return Promise.reject(new Error("fake client: request() not needed here")); },
@@ -153,6 +174,41 @@ function fakeClientAdapter(state: {
   const o: any = await ad.fetchOrder("sl9");
   expect("FILLED maps to ccxt closed", o.status, "closed");
   expect("filled SL reports its price", o.price, 1.08);
+
+  const recovered: any = await ad.fetchOrder("@tc-c-timeout");
+  expect("client-order lookup preserves the @ order specifier", state.calls.at(-2)?.path, "/orders/@tc-c-timeout");
+  expect("filled entry resolves its authoritative transaction", state.calls.at(-1)?.path, "/transactions/903");
+  expect("filled entry recovers exact unsigned units", recovered.filled, 3000);
+  expect("filled entry recovers average price", recovered.average, 1.0849);
+  expect("filled entry recovers broker trade id", recovered.info.tradeOpenedID, "778");
+}
+
+{
+  const state = {
+    openTrades: [
+      { id: "777", instrument: "EUR_USD", currentUnits: "3000" },
+    ],
+    calls: [] as any[],
+  };
+  const ad = fakeClientAdapter(state);
+  const closed: any = await ad.closeTradeById("777", "EUR_USD", 3000);
+  expect(
+    "recovery closes the exact authoritative OANDA trade id",
+    state.calls.find((call) => call.path === "/trades/777/close")?.path,
+    "/trades/777/close",
+  );
+  expect("recovery full close uses ALL", (state.calls.at(-1)?.body as any).units, "ALL");
+  expect("recovery returns authoritative close fill", closed.filled, 4000);
+
+  state.openTrades = [];
+  state.calls.length = 0;
+  const replay: any = await ad.closeTradeById("777", "EUR_USD", 3000);
+  expect("restart replay treats absent broker trade as already closed", replay.info.alreadyClosed, true);
+  expect(
+    "restart replay does not submit a second close",
+    state.calls.some((call) => call.path.endsWith("/close")),
+    false,
+  );
 }
 
 if (failures > 0) {

@@ -47,6 +47,10 @@ module.exports = {
       min_uptime: "30s",
       restart_delay: 2000,
       max_memory_restart: "1G",
+      // Phase 11 graceful drain waits for the active scan/provider calls to
+      // finish and persists an entry-blocked reconciliation boundary. PM2's
+      // short default would kill the process before that contract can finish.
+      kill_timeout: 60000,
 
       // Never auto-restart on file changes on a production trading box.
       watch: false,
