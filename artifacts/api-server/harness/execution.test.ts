@@ -17,7 +17,7 @@
  */
 import { LiveExecutor } from "../src/lib/execution/liveExecutor";
 import { makeClientOrderId } from "../src/lib/execution/ids";
-import type { ExecutionRequest, ExecutionResult, TradeExecutor } from "../src/lib/execution/executor";
+import type { ExecutionRequest, ExecutionResult, TradeExecutor, } from "../src/lib/execution/executor";
 
 let failures = 0;
 function expect(name: string, cond: boolean, detail = "") {
@@ -44,7 +44,14 @@ const samplePlan = {
   maxHoldSeconds: 7200,
   regime: "trend",
   netRewardRisk: 2.4,
-  report: { summary: "s", marketView: [], entryLogic: [], riskLogic: [], exitLogic: [], checks: [] },
+  report: {
+    summary: "s",
+    marketView: [],
+    entryLogic: [],
+    riskLogic: [],
+    exitLogic: [],
+    checks: [],
+  },
 } as any;
 
 const req: ExecutionRequest = {
@@ -58,17 +65,31 @@ const req: ExecutionRequest = {
 // ── LiveExecutor delegates, unchanged ───────────────────────────────────────
 
 let seen: ExecutionRequest | null = null;
-const live = new LiveExecutor(async (r) => {
-  seen = r;
-  return { entered: true, reason: "filled", correlationId: "corr-1", tradeId: 7 };
-});
+const live = new LiveExecutor(
+  async (r) => {
+    seen = r;
+    return {
+      entered: true,
+      reason: "filled",
+      correlationId: "corr-1",
+      tradeId: 7,
+    };
+  },
+  async () => ({ allowed: true, commandFingerprint: "command-fingerprint" }),
+);
 
 expect("LiveExecutor identifies itself as live", live.kind === "live");
 
 const liveResult = await live.execute(req);
 expect("LiveExecutor passes the request through untouched", seen === req);
-expect("LiveExecutor returns the order path's result", liveResult.entered && liveResult.tradeId === 7);
-expect("result carries the correlation id", liveResult.correlationId === "corr-1");
+expect(
+  "LiveExecutor returns the order path's result",
+  liveResult.entered && liveResult.tradeId === 7,
+);
+expect(
+  "result carries the correlation id",
+  liveResult.correlationId === "corr-1",
+);
 
 // ── A different executor slots in with no pipeline changes ──────────────────
 // This is the whole point of the seam: Demo and Co-Pilot will be this shape.
@@ -78,32 +99,67 @@ class RecordingExecutor implements TradeExecutor {
   received: ExecutionRequest[] = [];
   async execute(r: ExecutionRequest): Promise<ExecutionResult> {
     this.received.push(r);
-    return { entered: false, reason: "recorded as a recommendation, not executed" };
+    return {
+      entered: false,
+      reason: "recorded as a recommendation, not executed",
+    };
   }
 }
 
 const rec = new RecordingExecutor();
 const recResult = await rec.execute(req);
-expect("a non-live executor satisfies the same interface", rec.kind === "recommend");
-expect("it receives the identical plan the engine produced", rec.received[0]!.plan === samplePlan);
+expect(
+  "a non-live executor satisfies the same interface",
+  rec.kind === "recommend",
+);
+expect(
+  "it receives the identical plan the engine produced",
+  rec.received[0]!.plan === samplePlan,
+);
 expect("it can decline to open a position", recResult.entered === false);
 expect("declining still explains itself", recResult.reason.length > 0);
 
 // Both executors saw the same plan object — nothing upstream had to change.
-expect("live and non-live executors consume one identical plan", seen!.plan === rec.received[0]!.plan);
+expect(
+  "live and non-live executors consume one identical plan",
+  seen!.plan === rec.received[0]!.plan,
+);
 
 // ── Client order id format ──────────────────────────────────────────────────
 // Binance accepts ^[\.A-Z\:/a-z0-9_-]{1,36}$ for newClientOrderId.
 const BINANCE_CLIENT_ORDER_ID = /^[.A-Z:/a-z0-9_-]{1,36}$/;
 
 const ids = Array.from({ length: 500 }, () => makeClientOrderId(990042));
-expect("client order ids match Binance's accepted charset", ids.every((id) => BINANCE_CLIENT_ORDER_ID.test(id)), ids[0]);
-expect("client order ids fit the 36-char cap", ids.every((id) => id.length <= 36), `longest ${Math.max(...ids.map((i) => i.length))}`);
-expect("client order ids are unique across rapid calls", new Set(ids).size === ids.length);
-expect("client order id is namespaced to the account", ids[0]!.startsWith("tc-990042-"), ids[0]);
+expect(
+  "client order ids match Binance's accepted charset",
+  ids.every((id) => BINANCE_CLIENT_ORDER_ID.test(id)),
+  ids[0],
+);
+expect(
+  "client order ids fit the 36-char cap",
+  ids.every((id) => id.length <= 36),
+  `longest ${Math.max(...ids.map((i) => i.length))}`,
+);
+expect(
+  "client order ids are unique across rapid calls",
+  new Set(ids).size === ids.length,
+);
+expect(
+  "client order id is namespaced to the account",
+  ids[0]!.startsWith("tc-990042-"),
+  ids[0],
+);
 // A large userId must not push the id past the cap.
 const bigId = makeClientOrderId(2_147_483_647);
-expect("stays legal for the largest int4 userId", BINANCE_CLIENT_ORDER_ID.test(bigId) && bigId.length <= 36, `${bigId} (${bigId.length})`);
+expect(
+  "stays legal for the largest int4 userId",
+  BINANCE_CLIENT_ORDER_ID.test(bigId) && bigId.length <= 36,
+  `${bigId} (${bigId.length})`,
+);
 
-console.log(failures === 0 ? "\nAll execution-seam checks passed." : `\n${failures} FAILED`);
+console.log(
+  failures === 0
+    ? "\nAll execution-seam checks passed."
+    : `\n${failures} FAILED`,
+);
 process.exit(failures === 0 ? 0 : 1);

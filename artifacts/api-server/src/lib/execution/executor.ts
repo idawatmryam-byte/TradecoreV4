@@ -37,6 +37,7 @@ import type { ManagementAuthorityAssignment } from "../intelligence/position";
 import type { ShadowCouncilRun } from "../intelligence/council";
 import type { SpecialistCouncilSnapshot } from "../intelligence/specialists";
 import type { PortfolioIntelligenceProjection } from "../intelligence/portfolio";
+import type { LiveCommandIdentity } from "./liveSafety";
 
 /** The engine's resolved per-scan configuration (market type, caps, cooldowns). */
 export type RuntimeConfig = Awaited<ReturnType<BotEngine["loadConfig"]>>;
@@ -95,6 +96,8 @@ export interface ExecutionRequest {
   /** Present only after Phase 10 has atomically claimed an authorized Demo,
    * testnet, or practice decision. Executors must make its intent durable. */
   autopilot?: AutopilotExecutionContext;
+  /** Required for every broker-backed command at the Phase 11 Live seam. */
+  liveCommand?: LiveCommandIdentity;
 }
 
 export interface ExecutionResult {

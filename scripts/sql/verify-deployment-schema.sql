@@ -51,6 +51,16 @@ BEGIN
       ('autopilot_decision_claims', 'idempotency_key'),
       ('autopilot_events', 'reason_code'),
       ('execution_intents', 'autopilot_idempotency_key'),
+      ('execution_intents', 'command_idempotency_key'),
+      ('execution_intents', 'ownership_generation'),
+      ('execution_intents', 'recovery_client_order_id'),
+      ('live_execution_states', 'reconciliation_state'),
+      ('live_execution_states', 'equity_fresh_until'),
+      ('live_execution_states', 'global_drawdown_state'),
+      ('live_global_equity_state', 'drawdown_state'),
+      ('live_kill_switches', 'scope'),
+      ('live_safety_events', 'reason_code'),
+      ('live_safety_events', 'event_key'),
       ('trades', 'autopilot_phase7_actions')
   )
   SELECT array_agg(format('%I.%I', required.object_name, required.column_name)
@@ -65,10 +75,10 @@ BEGIN
 
   IF missing_objects IS NOT NULL THEN
     RAISE EXCEPTION
-      'deployment schema verification failed: missing expected Phase 10 objects %',
+      'deployment schema verification failed: missing expected Phase 10/11 objects %',
       missing_objects;
   END IF;
 END
 $verify$;
 
-\echo 'PASS: deployment schema and Phase 10 objects verified'
+\echo 'PASS: deployment schema and Phase 10/11 objects verified'

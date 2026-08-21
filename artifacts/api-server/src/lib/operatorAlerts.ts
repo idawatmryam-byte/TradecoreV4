@@ -4,6 +4,7 @@ export type CriticalOperatorAlertCode =
   | "PROTECTIVE_CLOSE_FAILED"
   | "EXECUTION_AUTHORITY_AMBIGUOUS"
   | "RECONCILIATION_UNKNOWN"
+  | "LIVE_RECONCILIATION_BLOCKED"
   | "UNCAUGHT_EXCEPTION"
   | "UNHANDLED_REJECTION";
 
@@ -76,6 +77,30 @@ async function deliver(url: string, body: unknown): Promise<void> {
   throw lastError;
 }
 
+async function persistCriticalAlertAudit(
+  alert: CriticalOperatorAlert,
+): Promise<void> {
+  if (!process.env.DATABASE_URL) return;
+  const { db, liveSafetyEventsTable } = await import("@workspace/db");
+  await db.insert(liveSafetyEventsTable).values({
+    targetUserId: Number.isInteger(alert.userId) ? alert.userId! : 0,
+    section: alert.section ? safeText(alert.section, 40) : "*",
+    eventType: "CRITICAL_OPERATOR_ALERT",
+    actorType: "system",
+    reasonCode: alert.code,
+    reason: safeText(alert.summary),
+    payload: {
+      dedupeKey: safeText(alert.dedupeKey, 200),
+      ...(Number.isInteger(alert.tradeId) && { tradeId: alert.tradeId }),
+      ...(alert.symbol && { symbol: safeText(alert.symbol, 80) }),
+      ...(alert.provider && { provider: safeText(alert.provider, 40) }),
+      ...(alert.executionAuthority && {
+        executionAuthority: safeText(alert.executionAuthority, 80),
+      }),
+    },
+  });
+}
+
 /**
  * Log every critical event first, then best-effort deliver it out of band.
  * Delivery failure can never replace or hide the original financial error.
@@ -85,6 +110,13 @@ export async function emitCriticalOperatorAlert(
 ): Promise<"delivered" | "deduplicated" | "not_configured" | "failed"> {
   const event = structuredEvent(alert);
   logger.error({ operatorAlert: event }, "CRITICAL_OPERATOR_ALERT");
+
+  void persistCriticalAlertAudit(alert).catch((auditError) => {
+    logger.error(
+      { auditError, code: alert.code },
+      "CRITICAL_OPERATOR_ALERT_AUDIT_FAILED",
+    );
+  });
 
   const now = Date.now();
   const key = `${alert.code}:${alert.dedupeKey}`;
