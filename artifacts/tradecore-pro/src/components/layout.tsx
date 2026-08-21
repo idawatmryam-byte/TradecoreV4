@@ -314,6 +314,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const online = Boolean(botStatus?.running) && !healthError;
   const mode = healthError ? "API error" : (MODE_LABELS[config?.mode ?? ""] ?? "—");
+  const activeSwitchCount = Array.isArray(executionHealth?.activeSwitches)
+    ? executionHealth.activeSwitches.length
+    : "UNKNOWN";
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
@@ -424,7 +427,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 ? "Live execution health unavailable — entry authority is unknown and must be treated as blocked."
                 : !executionHealth
                   ? "Loading authoritative Live execution health…"
-                  : `Live ${executionHealth.status} · authority ${executionHealth.operatingMode}/${executionHealth.operatingModeSource} · owner gen ${executionHealth.ownershipGeneration} · AI Live version NONE · risk used UNKNOWN · drawdown ${executionHealth.accountDrawdownState} · switches ${executionHealth.activeSwitches.length}${executionHealth.status === "BLOCKED" ? " · existing positions may remain open" : ""}`}
+                  : `Live ${executionHealth.status} · authority ${executionHealth.operatingMode}/${executionHealth.operatingModeSource} · owner gen ${executionHealth.ownershipGeneration} · AI Live version NONE · risk used UNKNOWN · drawdown ${executionHealth.accountDrawdownState} · switches ${activeSwitchCount}${executionHealth.status === "BLOCKED" ? " · existing positions may remain open" : ""}`}
             </span>
           </Link>
         )}

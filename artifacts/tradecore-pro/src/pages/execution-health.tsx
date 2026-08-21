@@ -364,6 +364,9 @@ export function ExecutionHealthPage() {
 
   const data = health.data;
   const blocked = data.status !== "HEALTHY";
+  const activeSwitches = Array.isArray(data.activeSwitches)
+    ? data.activeSwitches
+    : null;
 
   return (
     <div className="space-y-6">
@@ -610,13 +613,18 @@ export function ExecutionHealthPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {data.activeSwitches.length === 0 ? (
+            {activeSwitches === null ? (
+              <p className="text-sm text-destructive">
+                Active kill-switch state is UNKNOWN. Treat Live entry authority
+                as blocked until authoritative health can be retrieved.
+              </p>
+            ) : activeSwitches.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No applicable active kill switch is recorded.
               </p>
             ) : (
               <div className="space-y-3">
-                {data.activeSwitches.map((item) => (
+                {activeSwitches.map((item) => (
                   <div
                     key={`${item.scope}:${item.scopeKey}:${item.activatedAt}`}
                     className="rounded-lg border border-destructive/40 bg-destructive/5 p-3"
