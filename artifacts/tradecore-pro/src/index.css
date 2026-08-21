@@ -1,6 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-@import 'tailwindcss';
-@import 'tw-animate-css';
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap");
+@import "tailwindcss";
+@import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
@@ -39,8 +39,8 @@
   --color-warning: hsl(var(--warning));
   --color-warning-foreground: hsl(var(--foreground));
 
-  --font-sans: 'Inter', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
 
   /* Elevation, tinted with the ink hue rather than neutral black.
      A grey shadow over warm sand reads as dirt; an ink-tinted one reads as
@@ -49,12 +49,22 @@
      cheap. Redefining the scale here means every existing `shadow-*` in the
      app inherits this without one call site changing. */
   --shadow-2xs: 0 1px 1px hsl(40 15% 16% / 0.03);
-  --shadow-xs:  0 1px 2px hsl(40 15% 16% / 0.05), 0 1px 1px hsl(40 15% 16% / 0.03);
-  --shadow-sm:  0 1px 2px hsl(40 15% 16% / 0.05), 0 2px 5px hsl(40 15% 16% / 0.04);
-  --shadow:     0 1px 2px hsl(40 15% 16% / 0.04), 0 4px 10px hsl(40 15% 16% / 0.055), 0 10px 24px hsl(40 15% 16% / 0.04);
-  --shadow-md:  0 1px 2px hsl(40 15% 16% / 0.04), 0 4px 10px hsl(40 15% 16% / 0.055), 0 10px 24px hsl(40 15% 16% / 0.04);
-  --shadow-lg:  0 2px 4px hsl(40 15% 16% / 0.05), 0 10px 22px hsl(40 15% 16% / 0.07), 0 24px 56px hsl(40 15% 16% / 0.06);
-  --shadow-xl:  0 4px 8px hsl(40 15% 16% / 0.05), 0 16px 36px hsl(40 15% 16% / 0.08), 0 40px 80px hsl(40 15% 16% / 0.07);
+  --shadow-xs:
+    0 1px 2px hsl(40 15% 16% / 0.05), 0 1px 1px hsl(40 15% 16% / 0.03);
+  --shadow-sm:
+    0 1px 2px hsl(40 15% 16% / 0.05), 0 2px 5px hsl(40 15% 16% / 0.04);
+  --shadow:
+    0 1px 2px hsl(40 15% 16% / 0.04), 0 4px 10px hsl(40 15% 16% / 0.055),
+    0 10px 24px hsl(40 15% 16% / 0.04);
+  --shadow-md:
+    0 1px 2px hsl(40 15% 16% / 0.04), 0 4px 10px hsl(40 15% 16% / 0.055),
+    0 10px 24px hsl(40 15% 16% / 0.04);
+  --shadow-lg:
+    0 2px 4px hsl(40 15% 16% / 0.05), 0 10px 22px hsl(40 15% 16% / 0.07),
+    0 24px 56px hsl(40 15% 16% / 0.06);
+  --shadow-xl:
+    0 4px 8px hsl(40 15% 16% / 0.05), 0 16px 36px hsl(40 15% 16% / 0.08),
+    0 40px 80px hsl(40 15% 16% / 0.07);
 
   /* Wires --radius (below) into every rounded-* utility. Previously absent,
      so --radius was declared but nothing consumed it — rounded-md/lg/sm all
@@ -71,41 +81,41 @@
      gains (in a trading app "green means up" is the strongest convention
      there is, so a brand green that ISN'T the gains green would be the
      confusing choice), sun red for losses. */
-  --background: 38 46% 83%;    /* #E7D8BE  sand   */
-  --foreground: 40 15% 16%;    /* #2E2A22  night  */
+  --background: 38 46% 83%; /* #E7D8BE  sand   */
+  --foreground: 40 15% 16%; /* #2E2A22  night  */
 
   /* The middle elevation step. Declared but never wired before, which is why
      the UI read as two flat tiers — the sidebar and header painted `card` at
      partial opacity and muddied into an in-between tone. They paint this now. */
-  --surface: 38 51% 87%;       /* #EFE3CE  */
+  --surface: 38 51% 87%; /* #EFE3CE  */
   --surface-foreground: 40 15% 16%;
 
-  --border: 37 39% 71%;        /* #D2BC98  dune   */
+  --border: 37 39% 71%; /* #D2BC98  dune   */
   --input: 37 39% 71%;
   --ring: 124 22% 40%;
 
-  --card: 40 69% 97%;          /* #FDFAF4  cloud  */
+  --card: 40 69% 97%; /* #FDFAF4  cloud  */
   --card-foreground: 40 15% 16%;
 
-  --primary: 124 22% 40%;      /* #4F7C52  cactus */
+  --primary: 124 22% 40%; /* #4F7C52  cactus */
   --primary-foreground: 40 69% 97%;
 
   --secondary: 38 44% 79%;
   --secondary-foreground: 40 15% 16%;
 
   --muted: 38 48% 88%;
-  --muted-foreground: 40 14% 38%;  /* #6E6553 */
+  --muted-foreground: 40 14% 38%; /* #6E6553 */
 
   --accent: 38 44% 79%;
   --accent-foreground: 40 15% 16%;
 
-  --destructive: 14 64% 44%;   /* #B84A28  sun    */
+  --destructive: 14 64% 44%; /* #B84A28  sun    */
   --destructive-foreground: 40 69% 97%;
 
-  --success: 124 22% 40%;      /* #4F7C52  gains  */
+  --success: 124 22% 40%; /* #4F7C52  gains  */
   --success-foreground: 40 69% 97%;
 
-  --warning: 35 79% 34%;       /* #9C6212  dusk — warnings and Live */
+  --warning: 35 79% 34%; /* #9C6212  dusk — warnings and Live */
 
   --radius: 0.5rem;
 }
@@ -145,6 +155,665 @@
   inset: 0;
   pointer-events: none;
   background-image:
-    radial-gradient(ellipse 90% 120% at 50% 0%, hsl(37 39% 71% / 0.55), transparent 72%),
-    radial-gradient(ellipse 60% 90% at 50% 0%, hsl(var(--primary) / 0.07), transparent 70%);
+    radial-gradient(
+      ellipse 90% 120% at 50% 0%,
+      hsl(37 39% 71% / 0.55),
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 60% 90% at 50% 0%,
+      hsl(var(--primary) / 0.07),
+      transparent 70%
+    );
+}
+
+/* Authentication is a public-facing product surface with its own light,
+   institutional palette. Keeping these tokens scoped to `.auth-shell` avoids
+   silently recolouring the authenticated trading dashboard. */
+.auth-shell {
+  --background: 240 11% 97%;
+  --foreground: 233 62% 18%;
+  --border: 228 10% 90%;
+  --input: 228 10% 90%;
+  --ring: 165 70% 29%;
+  --card: 0 0% 100%;
+  --card-foreground: 233 62% 18%;
+  --primary: 233 62% 18%;
+  --primary-foreground: 0 0% 100%;
+  --muted: 240 11% 97%;
+  --muted-foreground: 230 5% 51%;
+  --destructive: 14 64% 44%;
+  --destructive-foreground: 0 0% 100%;
+  position: relative;
+  overflow: hidden;
+  background: #f6f6f8;
+  color: #111a4a;
+}
+
+.auth-topbar {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 10;
+  display: flex;
+  height: 76px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(24px, 4vw, 64px);
+  border-bottom: 1px solid rgba(227, 228, 232, 0.82);
+  background: rgba(246, 246, 248, 0.82);
+  backdrop-filter: blur(18px);
+}
+
+.auth-shell .auth-topbar .rounded-md {
+  border-color: rgba(17, 26, 74, 0.16);
+  background: #111a4a;
+}
+
+.auth-shell .auth-topbar .text-primary {
+  color: white;
+}
+
+.auth-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #3b3e47;
+  font-size: 13px;
+  font-weight: 500;
+  transition: color 160ms ease;
+}
+
+.auth-back-link:hover {
+  color: #111a4a;
+}
+
+.auth-layout {
+  display: grid;
+  min-height: 100dvh;
+  grid-template-columns: minmax(0, 1.04fr) minmax(480px, 0.96fr);
+  padding-top: 76px;
+}
+
+.auth-story {
+  position: relative;
+  display: flex;
+  min-height: calc(100dvh - 76px);
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  padding: 56px clamp(48px, 6vw, 104px);
+  border-right: 1px solid #e3e4e8;
+}
+
+.auth-story::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(
+    circle,
+    rgba(17, 26, 74, 0.18) 1px,
+    transparent 1.5px
+  );
+  background-size: 18px 18px;
+  opacity: 0.22;
+  mask-image: radial-gradient(70% 60% at 84% 20%, black, transparent 74%);
+}
+
+.auth-story::after {
+  content: "";
+  position: absolute;
+  top: -260px;
+  right: -240px;
+  width: 660px;
+  height: 660px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(136, 222, 235, 0.46),
+    rgba(68, 180, 139, 0.1) 44%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+.auth-story-copy,
+.auth-ledger,
+.auth-risk-note {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-story-copy {
+  max-width: 590px;
+}
+
+.auth-kicker {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #111a4a;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.auth-kicker > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: #44b48b;
+  box-shadow: 0 0 0 4px rgba(68, 180, 139, 0.12);
+}
+
+.auth-story h1 {
+  max-width: 610px;
+  margin: 24px 0 20px;
+  color: #111a4a;
+  font-size: clamp(44px, 5vw, 68px);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 0.99;
+}
+
+.auth-intro {
+  max-width: 540px;
+  margin: 0;
+  color: #7c7f88;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.auth-feature-list {
+  display: grid;
+  margin: 36px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auth-feature-list li {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 14px;
+  padding: 15px 0;
+  border-top: 1px solid #e3e4e8;
+}
+
+.auth-feature-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid #e3e4e8;
+  border-radius: 8px;
+  color: #111a4a;
+  background: white;
+}
+
+.auth-feature-list strong,
+.auth-feature-list span {
+  display: block;
+}
+.auth-feature-list strong {
+  margin-bottom: 3px;
+  color: #111a4a;
+  font-size: 13px;
+  font-weight: 500;
+}
+.auth-feature-list span {
+  color: #7c7f88;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.auth-ledger {
+  max-width: 590px;
+  margin-top: 38px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: white;
+  box-shadow:
+    0 40px 32px rgba(0, 0, 0, 0.02),
+    0 22px 18px rgba(0, 0, 0, 0.03),
+    0 12px 10px rgba(0, 0, 0, 0.03),
+    0 7px 5px rgba(0, 0, 0, 0.04),
+    0 3px 2px rgba(0, 0, 0, 0.07);
+}
+
+.auth-ledger-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  border-bottom: 1px solid #e3e4e8;
+  color: #111a4a;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.auth-paper-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 9999px;
+  color: #167e6c;
+  background: rgba(68, 180, 139, 0.1);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.auth-paper-badge::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #44b48b;
+}
+.auth-ledger-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 15px 16px;
+}
+.auth-ledger-grid > div {
+  padding: 0 14px;
+  border-left: 1px solid #e3e4e8;
+}
+.auth-ledger-grid > div:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.auth-ledger-grid span,
+.auth-ledger-grid strong {
+  display: block;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+.auth-ledger-grid span {
+  color: #7c7f88;
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.auth-ledger-grid strong {
+  margin-top: 5px;
+  color: #167e6c;
+  font-size: 10px;
+  font-weight: 500;
+}
+.auth-ledger-event {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 16px;
+  color: #c8d3d4;
+  background: #011821;
+  font:
+    400 9px/1.4 "JetBrains Mono",
+    monospace;
+}
+.auth-ledger-event b {
+  color: #94efb7;
+  font-weight: 400;
+}
+
+.auth-risk-note {
+  max-width: 590px;
+  margin: 24px 0 0;
+  color: #7c7f88;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.auth-form-pane {
+  display: flex;
+  min-height: calc(100dvh - 76px);
+  align-items: center;
+  justify-content: center;
+  padding: 52px clamp(28px, 5vw, 80px);
+  background: white;
+}
+
+.auth-card {
+  width: min(100%, 440px);
+}
+.auth-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 38px;
+  padding: 4px;
+  border: 1px solid #e3e4e8;
+  border-radius: 8px;
+  background: #f6f6f8;
+}
+
+.auth-mode-switch button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 6px;
+  color: #7c7f88;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.auth-mode-switch button[aria-pressed="true"] {
+  color: #111a4a;
+  background: white;
+  box-shadow:
+    0 1px 3px rgba(17, 26, 74, 0.08),
+    0 0 0 1px rgba(17, 26, 74, 0.04);
+}
+
+.auth-card-heading h2 {
+  margin: 15px 0 8px;
+  color: #111a4a;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.auth-card-heading p {
+  margin: 0;
+  color: #7c7f88;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.auth-demo {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+  margin-top: 26px;
+  padding: 14px;
+  border: 1px solid #e3e4e8;
+  border-radius: 8px;
+  background: #f6f6f8;
+}
+
+.auth-demo strong,
+.auth-demo span {
+  display: block;
+}
+.auth-demo strong {
+  margin-bottom: 3px;
+  color: #111a4a;
+  font-size: 11px;
+  font-weight: 500;
+}
+.auth-demo span {
+  max-width: 240px;
+  color: #7c7f88;
+  font-size: 9px;
+  line-height: 1.45;
+}
+.auth-shell .auth-demo-button {
+  height: 36px;
+  gap: 7px;
+  border-color: #111a4a;
+  color: #111a4a;
+  background: transparent;
+  font-size: 11px;
+}
+.auth-shell .auth-demo-button:hover {
+  background: white;
+}
+
+.auth-socials {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 22px;
+}
+.auth-shell .auth-socials button {
+  height: 42px;
+  gap: 8px;
+  border-color: #e3e4e8;
+  color: #111a4a;
+  background: white;
+  font-size: 12px;
+  font-weight: 500;
+}
+.auth-shell .auth-socials button:hover {
+  border-color: #111a4a;
+  background: #f6f6f8;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+  color: #a9acb6;
+  font-size: 10px;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e3e4e8;
+}
+
+.auth-form {
+  display: grid;
+  gap: 17px;
+}
+.auth-form-spaced {
+  margin-top: 26px;
+}
+.auth-field {
+  display: grid;
+  gap: 7px;
+}
+.auth-shell .auth-field label {
+  color: #3b3e47;
+  font-size: 11px;
+  font-weight: 500;
+}
+.auth-input-wrap {
+  position: relative;
+}
+.auth-input-icon {
+  position: absolute;
+  z-index: 1;
+  left: 13px;
+  top: 50%;
+  width: 15px;
+  height: 15px;
+  transform: translateY(-50%);
+  color: #a9acb6;
+}
+.auth-shell .auth-input-wrap input {
+  height: 46px;
+  padding-left: 39px;
+  padding-right: 40px;
+  border-color: #e3e4e8;
+  border-radius: 8px;
+  color: #111a4a;
+  background: white;
+  font-size: 13px;
+  box-shadow: 0 1px 2px rgba(17, 26, 74, 0.02);
+}
+.auth-shell .auth-input-wrap input::placeholder {
+  color: #a9acb6;
+}
+.auth-shell .auth-input-wrap input:focus-visible {
+  border-color: #111a4a;
+  box-shadow: 0 0 0 3px rgba(17, 26, 74, 0.08);
+}
+
+.auth-password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  transform: translateY(-50%);
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  color: #7c7f88;
+  background: transparent;
+  cursor: pointer;
+}
+.auth-password-toggle:hover {
+  color: #111a4a;
+  background: #f6f6f8;
+}
+.auth-error {
+  margin: -2px 0 0;
+  padding: 10px 12px;
+  border-left: 2px solid #b84a28;
+  border-radius: 0 6px 6px 0;
+  color: #9d3b20;
+  background: rgba(184, 74, 40, 0.07);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.auth-shell .auth-submit {
+  height: 46px;
+  gap: 9px;
+  border-radius: 8px;
+  color: white;
+  background: #111a4a;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow:
+    0 1px 3px rgba(17, 26, 74, 0.1),
+    0 1px 0 rgba(17, 26, 74, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.auth-shell .auth-submit:hover {
+  background: #182361;
+}
+.auth-shell .auth-submit:disabled {
+  background: #111a4a;
+  opacity: 0.42;
+}
+
+.auth-register-notes {
+  display: grid;
+  gap: 7px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.auth-register-notes li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #7c7f88;
+  font-size: 10px;
+}
+.auth-register-notes svg {
+  flex: 0 0 auto;
+  color: #167e6c;
+}
+
+.auth-switch-copy {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin: 24px 0 0;
+  color: #7c7f88;
+  font-size: 11px;
+}
+.auth-switch-copy button {
+  border: 0;
+  padding: 0;
+  color: #111a4a;
+  background: transparent;
+  font: inherit;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+@media (max-width: 1080px) {
+  .auth-layout {
+    grid-template-columns: minmax(0, 0.9fr) minmax(460px, 1.1fr);
+  }
+  .auth-story {
+    padding-inline: 48px;
+  }
+  .auth-ledger {
+    display: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .auth-topbar {
+    position: relative;
+    height: 68px;
+  }
+  .auth-layout {
+    display: block;
+    min-height: calc(100dvh - 68px);
+    padding-top: 0;
+  }
+  .auth-story {
+    display: none;
+  }
+  .auth-form-pane {
+    min-height: calc(100dvh - 68px);
+    padding: 48px 24px;
+  }
+  .auth-back-link {
+    font-size: 0;
+  }
+  .auth-back-link::before {
+    content: "Website";
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-topbar {
+    padding-inline: 16px;
+  }
+  .auth-form-pane {
+    align-items: flex-start;
+    padding: 32px 18px 48px;
+  }
+  .auth-mode-switch {
+    margin-bottom: 30px;
+  }
+  .auth-card-heading h2 {
+    font-size: 28px;
+  }
+  .auth-demo {
+    grid-template-columns: 1fr;
+  }
+  .auth-demo span {
+    max-width: none;
+  }
+  .auth-shell .auth-demo-button {
+    width: 100%;
+  }
+  .auth-socials {
+    grid-template-columns: 1fr;
+  }
+  .auth-switch-copy {
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-shell *,
+  .auth-shell *::before,
+  .auth-shell *::after {
+    transition-duration: 0.01ms !important;
+  }
 }
