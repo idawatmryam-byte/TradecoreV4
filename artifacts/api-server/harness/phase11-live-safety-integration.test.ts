@@ -130,7 +130,7 @@ async function main(): Promise<void> {
       section: "crypto",
       currentEquityMinor: 99_999n,
       sourceIdentity: "BINANCE_FUTURES_TOTAL_MARGIN_BALANCE",
-      observedAt,
+      observedAt: observed,
       freshUntil,
     });
     const [persisted] = await db
