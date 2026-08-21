@@ -1,513 +1,2059 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cactus AI — Automated Crypto & Forex Trading Platform</title>
-  <meta name="description" content="Cactus AI automates two markets side by side — Binance crypto (spot & futures) and OANDA forex (majors, gold, indices) — with genuine risk controls, a transparent live dashboard, and backtesting that runs the exact same code as live. Self-hosted, with your keys, under your control." />
-  <meta name="robots" content="index, follow" />
-  <meta name="theme-color" content="#070a0f" />
-  <meta property="og:site_name" content="Cactus AI" />
-  <meta property="og:title" content="Cactus AI — Automated Crypto & Forex Trading Platform" />
-  <meta property="og:description" content="Self-hosted multi-user trading platform for Binance crypto and OANDA forex. Automated multi-strategy engine, real risk management, live dashboard, and honest backtesting." />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://tradecore.ddns.net/" />
-  <meta property="og:image" content="https://tradecore.ddns.net/og.png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="Cactus AI — the trading desk that runs itself, and answers only to you." />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Cactus AI — Automated Crypto & Forex Trading Platform" />
-  <meta name="twitter:description" content="Self-hosted multi-user trading platform for Binance crypto and OANDA forex. Automated multi-strategy engine, real risk management, live dashboard, and honest backtesting." />
-  <meta name="twitter:image" content="https://tradecore.ddns.net/og.png" />
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23070a0f'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='%2322d3ee' font-family='monospace'%3E%E2%97%AD%3C/text%3E%3C/svg%3E" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;650;800;900&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
-  <style>
-  :root {
-    --bg: #E7D8BE; --surface: #FDFAF4; --surface-2: #EFE3CE; --border: #D2BC98;
-    --border-2: #C4AC84; --text: #2E2A22; --muted: #6E6553; --faint: #8C8271;
-    --accent: #4F7C52; --accent-2: #3E6341; --accent-soft: rgba(79,124,82,.10);
-    --good: #4F7C52; --down: #B84A28;
-    --hair: rgba(46,42,34,.10);
-    --grid: rgba(46,42,34,.05);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #E7D8BE; --surface: #FDFAF4; --surface-2: #EFE3CE; --border: #D2BC98;
-    --border-2: #C4AC84; --text: #2E2A22; --muted: #6E6553; --faint: #8C8271;
-    --accent: #4F7C52; --accent-2: #3E6341; --accent-soft: rgba(79,124,82,.10);
-    --good: #4F7C52; --down: #B84A28;
-    --hair: rgba(46,42,34,.10);
-    --grid: rgba(46,42,34,.05);
-    }
-  }
-  :root[data-theme="light"] {
-    --bg: #E7D8BE; --surface: #FDFAF4; --surface-2: #EFE3CE; --border: #D2BC98;
-    --border-2: #C4AC84; --text: #2E2A22; --muted: #6E6553; --faint: #8C8271;
-    --accent: #4F7C52; --accent-2: #3E6341; --accent-soft: rgba(79,124,82,.10);
-    --good: #4F7C52; --down: #B84A28;
-    --hair: rgba(46,42,34,.10);
-    --grid: rgba(46,42,34,.05);
-  }
-  :root[data-theme="dark"] {
-    --bg: #E7D8BE; --surface: #FDFAF4; --surface-2: #EFE3CE; --border: #D2BC98;
-    --border-2: #C4AC84; --text: #2E2A22; --muted: #6E6553; --faint: #8C8271;
-    --accent: #4F7C52; --accent-2: #3E6341; --accent-soft: rgba(79,124,82,.10);
-    --good: #4F7C52; --down: #B84A28;
-    --hair: rgba(46,42,34,.10);
-    --grid: rgba(46,42,34,.05);
-  }
-
-  * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-  body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font-family: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    font-size: 16.5px; line-height: 1.65; -webkit-font-smoothing: antialiased;
-    font-weight: 500;
-  }
-  .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-  .nums { font-variant-numeric: tabular-nums; }
-  .wrap { max-width: 1140px; margin: 0 auto; padding: 0 28px; }
-  a { color: inherit; text-decoration: none; }
-  h1, h2, h3 { margin: 0; letter-spacing: -0.035em; line-height: 1.04; text-wrap: balance; }
-
-  .eyebrow {
-    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px; letter-spacing: 0.26em;
-    text-transform: uppercase; color: var(--accent); font-weight: 600;
-  }
-  .lbl { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
-
-  /* reveal-on-scroll — pure CSS scroll-driven animation. Progressive
-     enhancement by construction: browsers without animation-timeline (or
-     with reduced motion) simply render everything visible. Content can
-     never be left hidden by a script failure. */
-  @supports (animation-timeline: view()) {
-    @media (prefers-reduced-motion: no-preference) {
-      .rev {
-        animation: rise both;
-        animation-timeline: view();
-        animation-range: entry 0% entry 55%;
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cactus AI | Automated Crypto &amp; Forex Trading Platform</title>
+    <meta
+      name="description"
+      content="Cactus AI helps you run crypto and forex strategies while keeping every decision, risk check, and result visible."
+    />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#f6f6f8" />
+    <meta property="og:site_name" content="Cactus AI" />
+    <meta
+      property="og:title"
+      content="Cactus AI | Automated Crypto &amp; Forex Trading Platform"
+    />
+    <meta
+      property="og:description"
+      content="Run crypto and forex strategies without losing sight of the decisions and risk behind each trade."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://tradecore.ddns.net/" />
+    <meta property="og:image" content="https://tradecore.ddns.net/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Cactus AI, automated trading with visible decisions and bounded risk."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Cactus AI | Automated Crypto &amp; Forex Trading Platform"
+    />
+    <meta
+      name="twitter:description"
+      content="Run crypto and forex strategies without losing sight of the decisions and risk behind each trade."
+    />
+    <meta name="twitter:image" content="https://tradecore.ddns.net/og.png" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23167e6c'/%3E%3Cpath d='M15 6h3v20h-3zM15 17h-3c-2 0-3-1-3-3v-3h3v3h3zm3-3h3v-4h3v4c0 2-1 3-3 3h-3z' fill='%23fff'/%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --navy: #111a4a;
+        --midnight: #011821;
+        --slate: #3b3e47;
+        --steel: #7c7f88;
+        --line: #e3e4e8;
+        --canvas: #f6f6f8;
+        --white: #ffffff;
+        --orange: #ec652b;
+        --seafoam: #44b48b;
+        --seafoam-dark: #167e6c;
+        --seafoam-light: #94efb7;
+        --radius: 8px;
+        --page: 1200px;
+        --shadow-card:
+          0 1px 4px rgba(18, 22, 30, 0.024), 0 1px 0 rgba(18, 22, 30, 0.05),
+          0 0 0 1px rgba(18, 22, 30, 0.024);
+        --shadow-product:
+          0 40px 32px rgba(0, 0, 0, 0.02), 0 22px 18px rgba(0, 0, 0, 0.03),
+          0 12px 10px rgba(0, 0, 0, 0.03), 0 7px 5px rgba(0, 0, 0, 0.04),
+          0 3px 2px rgba(0, 0, 0, 0.07);
+        --shadow-button:
+          0 1px 3px rgba(17, 26, 74, 0.1), 0 1px 0 rgba(17, 26, 74, 0.05),
+          inset 0 1px 0 rgba(255, 255, 255, 0.5),
+          inset 0 1px 4px rgba(255, 255, 255, 0.5);
       }
-      @keyframes rise {
-        from { opacity: .15; transform: translateY(18px); }
-        to   { opacity: 1;   transform: none; }
+
+      * {
+        box-sizing: border-box;
       }
-    }
-  }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--canvas);
+        color: var(--slate);
+        font-family:
+          "Inter",
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        font-size: 16px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      button,
+      a {
+        -webkit-tap-highlight-color: transparent;
+      }
+      :focus-visible {
+        outline: 2px solid var(--seafoam-dark);
+        outline-offset: 3px;
+      }
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+      h1,
+      h2,
+      h3 {
+        color: var(--navy);
+        text-wrap: balance;
+      }
+      .wrap {
+        width: min(calc(100% - 48px), var(--page));
+        margin: 0 auto;
+      }
+      .skip-link {
+        position: fixed;
+        left: 16px;
+        top: -80px;
+        z-index: 100;
+        background: var(--navy);
+        color: white;
+        padding: 10px 14px;
+        border-radius: var(--radius);
+      }
+      .skip-link:focus {
+        top: 16px;
+      }
 
-  /* nav */
-  nav {
-    position: sticky; top: 0; z-index: 30; border-bottom: 1px solid var(--border);
-    /* Solid theme background — a color-mix()+backdrop-filter glass effect
-       here rendered dark-on-light in some compositors; solid can't. */
-    background: var(--bg);
-  }
-  nav .row { display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 24px; }
-  .logo { display: flex; align-items: center; gap: 11px; font-weight: 800; letter-spacing: -.01em; font-size: 15.5px; }
-  .logo .mk {
-    width: 31px; height: 31px; border-radius: 8px; display: grid; place-items: center;
-    color: var(--accent); background: var(--accent-soft);
-    border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); font-size: 15px;
-  }
-  .logo span { color: var(--accent); }
-  .nav-links { display: flex; gap: 26px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
-  .nav-links a { transition: color .15s ease; }
-  .nav-links a:hover { color: var(--text); }
-  .nav-cta {
-    font-size: 14px; font-weight: 650; padding: 9px 17px; border-radius: 9px;
-    background: var(--accent); color: #04141a; transition: transform .12s ease, background .15s ease, box-shadow .15s ease;
-    box-shadow: 0 4px 16px -6px color-mix(in srgb, var(--accent) 60%, transparent);
-  }
-  .nav-cta:hover { transform: translateY(-1px); background: var(--accent-2); }
-  @media (max-width: 760px) { .nav-links { display: none; } }
+      .nav-shell {
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        border-bottom: 1px solid rgba(227, 228, 232, 0.82);
+        background: rgba(246, 246, 248, 0.86);
+        backdrop-filter: blur(18px);
+        animation: nav-in 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+      }
+      .nav {
+        height: 68px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 28px;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--navy);
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+      .mark {
+        width: 32px;
+        height: 32px;
+        display: grid;
+        place-items: center;
+        border-radius: var(--radius);
+        color: white;
+        background: var(--seafoam-dark);
+        box-shadow: var(--shadow-button);
+      }
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .nav-links a {
+        padding: 8px 12px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        color: var(--slate);
+        font-size: 14px;
+        transition: 0.16s ease;
+      }
+      .nav-links a:hover {
+        color: var(--navy);
+        background: rgba(255, 255, 255, 0.7);
+        border-color: white;
+      }
+      .nav-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
 
-  /* ticker */
-  .ticker { border-bottom: 1px solid var(--border); overflow: hidden; background: var(--surface); }
-  .ticker .track {
-    display: inline-flex; gap: 42px; padding: 9px 0; white-space: nowrap;
-    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12.5px; color: var(--muted);
-    animation: slide 52s linear infinite; will-change: transform;
-  }
-  .ticker .track span b { color: var(--text); font-weight: 600; }
-  .ticker .track .mkt { color: var(--faint); font-size: 10px; letter-spacing: .12em; margin-right: 4px; }
-  .ticker .up { color: var(--good); font-style: normal; } .ticker .dn { color: var(--down); font-style: normal; }
-  @keyframes slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-  @media (prefers-reduced-motion: reduce) { .ticker .track { animation: none; } }
+      .button {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+        display: inline-flex;
+        min-height: 44px;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        padding: 11px 20px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        font:
+          500 14px/1 "Inter",
+          sans-serif;
+        transition:
+          transform 180ms ease,
+          border-color 180ms ease,
+          box-shadow 180ms ease,
+          color 180ms ease;
+      }
+      .button::before {
+        content: "";
+        position: absolute;
+        inset: -2px;
+        z-index: 0;
+        pointer-events: none;
+        background: linear-gradient(
+          115deg,
+          transparent 18%,
+          rgba(255, 255, 255, 0.42) 46%,
+          transparent 72%
+        );
+        transform: translateX(-130%);
+        transition: transform 560ms cubic-bezier(0.2, 0.7, 0.2, 1);
+      }
+      .button:hover {
+        transform: translateY(-3px);
+      }
+      .button:hover::before {
+        transform: translateX(130%);
+      }
+      .button:active {
+        transform: translateY(0) scale(0.975);
+      }
+      .button span[aria-hidden="true"] {
+        transition: transform 160ms ease;
+      }
+      .button:hover span[aria-hidden="true"] {
+        transform: translateX(3px);
+      }
+      .button-primary {
+        color: white;
+        border-color: rgba(255, 255, 255, 0.18);
+        background: linear-gradient(
+          135deg,
+          #111a4a 0%,
+          #1c3168 60%,
+          #167e6c 135%
+        );
+        box-shadow:
+          0 12px 26px rgba(17, 26, 74, 0.2),
+          0 3px 8px rgba(17, 26, 74, 0.16),
+          inset 0 1px 0 rgba(255, 255, 255, 0.28);
+      }
+      .button-primary:hover {
+        border-color: rgba(148, 239, 183, 0.42);
+        box-shadow:
+          0 18px 34px rgba(17, 26, 74, 0.24),
+          0 5px 12px rgba(22, 126, 108, 0.18),
+          inset 0 1px 0 rgba(255, 255, 255, 0.34);
+      }
+      .button-secondary {
+        color: var(--navy);
+        border-color: rgba(17, 26, 74, 0.18);
+        background: linear-gradient(
+          135deg,
+          rgba(255, 255, 255, 0.94),
+          rgba(136, 222, 235, 0.12)
+        );
+        box-shadow:
+          0 8px 20px rgba(17, 26, 74, 0.06),
+          inset 0 1px 0 white;
+      }
+      .button-secondary:hover {
+        border-color: rgba(22, 126, 108, 0.5);
+        color: #0e6559;
+        box-shadow:
+          0 14px 28px rgba(17, 26, 74, 0.1),
+          0 4px 10px rgba(68, 180, 139, 0.1),
+          inset 0 1px 0 white;
+      }
+      .button-light {
+        color: var(--navy);
+        border-color: rgba(255, 255, 255, 0.8);
+        background: linear-gradient(135deg, white, #dff8ec);
+        box-shadow:
+          0 14px 30px rgba(1, 24, 33, 0.22),
+          inset 0 1px 0 white;
+      }
+      .nav-actions .button-primary {
+        animation: button-breathe 4.8s 1.2s ease-in-out infinite;
+      }
 
-  /* hero */
-  .hero { position: relative; overflow: hidden; }
-  .hero::before {
-    content: ""; position: absolute; inset: 0;
-    background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-    background-size: 44px 44px;
-    -webkit-mask-image: radial-gradient(90% 80% at 60% 20%, #000 30%, transparent 75%);
-    mask-image: radial-gradient(90% 80% at 60% 20%, #000 30%, transparent 75%);
-    pointer-events: none;
-  }
-  .hero::after {
-    content: ""; position: absolute; top: -30%; right: -10%; width: 62%; height: 130%;
-    background: radial-gradient(50% 50% at 50% 50%, var(--accent-soft), transparent 70%);
-    pointer-events: none; filter: blur(12px);
-  }
-  .hero .wrap { position: relative; z-index: 1; display: grid; grid-template-columns: 1.06fr .94fr; gap: 60px; align-items: center; padding: 92px 28px 72px; }
-  .hero h1 { font-size: clamp(42px, 6.2vw, 70px); font-weight: 900; margin-top: 22px; }
-  .hero h1 .fade { color: var(--muted); font-weight: 800; }
-  .hero .sub { color: var(--muted); font-size: clamp(16px, 1.8vw, 18.5px); margin-top: 24px; max-width: 47ch; font-weight: 500; }
-  .actions { display: flex; flex-wrap: wrap; gap: 13px; margin-top: 34px; align-items: center; }
-  .btn { display: inline-flex; align-items: center; gap: 9px; padding: 14px 24px; border-radius: 11px; font-weight: 700; font-size: 15px; cursor: pointer; border: 1px solid transparent; transition: transform .12s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease; }
-  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-  .btn-1 { background: var(--accent); color: #04141a; box-shadow: 0 10px 28px -10px color-mix(in srgb, var(--accent) 55%, transparent); }
-  .btn-1:hover { transform: translateY(-1px); background: var(--accent-2); }
-  .btn-2 { border-color: var(--border-2); color: var(--text); }
-  .btn-2:hover { border-color: var(--accent); transform: translateY(-1px); }
-  .meta { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; color: var(--faint); margin-top: 20px; letter-spacing: .03em; }
-  .meta b { color: var(--good); font-weight: 600; }
+      .hero {
+        position: relative;
+        overflow: hidden;
+        padding: 88px 0 92px;
+      }
+      .hero::before {
+        content: "";
+        position: absolute;
+        width: 620px;
+        height: 620px;
+        right: -80px;
+        top: -220px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(136, 222, 235, 0.48),
+          rgba(68, 180, 139, 0.12) 42%,
+          transparent 70%
+        );
+        filter: blur(6px);
+        pointer-events: none;
+        animation: aurora-breathe 10s ease-in-out infinite;
+      }
+      .hero::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        opacity: 0.2;
+        background-image: radial-gradient(
+          circle,
+          rgba(17, 26, 74, 0.32) 1px,
+          transparent 1.5px
+        );
+        background-size: 18px 18px;
+        mask-image: linear-gradient(
+          90deg,
+          transparent 34%,
+          black 72%,
+          transparent
+        );
+        pointer-events: none;
+        animation: dot-drift 24s linear infinite;
+      }
+      .hero-grid {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: minmax(0, 0.92fr) minmax(480px, 1.08fr);
+        align-items: center;
+        gap: 80px;
+      }
+      .eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 24px;
+        color: var(--navy);
+        font:
+          500 11px/1.4 "JetBrains Mono",
+          monospace;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .eyebrow::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--seafoam);
+        box-shadow: 0 0 0 4px rgba(68, 180, 139, 0.12);
+      }
+      .hero h1 {
+        max-width: 720px;
+        margin-bottom: 24px;
+        font-size: clamp(44px, 5.7vw, 68px);
+        font-weight: 600;
+        line-height: 0.99;
+        letter-spacing: -0.04em;
+      }
+      .hero-grid > div:first-child {
+        animation: hero-copy-in 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+      }
+      .hero-copy {
+        max-width: 610px;
+        margin-bottom: 30px;
+        color: var(--steel);
+        font-size: clamp(16px, 1.7vw, 18px);
+        line-height: 1.5;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+      }
+      .hero-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        max-width: 520px;
+        margin: 18px 0 0;
+        color: var(--steel);
+        font:
+          400 11px/1.55 "JetBrains Mono",
+          monospace;
+      }
+      .hero-note svg {
+        flex: 0 0 auto;
+        margin-top: 2px;
+        color: var(--seafoam-dark);
+      }
 
-  /* hero panels — the two sections, literally side by side */
-  .panel-col { display: flex; flex-direction: column; gap: 14px; }
-  .panel { background: var(--surface); border: 1px solid var(--border-2); border-radius: 16px; box-shadow: 0 30px 70px -34px rgba(0,0,0,.5); overflow: hidden; }
-  .panel .head { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; border-bottom: 1px solid var(--border); }
-  .panel .head .t { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
-  .panel .head .t b { color: var(--accent); font-weight: 600; }
-  .status { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10.5px; letter-spacing: .1em; color: var(--good); display: inline-flex; align-items: center; gap: 7px; text-transform: uppercase; font-weight: 600; }
-  .live { width: 7px; height: 7px; border-radius: 50%; background: var(--good); position: relative; }
-  .live::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; background: var(--good); opacity: .4; animation: ping 1.9s cubic-bezier(0,0,.2,1) infinite; }
-  @keyframes ping { 75%,100% { transform: scale(2.3); opacity: 0; } }
-  @media (prefers-reduced-motion: reduce) { .live::after { animation: none; } }
-  .panel .body { padding: 18px 20px 20px; font-family: "IBM Plex Mono", ui-monospace, monospace; }
-  .pos { display: flex; align-items: baseline; justify-content: space-between; }
-  .pos .sym { font-size: 19px; font-weight: 600; letter-spacing: -.01em; }
-  .pos .side { font-size: 9.5px; font-weight: 600; color: #04141a; background: var(--good); border-radius: 5px; padding: 2px 7px; margin-left: 8px; letter-spacing: .05em; vertical-align: middle; }
-  .pos .side.short { background: var(--down); }
-  .pos .pl { color: var(--good); font-weight: 600; font-size: 16px; }
-  .spark { margin: 14px 0 2px; display: block; }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; margin-top: 12px; font-size: 12.5px; }
-  .grid2 .k { color: var(--faint); text-transform: uppercase; letter-spacing: .09em; font-size: 9.5px; }
-  .grid2 .v { color: var(--text); }
-  .grid2 .v.dn { color: var(--down); } .grid2 .v.up { color: var(--good); }
-  .panel.compact .body { padding: 14px 20px 16px; }
-  .panel-note { text-align: center; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--faint); }
-  .panel-note b { color: var(--accent); font-weight: 600; }
+      .product-window {
+        position: relative;
+        padding: 14px;
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.54);
+        box-shadow: var(--shadow-product);
+        backdrop-filter: blur(12px);
+        animation:
+          product-in 800ms 100ms cubic-bezier(0.2, 0.7, 0.2, 1) both,
+          product-float 7s 1s ease-in-out infinite;
+      }
+      .product-window::before {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        z-index: -1;
+        border: 1px solid rgba(255, 255, 255, 0.95);
+        border-radius: 9px;
+      }
+      .window {
+        overflow: hidden;
+        border-radius: var(--radius);
+        background: white;
+        box-shadow: var(--shadow-card);
+      }
+      .window-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 15px 18px;
+        border-bottom: 1px solid var(--line);
+      }
+      .window-title {
+        color: var(--navy);
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .window-meta {
+        color: var(--steel);
+        font:
+          400 10px/1 "JetBrains Mono",
+          monospace;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .demo-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 9px;
+        border-radius: 9999px;
+        color: var(--seafoam-dark);
+        background: rgba(68, 180, 139, 0.09);
+        font:
+          500 10px/1 "JetBrains Mono",
+          monospace;
+        text-transform: uppercase;
+      }
+      .demo-badge::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--seafoam);
+      }
+      .window-body {
+        padding: 22px;
+      }
+      .decision-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: start;
+        gap: 16px;
+      }
+      .decision-symbol {
+        margin: 0 0 4px;
+        color: var(--navy);
+        font:
+          500 24px/1.1 "Inter",
+          sans-serif;
+        letter-spacing: -0.03em;
+      }
+      .decision-copy {
+        margin: 0;
+        color: var(--steel);
+        font-size: 12px;
+      }
+      .decision-state {
+        padding: 7px 10px;
+        border-radius: var(--radius);
+        color: var(--seafoam-dark);
+        background: rgba(68, 180, 139, 0.1);
+        font:
+          500 10px/1 "JetBrains Mono",
+          monospace;
+        text-transform: uppercase;
+      }
+      .chart {
+        margin: 24px 0 20px;
+      }
+      .chart svg {
+        display: block;
+        width: 100%;
+        height: 86px;
+      }
+      .chart path:last-of-type {
+        stroke-dasharray: 780;
+        stroke-dashoffset: 780;
+        animation: draw-chart 1.6s 650ms ease-out forwards;
+      }
+      .chart circle {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: chart-pulse 2.4s 2s ease-in-out infinite;
+      }
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+      .metric {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+      }
+      .metric-label {
+        color: var(--steel);
+        font:
+          400 9px/1.4 "JetBrains Mono",
+          monospace;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .metric-value {
+        margin-top: 5px;
+        color: var(--navy);
+        font:
+          500 14px/1.2 "JetBrains Mono",
+          monospace;
+      }
+      .metric-value.green {
+        color: var(--seafoam-dark);
+      }
+      .audit-line {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        margin-top: 12px;
+        padding: 14px 16px;
+        border-radius: var(--radius);
+        color: #dfe8e6;
+        background: var(--midnight);
+        font:
+          400 10px/1.5 "JetBrains Mono",
+          monospace;
+      }
+      .audit-line b {
+        color: var(--seafoam-light);
+        font-weight: 400;
+      }
 
-  /* stat strip */
-  .stats { border-top: 1px solid var(--border); background: var(--surface); }
-  .stats .row { display: grid; grid-template-columns: repeat(4, 1fr); }
-  .stat { padding: 26px 24px; border-left: 1px solid var(--border); }
-  .stat:first-child { border-left: none; }
-  .stat .n { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 30px; font-weight: 600; letter-spacing: -.02em; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; }
-  .stat .n span { color: var(--accent); }
-  .stat .t { font-size: 13px; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; margin-top: 8px; }
-  .stat .d { font-size: 12.5px; color: var(--muted); margin-top: 3px; letter-spacing: .01em; }
-  @media (max-width: 760px) {
-    .stats .row { grid-template-columns: 1fr 1fr; }
-    .stat { border-left: none; border-top: 1px solid var(--border); }
-    .stat:nth-child(-n+2) { border-top: none; }
-    .stat:nth-child(even) { border-left: 1px solid var(--border); }
-  }
+      .trust {
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        background: white;
+      }
+      .trust-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+      }
+      .trust-item {
+        position: relative;
+        min-height: 112px;
+        padding: 24px;
+        border-left: 1px solid var(--line);
+        transition:
+          background 220ms ease,
+          transform 220ms ease;
+      }
+      .trust-item::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 2px;
+        background: linear-gradient(
+          180deg,
+          transparent,
+          var(--seafoam),
+          transparent
+        );
+        transform: scaleY(0);
+        transition: transform 220ms ease;
+      }
+      .trust-item:hover {
+        z-index: 1;
+        background: linear-gradient(145deg, white, rgba(136, 222, 235, 0.11));
+        transform: translateY(-4px);
+      }
+      .trust-item:hover::before {
+        transform: scaleY(1);
+      }
+      .trust-item:first-child {
+        border-left: 0;
+      }
+      .trust-value {
+        margin-bottom: 7px;
+        color: var(--seafoam-dark);
+        font-size: 21px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+      }
+      .trust-label {
+        color: var(--steel);
+        font-size: 13px;
+      }
 
-  /* generic section */
-  section { padding: 84px 0; border-top: 1px solid var(--border); }
-  section.alt { background: var(--surface); }
-  .head-block { max-width: 62ch; }
-  .head-block h2 { font-size: clamp(27px, 3.4vw, 40px); font-weight: 800; margin-top: 14px; }
-  .head-block p { color: var(--muted); margin: 16px 0 0; }
+      section {
+        padding: 96px 0;
+      }
+      section.white {
+        background: white;
+      }
+      .section-head {
+        display: grid;
+        grid-template-columns: 0.75fr 1.25fr;
+        gap: 64px;
+        align-items: end;
+        margin-bottom: 44px;
+      }
+      .section-kicker {
+        color: var(--seafoam-dark);
+        font:
+          500 11px/1.4 "JetBrains Mono",
+          monospace;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .section-head h2 {
+        max-width: 760px;
+        margin: 0;
+        font-size: clamp(34px, 4vw, 52px);
+        font-weight: 500;
+        line-height: 1.05;
+        letter-spacing: -0.03em;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      .card {
+        min-height: 270px;
+        padding: 24px;
+        border-radius: var(--radius);
+        background: white;
+        box-shadow: var(--shadow-card);
+        transition:
+          transform 200ms ease,
+          box-shadow 200ms ease;
+      }
+      .card:hover {
+        transform: translateY(-5px);
+        box-shadow:
+          0 18px 40px rgba(17, 26, 74, 0.08),
+          0 0 0 1px rgba(17, 26, 74, 0.04);
+      }
+      .card-icon {
+        width: 36px;
+        height: 36px;
+        display: grid;
+        place-items: center;
+        margin-bottom: 54px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        color: var(--navy);
+      }
+      .card h3 {
+        margin-bottom: 10px;
+        font-size: 20px;
+        font-weight: 500;
+        line-height: 1.15;
+        letter-spacing: -0.02em;
+      }
+      .card p {
+        margin: 0;
+        color: var(--steel);
+        font-size: 14px;
+        line-height: 1.55;
+      }
 
-  /* principles trio */
-  .trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 44px; }
-  .princ { padding: 26px 24px 24px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); position: relative; overflow: hidden; transition: border-color .2s ease, transform .2s ease; }
-  section.alt .princ { background: var(--bg); }
-  .princ::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--accent), transparent 70%); }
-  .princ:hover { border-color: var(--border-2); transform: translateY(-2px); }
-  .princ h3 { font-size: 18.5px; font-weight: 800; letter-spacing: -.02em; }
-  .princ p { color: var(--muted); font-size: 14.5px; margin: 10px 0 0; }
+      .platform-grid {
+        display: grid;
+        grid-template-columns: 0.84fr 1.16fr;
+        gap: 72px;
+        align-items: center;
+      }
+      .platform-copy h2 {
+        margin: 14px 0 20px;
+        font-size: clamp(34px, 4vw, 48px);
+        font-weight: 500;
+        line-height: 1.06;
+        letter-spacing: -0.03em;
+      }
+      .platform-copy > p {
+        margin-bottom: 28px;
+        color: var(--steel);
+      }
+      .feature-list {
+        display: grid;
+        gap: 2px;
+      }
+      .feature {
+        display: grid;
+        grid-template-columns: 28px 1fr;
+        gap: 12px;
+        padding: 16px 0;
+        border-top: 1px solid var(--line);
+        transition:
+          padding-left 180ms ease,
+          background 180ms ease;
+      }
+      .feature:hover {
+        padding-left: 10px;
+        background: linear-gradient(
+          90deg,
+          rgba(68, 180, 139, 0.07),
+          transparent
+        );
+      }
+      .feature-index {
+        color: var(--seafoam-dark);
+        font:
+          400 11px/1.5 "JetBrains Mono",
+          monospace;
+      }
+      .feature strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--navy);
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .feature span {
+        display: block;
+        color: var(--steel);
+        font-size: 13px;
+      }
+      .console {
+        position: relative;
+        overflow: hidden;
+        border-radius: var(--radius);
+        background: var(--midnight);
+        box-shadow:
+          24px 48px 64px rgba(30, 30, 44, 0.15),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+      }
+      .console::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(
+          110deg,
+          transparent 28%,
+          rgba(148, 239, 183, 0.08) 48%,
+          transparent 68%
+        );
+        transform: translateX(-120%);
+        animation: console-scan 7s 1.5s ease-in-out infinite;
+      }
+      .console-head {
+        display: flex;
+        justify-content: space-between;
+        padding: 16px 18px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        color: #b6c3c8;
+        font:
+          400 10px/1 "JetBrains Mono",
+          monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .console-body {
+        padding: 22px;
+      }
+      .console-code {
+        overflow: auto;
+        margin: 0;
+        color: #d6dfdf;
+        font:
+          400 12px/1.8 "JetBrains Mono",
+          monospace;
+        white-space: pre;
+      }
+      .console-code .key {
+        color: var(--seafoam);
+      }
+      .console-code .value {
+        color: var(--seafoam-light);
+      }
+      .console-status {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: 24px;
+        padding: 14px;
+        border: 1px solid rgba(148, 239, 183, 0.18);
+        border-radius: var(--radius);
+        color: #aab7bb;
+        font:
+          400 10px/1.5 "JetBrains Mono",
+          monospace;
+      }
+      .console-status b {
+        color: var(--seafoam-light);
+        font-weight: 400;
+      }
 
-  /* spec sheet */
-  .spec { margin-top: 44px; border-top: 1px solid var(--border); }
-  .spec .r { display: grid; grid-template-columns: 220px 1fr; gap: 28px; padding: 24px 8px; border-bottom: 1px solid var(--border); align-items: start; transition: background .2s ease; }
-  .spec .r:hover { background: var(--accent-soft); }
-  .spec .r .name { display: flex; flex-direction: column; gap: 5px; }
-  .spec .r .name b { font-size: 16.5px; font-weight: 800; letter-spacing: -.015em; }
-  .spec .r .name .tag { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
-  .spec .r p { margin: 0; color: var(--muted); font-size: 15px; }
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      .step {
+        padding: 26px 24px 28px;
+        border-top: 1px solid var(--line);
+        transition:
+          background 200ms ease,
+          transform 200ms ease;
+      }
+      .step:hover {
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.72),
+          rgba(68, 180, 139, 0.04)
+        );
+        transform: translateY(-4px);
+      }
+      .step-number {
+        margin-bottom: 56px;
+        color: var(--seafoam-dark);
+        font:
+          500 12px/1 "JetBrains Mono",
+          monospace;
+      }
+      .step h3 {
+        margin-bottom: 9px;
+        font-size: 22px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+      }
+      .step p {
+        margin: 0;
+        color: var(--steel);
+        font-size: 14px;
+      }
 
-  /* how it works — a real sequence */
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 44px; counter-reset: step; }
-  .step { padding: 24px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); position: relative; }
-  section.alt .step { background: var(--bg); }
-  .step .n { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; color: var(--accent); letter-spacing: .14em; text-transform: uppercase; font-weight: 600; }
-  .step h3 { font-size: 18px; font-weight: 800; margin-top: 12px; letter-spacing: -.02em; }
-  .step p { color: var(--muted); font-size: 14.5px; margin: 9px 0 0; }
-  .step .bar { height: 2px; background: linear-gradient(90deg, var(--accent), transparent); margin-top: 20px; border-radius: 2px; }
+      .cta-band {
+        position: relative;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        align-items: center;
+        gap: 40px;
+        padding: 54px 56px;
+        border-radius: var(--radius);
+        color: white;
+        background: linear-gradient(
+          125deg,
+          #111a4a 0%,
+          #123352 54%,
+          #167e6c 118%
+        );
+        box-shadow:
+          0 28px 70px rgba(17, 26, 74, 0.2),
+          inset 0 1px 0 rgba(255, 255, 255, 0.13);
+      }
+      .cta-band::before {
+        content: "";
+        position: absolute;
+        inset: -60% 34% -60% -20%;
+        pointer-events: none;
+        background: radial-gradient(
+          circle,
+          rgba(136, 222, 235, 0.25),
+          transparent 66%
+        );
+        animation: cta-glow 8s ease-in-out infinite;
+      }
+      .cta-band::after {
+        content: "";
+        position: absolute;
+        width: 300px;
+        height: 300px;
+        right: -90px;
+        top: -150px;
+        border: 1px solid rgba(148, 239, 183, 0.28);
+        border-radius: 50%;
+        box-shadow:
+          0 0 0 44px rgba(136, 222, 235, 0.07),
+          0 0 0 88px rgba(68, 180, 139, 0.045);
+        animation: orbit-rings 8s ease-in-out infinite;
+      }
+      .cta-band h2 {
+        position: relative;
+        z-index: 1;
+        margin: 8px 0 12px;
+        color: white;
+        font-size: clamp(32px, 4vw, 48px);
+        font-weight: 500;
+        line-height: 1.04;
+        letter-spacing: -0.03em;
+      }
+      .cta-band p {
+        position: relative;
+        z-index: 1;
+        max-width: 620px;
+        margin: 0;
+        color: rgba(255, 255, 255, 0.84);
+      }
+      .cta-actions {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+      .cta-band .button-secondary {
+        color: white;
+        border-color: rgba(148, 239, 183, 0.48);
+        background: rgba(255, 255, 255, 0.06);
+        box-shadow:
+          0 12px 28px rgba(1, 24, 33, 0.18),
+          inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      }
+      .cta-band .button-secondary:hover {
+        color: white;
+        border-color: rgba(148, 239, 183, 0.84);
+        background: rgba(68, 180, 139, 0.16);
+      }
 
-  /* demo band */
-  .band { border-radius: 22px; border: 1px solid var(--border-2); background: linear-gradient(180deg, var(--surface), var(--surface-2)); padding: 56px 48px; text-align: center; position: relative; overflow: hidden; }
-  .band::before { content: ""; position: absolute; inset: 0; background: radial-gradient(60% 90% at 50% 0%, var(--accent-soft), transparent 70%); pointer-events: none; }
-  .band .eyebrow { position: relative; }
-  .band h2 { position: relative; font-size: clamp(26px, 3.2vw, 38px); font-weight: 800; margin-top: 12px; }
-  .band p { position: relative; color: var(--muted); margin: 16px auto 28px; max-width: 54ch; }
-  .band .actions { justify-content: center; margin-top: 0; }
+      .privacy-section {
+        position: relative;
+        overflow: hidden;
+        border-top: 1px solid var(--line);
+        background: linear-gradient(180deg, #ffffff 0%, #f1f7f7 100%);
+      }
+      .privacy-section::before {
+        content: "";
+        position: absolute;
+        width: 520px;
+        height: 520px;
+        right: -220px;
+        top: -260px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(136, 222, 235, 0.28),
+          rgba(68, 180, 139, 0.08) 46%,
+          transparent 70%
+        );
+        animation: aurora-breathe 11s ease-in-out infinite reverse;
+        pointer-events: none;
+      }
+      .privacy-intro {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: 0.72fr 1.28fr;
+        gap: 64px;
+        align-items: end;
+        margin-bottom: 24px;
+      }
+      .privacy-intro h2 {
+        max-width: 720px;
+        margin: 0;
+        font-size: clamp(34px, 4vw, 52px);
+        font-weight: 500;
+        line-height: 1.05;
+        letter-spacing: -0.03em;
+      }
+      .privacy-summary {
+        position: relative;
+        z-index: 1;
+        max-width: 760px;
+        margin: 0 0 34px auto;
+        color: var(--steel);
+        font-size: 15px;
+      }
+      .privacy-grid {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+      }
+      .privacy-card {
+        min-height: 222px;
+        padding: 22px;
+        border: 1px solid rgba(17, 26, 74, 0.07);
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.78);
+        box-shadow:
+          0 12px 34px rgba(17, 26, 74, 0.055),
+          inset 0 1px 0 white;
+        backdrop-filter: blur(10px);
+        transition:
+          transform 220ms ease,
+          border-color 220ms ease,
+          box-shadow 220ms ease;
+      }
+      .privacy-card:hover {
+        transform: translateY(-6px) rotateX(1deg);
+        border-color: rgba(68, 180, 139, 0.3);
+        box-shadow:
+          0 20px 42px rgba(17, 26, 74, 0.09),
+          0 5px 14px rgba(68, 180, 139, 0.08),
+          inset 0 1px 0 white;
+      }
+      .privacy-number {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 34px;
+        color: var(--seafoam-dark);
+        font:
+          500 10px/1 "JetBrains Mono",
+          monospace;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .privacy-number::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--seafoam);
+        box-shadow: 0 0 0 4px rgba(68, 180, 139, 0.1);
+      }
+      .privacy-card h3 {
+        margin-bottom: 9px;
+        font-size: 18px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+      }
+      .privacy-card p {
+        margin: 0;
+        color: var(--steel);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      .privacy-footnote {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        margin-top: 18px;
+        padding: 15px 18px;
+        border: 1px solid rgba(17, 26, 74, 0.07);
+        border-radius: var(--radius);
+        color: var(--steel);
+        background: rgba(255, 255, 255, 0.66);
+        font:
+          400 10px/1.5 "JetBrains Mono",
+          monospace;
+      }
+      .privacy-footnote a {
+        color: var(--seafoam-dark);
+        font-weight: 500;
+      }
 
-  /* footer */
-  footer { border-top: 1px solid var(--border); padding: 48px 0 64px; background: var(--surface); }
-  .foot-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 20px; align-items: flex-start; }
-  .foot-note { max-width: 54ch; color: var(--muted); font-size: 13.5px; }
-  .acq { margin-top: 28px; padding: 18px 22px; border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); background: var(--accent-soft); border-radius: 12px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; font-size: 13.5px; color: var(--muted); }
-  .acq b { color: var(--text); font-weight: 700; }
-  .acq a { color: var(--accent); font-weight: 650; }
-  .creator { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 20px 40px; align-items: flex-start; justify-content: space-between; }
-  .creator .who .lbl { display: block; margin-bottom: 4px; }
-  .creator .who .name { font-size: 15px; font-weight: 800; letter-spacing: -.01em; }
-  .creator .who .loc { font-size: 13px; color: var(--muted); margin-top: 2px; }
-  .creator .links { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-  .creator .links a {
-    display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;
-    padding: 8px 13px; border-radius: 9px; border: 1px solid var(--border-2); color: var(--text);
-    transition: border-color .15s ease, transform .12s ease, color .15s ease;
-  }
-  .creator .links a:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
-  .creator .links a svg { width: 16px; height: 16px; }
+      .motion-rail {
+        overflow: hidden;
+        border-top: 1px solid rgba(148, 239, 183, 0.12);
+        border-bottom: 1px solid rgba(148, 239, 183, 0.12);
+        background: var(--midnight);
+      }
+      .motion-track {
+        display: flex;
+        width: max-content;
+        align-items: center;
+        gap: 28px;
+        padding: 17px 0;
+        color: #d9e3e3;
+        font:
+          400 11px/1 "JetBrains Mono",
+          monospace;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        animation: process-flow 24s linear infinite;
+      }
+      .motion-track span {
+        display: inline-flex;
+        align-items: center;
+        gap: 28px;
+        white-space: nowrap;
+      }
+      .motion-track span::after {
+        content: "";
+        width: 34px;
+        height: 1px;
+        background: linear-gradient(90deg, var(--seafoam), transparent);
+      }
+      .motion-track b {
+        color: var(--seafoam-light);
+        font-weight: 400;
+      }
+      .motion-rail:hover .motion-track {
+        animation-play-state: paused;
+      }
 
-  @media (max-width: 900px) {
-    .hero .wrap { grid-template-columns: 1fr; gap: 44px; padding: 60px 28px 56px; }
-    .panel-col { order: 2; }
-    .trio { grid-template-columns: 1fr; gap: 14px; margin-top: 32px; }
-    .spec .r { grid-template-columns: 1fr; gap: 8px; }
-    .steps { grid-template-columns: 1fr; }
-    .band { padding: 40px 24px; }
-  }
-  </style>
-</head>
-<body>
+      .motion-ready .reveal-target {
+        opacity: 0;
+        transform: translateY(28px) scale(0.985);
+      }
+      .motion-ready .reveal-target.is-visible {
+        opacity: 1;
+        transform: none;
+        transition:
+          opacity 700ms cubic-bezier(0.2, 0.7, 0.2, 1) var(--reveal-delay, 0ms),
+          transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1)
+            var(--reveal-delay, 0ms);
+      }
 
-<nav>
-  <div class="wrap row">
-    <a class="logo" href="#top"><span class="mk" aria-hidden="true"><svg viewBox="0 0 24 24" width="19" height="19" fill="none"><rect x="10.25" y="2.5" width="3.5" height="19" rx="1.75" fill="currentColor"/><path d="M10.25 13.5 H7.6 Q5.6 13.5 5.6 11.5 V8.8" stroke="currentColor" stroke-width="3.1" stroke-linecap="round"/><path d="M13.75 11 H16.4 Q18.4 11 18.4 9 V6.6" stroke="currentColor" stroke-width="3.1" stroke-linecap="round"/></svg></span>Cactus<span>&nbsp;AI</span></a>
-    <div class="nav-links" aria-label="Sections">
-      <a href="#why">Why</a>
-      <a href="#inside">Platform</a>
-      <a href="#how">How it works</a>
-      <a href="#contact">Contact</a>
-    </div>
-    <a class="nav-cta" href="/app">Launch app →</a>
-  </div>
-</nav>
+      footer {
+        padding: 44px 0 52px;
+        border-top: 1px solid var(--line);
+        background: white;
+      }
+      .footer-top {
+        display: grid;
+        grid-template-columns: 0.8fr 1.2fr;
+        gap: 64px;
+        align-items: start;
+      }
+      .legal {
+        max-width: 690px;
+        margin: 0;
+        color: var(--steel);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      .footer-bottom {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        margin-top: 34px;
+        padding-top: 22px;
+        border-top: 1px solid var(--line);
+      }
+      .maker {
+        color: var(--steel);
+        font-size: 12px;
+      }
+      .maker strong {
+        color: var(--navy);
+        font-weight: 500;
+      }
+      .footer-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        color: var(--navy);
+        font-size: 12px;
+      }
+      .footer-links a:hover {
+        color: var(--seafoam-dark);
+      }
 
-<div class="ticker" aria-hidden="true">
-  <div class="track">
-    <span><i class="mkt">FX</i><b>EUR/USD</b> 1.0855 <i class="up">▴ 0.12%</i></span>
-    <span><i class="mkt">CX</i><b>BTC</b> 63,588 <i class="dn">▾ 0.42%</i></span>
-    <span><i class="mkt">FX</i><b>XAU/USD</b> 2,412.4 <i class="up">▴ 0.27%</i></span>
-    <span><i class="mkt">CX</i><b>ETH</b> 1,847 <i class="up">▴ 0.31%</i></span>
-    <span><i class="mkt">FX</i><b>GBP/USD</b> 1.2704 <i class="dn">▾ 0.08%</i></span>
-    <span><i class="mkt">CX</i><b>SOL</b> 75.19 <i class="up">▴ 0.88%</i></span>
-    <span><i class="mkt">FX</i><b>SPX500</b> 5,512 <i class="up">▴ 0.19%</i></span>
-    <span><i class="mkt">CX</i><b>BNB</b> 612.4 <i class="dn">▾ 0.12%</i></span>
-    <span><i class="mkt">FX</i><b>AUD/USD</b> 0.6689 <i class="up">▴ 0.15%</i></span>
-    <span><i class="mkt">CX</i><b>XRP</b> 0.612 <i class="up">▴ 0.24%</i></span>
-    <span><i class="mkt">FX</i><b>NAS100</b> 19,882 <i class="dn">▾ 0.22%</i></span>
-    <span><i class="mkt">CX</i><b>LINK</b> 8.26 <i class="up">▴ 0.19%</i></span>
-    <!-- duplicate for seamless loop -->
-    <span><i class="mkt">FX</i><b>EUR/USD</b> 1.0855 <i class="up">▴ 0.12%</i></span>
-    <span><i class="mkt">CX</i><b>BTC</b> 63,588 <i class="dn">▾ 0.42%</i></span>
-    <span><i class="mkt">FX</i><b>XAU/USD</b> 2,412.4 <i class="up">▴ 0.27%</i></span>
-    <span><i class="mkt">CX</i><b>ETH</b> 1,847 <i class="up">▴ 0.31%</i></span>
-    <span><i class="mkt">FX</i><b>GBP/USD</b> 1.2704 <i class="dn">▾ 0.08%</i></span>
-    <span><i class="mkt">CX</i><b>SOL</b> 75.19 <i class="up">▴ 0.88%</i></span>
-    <span><i class="mkt">FX</i><b>SPX500</b> 5,512 <i class="up">▴ 0.19%</i></span>
-    <span><i class="mkt">CX</i><b>BNB</b> 612.4 <i class="dn">▾ 0.12%</i></span>
-    <span><i class="mkt">FX</i><b>AUD/USD</b> 0.6689 <i class="up">▴ 0.15%</i></span>
-    <span><i class="mkt">CX</i><b>XRP</b> 0.612 <i class="up">▴ 0.24%</i></span>
-    <span><i class="mkt">FX</i><b>NAS100</b> 19,882 <i class="dn">▾ 0.22%</i></span>
-    <span><i class="mkt">CX</i><b>LINK</b> 8.26 <i class="up">▴ 0.19%</i></span>
-  </div>
-</div>
-
-<header class="hero" id="top">
-  <div class="wrap">
-    <div>
-      <span class="eyebrow">Automated crypto &amp; forex trading · self-hosted</span>
-      <h1>The trading desk that runs itself — <span class="fade">and answers only to you.</span></h1>
-      <p class="sub">Cactus AI runs two markets side by side — crypto on Binance (spot &amp; futures) and forex on OANDA (majors, gold, indices) — with genuine risk controls, a transparent live dashboard, and backtesting that runs the exact same code as live. On your server. With your keys. Under your control.</p>
-      <div class="actions">
-        <a class="btn btn-1" href="/app/?demo=1">Explore the live demo →</a>
-        <a class="btn btn-2" href="/app/?signup=1">Create your account</a>
-      </div>
-      <p class="meta"><b>●</b> No signup for the demo — a read-only account loaded with live trades, decisions &amp; backtests. <a href="#how" style="color:inherit;text-decoration:underline">See how it works</a></p>
-    </div>
-
-    <div class="panel-col">
-      <div class="panel" role="img" aria-label="Cactus AI crypto section — a live short position on BTCUSDT with stop and take-profit levels">
-        <div class="head">
-          <span class="t"><b>Crypto</b> · Binance · open position</span>
-          <span class="status"><span class="live" aria-hidden="true"></span>Live</span>
-        </div>
-        <div class="body">
-          <div class="pos">
-            <div><span class="sym">BTCUSDT</span><span class="side short">SHORT 10×</span></div>
-            <div class="pl nums">+0.42%</div>
-          </div>
-          <svg class="spark" width="100%" height="52" viewBox="0 0 320 52" preserveAspectRatio="none" aria-hidden="true">
-            <defs>
-              <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="var(--accent)" stop-opacity="0.28"/>
-                <stop offset="1" stop-color="var(--accent)" stop-opacity="0"/>
-              </linearGradient>
-            </defs>
-            <path d="M0,28 L26,20 L52,32 L78,17 L104,24 L130,11 L156,22 L182,15 L208,28 L234,20 L260,34 L286,26 L320,38 L320,52 L0,52 Z" fill="url(#g1)"/>
-            <path d="M0,28 L26,20 L52,32 L78,17 L104,24 L130,11 L156,22 L182,15 L208,28 L234,20 L260,34 L286,26 L320,38" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
-            <circle cx="320" cy="38" r="3" fill="var(--accent)"/>
-          </svg>
-          <div class="grid2">
-            <div><div class="k">Entry → now</div><div class="v nums">63,856 → 63,588</div></div>
-            <div><div class="k">Held</div><div class="v">4 min</div></div>
-            <div><div class="k">Stop loss</div><div class="v dn nums">64,171</div></div>
-            <div><div class="k">Take profit</div><div class="v up nums">62,900</div></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel-note">running <b>simultaneously</b> — two independent sections</div>
-
-      <div class="panel compact" role="img" aria-label="Cactus AI forex section — a live long position on EUR/USD with stop and take-profit attached">
-        <div class="head">
-          <span class="t"><b>Forex</b> · OANDA · open position</span>
-          <span class="status"><span class="live" aria-hidden="true"></span>Live</span>
-        </div>
-        <div class="body">
-          <div class="pos">
-            <div><span class="sym">EUR/USD</span><span class="side">LONG</span></div>
-            <div class="pl nums">+0.18%</div>
-          </div>
-          <div class="grid2">
-            <div><div class="k">Entry → now</div><div class="v nums">1.0836 → 1.0855</div></div>
-            <div><div class="k">Protection</div><div class="v up">SL + TP attached</div></div>
-            <div><div class="k">Stop loss</div><div class="v dn nums">1.0812</div></div>
-            <div><div class="k">Take profit</div><div class="v up nums">1.0891</div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</header>
-
-<div class="stats" aria-label="Platform at a glance">
-  <div class="wrap">
-    <div class="row">
-      <div class="stat"><div class="n">2</div><div class="t">Markets</div><div class="d">Crypto on Binance, forex on OANDA — independent, simultaneous</div></div>
-      <div class="stat"><div class="n">8</div><div class="t">Strategies</div><div class="d">Regime-aware brains, each with its own budget and risk profile</div></div>
-      <div class="stat"><div class="n">100<span>%</span></div><div class="t">Self-hosted</div><div class="d">Your own broker keys — funds never leave your accounts</div></div>
-      <div class="stat"><div class="n">1<span>:</span>1</div><div class="t">Backtest parity</div><div class="d">Backtests run the live engine's exact code, fees included</div></div>
-    </div>
-  </div>
-</div>
-
-<section id="why">
-  <div class="wrap">
-    <div class="head-block rev">
-      <span class="lbl">Why it's different</span>
-      <h2>Most trading bots are a black box. This one shows its work.</h2>
-    </div>
-    <div class="trio">
-      <div class="princ rev">
-        <h3>Your keys, your custody</h3>
-        <p>Connect your own Binance API keys and OANDA token, encrypted at rest. Funds never leave your own broker accounts and are never pooled with anyone else's.</p>
-      </div>
-      <div class="princ rev">
-        <h3>Transparent by default</h3>
-        <p>Every trade is logged, charted against its own stop and target, and explained after it closes. Nothing happens you can't see and audit.</p>
-      </div>
-      <div class="princ rev">
-        <h3>Honest backtesting</h3>
-        <p>The backtester runs the live engine's exact logic — same signals, sizing, and fees — so a result on history means what it says.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="inside" class="alt">
-  <div class="wrap">
-    <div class="head-block rev">
-      <span class="lbl">What's inside</span>
-      <h2>A complete trading platform, not a script.</h2>
-    </div>
-    <div class="spec">
-      <div class="r rev"><div class="name"><span class="tag">Markets</span><b>Crypto &amp; Forex, side by side</b></div><p>Two independent trading sections that run simultaneously: Binance spot &amp; USDⓈ-M futures (long/short, leverage, isolated or cross margin) and OANDA forex — currency majors, gold, and US index CFDs with atomic stop-protected entries and real market-hours awareness.</p></div>
-      <div class="r rev"><div class="name"><span class="tag">Engine</span><b>Multi-strategy core</b></div><p>Eight configurable strategies with market-regime detection route across the market in parallel — each working its own budget, none crowding out the others.</p></div>
-      <div class="r rev"><div class="name"><span class="tag">Builder</span><b>Build your own strategies — no code</b></div><p>Compose custom entry rules from the engine's indicators (RSI, regime, volume, session time and more), pick a stop model, and backtest before going live. Custom strategies run through the same risk pipeline as the built-ins — they can never bypass a safety control.</p></div>
-      <div class="r rev"><div class="name"><span class="tag">Risk</span><b>Dollar-based sizing</b></div><p>State a fixed dollar risk and target; the engine derives position size, stop price, take-profit, reward:risk, and liquidation distance automatically.</p></div>
-      <div class="r rev"><div class="name"><span class="tag">Safety</span><b>Real protection</b></div><p>Exchange-side stop-losses, liquidation guards, a portfolio-risk ceiling, a daily circuit breaker, and startup reconciliation of every open position.</p></div>
-      <div class="r rev"><div class="name"><span class="tag">Cockpit</span><b>Live dashboard</b></div><p>Real-time positions with live P&amp;L, candlestick charts overlaid with your stop and target, and one-click manual close.</p></div>
-      <div class="r rev"><div class="name"><span class="tag">Accounts</span><b>Multi-user</b></div><p>Registration, sessions, Google &amp; Apple sign-in, and a full account manager — every user fully isolated from the next.</p></div>
-    </div>
-  </div>
-</section>
-
-<section id="how">
-  <div class="wrap">
-    <div class="head-block rev">
-      <span class="lbl">How it works</span>
-      <h2>Live in three steps.</h2>
-    </div>
-    <div class="steps">
-      <div class="step rev"><div class="n">Step 1</div><h3>Connect your keys</h3><p>Add your own broker credentials — Binance keys for crypto, an OANDA token for forex. Paper trading on both (testnet / practice account), live when you're ready. Encrypted, and only ever used for your account.</p><div class="bar"></div></div>
-      <div class="step rev"><div class="n">Step 2</div><h3>Set your strategies</h3><p>Enable the strategies you want and give each one a plain-dollar risk and target. The engine handles the sizing and the stops.</p><div class="bar"></div></div>
-      <div class="step rev"><div class="n">Step 3</div><h3>Watch it trade</h3><p>It scans, enters, manages, and exits on its own — while you see every decision live and close anything by hand whenever you like.</p><div class="bar"></div></div>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="wrap">
-    <div class="band rev">
-      <span class="eyebrow">Live demo</span>
-      <h2>See it running, right now.</h2>
-      <p>One click opens a read-only demo account — no signup, no keys. Watch positions across both markets, browse the decision journal, read a strategy autopsy, open the analytics, and see a completed backtest. When you're ready, create your own account and connect your keys.</p>
-      <div class="actions">
-        <a class="btn btn-1" href="/app/?demo=1">Explore the live demo →</a>
-        <a class="btn btn-2" href="/app/?signup=1">Create your account</a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<footer id="contact">
-  <div class="wrap">
-    <div class="foot-top">
-      <a class="logo" href="#top"><span class="mk" aria-hidden="true"><svg viewBox="0 0 24 24" width="19" height="19" fill="none"><rect x="10.25" y="2.5" width="3.5" height="19" rx="1.75" fill="currentColor"/><path d="M10.25 13.5 H7.6 Q5.6 13.5 5.6 11.5 V8.8" stroke="currentColor" stroke-width="3.1" stroke-linecap="round"/><path d="M13.75 11 H16.4 Q18.4 11 18.4 9 V6.6" stroke="currentColor" stroke-width="3.1" stroke-linecap="round"/></svg></span>Cactus<span>&nbsp;AI</span></a>
-      <p class="foot-note">Trading cryptocurrency, forex, and other leveraged products carries substantial risk of loss. Cactus AI is software you run yourself — the included strategies are a starting point with no guaranteed edge, and nothing here is financial advice. Start on the built-in testnet.</p>
-    </div>
-    <div class="creator">
-      <div class="who">
-        <span class="lbl">Designed &amp; built by</span>
-        <div class="name">Awat Hatam Abdalla</div>
-        <div class="loc">Kurdistan</div>
-      </div>
-      <div class="links">
-        <a href="https://www.instagram.com/awat_4b" target="_blank" rel="noopener" aria-label="Instagram">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
-          Instagram
+      @keyframes hero-copy-in {
+        from {
+          opacity: 0;
+          transform: translateY(18px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @keyframes nav-in {
+        from {
+          opacity: 0;
+          transform: translateY(-14px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @keyframes button-breathe {
+        0%,
+        100% {
+          box-shadow:
+            0 12px 26px rgba(17, 26, 74, 0.2),
+            0 3px 8px rgba(17, 26, 74, 0.16),
+            inset 0 1px 0 rgba(255, 255, 255, 0.28);
+        }
+        50% {
+          box-shadow:
+            0 16px 34px rgba(17, 26, 74, 0.25),
+            0 6px 16px rgba(68, 180, 139, 0.17),
+            inset 0 1px 0 rgba(255, 255, 255, 0.34);
+        }
+      }
+      @keyframes aurora-breathe {
+        0%,
+        100% {
+          transform: scale(1) translate3d(0, 0, 0);
+          opacity: 0.78;
+        }
+        50% {
+          transform: scale(1.1) translate3d(-18px, 12px, 0);
+          opacity: 1;
+        }
+      }
+      @keyframes console-scan {
+        0%,
+        18% {
+          transform: translateX(-120%);
+        }
+        58%,
+        100% {
+          transform: translateX(120%);
+        }
+      }
+      @keyframes cta-glow {
+        0%,
+        100% {
+          transform: translateX(-4%) scale(0.95);
+          opacity: 0.6;
+        }
+        50% {
+          transform: translateX(16%) scale(1.12);
+          opacity: 1;
+        }
+      }
+      @keyframes orbit-rings {
+        0%,
+        100% {
+          transform: rotate(0deg) scale(1);
+        }
+        50% {
+          transform: rotate(8deg) scale(1.06);
+        }
+      }
+      @keyframes product-in {
+        from {
+          opacity: 0;
+          transform: translateY(24px) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @keyframes product-float {
+        0%,
+        100% {
+          translate: 0 0;
+        }
+        50% {
+          translate: 0 -8px;
+        }
+      }
+      @keyframes dot-drift {
+        to {
+          background-position: 72px 36px;
+        }
+      }
+      @keyframes draw-chart {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+      @keyframes chart-pulse {
+        50% {
+          transform: scale(1.8);
+          opacity: 0.6;
+        }
+      }
+      @keyframes process-flow {
+        to {
+          transform: translateX(-50%);
+        }
+      }
+      @media (max-width: 980px) {
+        .hero {
+          padding-top: 64px;
+        }
+        .hero-grid,
+        .platform-grid {
+          grid-template-columns: 1fr;
+        }
+        .hero-grid {
+          gap: 52px;
+        }
+        .product-window {
+          max-width: 700px;
+        }
+        .section-head {
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+        .privacy-intro {
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+        .privacy-summary {
+          margin-left: 0;
+        }
+        .privacy-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+        .cta-band {
+          grid-template-columns: 1fr;
+        }
+        .cta-actions {
+          justify-content: flex-start;
+        }
+      }
+      @media (max-width: 760px) {
+        .wrap {
+          width: min(calc(100% - 32px), var(--page));
+        }
+        .nav-links {
+          display: none;
+        }
+        .nav-actions .button-secondary {
+          display: none;
+        }
+        .hero {
+          padding: 52px 0 64px;
+        }
+        .hero-grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .hero h1 {
+          font-size: clamp(42px, 13vw, 58px);
+        }
+        .product-window {
+          padding: 8px;
+        }
+        .window-body {
+          padding: 18px;
+        }
+        .metric-grid {
+          grid-template-columns: 1fr;
+        }
+        .audit-line {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+        .trust-grid,
+        .cards,
+        .steps,
+        .privacy-grid {
+          grid-template-columns: 1fr;
+        }
+        .trust-item {
+          min-height: 0;
+          border-left: 0;
+          border-top: 1px solid var(--line);
+        }
+        .trust-item:first-child {
+          border-top: 0;
+        }
+        section {
+          padding: 72px 0;
+        }
+        .card {
+          min-height: 230px;
+        }
+        .card-icon,
+        .step-number {
+          margin-bottom: 32px;
+        }
+        .cta-band {
+          padding: 40px 24px;
+        }
+        .privacy-card {
+          min-height: 0;
+        }
+        .privacy-footnote {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+        .footer-top {
+          grid-template-columns: 1fr;
+          gap: 26px;
+        }
+        .footer-bottom {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+      @media (max-width: 480px) {
+        .nav {
+          height: 62px;
+        }
+        .nav-actions .button {
+          min-height: 38px;
+          padding: 9px 13px;
+        }
+        .hero .actions,
+        .hero .button {
+          width: 100%;
+        }
+        .decision-row {
+          grid-template-columns: 1fr;
+        }
+        .decision-state {
+          justify-self: start;
+        }
+        .window-meta {
+          display: none;
+        }
+        .cta-actions,
+        .cta-actions .button {
+          width: 100%;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="nav-shell">
+      <nav class="wrap nav" aria-label="Primary navigation">
+        <a class="brand" href="#top" aria-label="Cactus AI home">
+          <span class="mark" aria-hidden="true"
+            ><svg viewBox="0 0 24 24" width="19" height="19" fill="none">
+              <rect
+                x="10.25"
+                y="2.5"
+                width="3.5"
+                height="19"
+                rx="1.75"
+                fill="currentColor"
+              />
+              <path
+                d="M10.25 13.5 H7.6 Q5.6 13.5 5.6 11.5 V8.8"
+                stroke="currentColor"
+                stroke-width="3.1"
+                stroke-linecap="round"
+              />
+              <path
+                d="M13.75 11 H16.4 Q18.4 11 18.4 9 V6.6"
+                stroke="currentColor"
+                stroke-width="3.1"
+                stroke-linecap="round"
+              /></svg
+          ></span>
+          Cactus AI
         </a>
-        <a href="https://wa.me/9647503135437" target="_blank" rel="noopener" aria-label="WhatsApp">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2c-5.46 0-9.9 4.44-9.9 9.9 0 1.75.46 3.45 1.32 4.95L2 22l5.3-1.38a9.86 9.86 0 0 0 4.73 1.2h.01c5.46 0 9.9-4.44 9.9-9.9 0-2.64-1.03-5.13-2.9-7A9.82 9.82 0 0 0 12.04 2Zm0 1.8a8.09 8.09 0 0 1 8.1 8.1c0 4.47-3.63 8.1-8.1 8.1a8.1 8.1 0 0 1-4.13-1.13l-.3-.18-3.15.82.84-3.07-.2-.31a8.06 8.06 0 0 1-1.26-4.33c0-4.47 3.64-8.1 8.1-8.1Zm-2.6 4.35c-.15 0-.4.06-.6.3-.2.24-.79.77-.79 1.88 0 1.1.81 2.17.92 2.32.11.15 1.57 2.4 3.8 3.36.53.23.95.37 1.27.47.53.17 1.02.15 1.4.09.43-.06 1.32-.54 1.5-1.06.19-.52.19-.97.13-1.06-.05-.09-.2-.15-.42-.26-.22-.11-1.32-.65-1.53-.73-.2-.07-.35-.11-.5.12-.15.23-.57.72-.7.87-.13.15-.26.17-.48.06-.22-.11-.94-.35-1.79-1.11-.66-.59-1.11-1.32-1.24-1.54-.13-.22-.01-.34.1-.45.1-.1.22-.26.33-.39.11-.13.14-.22.22-.37.07-.15.04-.28-.02-.39-.06-.11-.5-1.22-.69-1.67-.18-.44-.37-.38-.5-.39-.13-.01-.28-.01-.43-.01Z"/></svg>
-          WhatsApp
-        </a>
-        <a href="mailto:id.awat.mryam@gmail.com?subject=Cactus%20AI" aria-label="Email">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
-          Email
-        </a>
+        <div class="nav-links">
+          <a href="#why">Why Cactus</a><a href="#platform">Platform</a
+          ><a href="#how">How it works</a><a href="#privacy">Privacy</a>
+        </div>
+        <div class="nav-actions">
+          <a class="button button-secondary" href="/app">Sign in</a
+          ><a class="button button-primary" href="/app/?signup=1"
+            >Create account <span aria-hidden="true">→</span></a
+          >
+        </div>
+      </nav>
+    </div>
+
+    <main id="main">
+      <header class="hero" id="top">
+        <div class="wrap hero-grid">
+          <div>
+            <div class="eyebrow">
+              Your server · clear decisions · risk limits
+            </div>
+            <h1>See what your trading system is doing, and why.</h1>
+            <p class="hero-copy">
+              Cactus AI gives you one place to run crypto and forex strategies,
+              check the risk, and follow every trade from the first signal to
+              the final result.
+            </p>
+            <div class="actions">
+              <a class="button button-primary" href="/app/?demo=1"
+                >Take a look at the demo <span aria-hidden="true">→</span></a
+              ><a class="button button-secondary" href="/app/?signup=1"
+                >Create your account</a
+              >
+            </div>
+            <p class="hero-note">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+              >
+                <path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3v8Z" />
+                <path d="m9 12 2 2 4-4" /></svg
+              >The demo is read-only. You do not need an account or exchange
+              keys. If you create an account, start with simulation or testnet.
+            </p>
+          </div>
+
+          <div
+            class="product-window"
+            aria-label="Illustrative Cactus AI decision ledger"
+          >
+            <div class="window">
+              <div class="window-head">
+                <div>
+                  <div class="window-title">Decision ledger</div>
+                  <div class="window-meta">Illustrative product preview</div>
+                </div>
+                <span class="demo-badge">Paper mode</span>
+              </div>
+              <div class="window-body">
+                <div class="decision-row">
+                  <div>
+                    <h2 class="decision-symbol">BTC / USDT</h2>
+                    <p class="decision-copy">
+                      Trend continuation · 4 controls evaluated
+                    </p>
+                  </div>
+                  <span class="decision-state">Plan approved</span>
+                </div>
+                <div class="chart" aria-hidden="true">
+                  <svg viewBox="0 0 520 86" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient
+                        id="chartFill"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="0"
+                          stop-color="#44b48b"
+                          stop-opacity=".24"
+                        />
+                        <stop
+                          offset="1"
+                          stop-color="#44b48b"
+                          stop-opacity="0"
+                        />
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M0 70 C32 68 36 56 68 58 S114 70 143 51 S183 38 208 45 S247 55 276 33 S320 24 346 36 S393 45 420 24 S466 11 520 15 V86 H0Z"
+                      fill="url(#chartFill)"
+                    />
+                    <path
+                      d="M0 70 C32 68 36 56 68 58 S114 70 143 51 S183 38 208 45 S247 55 276 33 S320 24 346 36 S393 45 420 24 S466 11 520 15"
+                      fill="none"
+                      stroke="#167e6c"
+                      stroke-width="2"
+                    />
+                    <circle cx="520" cy="15" r="4" fill="#44b48b" />
+                  </svg>
+                </div>
+                <div class="metric-grid">
+                  <div class="metric">
+                    <div class="metric-label">Max risk</div>
+                    <div class="metric-value">$50.00</div>
+                  </div>
+                  <div class="metric">
+                    <div class="metric-label">Reward : risk</div>
+                    <div class="metric-value green">2.4 : 1</div>
+                  </div>
+                  <div class="metric">
+                    <div class="metric-label">Protection</div>
+                    <div class="metric-value green">SL + TP</div>
+                  </div>
+                </div>
+                <div class="audit-line">
+                  <span
+                    ><b>risk.validate</b> → all deterministic controls
+                    passed</span
+                  ><span>12:41:08 UTC</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="trust" aria-label="Platform principles">
+        <div class="wrap trust-grid">
+          <div class="trust-item">
+            <div class="trust-value">Demo-first</div>
+            <div class="trust-label">Look around before you sign up.</div>
+          </div>
+          <div class="trust-item">
+            <div class="trust-value">You stay in control</div>
+            <div class="trust-label">
+              Sensitive actions still need your approval.
+            </div>
+          </div>
+          <div class="trust-item">
+            <div class="trust-value">Runs on your server</div>
+            <div class="trust-label">
+              Your broker keys and funds stay under your control.
+            </div>
+          </div>
+          <div class="trust-item">
+            <div class="trust-value">Nothing is hidden</div>
+            <div class="trust-label">
+              Signals, checks, decisions, and results are recorded.
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <div class="acq">
-      <span><b>This platform is available for acquisition.</b> Full source, infrastructure, and handover included.</span>
-      <span>Enquiries · <a href="mailto:id.awat.mryam@gmail.com?subject=Cactus%20AI">id.awat.mryam@gmail.com</a></span>
-    </div>
-  </div>
-</footer>
+      <section id="why">
+        <div class="wrap">
+          <div class="section-head">
+            <div class="section-kicker">Built to be checked</div>
+            <h2>
+              If the system cannot explain a trade, it should not place it.
+            </h2>
+          </div>
+          <div class="cards">
+            <article class="card">
+              <div class="card-icon" aria-hidden="true">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                >
+                  <path
+                    d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3v8Z"
+                  />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+              </div>
+              <h3>Risk before execution</h3>
+              <p>
+                Before an order can move forward, Cactus AI checks the size,
+                exposure, stop, target, and exchange rules.
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-icon" aria-hidden="true">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                >
+                  <path
+                    d="M4 19.5V4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5Z"
+                  />
+                  <path d="M8 7h8M8 11h8M8 15h5" />
+                </svg>
+              </div>
+              <h3>You can follow every decision</h3>
+              <p>
+                See what the engine saw, why a setup qualified, which checks
+                passed, and what happened after the trade opened.
+              </p>
+            </article>
+            <article class="card">
+              <div class="card-icon" aria-hidden="true">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                >
+                  <path d="M3 3v18h18" />
+                  <path d="m7 15 4-4 3 3 5-7" />
+                </svg>
+              </div>
+              <h3>The backtest uses the same logic</h3>
+              <p>
+                Research and live trading share strategy logic, sizing, and
+                fees. The test is closer to the system you actually run.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
 
-</body>
+      <section class="white" id="platform">
+        <div class="wrap platform-grid">
+          <div class="platform-copy">
+            <div class="section-kicker">Everything in one place</div>
+            <h2>
+              Follow each trade from the first signal to the final review.
+            </h2>
+            <p>
+              Run Binance crypto and OANDA forex without losing sight of how a
+              decision was made. Analysis, approval, risk, execution, and review
+              each have a clear place.
+            </p>
+            <div class="feature-list">
+              <div class="feature">
+                <div class="feature-index">01</div>
+                <div>
+                  <strong>Multi-strategy engine</strong
+                  ><span
+                    >Run several strategies without mixing their budgets or risk
+                    limits.</span
+                  >
+                </div>
+              </div>
+              <div class="feature">
+                <div class="feature-index">02</div>
+                <div>
+                  <strong>Dollar-based risk</strong
+                  ><span
+                    >Choose how much you are prepared to lose. The stop sets the
+                    position size.</span
+                  >
+                </div>
+              </div>
+              <div class="feature">
+                <div class="feature-index">03</div>
+                <div>
+                  <strong>One clear workspace</strong
+                  ><span
+                    >Keep positions, decisions, system health, and research
+                    close together.</span
+                  >
+                </div>
+              </div>
+              <div class="feature">
+                <div class="feature-index">04</div>
+                <div>
+                  <strong>Encrypted credentials</strong
+                  ><span
+                    >Broker access stays encrypted and isolated to your own
+                    account.</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="console"
+            aria-label="Illustrative risk policy configuration"
+          >
+            <div class="console-head">
+              <span>risk-policy.json</span><span>illustrative preview</span>
+            </div>
+            <div class="console-body">
+              <pre class="console-code">{
+  <span class="key">"executionMode"</span>: <span class="value">"paper"</span>,
+  <span class="key">"riskPerTradeUsd"</span>: <span class="value">50</span>,
+  <span class="key">"dailyLossLimitUsd"</span>: <span class="value">150</span>,
+  <span class="key">"requireStopLoss"</span>: <span class="value">true</span>,
+  <span class="key">"maxPortfolioExposure"</span>: <span class="value">0.20</span>,
+  <span class="key">"humanApproval"</span>: <span class="value">"required"</span>
+}</pre>
+              <div class="console-status">
+                <span><b>policy.status</b> · enforced</span
+                ><span>versioned + auditable</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="how">
+        <div class="wrap">
+          <div class="section-head">
+            <div class="section-kicker">Take it one step at a time</div>
+            <h2>Start small. Turn on more only when you are ready.</h2>
+          </div>
+          <div class="steps">
+            <article class="step">
+              <div class="step-number">01 · Explore</div>
+              <h3>Look around</h3>
+              <p>
+                Open the read-only demo and see how trades, decisions, and
+                backtests are organized.
+              </p>
+            </article>
+            <article class="step">
+              <div class="step-number">02 · Configure</div>
+              <h3>Choose your limits</h3>
+              <p>
+                Create an account, use practice credentials, and decide how much
+                risk you are comfortable with.
+              </p>
+            </article>
+            <article class="step">
+              <div class="step-number">03 · Validate</div>
+              <h3>Test before going live</h3>
+              <p>
+                Spend time with simulation, testnet, and backtests before you
+                consider using real funds.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="privacy-section"
+        id="privacy"
+        aria-labelledby="privacy-title"
+      >
+        <div class="wrap">
+          <div class="privacy-intro">
+            <div class="section-kicker">Privacy policy</div>
+            <h2 id="privacy-title">
+              Your data is part of your setup, not the product.
+            </h2>
+          </div>
+          <p class="privacy-summary">
+            This is the plain-language version of how the current Cactus AI
+            application handles data. Because the platform is self-hosted, the
+            person or company operating the server is responsible for that
+            deployment and its database.
+          </p>
+
+          <div class="privacy-grid">
+            <article class="privacy-card">
+              <div class="privacy-number">01 · Account</div>
+              <h3>Information you provide</h3>
+              <p>
+                Cactus AI stores your username, a password hash, and any
+                optional name or email you add. If you use Google or Apple
+                sign-in, it also stores the provider identity and email returned
+                during sign-in.
+              </p>
+            </article>
+            <article class="privacy-card">
+              <div class="privacy-number">02 · Activity</div>
+              <h3>Trading and research records</h3>
+              <p>
+                The application stores settings, strategies, trades, decisions,
+                backtests, research, notifications, and audit records so the
+                product can work and show you what happened.
+              </p>
+            </article>
+            <article class="privacy-card">
+              <div class="privacy-number">03 · Credentials</div>
+              <h3>Broker access</h3>
+              <p>
+                Binance and OANDA credentials are stored encrypted. The
+                application does not display the original secrets after they are
+                saved. You can replace or remove them from the settings area.
+              </p>
+            </article>
+            <article class="privacy-card">
+              <div class="privacy-number">04 · Browser</div>
+              <h3>Cookies and local storage</h3>
+              <p>
+                Essential cookies keep you signed in and protect social sign-in.
+                Browser storage remembers onboarding progress, your selected
+                market, and interface preferences. The landing page also
+                requests font files from Google Fonts.
+              </p>
+            </article>
+            <article class="privacy-card">
+              <div class="privacy-number">05 · Providers</div>
+              <h3>When data leaves the server</h3>
+              <p>
+                Data is sent to a connected service when you ask Cactus AI to
+                use it. This can include sign-in providers, brokers, market-data
+                services, or a configured reasoning provider. Their own privacy
+                terms also apply.
+              </p>
+            </article>
+            <article class="privacy-card">
+              <div class="privacy-number">06 · Control</div>
+              <h3>Your choices</h3>
+              <p>
+                You can update profile details, remove broker credentials, or
+                permanently delete your account from Account settings. Account
+                deletion stops the trading engines and removes the records owned
+                by that account.
+              </p>
+            </article>
+          </div>
+
+          <div class="privacy-footnote">
+            <span
+              >Last updated August 21, 2026. This section describes the current
+              product and is not a jurisdiction-specific legal review.</span
+            >
+            <a
+              href="mailto:id.awat.mryam@gmail.com?subject=Cactus%20AI%20Privacy"
+              >Privacy questions →</a
+            >
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="cta-title">
+        <div class="wrap">
+          <div class="cta-band">
+            <div>
+              <div
+                class="section-kicker"
+                style="color: rgba(255, 255, 255, 0.78)"
+              >
+                No account needed
+              </div>
+              <h2 id="cta-title">Take a look around before you sign up.</h2>
+              <p>
+                The demo is already filled with trades, decisions, and
+                backtests. Open it, click around, and see if Cactus AI makes
+                sense for you.
+              </p>
+            </div>
+            <div class="cta-actions">
+              <a class="button button-light" href="/app/?demo=1"
+                >Open the demo <span aria-hidden="true">→</span></a
+              ><a class="button button-secondary" href="/app/?signup=1"
+                >Create account</a
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="motion-rail" aria-label="Cactus AI trading workflow">
+        <div class="motion-track" aria-hidden="true">
+          <span><b>01</b> Watch the market</span
+          ><span><b>02</b> Find a setup</span
+          ><span><b>03</b> Check the risk</span
+          ><span><b>04</b> Ask for approval</span
+          ><span><b>05</b> Manage the trade</span
+          ><span><b>06</b> Review the result</span
+          ><span><b>01</b> Watch the market</span
+          ><span><b>02</b> Find a setup</span
+          ><span><b>03</b> Check the risk</span
+          ><span><b>04</b> Ask for approval</span
+          ><span><b>05</b> Manage the trade</span
+          ><span><b>06</b> Review the result</span>
+        </div>
+      </div>
+    </main>
+
+    <footer id="contact">
+      <div class="wrap">
+        <div class="footer-top">
+          <a class="brand" href="#top"
+            ><span class="mark" aria-hidden="true"
+              ><svg viewBox="0 0 24 24" width="19" height="19" fill="none">
+                <rect
+                  x="10.25"
+                  y="2.5"
+                  width="3.5"
+                  height="19"
+                  rx="1.75"
+                  fill="currentColor"
+                />
+                <path
+                  d="M10.25 13.5 H7.6 Q5.6 13.5 5.6 11.5 V8.8"
+                  stroke="currentColor"
+                  stroke-width="3.1"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M13.75 11 H16.4 Q18.4 11 18.4 9 V6.6"
+                  stroke="currentColor"
+                  stroke-width="3.1"
+                  stroke-linecap="round"
+                /></svg></span
+            >Cactus AI</a
+          >
+          <p class="legal">
+            Trading crypto, forex, and other leveraged products can lead to
+            substantial losses. Cactus AI is software, not financial advice, and
+            no included strategy is guaranteed to make money. Use the demo
+            first, then move to simulation or testnet before risking real funds.
+          </p>
+        </div>
+        <div class="footer-bottom">
+          <div class="maker">
+            Designed and built by <strong>nick wild</strong>
+          </div>
+          <div class="footer-links">
+            <a href="#privacy">Privacy</a
+            ><a href="mailto:id.awat.mryam@gmail.com?subject=Cactus%20AI"
+              >Email</a
+            >
+          </div>
+        </div>
+      </div>
+    </footer>
+    <script>
+      (() => {
+        const reducedMotion = window.matchMedia(
+          "(prefers-reduced-motion: reduce)",
+        );
+        if (reducedMotion.matches || !("IntersectionObserver" in window))
+          return;
+
+        const targets = document.querySelectorAll(
+          ".trust-item, .section-head, .card, .platform-copy, .console, .feature, .step, .privacy-intro, .privacy-summary, .privacy-card, .privacy-footnote, .cta-band, .footer-top, .footer-bottom",
+        );
+        targets.forEach((target, index) => {
+          target.classList.add("reveal-target");
+          target.style.setProperty("--reveal-delay", `${(index % 4) * 70}ms`);
+        });
+        document.documentElement.classList.add("motion-ready");
+
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (!entry.isIntersecting) return;
+              entry.target.classList.add("is-visible");
+              observer.unobserve(entry.target);
+            });
+          },
+          { threshold: 0.08, rootMargin: "0px" },
+        );
+        targets.forEach((target) => observer.observe(target));
+      })();
+    </script>
+  </body>
 </html>
