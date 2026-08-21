@@ -26,14 +26,53 @@ export function makeClientOrderId(userId: number): string {
 }
 
 /** Stable provider id for one already-claimed autonomous decision. */
-export function makeAutopilotClientOrderId(userId: number, idempotencyKey: string): string {
-  const suffix = createHash("sha256").update(idempotencyKey).digest("hex").slice(0, 20);
-  return `tc-a-${userId}-${suffix}`.slice(0, 36);
+export function makeAutopilotClientOrderId(
+  userId: number,
+  idempotencyKey: string,
+): string {
+  return makeCommandClientOrderId(userId, idempotencyKey);
+}
+
+/** Stable provider id for one durable Phase 11 command. */
+export function makeCommandClientOrderId(
+  userId: number,
+  idempotencyKey: string,
+): string {
+  const suffix = createHash("sha256")
+    .update(idempotencyKey)
+    .digest("hex")
+    .slice(0, 20);
+  return `tc-c-${userId}-${suffix}`.slice(0, 36);
+}
+
+/**
+ * Stable reduce-only command for an intent whose authoritative broker fill
+ * cannot be linked to a local trade. Replays use the same provider id, so a
+ * timeout or process restart cannot create a second compensating order.
+ */
+export function makeRecoveryClientOrderId(
+  userId: number,
+  originalClientOrderId: string,
+): string {
+  const suffix = createHash("sha256")
+    .update(`recovery:${originalClientOrderId}`)
+    .digest("hex")
+    .slice(0, 20);
+  return `tc-r-${userId}-${suffix}`.slice(0, 36);
 }
 
 /** Stable UUID-shaped correlation id for the same autonomous claim. */
 export function makeAutopilotCorrelationId(idempotencyKey: string): string {
-  const hex = createHash("sha256").update(`correlation:${idempotencyKey}`).digest("hex").slice(0, 32).split("");
+  return makeCommandCorrelationId(idempotencyKey);
+}
+
+/** Stable UUID-shaped correlation id for one durable Phase 11 command. */
+export function makeCommandCorrelationId(idempotencyKey: string): string {
+  const hex = createHash("sha256")
+    .update(`correlation:${idempotencyKey}`)
+    .digest("hex")
+    .slice(0, 32)
+    .split("");
   hex[12] = "4";
   hex[16] = ((parseInt(hex[16]!, 16) & 0x3) | 0x8).toString(16);
   const value = hex.join("");

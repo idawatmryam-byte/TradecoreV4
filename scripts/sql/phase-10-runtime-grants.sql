@@ -1,4 +1,4 @@
--- Idempotent runtime privileges for the Phase 10 public-schema tables.
+-- Idempotent runtime privileges for the Phase 10/11 public-schema tables.
 --
 -- This fragment is included by both the one-time ownership migration and the
 -- regular post-schema security installation. The second path is authoritative:
@@ -29,7 +29,11 @@ WHERE table_schema = 'public'
     'autopilot_mandate_states',
     'autopilot_controls',
     'autopilot_decision_claims',
-    'autopilot_events'
+    'autopilot_events',
+    'live_execution_states',
+    'live_global_equity_state',
+    'live_kill_switches',
+    'live_safety_events'
   )
 GROUP BY table_schema, table_name
 \gexec
@@ -40,7 +44,11 @@ REVOKE ALL ON TABLE
   public.autopilot_mandate_states,
   public.autopilot_controls,
   public.autopilot_decision_claims,
-  public.autopilot_events
+  public.autopilot_events,
+  public.live_execution_states,
+  public.live_global_equity_state,
+  public.live_kill_switches,
+  public.live_safety_events
 FROM :"app_role";
 
 -- Every Phase 10 table is readable and insertable by the runtime. Immutable
@@ -51,7 +59,11 @@ GRANT SELECT, INSERT ON TABLE
   public.autopilot_mandate_states,
   public.autopilot_controls,
   public.autopilot_decision_claims,
-  public.autopilot_events
+  public.autopilot_events,
+  public.live_execution_states,
+  public.live_global_equity_state,
+  public.live_kill_switches,
+  public.live_safety_events
 TO :"app_role";
 
 -- Mutable projections receive only the columns their existing state machines
@@ -76,6 +88,44 @@ GRANT UPDATE (
 ) ON TABLE public.autopilot_controls TO :"app_role";
 GRANT UPDATE (status, execution_intent_id, trade_id, outcome_reason, updated_at)
   ON TABLE public.autopilot_decision_claims TO :"app_role";
+
+-- Phase 11 safety events are immutable. State and switch rows are projections:
+-- the runtime may move only their operational fields, never their ownership or
+-- scope identity. Account erasure remains behind capture.purge_user_data.
+GRANT UPDATE (
+  operating_mode,
+  operating_mode_source,
+  reconciliation_state,
+  protection_state,
+  global_drawdown_state,
+  ownership_generation,
+  owner_instance_id,
+  current_equity_minor,
+  peak_equity_minor,
+  equity_source,
+  equity_observed_at,
+  equity_fresh_until,
+  account_drawdown_state,
+  account_drawdown_limit_bps,
+  global_drawdown_limit_bps,
+  entry_block_reason,
+  owner_claimed_at,
+  last_reconciled_at,
+  last_incident_at,
+  updated_at
+) ON TABLE public.live_execution_states TO :"app_role";
+GRANT UPDATE (
+  current_equity_minor,
+  peak_equity_minor,
+  source_count,
+  observed_at,
+  fresh_until,
+  drawdown_state,
+  drawdown_limit_bps,
+  updated_at
+) ON TABLE public.live_global_equity_state TO :"app_role";
+GRANT UPDATE (active, deactivated_at, updated_at)
+  ON TABLE public.live_kill_switches TO :"app_role";
 
 -- Serial inserts require their backing sequences. Reapplying this after every
 -- schema push also covers a newly created Phase 10 sequence in an already-

@@ -1,10 +1,10 @@
 import { Link, useLocation } from "wouter";
 import {
-  Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert,
+  Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert, ShieldCheck,
   Layers, LogOut, Menu, UserCircle2, Bitcoin, CandlestickChart, Eye, Hammer, Inbox,
   ChevronDown, Plus, Database, PieChart,
 } from "lucide-react";
-import { useGetBotStatus, useHealthCheck, useGetConfig, useGetSections, getGetBotStatusQueryKey, getHealthCheckQueryKey, getGetConfigQueryKey, getGetSectionsQueryKey } from "@workspace/api-client-react";
+import { useGetBotStatus, useHealthCheck, useGetConfig, useGetSections, useGetExecutionHealth, getGetBotStatusQueryKey, getHealthCheckQueryKey, getGetConfigQueryKey, getGetSectionsQueryKey, getGetExecutionHealthQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useSection, type Section } from "@/lib/section";
@@ -141,6 +141,7 @@ const PRIMARY_NAV: NavItem[] = [
   { href: "/ai-brain", label: "AI Brain", icon: BrainCircuit },
   { href: "/copilot", label: "AI Co-Pilot", icon: Inbox },
   { href: "/autopilot", label: "Demo Autopilot", icon: ShieldAlert },
+  { href: "/execution-health", label: "Execution Health", icon: ShieldCheck },
   { href: "/portfolio", label: "Portfolio", icon: PieChart, match: ["/trades", "/journal"] },
   { href: "/stats", label: "Performance", icon: BarChart2, match: ["/decisions"] },
   { href: "/settings", label: "Settings", icon: Settings, match: ["/account"] },
@@ -295,6 +296,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
     query: { refetchInterval: 15000, queryKey: getHealthCheckQueryKey() }
   });
   const { data: config } = useGetConfig({ query: { queryKey: getGetConfigQueryKey() } });
+  const {
+    data: executionHealth,
+    isError: executionHealthError,
+  } = useGetExecutionHealth({
+    query: {
+      enabled: config?.executionTarget === "live",
+      refetchInterval: 5_000,
+      queryKey: getGetExecutionHealthQueryKey(),
+    },
+  });
   const queryClient = useQueryClient();
   void health;
 
@@ -392,6 +403,31 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       <main className="relative flex flex-1 flex-col overflow-hidden">
+        {config?.executionTarget === "live" && (
+          <Link
+            href="/execution-health"
+            role="status"
+            className={cn(
+              "flex items-center justify-center gap-3 border-b px-4 py-3 text-sm font-medium",
+              executionHealthError || executionHealth?.status !== "HEALTHY"
+                ? "border-destructive/60 bg-destructive/10 text-destructive"
+                : "border-success/50 bg-success/10 text-success",
+            )}
+          >
+            {executionHealthError || executionHealth?.status !== "HEALTHY" ? (
+              <ShieldAlert className="h-5 w-5 shrink-0" />
+            ) : (
+              <ShieldCheck className="h-5 w-5 shrink-0" />
+            )}
+            <span>
+              {executionHealthError
+                ? "Live execution health unavailable — entry authority is unknown and must be treated as blocked."
+                : !executionHealth
+                  ? "Loading authoritative Live execution health…"
+                  : `Live ${executionHealth.status} · authority ${executionHealth.operatingMode}/${executionHealth.operatingModeSource} · owner gen ${executionHealth.ownershipGeneration} · AI Live version NONE · risk used UNKNOWN · drawdown ${executionHealth.accountDrawdownState} · switches ${executionHealth.activeSwitches.length}${executionHealth.status === "BLOCKED" ? " · existing positions may remain open" : ""}`}
+            </span>
+          </Link>
+        )}
         {isDemo && (
           <div className="flex items-center justify-center gap-2.5 border-b border-primary/40 bg-primary/10 px-4 py-2.5 text-[13px] font-medium text-primary sm:text-sm">
             <Eye className="h-4 w-4 shrink-0" />

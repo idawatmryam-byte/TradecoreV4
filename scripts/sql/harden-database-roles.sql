@@ -100,6 +100,7 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO :"app_role";
 -- is shared with the regular post-schema security installation below.
 REVOKE UPDATE, DELETE, TRUNCATE ON TABLE public.execution_events FROM :"app_role";
 REVOKE UPDATE, DELETE, TRUNCATE ON TABLE public.recommendation_events FROM :"app_role";
+REVOKE UPDATE, DELETE, TRUNCATE ON TABLE public.live_safety_events FROM :"app_role";
 \ir phase-10-runtime-grants.sql
 
 REVOKE ALL ON ALL TABLES IN SCHEMA capture FROM :"app_role";

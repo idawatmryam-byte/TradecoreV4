@@ -232,7 +232,7 @@ async function currentRevalidation(
     slPrice: Number(rec.slPrice),
     tpPrice: Number(rec.tpPrice),
     qty: Number(rec.qty),
-  }, now);
+  }, now,);
   const bundle = isPhase9DecisionBundle(rec.decisionBundle)
     ? rec.decisionBundle
     : null;
@@ -462,7 +462,9 @@ export async function executeRecommendation(
   const claimed = await db.transaction(async (tx) => {
     const [row] = await tx
       .update(recommendationsTable)
-    .set({ status: "executing", actedAt: now,
+      .set({
+        status: "executing",
+        actedAt: now,
         approvedByUserId: userId,
         approvalIdempotencyKeyHash: requestHash,
         resolutionReason: "approval claimed; re-validating current state",
@@ -470,13 +472,13 @@ export async function executeRecommendation(
       .where(
         and(
           eq(recommendationsTable.id, rec.id),
-      eq(recommendationsTable.userId, userId),
-      eq(recommendationsTable.section, section),
-      eq(recommendationsTable.status, "created"),
+          eq(recommendationsTable.userId, userId),
+          eq(recommendationsTable.section, section),
+          eq(recommendationsTable.status, "created"),
         ),
       )
       .returning();
-  if (!row) return null;
+    if (!row) return null;
     await tx.insert(recommendationEventsTable).values({
       recommendationId: rec.id,
       userId,
@@ -510,7 +512,9 @@ export async function executeRecommendation(
     return {
       ok: false,
       status: current?.status ?? "blocked",
-      reason: current ? `Already ${current.status} — it cannot be executed again` : "Recommendation not found",
+      reason: current
+        ? `Already ${current.status} — it cannot be executed again`
+        : "Recommendation not found",
     };
   }
 
@@ -518,20 +522,49 @@ export async function executeRecommendation(
   try {
     current = await currentRevalidation(userId, section, claimed, now);
   } catch (err) {
-    const reason = "Current financial state could not be established; approval failed closed and a new proposal is required";
-    const outcome: ActionOutcome = { ok: false, status: "blocked", code: "REVALIDATION_UNAVAILABLE", reason };
+    const reason =
+      "Current financial state could not be established; approval failed closed and a new proposal is required";
+    const outcome: ActionOutcome = {
+      ok: false,
+      status: "blocked",
+      code: "REVALIDATION_UNAVAILABLE",
+      reason,
+    };
     await db.transaction(async (tx) => {
-      await tx.update(recommendationsTable)
-        .set({ status: "blocked", actedAt: now, resolutionReason: reason, approvalResult: outcome as unknown as object })
-        .where(and(eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing")));
+      await tx
+        .update(recommendationsTable)
+        .set({
+          status: "blocked",
+          actedAt: now,
+          resolutionReason: reason,
+          approvalResult: outcome as unknown as object,
+        })
+        .where(
+          and(
+            eq(recommendationsTable.id, rec.id),
+            eq(recommendationsTable.status, "executing"),
+          ),
+        );
       await tx.insert(recommendationEventsTable).values({
-        recommendationId: rec.id, userId, section, eventType: "APPROVAL_REFUSED",
-        actorType: "system", actorUserId: userId, fromStatus: "executing", toStatus: "blocked",
-        planFingerprint: rec.planFingerprint, decisionBundleFingerprint: rec.decisionBundleFingerprint,
-        executionTarget: rec.executionTarget, reasonCode: "REVALIDATION_UNAVAILABLE", reason,
+        recommendationId: rec.id,
+        userId,
+        section,
+        eventType: "APPROVAL_REFUSED",
+        actorType: "system",
+        actorUserId: userId,
+        fromStatus: "executing",
+        toStatus: "blocked",
+        planFingerprint: rec.planFingerprint,
+        decisionBundleFingerprint: rec.decisionBundleFingerprint,
+        executionTarget: rec.executionTarget,
+        reasonCode: "REVALIDATION_UNAVAILABLE",
+        reason,
       });
     });
-    logger.error({ err, recommendationId: rec.id }, "CO-PILOT: current state collection failed closed");
+    logger.error(
+      { err, recommendationId: rec.id },
+      "CO-PILOT: current state collection failed closed",
+    );
     return outcome;
   }
   const { engine, plan, boundTarget, verdict } = current;
@@ -565,14 +598,17 @@ export async function executeRecommendation(
     await db.transaction(async (tx) => {
       await tx
         .update(recommendationsTable)
-        .set({ status: terminalStatus,
-          actedAt: now, resolutionReason: outcome.reason,
+        .set({
+          status: terminalStatus,
+          actedAt: now,
+          resolutionReason: outcome.reason,
           lastValidation: verdict as unknown as object,
           approvalResult: outcome as unknown as object,
         })
         .where(
           and(
-            eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing"),
+            eq(recommendationsTable.id, rec.id),
+            eq(recommendationsTable.status, "executing"),
           ),
         );
       await tx.insert(recommendationEventsTable).values({
@@ -600,7 +636,8 @@ export async function executeRecommendation(
       });
     });
     logger.info(
-      { recommendationId: rec.id, code: verdict.code }, "CO-PILOT: approval refused at re-validation",
+      { recommendationId: rec.id, code: verdict.code },
+      "CO-PILOT: approval refused at re-validation",
     );
     return outcome;
   }
@@ -634,13 +671,41 @@ export async function executeRecommendation(
     });
   });
 
-  const row = (rec.signalRow ?? { confidence: Number(rec.confidence), votes: [],
+  const row = (rec.signalRow ?? {
+    confidence: Number(rec.confidence),
+    votes: [],
   }) as SignalRow;
   let result: ExecutionResult;
   try {
-    result = await engine.executeApprovedPlan(plan, row, now, boundTarget);
+    const executionBundle = isPhase9DecisionBundle(rec.decisionBundle)
+      ? rec.decisionBundle
+      : null;
+    if (boundTarget === "live" && !executionBundle) {
+      throw new Error("Live approval is missing its validated decision bundle");
+    }
+    if (boundTarget === "live" && !rec.approvalIdempotencyKeyHash) {
+      throw new Error(
+        "Live approval is missing its durable idempotency binding",
+      );
+    }
+    result = await engine.executeApprovedPlan(
+      plan,
+      row,
+      now,
+      boundTarget,
+      boundTarget === "live"
+        ? {
+            decisionId: `recommendation:${rec.id}`,
+            riskDecisionId: `risk:${sha256Fingerprint(verdict)}`,
+            planFingerprint: rec.planFingerprint,
+            brainVersion: executionBundle!.versions.brain,
+            idempotencyKey: `copilot:${rec.id}:${rec.approvalIdempotencyKeyHash}`,
+          }
+        : undefined,
+    );
   } catch (err) {
-    const reason = "Execution failed after approval was claimed; verify broker and execution-intent state before taking any further action";
+    const reason =
+      "Execution failed after approval was claimed; verify broker and execution-intent state before taking any further action";
     const outcome: ActionOutcome = {
       ok: false,
       status: "blocked",
@@ -651,12 +716,16 @@ export async function executeRecommendation(
     await db.transaction(async (tx) => {
       await tx
         .update(recommendationsTable)
-        .set({ status: "blocked", actedAt: now, resolutionReason: reason,
+        .set({
+          status: "blocked",
+          actedAt: now,
+          resolutionReason: reason,
           approvalResult: outcome as unknown as object,
         })
         .where(
           and(
-            eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing"),
+            eq(recommendationsTable.id, rec.id),
+            eq(recommendationsTable.status, "executing"),
           ),
         );
       await tx.insert(recommendationEventsTable).values({
@@ -676,27 +745,33 @@ export async function executeRecommendation(
       });
     });
     logger.error(
-      { err, recommendationId: rec.id }, "CO-PILOT: claimed approval threw during execution",
+      { err, recommendationId: rec.id },
+      "CO-PILOT: claimed approval threw during execution",
     );
     return outcome;
   }
 
   if (!result.entered) {
     const outcome: ActionOutcome = {
-      ok: false, status: "blocked",
+      ok: false,
+      status: "blocked",
       code: "EXECUTION_REFUSED",
       reason: result.reason,
       checks: verdict.checks,
     };
     await db.transaction(async (tx) => {
-    await tx
+      await tx
         .update(recommendationsTable)
-        .set({ status: "blocked", actedAt: now, resolutionReason: result.reason,
+        .set({
+          status: "blocked",
+          actedAt: now,
+          resolutionReason: result.reason,
           approvalResult: outcome as unknown as object,
         })
         .where(
           and(
-            eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing"),
+            eq(recommendationsTable.id, rec.id),
+            eq(recommendationsTable.status, "executing"),
           ),
         );
       await tx.insert(recommendationEventsTable).values({
@@ -718,24 +793,28 @@ export async function executeRecommendation(
     return outcome;
   }
 
-  const outcome: ActionOutcome = { ok: true,
+  const outcome: ActionOutcome = {
+    ok: true,
     status: "executed",
     code: "EXECUTION_SUCCEEDED",
-    reason: result.reason, checks: verdict.checks,
+    reason: result.reason,
+    checks: verdict.checks,
     ...(result.tradeId != null && { tradeId: result.tradeId }),
   };
   await db.transaction(async (tx) => {
     await tx
       .update(recommendationsTable)
       .set({
-      status: "executed", actedAt: now,
-      ...(result.tradeId != null && { tradeId: result.tradeId }),
-      resolutionReason: result.reason,
+        status: "executed",
+        actedAt: now,
+        ...(result.tradeId != null && { tradeId: result.tradeId }),
+        resolutionReason: result.reason,
         approvalResult: outcome as unknown as object,
       })
       .where(
         and(
-          eq(recommendationsTable.id, rec.id), eq(recommendationsTable.status, "executing"),
+          eq(recommendationsTable.id, rec.id),
+          eq(recommendationsTable.status, "executing"),
         ),
       );
     await tx.insert(recommendationEventsTable).values({
@@ -765,14 +844,20 @@ export async function executeRecommendation(
 
 /** Decline a recommendation. Recorded, not deleted. */
 export async function rejectRecommendation(
-  userId: number, section: Section, id: number,
+  userId: number,
+  section: Section,
+  id: number,
   rejection: RejectionRequest,
   now = new Date(),
 ): Promise<ActionOutcome> {
   const rec = await load(userId, section, id);
-  if (!rec) return { ok: false, status: "created", reason: "Recommendation not found" };
+  if (!rec)
+    return { ok: false, status: "created", reason: "Recommendation not found" };
   if (rec.status !== "created") {
-    return { ok: false, status: rec.status, reason: `Already ${rec.status} — nothing to reject`,
+    return {
+      ok: false,
+      status: rec.status,
+      reason: `Already ${rec.status} — nothing to reject`,
     };
   }
   if (
@@ -807,20 +892,22 @@ export async function rejectRecommendation(
   const rejected = await db.transaction(async (tx) => {
     const [row] = await tx
       .update(recommendationsTable)
-      .set({ status: "rejected", actedAt: now,
+      .set({
+        status: "rejected",
+        actedAt: now,
         rejectedByUserId: userId,
         resolutionReason: reason,
       })
       .where(
         and(
           eq(recommendationsTable.id, rec.id),
-      eq(recommendationsTable.userId, userId),
-      eq(recommendationsTable.section, section),
-      eq(recommendationsTable.status, "created"),
+          eq(recommendationsTable.userId, userId),
+          eq(recommendationsTable.section, section),
+          eq(recommendationsTable.status, "created"),
         ),
       )
       .returning({ id: recommendationsTable.id });
-  if (!row) return null;
+    if (!row) return null;
     await tx.insert(recommendationEventsTable).values({
       recommendationId: rec.id,
       userId,
@@ -840,7 +927,10 @@ export async function rejectRecommendation(
   });
   if (!rejected) {
     const current = await load(userId, section, id);
-    return { ok: false, status: current?.status ?? "blocked", reason: `Already ${current?.status ?? "resolved"} — nothing to reject`,
+    return {
+      ok: false,
+      status: current?.status ?? "blocked",
+      reason: `Already ${current?.status ?? "resolved"} — nothing to reject`,
     };
   }
   return { ok: true, status: "rejected", reason: "Recommendation declined" };
@@ -861,12 +951,20 @@ export interface PlanModification {
  * new decision, made now, by a different author.
  */
 export async function modifyRecommendation(
-  userId: number, section: Section, id: number, changes: PlanModification, now = new Date(),
+  userId: number,
+  section: Section,
+  id: number,
+  changes: PlanModification,
+  now = new Date(),
 ): Promise<ActionOutcome> {
   const rec = await load(userId, section, id);
-  if (!rec) return { ok: false, status: "created", reason: "Recommendation not found" };
+  if (!rec)
+    return { ok: false, status: "created", reason: "Recommendation not found" };
   if (rec.status !== "created") {
-    return { ok: false, status: rec.status, reason: `Already ${rec.status} — it can no longer be modified`,
+    return {
+      ok: false,
+      status: rec.status,
+      reason: `Already ${rec.status} — it can no longer be modified`,
     };
   }
 
@@ -898,7 +996,8 @@ export async function modifyRecommendation(
   const tpOk = isShort ? tpPrice < entry : tpPrice > entry;
   if (!slOk || !tpOk || !(qty > 0)) {
     return {
-      ok: false, status: rec.status,
+      ok: false,
+      status: rec.status,
       reason: isShort
         ? "For a short, the stop must sit above the entry and the target below it, with a positive size"
         : "For a long, the stop must sit below the entry and the target above it, with a positive size",
@@ -953,14 +1052,17 @@ export async function modifyRecommendation(
     // insert can never strand the original as superseded without a replacement.
     const [claimedOriginal] = await tx
       .update(recommendationsTable)
-      .set({ status: "superseded", actedAt: now, resolutionReason: "creating user-modified replacement",
+      .set({
+        status: "superseded",
+        actedAt: now,
+        resolutionReason: "creating user-modified replacement",
       })
       .where(
         and(
           eq(recommendationsTable.id, rec.id),
-        eq(recommendationsTable.userId, userId),
-        eq(recommendationsTable.section, section),
-        eq(recommendationsTable.status, "created"),
+          eq(recommendationsTable.userId, userId),
+          eq(recommendationsTable.section, section),
+          eq(recommendationsTable.status, "created"),
         ),
       )
       .returning({ id: recommendationsTable.id });
@@ -998,7 +1100,8 @@ export async function modifyRecommendation(
       .returning();
     await tx
       .update(recommendationsTable)
-      .set({ resolutionReason: `replaced by your modified plan #${inserted!.id}`,
+      .set({
+        resolutionReason: `replaced by your modified plan #${inserted!.id}`,
       })
       .where(eq(recommendationsTable.id, rec.id));
     await tx.insert(recommendationEventsTable).values([
@@ -1051,7 +1154,8 @@ export async function modifyRecommendation(
   );
 
   return {
-    ok: true, status: "superseded",
+    ok: true,
+    status: "superseded",
     reason: `Created your modified plan #${created.id}; the original is kept unchanged for the record`,
     newRecommendationId: created.id,
   };

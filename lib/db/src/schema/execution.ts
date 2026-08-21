@@ -1,4 +1,4 @@
-import { pgTable, serial, text, numeric, integer, timestamp, index, jsonb, unique } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, numeric, integer, timestamp, index, jsonb, unique, } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -39,9 +39,12 @@ import { z } from "zod/v4";
 export const EXECUTION_STATES = [
   "INTENT_RECORDED",
   "ORDER_SUBMITTED",
+  "PARTIALLY_FILLED",
   "FILLED",
   "RECORDED",
   "PROTECTED",
+  "RECONCILIATION_REQUIRED",
+  "ESCALATED",
   "FLATTENED",
   "FAILED",
   "ABANDONED",
@@ -51,8 +54,11 @@ export type ExecutionState = (typeof EXECUTION_STATES)[number];
 /** States after which a real position may exist on the venue. */
 export const POSITION_MAY_EXIST: ReadonlyArray<ExecutionState> = [
   "ORDER_SUBMITTED",
+  "PARTIALLY_FILLED",
   "FILLED",
   "RECORDED",
+  "RECONCILIATION_REQUIRED",
+  "ESCALATED",
 ];
 
 export const executionIntentsTable = pgTable("execution_intents", {
@@ -61,27 +67,33 @@ export const executionIntentsTable = pgTable("execution_intents", {
   /** Independent trading section (crypto | forex). */
   section: text("section").notNull().default("crypto"),
 
-  /**
-   * The join key for this trade's whole life: plan → execution → trade →
-   * outcome. Stamped once here, at the seam where a decision becomes an
-   * order, and copied onto the trades row. Cannot be backfilled onto rows
-   * written before it existed, which is why it lands this early.
-   */
+    /**
+     * The join key for this trade's whole life: plan → execution → trade →
+     * outcome. Stamped once here, at the seam where a decision becomes an
+     * order, and copied onto the trades row. Cannot be backfilled onto rows
+     * written before it existed, which is why it lands this early.
+     */
   correlationId: text("correlation_id").notNull(),
 
-  /**
-   * The id sent to the broker as its own order reference (Binance
-   * `newClientOrderId`). After a timeout this is how the order is looked up
-   * rather than blindly resubmitted — resubmitting a market order that may
-   * already have filled doubles the position.
-   */
+    /**
+     * The id sent to the broker as its own order reference (Binance
+     * `newClientOrderId`). After a timeout this is how the order is looked up
+     * rather than blindly resubmitted — resubmitting a market order that may
+     * already have filled doubles the position.
+     */
   clientOrderId: text("client_order_id").notNull(),
 
   /** SHA-256 of the TradePlan decision content (lib/plan/fingerprint.ts). */
   planFingerprint: text("plan_fingerprint").notNull(),
 
-  /** Phase 10 immutable autonomous-authority bindings. Null for all manual,
-   * Co-Pilot, Research, and pre-Phase-10 execution. */
+    /** Phase 11 immutable command authority. Required for new broker entries. */
+    decisionId: text("decision_id"),
+    riskDecisionId: text("risk_decision_id"),
+    ownershipGeneration: integer("ownership_generation"),
+    commandIdempotencyKey: text("command_idempotency_key"),
+
+    /** Phase 10 immutable autonomous-authority bindings. Null for all manual,
+     * Co-Pilot, Research, and pre-Phase-10 execution. */
   autopilotClaimId: integer("autopilot_claim_id"),
   autopilotMandateId: integer("autopilot_mandate_id"),
   autopilotMandateFingerprint: text("autopilot_mandate_fingerprint"),
@@ -98,29 +110,52 @@ export const executionIntentsTable = pgTable("execution_intents", {
 
   // The plan as it stood at submit time. This is the part reconciliation
   // cannot reconstruct from the venue, and the reason the row exists.
-  plannedEntryPrice: numeric("planned_entry_price", { precision: 18, scale: 8 }).notNull(),
-  plannedStopLoss: numeric("planned_stop_loss", { precision: 18, scale: 8 }).notNull(),
-  plannedTakeProfit: numeric("planned_take_profit", { precision: 18, scale: 8 }).notNull(),
-  plannedQuantity: numeric("planned_quantity", { precision: 18, scale: 8 }).notNull(),
+  plannedEntryPrice: numeric("planned_entry_price", { precision: 18, scale: 8, }).notNull(),
+  plannedStopLoss: numeric("planned_stop_loss", { precision: 18, scale: 8, }).notNull(),
+  plannedTakeProfit: numeric("planned_take_profit", { precision: 18, scale: 8, }).notNull(),
+  plannedQuantity: numeric("planned_quantity", { precision: 18, scale: 8, }).notNull(),
   plannedLeverage: integer("planned_leverage"),
 
   /** Current-state projection of executionEventsTable. */
   state: text("state").notNull().default("INTENT_RECORDED"),
   /** Set once the trades row exists (state RECORDED onward). */
   tradeId: integer("trade_id"),
+    brokerOrderId: text("broker_order_id"),
+    brokerTradeId: text("broker_trade_id"),
+    filledQuantity: numeric("filled_quantity", { precision: 18, scale: 8 }),
+    averageFillPrice: numeric("average_fill_price", {
+      precision: 18,
+      scale: 8,
+    }),
+    lastReconciledAt: timestamp("last_reconciled_at", { withTimezone: true }),
+    resolutionCode: text("resolution_code"),
+    /** Stable compensating command used only when an authoritative fill has
+     * no local trade. Persisted before the provider close call. */
+    recoveryClientOrderId: text("recovery_client_order_id"),
+    recoveryState: text("recovery_state"),
+    recoveryBrokerOrderId: text("recovery_broker_order_id"),
+    recoveryAttemptedAt: timestamp("recovery_attempted_at", {
+      withTimezone: true,
+    }),
 
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => [
   unique("execution_intents_correlation_unique").on(t.correlationId),
   unique("execution_intents_client_order_unique").on(t.clientOrderId),
-  unique("execution_intents_autopilot_idempotency_unique").on(t.autopilotIdempotencyKey),
+  unique("execution_intents_autopilot_idempotency_unique").on(t.autopilotIdempotencyKey,
+    ),
+    unique("execution_intents_command_idempotency_unique").on(
+      t.commandIdempotencyKey,),
+    unique("execution_intents_recovery_client_order_unique").on(
+      t.recoveryClientOrderId,
+    ),
   // Startup recovery: "which intents could have left a live position?"
   index("execution_intents_user_state_idx").on(t.userId, t.state),
   index("execution_intents_user_created_idx").on(t.userId, t.createdAt),
-]);
+],);
 
-export const insertExecutionIntentSchema = createInsertSchema(executionIntentsTable).omit({
+export const insertExecutionIntentSchema = createInsertSchema(executionIntentsTable,).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -141,10 +176,10 @@ export const executionEventsTable = pgTable("execution_events", {
   payload: jsonb("payload"),
   occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
-  index("execution_events_intent_idx").on(t.intentId, t.occurredAt),
-]);
+  index("execution_events_intent_idx").on(t.intentId, t.occurredAt)
+],);
 
-export const insertExecutionEventSchema = createInsertSchema(executionEventsTable).omit({
+export const insertExecutionEventSchema = createInsertSchema(executionEventsTable,).omit({
   id: true,
   occurredAt: true,
 });
