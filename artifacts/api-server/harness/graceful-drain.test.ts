@@ -1,6 +1,10 @@
 process.env.SESSION_SECRET ??= "phase11-graceful-drain-test-secret";
+// BotEngine's module graph includes the database boundary, although this
+// harness exercises only in-memory drain state. Keep the pure-test job
+// database-free while satisfying the import-time configuration guard.
+process.env.DATABASE_URL ??= "postgres://unused:unused@127.0.0.1:5432/unused";
 
-import { BotEngine } from "../src/lib/botEngine";
+const { BotEngine } = await import("../src/lib/botEngine");
 
 let failures = 0;
 function expect(name: string, ok: boolean): void {
