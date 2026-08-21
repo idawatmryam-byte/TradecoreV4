@@ -67,7 +67,18 @@ function installProviderFakes(engine: BotEngine): BuiltClient[] {
       markets: { [symbol]: { id: marketType === "forex" ? symbol : "BTCUSDT", symbol } },
       async loadMarkets() { return this.markets; },
       async fetchBalance() {
-        return { USDT: { free: 10_000, total: 10_000 }, free: { USDT: 10_000 }, total: { USDT: 10_000 } };
+        return {
+          USDT: { free: 10_000, total: 10_000 },
+          free: { USDT: 10_000 },
+          total: { USDT: 10_000 },
+          ...(marketType === "forex" && {
+            info: {
+              NAV: "10000.00",
+              homeCurrency: "USD",
+              homeToUsdRate: 1,
+            },
+          }),
+        };
       },
     };
     built.push(client);
