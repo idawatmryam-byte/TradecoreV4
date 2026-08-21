@@ -23,6 +23,10 @@ async function main() {
     db,
     executionEventsTable,
     executionIntentsTable,
+    liveExecutionStatesTable,
+    liveGlobalEquityStateTable,
+    liveKillSwitchesTable,
+    liveSafetyEventsTable,
     positionManagementEventsTable,
     positionThesesTable,
     researchExperimentsTable,
@@ -70,11 +74,78 @@ async function main() {
       plannedStopLoss: "98",
       plannedTakeProfit: "104",
       plannedQuantity: "1",
+      recoveryClientOrderId: `schema-recovery-${user!.id}`,
     }).returning();
+    let duplicateRecoveryRefused = false;
+    try {
+      await db.insert(executionIntentsTable).values({
+        userId: user!.id,
+        section: "crypto",
+        correlationId: `schema-test-recovery-duplicate-${user!.id}`,
+        clientOrderId: `schema-test-client-duplicate-${user!.id}`,
+        planFingerprint: "f".repeat(64),
+        symbol: "ETHUSDT",
+        side: "buy",
+        marketType: "futures",
+        plannedEntryPrice: "100",
+        plannedStopLoss: "98",
+        plannedTakeProfit: "104",
+        plannedQuantity: "1",
+        recoveryClientOrderId: `schema-recovery-${user!.id}`,
+      });
+    } catch {
+      duplicateRecoveryRefused = true;
+    }
+    expect(
+      "database refuses duplicate compensating recovery commands",
+      duplicateRecoveryRefused,
+    );
     await db.insert(executionEventsTable).values({
       intentId: intent!.id,
       fromState: null,
       toState: "INTENT_RECORDED",
+      reason: "schema security fixture",
+    });
+    await db.insert(liveExecutionStatesTable).values({
+      userId: user!.id,
+      section: "crypto",
+    });
+    await db
+      .insert(liveGlobalEquityStateTable)
+      .values({
+        id: "platform",
+        currentEquityMinor: "10000",
+        peakEquityMinor: "10000",
+        sourceCount: 1,
+        observedAt: now,
+        freshUntil: expiresAt,
+        drawdownState: "HEALTHY",
+      })
+      .onConflictDoUpdate({
+        target: liveGlobalEquityStateTable.id,
+        set: {
+          currentEquityMinor: "10000",
+          peakEquityMinor: "10000",
+          sourceCount: 1,
+          observedAt: now,
+          freshUntil: expiresAt,
+          drawdownState: "HEALTHY",
+        },
+      });
+    await db.insert(liveKillSwitchesTable).values({
+      ownerUserId: user!.id,
+      section: "crypto",
+      scope: "USER",
+      scopeKey: String(user!.id),
+      reason: "schema security fixture",
+      activatedByUserId: user!.id,
+    });
+    await db.insert(liveSafetyEventsTable).values({
+      targetUserId: user!.id,
+      section: "crypto",
+      eventType: "SCHEMA_SECURITY_FIXTURE",
+      actorType: "system",
+      reasonCode: "TEST_FIXTURE",
       reason: "schema security fixture",
     });
     await db.insert(brainEvidenceReferencesTable).values({
@@ -215,12 +286,30 @@ async function main() {
       .from(researchReplayEventsTable).where(eq(researchReplayEventsTable.userId, user!.id));
     const remainingExecutionEvents = await db.select({ id: executionEventsTable.id })
       .from(executionEventsTable).where(eq(executionEventsTable.intentId, intent!.id));
+    const remainingLiveStates = await db.select({ id: liveExecutionStatesTable.id })
+      .from(liveExecutionStatesTable).where(eq(liveExecutionStatesTable.userId, user!.id));
+    const remainingLiveSwitches = await db.select({ id: liveKillSwitchesTable.id })
+      .from(liveKillSwitchesTable).where(eq(liveKillSwitchesTable.ownerUserId, user!.id));
+    const remainingLiveEvents = await db.select({ id: liveSafetyEventsTable.id })
+      .from(liveSafetyEventsTable).where(eq(liveSafetyEventsTable.targetUserId, user!.id));
+    const [globalAfterPurge] = await db.select().from(liveGlobalEquityStateTable)
+      .where(eq(liveGlobalEquityStateTable.id, "platform"));
     expect("capture purge removes the user's decision", remainingDecisions.length === 0);
     expect("capture purge removes dependent evidence first", remainingEvidence.length === 0);
     expect("capture purge removes Phase 7 management events", remainingManagementEvents.length === 0);
     expect("capture purge removes Phase 7 theses", remainingTheses.length === 0);
     expect("capture purge removes Phase 8 replay events", remainingResearchEvents.length === 0);
     expect("capture purge removes append-only public execution events through the definer boundary", remainingExecutionEvents.length === 0);
+    expect("capture purge removes the user's Live safety projection", remainingLiveStates.length === 0);
+    expect("capture purge removes the user's Live kill switches", remainingLiveSwitches.length === 0);
+    expect("capture purge removes append-only Live safety events through the definer boundary", remainingLiveEvents.length === 0);
+    expect(
+      "capture purge invalidates global equity authority instead of retaining deleted tenant equity",
+      globalAfterPurge?.drawdownState === "UNKNOWN" &&
+        globalAfterPurge.currentEquityMinor === null &&
+        globalAfterPurge.peakEquityMinor === null &&
+        globalAfterPurge.sourceCount === 0,
+    );
     await db.delete(executionIntentsTable).where(eq(executionIntentsTable.id, intent!.id));
     await db.delete(researchExperimentsTable).where(eq(researchExperimentsTable.id, researchExperiment!.id));
     await db.delete(tradesTable).where(eq(tradesTable.id, trade!.id));

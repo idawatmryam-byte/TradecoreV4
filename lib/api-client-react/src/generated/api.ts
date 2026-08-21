@@ -58,6 +58,7 @@ import type {
   EvidenceSuspension,
   EvidenceValidationResult,
   ExecuteRecommendationBody,
+  ExecutionHealth,
   ExportBacktest200One,
   ExportBacktestParams,
   GetAuthStatus200,
@@ -102,12 +103,14 @@ import type {
   ResearchExperimentStarted,
   ResearchReplayEventPage,
   ResetRiskPause200,
+  ResolveExecutionIntentBody,
   ResumeAutopilotRequest,
   RevokeAutopilotMandate200,
   RevokeAutopilotMandateRequest,
   ScannerRow,
   SectionsResponse,
   SetBinanceCredentialsBody,
+  SetExecutionOperatingModeBody,
   SetOandaCredentialsBody,
   ShadowCouncilRun,
   ShadowReplayBundle,
@@ -601,6 +604,224 @@ export function useGetBotStatus<TData = Awaited<ReturnType<typeof getBotStatus>>
 
 
 
+
+export const getGetExecutionHealthUrl = () => {
+
+
+
+
+  return `/api/execution-health`
+}
+
+/**
+ * @summary Get the authenticated section's Phase 11 execution health
+ */
+export const getExecutionHealth = async ( options?: RequestInit): Promise<ExecutionHealth> => {
+
+  return customFetch<ExecutionHealth>(getGetExecutionHealthUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetExecutionHealthQueryKey = () => {
+    return [
+    `/api/execution-health`
+    ] as const;
+    }
+
+
+export const getGetExecutionHealthQueryOptions = <TData = Awaited<ReturnType<typeof getExecutionHealth>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getExecutionHealth>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetExecutionHealthQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getExecutionHealth>>> = ({ signal }) => getExecutionHealth({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getExecutionHealth>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetExecutionHealthQueryResult = NonNullable<Awaited<ReturnType<typeof getExecutionHealth>>>
+export type GetExecutionHealthQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the authenticated section's Phase 11 execution health
+ */
+
+export function useGetExecutionHealth<TData = Awaited<ReturnType<typeof getExecutionHealth>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getExecutionHealth>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetExecutionHealthQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSetExecutionOperatingModeUrl = () => {
+
+
+
+
+  return `/api/execution-health/mode`
+}
+
+/**
+ * @summary Reduce Live authority while preserving position exits
+ */
+export const setExecutionOperatingMode = async (setExecutionOperatingModeBody: SetExecutionOperatingModeBody, options?: RequestInit): Promise<ExecutionHealth> => {
+
+  return customFetch<ExecutionHealth>(getSetExecutionOperatingModeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(setExecutionOperatingModeBody)
+  }
+);}
+
+
+
+
+export const getSetExecutionOperatingModeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setExecutionOperatingMode>>, TError,{data: BodyType<SetExecutionOperatingModeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setExecutionOperatingMode>>, TError,{data: BodyType<SetExecutionOperatingModeBody>}, TContext> => {
+
+const mutationKey = ['setExecutionOperatingMode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setExecutionOperatingMode>>, {data: BodyType<SetExecutionOperatingModeBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  setExecutionOperatingMode(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetExecutionOperatingModeMutationResult = NonNullable<Awaited<ReturnType<typeof setExecutionOperatingMode>>>
+    export type SetExecutionOperatingModeMutationBody = BodyType<SetExecutionOperatingModeBody>
+    export type SetExecutionOperatingModeMutationError = ErrorType<void>
+
+    /**
+ * @summary Reduce Live authority while preserving position exits
+ */
+export const useSetExecutionOperatingMode = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setExecutionOperatingMode>>, TError,{data: BodyType<SetExecutionOperatingModeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setExecutionOperatingMode>>,
+        TError,
+        {data: BodyType<SetExecutionOperatingModeBody>},
+        TContext
+      > => {
+      return useMutation(getSetExecutionOperatingModeMutationOptions(options));
+    }
+
+export const getApplyExecutionIntentActionUrl = (intentId: number,) => {
+
+
+
+
+  return `/api/execution-health/intents/${intentId}/action`
+}
+
+/**
+ * @summary Request an evidence-backed action for an unresolved execution intent
+ */
+export const applyExecutionIntentAction = async (intentId: number,
+    resolveExecutionIntentBody: ResolveExecutionIntentBody, options?: RequestInit): Promise<ExecutionHealth> => {
+
+  return customFetch<ExecutionHealth>(getApplyExecutionIntentActionUrl(intentId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(resolveExecutionIntentBody)
+  }
+);}
+
+
+
+
+export const getApplyExecutionIntentActionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyExecutionIntentAction>>, TError,{intentId: number;data: BodyType<ResolveExecutionIntentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof applyExecutionIntentAction>>, TError,{intentId: number;data: BodyType<ResolveExecutionIntentBody>}, TContext> => {
+
+const mutationKey = ['applyExecutionIntentAction'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof applyExecutionIntentAction>>, {intentId: number;data: BodyType<ResolveExecutionIntentBody>}> = (props) => {
+          const {intentId,data} = props ?? {};
+
+          return  applyExecutionIntentAction(intentId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApplyExecutionIntentActionMutationResult = NonNullable<Awaited<ReturnType<typeof applyExecutionIntentAction>>>
+    export type ApplyExecutionIntentActionMutationBody = BodyType<ResolveExecutionIntentBody>
+    export type ApplyExecutionIntentActionMutationError = ErrorType<void>
+
+    /**
+ * @summary Request an evidence-backed action for an unresolved execution intent
+ */
+export const useApplyExecutionIntentAction = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyExecutionIntentAction>>, TError,{intentId: number;data: BodyType<ResolveExecutionIntentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof applyExecutionIntentAction>>,
+        TError,
+        {intentId: number;data: BodyType<ResolveExecutionIntentBody>},
+        TContext
+      > => {
+      return useMutation(getApplyExecutionIntentActionMutationOptions(options));
+    }
 
 export const getStartBotUrl = () => {
 

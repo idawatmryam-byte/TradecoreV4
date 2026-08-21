@@ -29,6 +29,17 @@ import { deleteOandaCredentials, getOandaCredentials, setOandaCredentials } from
 const CRYPTO_USER = 990061;
 const FOREX_USER = 990062;
 let failures = 0;
+let initialLiveTransitions = 0;
+let releaseInitialLiveTransition!: () => void;
+const initialLiveTransitionComplete = new Promise<void>((resolve) => {
+  releaseInitialLiveTransition = resolve;
+});
+
+async function waitForInitialLiveTransitions() {
+  initialLiveTransitions++;
+  if (initialLiveTransitions === 2) releaseInitialLiveTransition();
+  await initialLiveTransitionComplete;
+}
 
 function expect(name: string, condition: boolean, detail = "") {
   if (!condition) failures++;
@@ -67,7 +78,18 @@ function installProviderFakes(engine: BotEngine): BuiltClient[] {
       markets: { [symbol]: { id: marketType === "forex" ? symbol : "BTCUSDT", symbol } },
       async loadMarkets() { return this.markets; },
       async fetchBalance() {
-        return { USDT: { free: 10_000, total: 10_000 }, free: { USDT: 10_000 }, total: { USDT: 10_000 } };
+        return {
+          USDT: { free: 10_000, total: 10_000 },
+          free: { USDT: 10_000 },
+          total: { USDT: 10_000 },
+          ...(marketType === "forex" && {
+            info: {
+              NAV: "10000.00",
+              homeCurrency: "USD",
+              homeToUsdRate: 1,
+            },
+          }),
+        };
       },
     };
     built.push(client);
@@ -114,6 +136,8 @@ async function exerciseCrypto() {
 
   await setTarget(CRYPTO_USER, "crypto", "live");
   await engine.refreshConnection({ restartIfDesired: true, reason: "test: Crypto Demo to Live" });
+  await waitForInitialLiveTransitions();
+  await e.attemptLiveReconciliation("connection-management gate verification");
   const live1 = (engine as any).exchange;
   expect("Crypto reconnects on Live", built.at(-1)?.target === "live");
   expect("Crypto Live does not reuse Demo client", live1 !== demo1);
@@ -184,6 +208,7 @@ async function exerciseForex() {
 
   await setTarget(FOREX_USER, "forex", "live");
   await engine.refreshConnection({ restartIfDesired: true, reason: "test: Forex Demo to Live" });
+  await waitForInitialLiveTransitions();
   const live1 = (engine as any).exchange;
   expect("Forex reconnects on Live", built.at(-1)?.target === "live");
   expect("Forex Live does not reuse Demo client", live1 !== demo1);

@@ -91,6 +91,393 @@ export const GetBotStatusResponse = zod.object({
 
 
 /**
+ * @summary Get the authenticated section's Phase 11 execution health
+ */
+export const getExecutionHealthResponseOwnershipGenerationMin = 0;
+
+export const getExecutionHealthResponseGlobalEquitySourceCountMin = 0;
+
+export const getExecutionHealthResponseAccountDrawdownLimitBpsMax = 10000;
+
+export const getExecutionHealthResponseGlobalDrawdownLimitBpsMax = 10000;
+
+export const getExecutionHealthResponseRuntimeOpenPositionsMin = 0;
+
+export const getExecutionHealthResponseUnresolvedIntentsMax = 100;
+
+export const getExecutionHealthResponseMetricsUnresolvedIntentsMin = 0;
+
+export const getExecutionHealthResponseMetricsReconciliationFailuresMin = 0;
+
+export const getExecutionHealthResponseMetricsRecoveredExposureMin = 0;
+
+export const getExecutionHealthResponseMetricsProtectionFailuresMin = 0;
+
+export const getExecutionHealthResponseMetricsActiveKillSwitchesMin = 0;
+
+export const getExecutionHealthResponseMetricsOperatingModeChangesMin = 0;
+
+export const getExecutionHealthResponseMetricsDrawdownBreachesMin = 0;
+
+export const getExecutionHealthResponseMetricsOwnershipChangesMin = 0;
+
+export const getExecutionHealthResponseMetricsCriticalAlertsMin = 0;
+
+export const getExecutionHealthResponseIncidentsMax = 100;
+
+
+
+export const GetExecutionHealthResponse = zod.object({
+  "status": zod.enum(['HEALTHY', 'BLOCKED']),
+  "operatingMode": zod.enum(['NORMAL', 'NO_NEW_ENTRY', 'EXIT_ONLY', 'MAINTENANCE', 'PROTECTION_DEGRADED']),
+  "operatingModeSource": zod.enum(['SYSTEM', 'OPERATOR']),
+  "reconciliationState": zod.enum(['HEALTHY', 'INCOMPLETE', 'UNKNOWN', 'ESCALATED']),
+  "protectionState": zod.enum(['HEALTHY', 'DEGRADED', 'UNKNOWN']),
+  "globalDrawdownState": zod.enum(['HEALTHY', 'BREACHED', 'UNKNOWN']),
+  "accountDrawdownState": zod.enum(['HEALTHY', 'BREACHED', 'UNKNOWN']),
+  "entryBlockReason": zod.string().nullable(),
+  "ownershipGeneration": zod.number().min(getExecutionHealthResponseOwnershipGenerationMin),
+  "ownerClaimedAt": zod.coerce.date().nullable(),
+  "lastReconciledAt": zod.coerce.date().nullable(),
+  "lastIncidentAt": zod.coerce.date().nullable(),
+  "currentEquityMinor": zod.string().nullable(),
+  "peakEquityMinor": zod.string().nullable(),
+  "equitySource": zod.string().nullable(),
+  "equityObservedAt": zod.coerce.date().nullable(),
+  "equityFreshUntil": zod.coerce.date().nullable(),
+  "globalCurrentEquityMinor": zod.string().nullable(),
+  "globalPeakEquityMinor": zod.string().nullable(),
+  "globalEquityObservedAt": zod.coerce.date().nullable(),
+  "globalEquityFreshUntil": zod.coerce.date().nullable(),
+  "globalEquitySourceCount": zod.number().min(getExecutionHealthResponseGlobalEquitySourceCountMin),
+  "accountDrawdownLimitBps": zod.number().min(1).max(getExecutionHealthResponseAccountDrawdownLimitBpsMax),
+  "globalDrawdownLimitBps": zod.number().min(1).max(getExecutionHealthResponseGlobalDrawdownLimitBpsMax),
+  "runtime": zod.object({
+  "running": zod.boolean(),
+  "newEntriesAllowed": zod.boolean(),
+  "entryBlockReason": zod.string().nullable(),
+  "openPositions": zod.number().min(getExecutionHealthResponseRuntimeOpenPositionsMin),
+  "lastScanAt": zod.coerce.date().nullable()
+}),
+  "activeSwitches": zod.array(zod.object({
+  "scope": zod.enum(['GLOBAL', 'EXCHANGE', 'MARKET', 'SYMBOL', 'STRATEGY_MODEL', 'USER', 'SECTION', 'AUTOPILOT']),
+  "scopeKey": zod.string(),
+  "reason": zod.string(),
+  "activatedAt": zod.coerce.date(),
+  "source": zod.enum(['PLATFORM', 'USER'])
+})),
+  "unresolvedIntents": zod.array(zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "state": zod.string(),
+  "clientOrderId": zod.string(),
+  "resolutionCode": zod.string().nullable(),
+  "filledQuantity": zod.string().nullable(),
+  "averageFillPrice": zod.string().nullable(),
+  "brokerOrderId": zod.string().nullable(),
+  "brokerTradeId": zod.string().nullable(),
+  "recoveryClientOrderId": zod.string().nullable(),
+  "recoveryState": zod.union([zod.literal('SUBMITTED'),zod.literal('CONFIRMED'),zod.literal('UNKNOWN'),zod.literal('FAILED'),zod.literal(null)]).nullable(),
+  "recoveryBrokerOrderId": zod.string().nullable(),
+  "recoveryAttemptedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date(),
+  "lastReconciledAt": zod.coerce.date().nullable()
+})).max(getExecutionHealthResponseUnresolvedIntentsMax),
+  "metrics": zod.object({
+  "unresolvedIntents": zod.number().min(getExecutionHealthResponseMetricsUnresolvedIntentsMin),
+  "reconciliationFailures": zod.number().min(getExecutionHealthResponseMetricsReconciliationFailuresMin),
+  "recoveredExposure": zod.number().min(getExecutionHealthResponseMetricsRecoveredExposureMin),
+  "protectionFailures": zod.number().min(getExecutionHealthResponseMetricsProtectionFailuresMin),
+  "activeKillSwitches": zod.number().min(getExecutionHealthResponseMetricsActiveKillSwitchesMin),
+  "operatingModeChanges": zod.number().min(getExecutionHealthResponseMetricsOperatingModeChangesMin),
+  "drawdownBreaches": zod.number().min(getExecutionHealthResponseMetricsDrawdownBreachesMin),
+  "ownershipChanges": zod.number().min(getExecutionHealthResponseMetricsOwnershipChangesMin),
+  "criticalAlerts": zod.number().min(getExecutionHealthResponseMetricsCriticalAlertsMin)
+}).describe('Counts derived from the current projection and the latest 100 durable incident events.'),
+  "incidents": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.string(),
+  "reasonCode": zod.string(),
+  "reason": zod.string(),
+  "actorType": zod.string(),
+  "occurredAt": zod.coerce.date(),
+  "source": zod.enum(['PLATFORM', 'USER'])
+})).max(getExecutionHealthResponseIncidentsMax)
+})
+
+
+/**
+ * @summary Reduce Live authority while preserving position exits
+ */
+export const setExecutionOperatingModeBodyReasonMin = 8;
+export const setExecutionOperatingModeBodyReasonMax = 500;
+
+
+
+export const SetExecutionOperatingModeBody = zod.object({
+  "action": zod.enum(['STOP_NEW_TRADES', 'EXIT_ONLY']),
+  "confirmation": zod.string().describe('Exact phrase STOP NEW TRADES or EXIT ONLY.'),
+  "reason": zod.string().min(setExecutionOperatingModeBodyReasonMin).max(setExecutionOperatingModeBodyReasonMax),
+  "password": zod.string().optional()
+})
+
+export const setExecutionOperatingModeResponseOwnershipGenerationMin = 0;
+
+export const setExecutionOperatingModeResponseGlobalEquitySourceCountMin = 0;
+
+export const setExecutionOperatingModeResponseAccountDrawdownLimitBpsMax = 10000;
+
+export const setExecutionOperatingModeResponseGlobalDrawdownLimitBpsMax = 10000;
+
+export const setExecutionOperatingModeResponseRuntimeOpenPositionsMin = 0;
+
+export const setExecutionOperatingModeResponseUnresolvedIntentsMax = 100;
+
+export const setExecutionOperatingModeResponseMetricsUnresolvedIntentsMin = 0;
+
+export const setExecutionOperatingModeResponseMetricsReconciliationFailuresMin = 0;
+
+export const setExecutionOperatingModeResponseMetricsRecoveredExposureMin = 0;
+
+export const setExecutionOperatingModeResponseMetricsProtectionFailuresMin = 0;
+
+export const setExecutionOperatingModeResponseMetricsActiveKillSwitchesMin = 0;
+
+export const setExecutionOperatingModeResponseMetricsOperatingModeChangesMin = 0;
+
+export const setExecutionOperatingModeResponseMetricsDrawdownBreachesMin = 0;
+
+export const setExecutionOperatingModeResponseMetricsOwnershipChangesMin = 0;
+
+export const setExecutionOperatingModeResponseMetricsCriticalAlertsMin = 0;
+
+export const setExecutionOperatingModeResponseIncidentsMax = 100;
+
+
+
+export const SetExecutionOperatingModeResponse = zod.object({
+  "status": zod.enum(['HEALTHY', 'BLOCKED']),
+  "operatingMode": zod.enum(['NORMAL', 'NO_NEW_ENTRY', 'EXIT_ONLY', 'MAINTENANCE', 'PROTECTION_DEGRADED']),
+  "operatingModeSource": zod.enum(['SYSTEM', 'OPERATOR']),
+  "reconciliationState": zod.enum(['HEALTHY', 'INCOMPLETE', 'UNKNOWN', 'ESCALATED']),
+  "protectionState": zod.enum(['HEALTHY', 'DEGRADED', 'UNKNOWN']),
+  "globalDrawdownState": zod.enum(['HEALTHY', 'BREACHED', 'UNKNOWN']),
+  "accountDrawdownState": zod.enum(['HEALTHY', 'BREACHED', 'UNKNOWN']),
+  "entryBlockReason": zod.string().nullable(),
+  "ownershipGeneration": zod.number().min(setExecutionOperatingModeResponseOwnershipGenerationMin),
+  "ownerClaimedAt": zod.coerce.date().nullable(),
+  "lastReconciledAt": zod.coerce.date().nullable(),
+  "lastIncidentAt": zod.coerce.date().nullable(),
+  "currentEquityMinor": zod.string().nullable(),
+  "peakEquityMinor": zod.string().nullable(),
+  "equitySource": zod.string().nullable(),
+  "equityObservedAt": zod.coerce.date().nullable(),
+  "equityFreshUntil": zod.coerce.date().nullable(),
+  "globalCurrentEquityMinor": zod.string().nullable(),
+  "globalPeakEquityMinor": zod.string().nullable(),
+  "globalEquityObservedAt": zod.coerce.date().nullable(),
+  "globalEquityFreshUntil": zod.coerce.date().nullable(),
+  "globalEquitySourceCount": zod.number().min(setExecutionOperatingModeResponseGlobalEquitySourceCountMin),
+  "accountDrawdownLimitBps": zod.number().min(1).max(setExecutionOperatingModeResponseAccountDrawdownLimitBpsMax),
+  "globalDrawdownLimitBps": zod.number().min(1).max(setExecutionOperatingModeResponseGlobalDrawdownLimitBpsMax),
+  "runtime": zod.object({
+  "running": zod.boolean(),
+  "newEntriesAllowed": zod.boolean(),
+  "entryBlockReason": zod.string().nullable(),
+  "openPositions": zod.number().min(setExecutionOperatingModeResponseRuntimeOpenPositionsMin),
+  "lastScanAt": zod.coerce.date().nullable()
+}),
+  "activeSwitches": zod.array(zod.object({
+  "scope": zod.enum(['GLOBAL', 'EXCHANGE', 'MARKET', 'SYMBOL', 'STRATEGY_MODEL', 'USER', 'SECTION', 'AUTOPILOT']),
+  "scopeKey": zod.string(),
+  "reason": zod.string(),
+  "activatedAt": zod.coerce.date(),
+  "source": zod.enum(['PLATFORM', 'USER'])
+})),
+  "unresolvedIntents": zod.array(zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "state": zod.string(),
+  "clientOrderId": zod.string(),
+  "resolutionCode": zod.string().nullable(),
+  "filledQuantity": zod.string().nullable(),
+  "averageFillPrice": zod.string().nullable(),
+  "brokerOrderId": zod.string().nullable(),
+  "brokerTradeId": zod.string().nullable(),
+  "recoveryClientOrderId": zod.string().nullable(),
+  "recoveryState": zod.union([zod.literal('SUBMITTED'),zod.literal('CONFIRMED'),zod.literal('UNKNOWN'),zod.literal('FAILED'),zod.literal(null)]).nullable(),
+  "recoveryBrokerOrderId": zod.string().nullable(),
+  "recoveryAttemptedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date(),
+  "lastReconciledAt": zod.coerce.date().nullable()
+})).max(setExecutionOperatingModeResponseUnresolvedIntentsMax),
+  "metrics": zod.object({
+  "unresolvedIntents": zod.number().min(setExecutionOperatingModeResponseMetricsUnresolvedIntentsMin),
+  "reconciliationFailures": zod.number().min(setExecutionOperatingModeResponseMetricsReconciliationFailuresMin),
+  "recoveredExposure": zod.number().min(setExecutionOperatingModeResponseMetricsRecoveredExposureMin),
+  "protectionFailures": zod.number().min(setExecutionOperatingModeResponseMetricsProtectionFailuresMin),
+  "activeKillSwitches": zod.number().min(setExecutionOperatingModeResponseMetricsActiveKillSwitchesMin),
+  "operatingModeChanges": zod.number().min(setExecutionOperatingModeResponseMetricsOperatingModeChangesMin),
+  "drawdownBreaches": zod.number().min(setExecutionOperatingModeResponseMetricsDrawdownBreachesMin),
+  "ownershipChanges": zod.number().min(setExecutionOperatingModeResponseMetricsOwnershipChangesMin),
+  "criticalAlerts": zod.number().min(setExecutionOperatingModeResponseMetricsCriticalAlertsMin)
+}).describe('Counts derived from the current projection and the latest 100 durable incident events.'),
+  "incidents": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.string(),
+  "reasonCode": zod.string(),
+  "reason": zod.string(),
+  "actorType": zod.string(),
+  "occurredAt": zod.coerce.date(),
+  "source": zod.enum(['PLATFORM', 'USER'])
+})).max(setExecutionOperatingModeResponseIncidentsMax)
+})
+
+
+/**
+ * @summary Request an evidence-backed action for an unresolved execution intent
+ */
+
+
+
+export const ApplyExecutionIntentActionParams = zod.object({
+  "intentId": zod.coerce.number().min(1)
+})
+
+export const applyExecutionIntentActionBodyReasonMin = 8;
+export const applyExecutionIntentActionBodyReasonMax = 500;
+
+export const applyExecutionIntentActionBodyIdempotencyKeyMin = 16;
+export const applyExecutionIntentActionBodyIdempotencyKeyMax = 128;
+
+
+export const applyExecutionIntentActionBodyIdempotencyKeyRegExp = new RegExp('^[A-Za-z0-9:_-]+$');
+
+
+
+export const ApplyExecutionIntentActionBody = zod.object({
+  "action": zod.enum(['RETRY_RECOVERY', 'ACKNOWLEDGE_BLOCKED']),
+  "confirmation": zod.string().describe('Exact phrase RETRY RECOVERY or ACKNOWLEDGE BLOCKED.'),
+  "reason": zod.string().min(applyExecutionIntentActionBodyReasonMin).max(applyExecutionIntentActionBodyReasonMax),
+  "idempotencyKey": zod.string().min(applyExecutionIntentActionBodyIdempotencyKeyMin).max(applyExecutionIntentActionBodyIdempotencyKeyMax).regex(applyExecutionIntentActionBodyIdempotencyKeyRegExp),
+  "ownershipGeneration": zod.number().min(1),
+  "password": zod.string().optional()
+})
+
+export const applyExecutionIntentActionResponseOwnershipGenerationMin = 0;
+
+export const applyExecutionIntentActionResponseGlobalEquitySourceCountMin = 0;
+
+export const applyExecutionIntentActionResponseAccountDrawdownLimitBpsMax = 10000;
+
+export const applyExecutionIntentActionResponseGlobalDrawdownLimitBpsMax = 10000;
+
+export const applyExecutionIntentActionResponseRuntimeOpenPositionsMin = 0;
+
+export const applyExecutionIntentActionResponseUnresolvedIntentsMax = 100;
+
+export const applyExecutionIntentActionResponseMetricsUnresolvedIntentsMin = 0;
+
+export const applyExecutionIntentActionResponseMetricsReconciliationFailuresMin = 0;
+
+export const applyExecutionIntentActionResponseMetricsRecoveredExposureMin = 0;
+
+export const applyExecutionIntentActionResponseMetricsProtectionFailuresMin = 0;
+
+export const applyExecutionIntentActionResponseMetricsActiveKillSwitchesMin = 0;
+
+export const applyExecutionIntentActionResponseMetricsOperatingModeChangesMin = 0;
+
+export const applyExecutionIntentActionResponseMetricsDrawdownBreachesMin = 0;
+
+export const applyExecutionIntentActionResponseMetricsOwnershipChangesMin = 0;
+
+export const applyExecutionIntentActionResponseMetricsCriticalAlertsMin = 0;
+
+export const applyExecutionIntentActionResponseIncidentsMax = 100;
+
+
+
+export const ApplyExecutionIntentActionResponse = zod.object({
+  "status": zod.enum(['HEALTHY', 'BLOCKED']),
+  "operatingMode": zod.enum(['NORMAL', 'NO_NEW_ENTRY', 'EXIT_ONLY', 'MAINTENANCE', 'PROTECTION_DEGRADED']),
+  "operatingModeSource": zod.enum(['SYSTEM', 'OPERATOR']),
+  "reconciliationState": zod.enum(['HEALTHY', 'INCOMPLETE', 'UNKNOWN', 'ESCALATED']),
+  "protectionState": zod.enum(['HEALTHY', 'DEGRADED', 'UNKNOWN']),
+  "globalDrawdownState": zod.enum(['HEALTHY', 'BREACHED', 'UNKNOWN']),
+  "accountDrawdownState": zod.enum(['HEALTHY', 'BREACHED', 'UNKNOWN']),
+  "entryBlockReason": zod.string().nullable(),
+  "ownershipGeneration": zod.number().min(applyExecutionIntentActionResponseOwnershipGenerationMin),
+  "ownerClaimedAt": zod.coerce.date().nullable(),
+  "lastReconciledAt": zod.coerce.date().nullable(),
+  "lastIncidentAt": zod.coerce.date().nullable(),
+  "currentEquityMinor": zod.string().nullable(),
+  "peakEquityMinor": zod.string().nullable(),
+  "equitySource": zod.string().nullable(),
+  "equityObservedAt": zod.coerce.date().nullable(),
+  "equityFreshUntil": zod.coerce.date().nullable(),
+  "globalCurrentEquityMinor": zod.string().nullable(),
+  "globalPeakEquityMinor": zod.string().nullable(),
+  "globalEquityObservedAt": zod.coerce.date().nullable(),
+  "globalEquityFreshUntil": zod.coerce.date().nullable(),
+  "globalEquitySourceCount": zod.number().min(applyExecutionIntentActionResponseGlobalEquitySourceCountMin),
+  "accountDrawdownLimitBps": zod.number().min(1).max(applyExecutionIntentActionResponseAccountDrawdownLimitBpsMax),
+  "globalDrawdownLimitBps": zod.number().min(1).max(applyExecutionIntentActionResponseGlobalDrawdownLimitBpsMax),
+  "runtime": zod.object({
+  "running": zod.boolean(),
+  "newEntriesAllowed": zod.boolean(),
+  "entryBlockReason": zod.string().nullable(),
+  "openPositions": zod.number().min(applyExecutionIntentActionResponseRuntimeOpenPositionsMin),
+  "lastScanAt": zod.coerce.date().nullable()
+}),
+  "activeSwitches": zod.array(zod.object({
+  "scope": zod.enum(['GLOBAL', 'EXCHANGE', 'MARKET', 'SYMBOL', 'STRATEGY_MODEL', 'USER', 'SECTION', 'AUTOPILOT']),
+  "scopeKey": zod.string(),
+  "reason": zod.string(),
+  "activatedAt": zod.coerce.date(),
+  "source": zod.enum(['PLATFORM', 'USER'])
+})),
+  "unresolvedIntents": zod.array(zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "state": zod.string(),
+  "clientOrderId": zod.string(),
+  "resolutionCode": zod.string().nullable(),
+  "filledQuantity": zod.string().nullable(),
+  "averageFillPrice": zod.string().nullable(),
+  "brokerOrderId": zod.string().nullable(),
+  "brokerTradeId": zod.string().nullable(),
+  "recoveryClientOrderId": zod.string().nullable(),
+  "recoveryState": zod.union([zod.literal('SUBMITTED'),zod.literal('CONFIRMED'),zod.literal('UNKNOWN'),zod.literal('FAILED'),zod.literal(null)]).nullable(),
+  "recoveryBrokerOrderId": zod.string().nullable(),
+  "recoveryAttemptedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date(),
+  "lastReconciledAt": zod.coerce.date().nullable()
+})).max(applyExecutionIntentActionResponseUnresolvedIntentsMax),
+  "metrics": zod.object({
+  "unresolvedIntents": zod.number().min(applyExecutionIntentActionResponseMetricsUnresolvedIntentsMin),
+  "reconciliationFailures": zod.number().min(applyExecutionIntentActionResponseMetricsReconciliationFailuresMin),
+  "recoveredExposure": zod.number().min(applyExecutionIntentActionResponseMetricsRecoveredExposureMin),
+  "protectionFailures": zod.number().min(applyExecutionIntentActionResponseMetricsProtectionFailuresMin),
+  "activeKillSwitches": zod.number().min(applyExecutionIntentActionResponseMetricsActiveKillSwitchesMin),
+  "operatingModeChanges": zod.number().min(applyExecutionIntentActionResponseMetricsOperatingModeChangesMin),
+  "drawdownBreaches": zod.number().min(applyExecutionIntentActionResponseMetricsDrawdownBreachesMin),
+  "ownershipChanges": zod.number().min(applyExecutionIntentActionResponseMetricsOwnershipChangesMin),
+  "criticalAlerts": zod.number().min(applyExecutionIntentActionResponseMetricsCriticalAlertsMin)
+}).describe('Counts derived from the current projection and the latest 100 durable incident events.'),
+  "incidents": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.string(),
+  "reasonCode": zod.string(),
+  "reason": zod.string(),
+  "actorType": zod.string(),
+  "occurredAt": zod.coerce.date(),
+  "source": zod.enum(['PLATFORM', 'USER'])
+})).max(applyExecutionIntentActionResponseIncidentsMax)
+})
+
+
+/**
  * Starts the trading bot engine
  * @summary Start the bot
  */

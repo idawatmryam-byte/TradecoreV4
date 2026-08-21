@@ -49,6 +49,8 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, capture
 AS $$
+DECLARE
+  purge_user_id ALIAS FOR $1;
 BEGIN
   -- Public-schema lifecycle projections are mutable, but their event streams
   -- are append-only. Account erasure is their only runtime deletion path.
@@ -58,6 +60,19 @@ BEGIN
     AND intent.user_id = target_user_id;
 
   DELETE FROM public.recommendation_events WHERE user_id = target_user_id;
+
+  DELETE FROM public.live_safety_events AS event
+  WHERE event.target_user_id = purge_user_id;
+  DELETE FROM public.live_kill_switches
+  WHERE owner_user_id = purge_user_id;
+  DELETE FROM public.live_execution_states WHERE user_id = purge_user_id;
+  UPDATE public.live_global_equity_state
+  SET current_equity_minor = NULL,
+      peak_equity_minor = NULL,
+      source_count = 0,
+      observed_at = NULL,
+      fresh_until = NULL,
+      drawdown_state = 'UNKNOWN';
 
   DELETE FROM public.autopilot_events WHERE user_id = target_user_id;
   DELETE FROM public.autopilot_decision_claims WHERE user_id = target_user_id;

@@ -26,6 +26,7 @@ import {
   shadowCouncilRunsTable, brainDecisionsTable, brainEvidenceReferencesTable,
   positionManagementEventsTable, positionThesesTable,
   researchExperimentsTable, researchReplayEventsTable,
+  liveExecutionStatesTable, liveKillSwitchesTable, liveSafetyEventsTable,
 } from "@workspace/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "../lib/passwordHash";
@@ -168,6 +169,9 @@ router.delete("/me/account", async (req, res) => {
         await tx.delete(executionEventsTable).where(inArray(executionEventsTable.intentId, intentIds));
       }
       await tx.delete(recommendationEventsTable).where(eq(recommendationEventsTable.userId, userId));
+      await tx.delete(liveSafetyEventsTable).where(eq(liveSafetyEventsTable.targetUserId, userId));
+      await tx.delete(liveKillSwitchesTable).where(eq(liveKillSwitchesTable.ownerUserId, userId));
+      await tx.delete(liveExecutionStatesTable).where(eq(liveExecutionStatesTable.userId, userId));
       const brainIds = (await tx.select({ id: brainDecisionsTable.id }).from(brainDecisionsTable)
         .where(eq(brainDecisionsTable.userId, userId))).map((row) => row.id);
       if (brainIds.length > 0) {

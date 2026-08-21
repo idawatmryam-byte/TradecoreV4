@@ -206,6 +206,74 @@ paths:
               schema:
                 $ref: "#/components/schemas/BotStatus"
 
+  /execution-health:
+    get:
+      operationId: getExecutionHealth
+      tags: [execution]
+      summary: Get the authenticated section's Phase 11 execution health
+      responses:
+        "200":
+          description: Current persisted and runtime Live safety state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutionHealth"
+
+  /execution-health/mode:
+    post:
+      operationId: setExecutionOperatingMode
+      tags: [execution]
+      summary: Reduce Live authority while preserving position exits
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetExecutionOperatingModeBody"
+      responses:
+        "200":
+          description: Updated execution health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutionHealth"
+        "400":
+          description: Invalid action, reason, or confirmation
+        "403":
+          description: Same-origin or step-up authorization failed
+
+  /execution-health/intents/{intentId}/action:
+    post:
+      operationId: applyExecutionIntentAction
+      tags: [execution]
+      summary: Request an evidence-backed action for an unresolved execution intent
+      parameters:
+        - in: path
+          name: intentId
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveExecutionIntentBody"
+      responses:
+        "200":
+          description: Updated execution health; uncertainty remains visible until broker reconciliation confirms a terminal outcome
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutionHealth"
+        "400":
+          description: Invalid action, reason, confirmation, or evidence
+        "403":
+          description: Same-origin or step-up authorization failed
+        "404":
+          description: Intent not available in the authenticated user scope
+        "409":
+          description: Ownership is stale or the action is not valid for the current intent state
+
   /bot/start:
     post:
       operationId: startBot
@@ -2879,6 +2947,256 @@ components:
         lastScanAt:
           type: ["string", "null"]
           format: date-time
+
+    SetExecutionOperatingModeBody:
+      type: object
+      required: [action, confirmation, reason]
+      properties:
+        action:
+          type: string
+          enum: [STOP_NEW_TRADES, EXIT_ONLY]
+        confirmation:
+          type: string
+          description: Exact phrase STOP NEW TRADES or EXIT ONLY.
+        reason:
+          type: string
+          minLength: 8
+          maxLength: 500
+        password:
+          type: string
+          writeOnly: true
+
+    ResolveExecutionIntentBody:
+      type: object
+      required:
+        [
+          action,
+          confirmation,
+          reason,
+          idempotencyKey,
+          ownershipGeneration,
+        ]
+      properties:
+        action:
+          type: string
+          enum: [RETRY_RECOVERY, ACKNOWLEDGE_BLOCKED]
+        confirmation:
+          type: string
+          description: Exact phrase RETRY RECOVERY or ACKNOWLEDGE BLOCKED.
+        reason:
+          type: string
+          minLength: 8
+          maxLength: 500
+        idempotencyKey:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: "^[A-Za-z0-9:_-]+$"
+        ownershipGeneration:
+          type: integer
+          minimum: 1
+        password:
+          type: string
+          writeOnly: true
+
+    ExecutionHealth:
+      type: object
+      required:
+        - status
+        - operatingMode
+        - operatingModeSource
+        - reconciliationState
+        - protectionState
+        - globalDrawdownState
+        - accountDrawdownState
+        - entryBlockReason
+        - ownershipGeneration
+        - ownerClaimedAt
+        - lastReconciledAt
+        - lastIncidentAt
+        - currentEquityMinor
+        - peakEquityMinor
+        - equitySource
+        - equityObservedAt
+        - equityFreshUntil
+        - globalCurrentEquityMinor
+        - globalPeakEquityMinor
+        - globalEquityObservedAt
+        - globalEquityFreshUntil
+        - globalEquitySourceCount
+        - accountDrawdownLimitBps
+        - globalDrawdownLimitBps
+        - runtime
+        - activeSwitches
+        - unresolvedIntents
+        - metrics
+        - incidents
+      properties:
+        status: { type: string, enum: [HEALTHY, BLOCKED] }
+        operatingMode:
+          type: string
+          enum:
+            [NORMAL, NO_NEW_ENTRY, EXIT_ONLY, MAINTENANCE, PROTECTION_DEGRADED]
+        operatingModeSource: { type: string, enum: [SYSTEM, OPERATOR] }
+        reconciliationState:
+          { type: string, enum: [HEALTHY, INCOMPLETE, UNKNOWN, ESCALATED] }
+        protectionState: { type: string, enum: [HEALTHY, DEGRADED, UNKNOWN] }
+        globalDrawdownState:
+          { type: string, enum: [HEALTHY, BREACHED, UNKNOWN] }
+        accountDrawdownState:
+          { type: string, enum: [HEALTHY, BREACHED, UNKNOWN] }
+        entryBlockReason: { type: ["string", "null"] }
+        ownershipGeneration: { type: integer, minimum: 0 }
+        ownerClaimedAt: { type: ["string", "null"], format: date-time }
+        lastReconciledAt: { type: ["string", "null"], format: date-time }
+        lastIncidentAt: { type: ["string", "null"], format: date-time }
+        currentEquityMinor: { type: ["string", "null"] }
+        peakEquityMinor: { type: ["string", "null"] }
+        equitySource: { type: ["string", "null"] }
+        equityObservedAt: { type: ["string", "null"], format: date-time }
+        equityFreshUntil: { type: ["string", "null"], format: date-time }
+        globalCurrentEquityMinor: { type: ["string", "null"] }
+        globalPeakEquityMinor: { type: ["string", "null"] }
+        globalEquityObservedAt:
+          { type: ["string", "null"], format: date-time }
+        globalEquityFreshUntil:
+          { type: ["string", "null"], format: date-time }
+        globalEquitySourceCount: { type: integer, minimum: 0 }
+        accountDrawdownLimitBps: { type: integer, minimum: 1, maximum: 10000 }
+        globalDrawdownLimitBps: { type: integer, minimum: 1, maximum: 10000 }
+        runtime:
+          type: object
+          required:
+            [
+              running,
+              newEntriesAllowed,
+              entryBlockReason,
+              openPositions,
+              lastScanAt,
+            ]
+          properties:
+            running: { type: boolean }
+            newEntriesAllowed: { type: boolean }
+            entryBlockReason: { type: ["string", "null"] }
+            openPositions: { type: integer, minimum: 0 }
+            lastScanAt: { type: ["string", "null"], format: date-time }
+        activeSwitches:
+          type: array
+          items:
+            type: object
+            required: [scope, scopeKey, reason, activatedAt, source]
+            properties:
+              scope:
+                {
+                  type: string,
+                  enum:
+                    [
+                      GLOBAL,
+                      EXCHANGE,
+                      MARKET,
+                      SYMBOL,
+                      STRATEGY_MODEL,
+                      USER,
+                      SECTION,
+                      AUTOPILOT,
+                    ],
+                }
+              scopeKey: { type: string }
+              reason: { type: string }
+              activatedAt: { type: string, format: date-time }
+              source: { type: string, enum: [PLATFORM, USER] }
+        unresolvedIntents:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            required:
+              [
+                id,
+                symbol,
+                state,
+                clientOrderId,
+                resolutionCode,
+                filledQuantity,
+                averageFillPrice,
+                brokerOrderId,
+                brokerTradeId,
+                recoveryClientOrderId,
+                recoveryState,
+                recoveryBrokerOrderId,
+                recoveryAttemptedAt,
+                createdAt,
+                lastReconciledAt,
+              ]
+            properties:
+              id: { type: integer }
+              symbol: { type: string }
+              state: { type: string }
+              clientOrderId: { type: string }
+              resolutionCode: { type: ["string", "null"] }
+              filledQuantity: { type: ["string", "null"] }
+              averageFillPrice: { type: ["string", "null"] }
+              brokerOrderId: { type: ["string", "null"] }
+              brokerTradeId: { type: ["string", "null"] }
+              recoveryClientOrderId: { type: ["string", "null"] }
+              recoveryState:
+                {
+                  type: ["string", "null"],
+                  enum: [SUBMITTED, CONFIRMED, UNKNOWN, FAILED, null],
+                }
+              recoveryBrokerOrderId: { type: ["string", "null"] }
+              recoveryAttemptedAt:
+                { type: ["string", "null"], format: date-time }
+              createdAt: { type: string, format: date-time }
+              lastReconciledAt: { type: ["string", "null"], format: date-time }
+        metrics:
+          type: object
+          description: Counts derived from the current projection and the latest 100 durable incident events.
+          required:
+            [
+              unresolvedIntents,
+              reconciliationFailures,
+              recoveredExposure,
+              protectionFailures,
+              activeKillSwitches,
+              operatingModeChanges,
+              drawdownBreaches,
+              ownershipChanges,
+              criticalAlerts,
+            ]
+          properties:
+            unresolvedIntents: { type: integer, minimum: 0 }
+            reconciliationFailures: { type: integer, minimum: 0 }
+            recoveredExposure: { type: integer, minimum: 0 }
+            protectionFailures: { type: integer, minimum: 0 }
+            activeKillSwitches: { type: integer, minimum: 0 }
+            operatingModeChanges: { type: integer, minimum: 0 }
+            drawdownBreaches: { type: integer, minimum: 0 }
+            ownershipChanges: { type: integer, minimum: 0 }
+            criticalAlerts: { type: integer, minimum: 0 }
+        incidents:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            required:
+              [
+                id,
+                eventType,
+                reasonCode,
+                reason,
+                actorType,
+                occurredAt,
+                source,
+              ]
+            properties:
+              id: { type: integer }
+              eventType: { type: string }
+              reasonCode: { type: string }
+              reason: { type: string }
+              actorType: { type: string }
+              occurredAt: { type: string, format: date-time }
+              source: { type: string, enum: [PLATFORM, USER] }
 
     IndicatorVote:
       type: object

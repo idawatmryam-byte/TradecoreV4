@@ -451,17 +451,101 @@ export class OandaAdapter implements BrokerAdapter {
 
   async fetchOrder(id: string, _symbol?: string): Promise<unknown> {
     const res = await this.client.acct<{
-      order: { id: string; state: string; price?: string; type: string };
+      order: {
+        id: string;
+        state: string;
+        price?: string;
+        units?: string;
+        type: string;
+        fillingTransactionID?: string;
+        tradeOpenedID?: string;
+      };
     }>("GET", `/orders/${id}`);
     const o = res.order;
+    let fill:
+      | {
+          id: string;
+          price?: string;
+          units?: string;
+          tradeOpened?: { tradeID: string; units?: string; price?: string };
+        }
+      | undefined;
+    if (o.state === "FILLED" && o.fillingTransactionID) {
+      const transaction = await this.client.acct<{
+        transaction: {
+          id: string;
+          price?: string;
+          units?: string;
+          tradeOpened?: { tradeID: string; units?: string; price?: string };
+        };
+      }>("GET", `/transactions/${o.fillingTransactionID}`);
+      fill = transaction.transaction;
+    }
+    const filledUnits = fill?.tradeOpened?.units ?? fill?.units;
+    const averagePrice = fill?.tradeOpened?.price ?? fill?.price;
     return {
       id: o.id,
       // OANDA states → ccxt statuses: FILLED→closed, CANCELLED→canceled,
       // PENDING/TRIGGERED→open.
       status: o.state === "FILLED" ? "closed" : o.state === "CANCELLED" ? "canceled" : "open",
       price: o.price != null ? Number(o.price) : undefined,
-      average: undefined,
-      info: o,
+      amount: o.units != null ? Math.abs(Number(o.units)) : undefined,
+      filled: filledUnits != null ? Math.abs(Number(filledUnits)) : undefined,
+      average: averagePrice != null ? Number(averagePrice) : undefined,
+      info: {
+        ...o,
+        fillingTransaction: fill,
+        tradeOpenedID: o.tradeOpenedID ?? fill?.tradeOpened?.tradeID,
+      },
+    };
+  }
+
+  /**
+   * Close one broker-identified trade without symbol-side inference. If the
+   * trade is already absent from /openTrades, that absence is authoritative
+   * confirmation that replay must not submit a second close.
+   */
+  async closeTradeById(
+    tradeId: string,
+    symbol: string,
+    amount: number,
+  ): Promise<unknown> {
+    const open = await this.client.acct<{
+      trades: Array<{ id: string; instrument: string; currentUnits: string }>;
+    }>("GET", "/openTrades");
+    const target = open.trades.find((trade) => trade.id === tradeId);
+    if (!target) {
+      return {
+        id: tradeId,
+        status: "closed",
+        filled: 0,
+        info: { alreadyClosed: true, evidenceSource: "oanda-open-trades" },
+      };
+    }
+    if (target.instrument !== symbol) {
+      throw new Error("OANDA recovery trade id does not match the intended instrument");
+    }
+    const openUnits = Math.abs(Number(target.currentUnits));
+    if (!Number.isFinite(openUnits) || openUnits <= 0) {
+      throw new Error("OANDA recovery trade has invalid open units");
+    }
+    const closeUnits = Math.min(amount, openUnits);
+    const res = await this.client.acct<{
+      orderFillTransaction?: { id: string; price: string; units: string };
+    }>("PUT", `/trades/${tradeId}/close`, {
+      units:
+        closeUnits >= openUnits
+          ? "ALL"
+          : this.amountToPrecision(symbol, closeUnits),
+    });
+    const fill = res.orderFillTransaction;
+    return {
+      id: fill?.id ?? tradeId,
+      status: "closed",
+      filled:
+        fill?.units != null ? Math.abs(Number(fill.units)) : closeUnits,
+      average: fill?.price != null ? Number(fill.price) : undefined,
+      info: res,
     };
   }
 }

@@ -3,7 +3,7 @@ import { db, botConfigTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "./lib/logger";
 import { validateEnv } from "./lib/env";
-import { DEMO_IDLE_GRACE_MS, getOrCreateEngine, isSection, startDemoSweeper } from "./lib/engineRegistry";
+import { DEMO_IDLE_GRACE_MS, allEngines, getOrCreateEngine, isSection, startDemoSweeper, stopDemoSweeper } from "./lib/engineRegistry";
 import { installOpsMonitor } from "./lib/opsMonitor";
 import { ensureDemoAccount } from "./lib/demoSeed";
 import { beginEngineResume, failEngineResumeDiscovery, recordEngineResume } from "./lib/startupHealth";
@@ -130,8 +130,36 @@ async function ensureDemoOnStartup(): Promise<void> {
 
 // Node binds every interface when no host is passed — so the unset case must
 // omit the argument entirely rather than pass undefined through.
-if (host) {
-  app.listen(port, host, onListening);
-} else {
-  app.listen(port, onListening);
+const server = host
+  ? app.listen(port, host, onListening)
+  : app.listen(port, onListening);
+
+let shutdownInProgress = false;
+async function gracefulShutdown(signal: "SIGTERM" | "SIGINT"): Promise<void> {
+  if (shutdownInProgress) return;
+  shutdownInProgress = true;
+  stopDemoSweeper();
+  logger.warn({ signal }, "PROCESS DRAIN: refusing new connections and draining engines");
+  const httpClosed = new Promise<void>((resolve) => server.close(() => resolve()));
+  const outcomes = await Promise.allSettled(
+    allEngines().map((engine) =>
+      engine.drainForShutdown(
+        `Process ${signal} drain: new entries stopped; in-flight work must reconcile on restart`,
+      ),
+    ),
+  );
+  const failed = outcomes.filter((outcome) => outcome.status === "rejected");
+  if (failed.length > 0) {
+    logger.error(
+      { signal, failed: failed.length },
+      "PROCESS DRAIN: one or more engines failed to drain; exiting non-zero for operator visibility",
+    );
+    process.exitCode = 1;
+  }
+  await httpClosed;
+  logger.info({ signal, engines: outcomes.length }, "PROCESS DRAIN: complete");
+  process.exit();
 }
+
+process.once("SIGTERM", () => void gracefulShutdown("SIGTERM"));
+process.once("SIGINT", () => void gracefulShutdown("SIGINT"));
