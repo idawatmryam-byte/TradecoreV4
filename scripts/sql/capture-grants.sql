@@ -61,7 +61,8 @@ BEGIN
 
   DELETE FROM public.recommendation_events WHERE user_id = target_user_id;
 
-  DELETE FROM public.live_safety_events WHERE target_user_id = purge_user_id;
+  DELETE FROM public.live_safety_events AS event
+  WHERE event.target_user_id = purge_user_id;
   DELETE FROM public.live_kill_switches
   WHERE owner_user_id = purge_user_id;
   DELETE FROM public.live_execution_states WHERE user_id = purge_user_id;
