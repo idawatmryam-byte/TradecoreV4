@@ -157,6 +157,18 @@ function primeEngine(engine: BotEngine, mock: MockSpotExchange) {
   e.availableMarkets = new Set(Object.keys(mock.markets));
 }
 
+/**
+ * This harness invokes the post-gate broker-path seam directly. Model the
+ * healthy result of startup reconciliation without bypassing the Phase 11
+ * safety tests that cover blocked and unknown operating states separately.
+ */
+function primeHealthyLiveEntryGate(engine: BotEngine) {
+  const e = engine as any;
+  e.state.running = true;
+  e.state.newEntriesAllowed = true;
+  e.state.entryBlockReason = null;
+}
+
 function candles(price: number, high = price, low = price): Array<[number, number, number, number, number, number]> {
   const now = Date.now();
   return Array.from({ length: 30 }, (_, i) => [now - (30 - i) * 60_000, price, high, low, price, 10]);
@@ -212,6 +224,7 @@ async function main() {
   const mock = new MockSpotExchange();
   const engine = new BotEngine(USER, "crypto");
   primeEngine(engine, mock);
+  primeHealthyLiveEntryGate(engine);
   const e = engine as any;
   const storedConfig = await engine.loadConfig();
   // This harness deliberately exercises the broker execution path against an
