@@ -52,6 +52,15 @@ async function cleanup() {
   await db
     .delete(executionIntentsTable)
     .where(eq(executionIntentsTable.userId, USER));
+  // purge_user_data does not remove bot_config or trades; leaving either
+  // behind breaks reruns on any database that is not freshly provisioned
+  // (bot_config_user_section_unique / "exactly one simulated trade").
+  await db
+    .delete(botConfigTable)
+    .where(
+      and(eq(botConfigTable.userId, USER), eq(botConfigTable.section, "crypto")),
+    );
+  await db.delete(tradesTable).where(eq(tradesTable.userId, USER));
 }
 
 async function main() {

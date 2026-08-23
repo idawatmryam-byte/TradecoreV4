@@ -46,6 +46,26 @@ function expect(name: string, condition: boolean, detail = "") {
   console.log(`${condition ? "✓" : "✗ FAIL"}  ${name}${condition ? "" : `  ${detail}`}`);
 }
 
+// attemptLiveReconciliation() is a no-op while another reconciliation for the
+// same engine is still in flight (single-flight guard), so a call made right
+// after a restart may legitimately do nothing while the previous attempt
+// unwinds. Retry under the guard's window instead of asserting against an
+// unresolved internal attempt; a gate that never reopens still fails the run.
+async function reconcileUntilGateOpens(
+  engine: BotEngine,
+  e: any,
+  trigger: string,
+  timeoutMs = 10_000,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    await e.attemptLiveReconciliation(trigger);
+    if (engine.getState().newEntriesAllowed) return true;
+    if (Date.now() >= deadline) return engine.getState().newEntriesAllowed;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
 async function cleanup() {
   for (const userId of [CRYPTO_USER, FOREX_USER]) {
     await db.delete(userBinanceCredentialsTable).where(eq(userBinanceCredentialsTable.userId, userId));
@@ -137,11 +157,14 @@ async function exerciseCrypto() {
   await setTarget(CRYPTO_USER, "crypto", "live");
   await engine.refreshConnection({ restartIfDesired: true, reason: "test: Crypto Demo to Live" });
   await waitForInitialLiveTransitions();
-  await e.attemptLiveReconciliation("connection-management gate verification");
+  // The restart's own startup reconciliation may still be in flight; retry
+  // under the single-flight guard rather than racing it (see
+  // reconcileUntilGateOpens).
+  const gateOpened = await reconcileUntilGateOpens(engine, e, "connection-management gate verification");
   const live1 = (engine as any).exchange;
   expect("Crypto reconnects on Live", built.at(-1)?.target === "live");
   expect("Crypto Live does not reuse Demo client", live1 !== demo1);
-  expect("successful Live reconciliation opens the entry gate", engine.getState().newEntriesAllowed);
+  expect("successful Live reconciliation opens the entry gate", gateOpened);
 
   e.reconcileOnStartup = async () => { throw new Error("scripted provider ambiguity"); };
   await engine.refreshConnection({ restartIfDesired: true, reason: "test: fail-closed reconciliation" });
@@ -149,8 +172,8 @@ async function exerciseCrypto() {
   expect("reconciliation failure blocks only new entries",
     !engine.getState().newEntriesAllowed && engine.getState().entryBlockReason?.startsWith("Exit-only:"));
   e.reconcileOnStartup = async () => {};
-  await e.attemptLiveReconciliation("integration recovery");
-  expect("a later successful reconciliation re-opens the entry gate", engine.getState().newEntriesAllowed);
+  const gateReopened = await reconcileUntilGateOpens(engine, e, "integration recovery");
+  expect("a later successful reconciliation re-opens the entry gate", gateReopened);
 
   await setBinanceCredentials(CRYPTO_USER, "crypto-key-two", "crypto-secret-two");
   await engine.refreshConnection({ restartIfDesired: true, reason: "test: replace Binance credentials" });
