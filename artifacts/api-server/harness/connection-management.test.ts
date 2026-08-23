@@ -47,22 +47,36 @@ function expect(name: string, condition: boolean, detail = "") {
 }
 
 // attemptLiveReconciliation() is a no-op while another reconciliation for the
-// same engine is still in flight (single-flight guard), so a call made right
-// after a restart may legitimately do nothing while the previous attempt
-// unwinds. Retry under the guard's window instead of asserting against an
-// unresolved internal attempt; a gate that never reopens still fails the run.
+// same engine is still in flight (single-flight guard), and live engines also
+// arm a fire-and-forget 30s reconciliation timer whose in-flight attempt
+// holds that guard silently. Drive our own attempts only when the guard is
+// free, and wait long enough to outlive one timer period; report the block
+// reason so a genuine fail-closed gate is distinguishable from a slow unwind.
 async function reconcileUntilGateOpens(
   engine: BotEngine,
   e: any,
   trigger: string,
-  timeoutMs = 10_000,
+  timeoutMs = 35_000,
 ): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
-    await e.attemptLiveReconciliation(trigger);
+    if (!e.reconciliationInFlight) {
+      await e.attemptLiveReconciliation(trigger);
+    }
     if (engine.getState().newEntriesAllowed) return true;
-    if (Date.now() >= deadline) return engine.getState().newEntriesAllowed;
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    if (Date.now() >= deadline) {
+      const { getLiveExecutionHealth } = await import("../src/lib/execution/liveSafetyStore");
+      const b = await getLiveExecutionHealth(e.userId, e.section);
+      console.error(
+        `gate still closed after ${timeoutMs}ms: reason=${engine.getState().entryBlockReason} ` +
+          `inFlight=${e.reconciliationInFlight} ` +
+          `operatingMode=${b.state.operatingMode} reconciliation=${b.state.reconciliationState} ` +
+          `protection=${b.state.protectionState} globalRow=${JSON.stringify(b.globalState)} ` +
+          `switches=${b.switches.length} unresolvedIntents=${b.unresolvedIntents.length}`,
+      );
+      return false;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 }
 

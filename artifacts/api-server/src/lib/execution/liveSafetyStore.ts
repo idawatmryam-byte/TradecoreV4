@@ -216,13 +216,31 @@ export async function ingestAuthoritativeAccountEquity(input: {
           0n,
         )
       : null;
-    const previousGlobalPeak = parseMinor(global.peakEquityMinor);
+    // The global high-water mark must describe the CURRENT ownership regime.
+    // Summing each active owner's own account peak — instead of keeping a
+    // historical maximum of summed totals — means legitimate membership
+    // changes (an owner stopping, a released stale claim, a new owner
+    // joining) resize the baseline instead of masquerading as a platform-wide
+    // drawdown, while real equity collapse inside any active account still
+    // breaches: that account's current falls far below its own peak. A
+    // historical max-of-sums here left GLOBAL_DRAWDOWN_BREACHED latched after
+    // any member left, blocking every remaining user's entries.
     const globalPeak =
-      currentGlobal === null
-        ? previousGlobalPeak
-        : previousGlobalPeak === null || currentGlobal > previousGlobalPeak
-          ? currentGlobal
-          : previousGlobalPeak;
+      activeRows.length > 0
+        ? activeRows.reduce((sum, row) => {
+            const accountPeak = parseMinor(row.peakEquityMinor);
+            const accountCurrent = parseMinor(row.currentEquityMinor);
+            // A claimed owner that has not reported equity yet contributes
+            // nothing here; the verdict is UNKNOWN for such a regime anyway.
+            const highWater =
+              accountPeak !== null && accountCurrent !== null
+                ? accountPeak > accountCurrent
+                  ? accountPeak
+                  : accountCurrent
+                : accountPeak ?? accountCurrent;
+            return highWater === null ? sum : sum + highWater;
+          }, 0n)
+        : null;
     const globalVerdict = evaluateDrawdown({
       peakEquityMinor: globalPeak,
       currentEquityMinor: currentGlobal,
