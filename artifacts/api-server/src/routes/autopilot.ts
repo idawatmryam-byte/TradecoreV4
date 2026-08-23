@@ -190,8 +190,16 @@ router.post("/autopilot/mandates", async (req, res): Promise<void> => {
       strategyVersions[strategyId] = strategyConfigVersion(strategyId, strategyConfig);
     }
     const maximumConfiguredLeverage = config.marketType === "futures" ? config.leverage : 1;
+    // maximumPositionSizeUsdt caps PLAN NOTIONAL (what evaluateAutopilotEntry
+    // compares), while bot_config.positionSizeUsdt is the pre-leverage trade
+    // amount — plans are sized at amount × leverage (observed: $2,000 × 5× =
+    // $10,000 notional, BUG-005). Bound the mandate against the largest
+    // notional this deterministic configuration can produce so the mandate
+    // can permit exactly the config's own trades and nothing more.
+    const maximumConfiguredPositionNotionalUsdt =
+      Number(config.positionSizeUsdt) * maximumConfiguredLeverage;
     const bounds: Array<[number, number, string]> = [
-      [parsed.data.maximumPositionSizeUsdt, Number(config.positionSizeUsdt), "maximumPositionSizeUsdt"],
+      [parsed.data.maximumPositionSizeUsdt, maximumConfiguredPositionNotionalUsdt, "maximumPositionSizeUsdt"],
       [parsed.data.maximumLeverage, maximumConfiguredLeverage, "maximumLeverage"],
       [parsed.data.maximumPortfolioRiskPercent, Number(config.maxPortfolioRiskPercent), "maximumPortfolioRiskPercent"],
       [parsed.data.maximumSymbolExposurePercent, Number(config.maxSymbolConcentrationPercent), "maximumSymbolExposurePercent"],

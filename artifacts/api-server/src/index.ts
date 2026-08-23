@@ -5,6 +5,7 @@ import { logger } from "./lib/logger";
 import { validateEnv } from "./lib/env";
 import { DEMO_IDLE_GRACE_MS, allEngines, getOrCreateEngine, isSection, startDemoSweeper, stopDemoSweeper } from "./lib/engineRegistry";
 import { installOpsMonitor } from "./lib/opsMonitor";
+import { releaseAllLiveExecutionOwnership } from "./lib/execution/liveSafetyStore";
 import { ensureDemoAccount } from "./lib/demoSeed";
 import { beginEngineResume, failEngineResumeDiscovery, recordEngineResume } from "./lib/startupHealth";
 import { coordinateEngineResume, engineResumeConfiguration, type EngineResumeTarget } from "./lib/engineResumeCoordinator";
@@ -27,7 +28,29 @@ installOpsMonitor();
  * engine hasn't made a trade in hours". Failures are per-user and non-fatal
  * (e.g. credentials revoked since): the server must come up regardless.
  */
+/**
+ * A new process owns no execution. Every persisted live-execution ownership
+ * claim predates this boot (previous generation, crash, or stopped engine),
+ * so release them all BEFORE auto-resume re-claims ownership for engines that
+ * should be running — otherwise stale claims from dead generations keep the
+ * platform-wide global equity aggregate at UNKNOWN and block every user's
+ * broker-authority entries indefinitely (Phase 11 finding BUG-001).
+ */
+async function releaseStaleOwnershipBeforeResume(): Promise<void> {
+  try {
+    const released = await releaseAllLiveExecutionOwnership({
+      reasonCode: "BOOT_OWNERSHIP_SWEEP",
+      reason:
+        "Process start released every persisted live-execution ownership claim; resuming engines re-claim before trading",
+    });
+    if (released > 0) logger.warn({ released }, "BOOT: released stale live-execution ownership claims");
+  } catch (err) {
+    logger.error({ err }, "BOOT: live-execution ownership sweep failed; stale claims may block global equity until the next boot");
+  }
+}
+
 async function resumeRunningEngines(): Promise<void> {
+  await releaseStaleOwnershipBeforeResume();
   try {
     const rows = await db
       .select({ userId: botConfigTable.userId, section: botConfigTable.section, isDemo: usersTable.isDemo })

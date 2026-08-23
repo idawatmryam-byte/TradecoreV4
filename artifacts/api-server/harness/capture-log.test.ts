@@ -123,6 +123,12 @@ async function main() {
   // ── 3. Signal-only: no-decision scans are counted, not snapshotted ────────
   console.log("\n— scans with no decision are counted, not captured —");
   const before = await scanCounterTotal(USER, "crypto");
+  // Snapshots are platform-wide (deduped by content hash, no user column), so
+  // on any database where a real engine has scanned ETHUSDT the absolute count
+  // is nonzero. Assert the contract as a delta: counted scans must not add one.
+  const ethSnapshotsBefore = (
+    await db.select().from(featureSnapshotsTable).where(eq(featureSnapshotsTable.symbol, "ETHUSDT"))
+  ).length;
   const stages = new Map([["ETHUSDT", "no_signal"], ["SOLUSDT", "Risk Checks"]]);
   await recordScanCounters(USER, "crypto", new Date(DATA_TS), stages);
   await recordScanCounters(USER, "crypto", new Date(DATA_TS + 60_000), stages); // same hour
@@ -133,7 +139,7 @@ async function main() {
   expect("each bucket counted twice", counters.every((c) => c.count === 2));
   expect(
     "no snapshot written for a counted scan",
-    (await db.select().from(featureSnapshotsTable).where(eq(featureSnapshotsTable.symbol, "ETHUSDT"))).length === 0,
+    (await db.select().from(featureSnapshotsTable).where(eq(featureSnapshotsTable.symbol, "ETHUSDT"))).length === ethSnapshotsBefore,
   );
 
   // ── 4. Append-only ────────────────────────────────────────────────────────
