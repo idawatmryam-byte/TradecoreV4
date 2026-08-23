@@ -216,13 +216,31 @@ export async function ingestAuthoritativeAccountEquity(input: {
           0n,
         )
       : null;
-    const previousGlobalPeak = parseMinor(global.peakEquityMinor);
+    // The global high-water mark must describe the CURRENT ownership regime.
+    // Summing each active owner's own account peak — instead of keeping a
+    // historical maximum of summed totals — means legitimate membership
+    // changes (an owner stopping, a released stale claim, a new owner
+    // joining) resize the baseline instead of masquerading as a platform-wide
+    // drawdown, while real equity collapse inside any active account still
+    // breaches: that account's current falls far below its own peak. A
+    // historical max-of-sums here left GLOBAL_DRAWDOWN_BREACHED latched after
+    // any member left, blocking every remaining user's entries.
     const globalPeak =
-      currentGlobal === null
-        ? previousGlobalPeak
-        : previousGlobalPeak === null || currentGlobal > previousGlobalPeak
-          ? currentGlobal
-          : previousGlobalPeak;
+      activeRows.length > 0
+        ? activeRows.reduce((sum, row) => {
+            const accountPeak = parseMinor(row.peakEquityMinor);
+            const accountCurrent = parseMinor(row.currentEquityMinor);
+            // A claimed owner that has not reported equity yet contributes
+            // nothing here; the verdict is UNKNOWN for such a regime anyway.
+            const highWater =
+              accountPeak !== null && accountCurrent !== null
+                ? accountPeak > accountCurrent
+                  ? accountPeak
+                  : accountCurrent
+                : accountPeak ?? accountCurrent;
+            return highWater === null ? sum : sum + highWater;
+          }, 0n)
+        : null;
     const globalVerdict = evaluateDrawdown({
       peakEquityMinor: globalPeak,
       currentEquityMinor: currentGlobal,
@@ -391,6 +409,86 @@ export async function claimLiveExecutionOwnership(
     payload: { generation: claimed.generation, instanceId },
   });
   return { generation: claimed.generation, instanceId };
+}
+
+/**
+ * Release a live-execution ownership claim.
+ *
+ * Ownership was previously claimed on engine start and NEVER released, so any
+ * row whose owner stopped (explicit Stop, idle pause, credential refresh) or
+ * whose process died kept `owner_claimed_at` set forever. The global equity
+ * aggregate requires every claimed owner to report fresh provider equity, so
+ * one stale claim permanently forced the platform-wide global drawdown state
+ * to UNKNOWN and blocked ALL broker-authority entries with no recovery path
+ * short of manual SQL (observed in Phase 11 validation: leftover harness
+ * claims blocked a healthy OANDA practice engine).
+ *
+ * A released row is ignored by the aggregate; a genuinely running owner must
+ * re-claim via start() and re-prove reconciliation before entries resume.
+ * System/operator operating-mode reductions are deliberately preserved here —
+ * releasing ownership never widens authority.
+ */
+export async function releaseLiveExecutionOwnership(input: {
+  userId: number;
+  section: Section;
+  reasonCode: string;
+  reason: string;
+}): Promise<boolean> {
+  const [released] = await db
+    .update(liveExecutionStatesTable)
+    .set({ ownerInstanceId: null, ownerClaimedAt: null })
+    .where(
+      and(
+        eq(liveExecutionStatesTable.userId, input.userId),
+        eq(liveExecutionStatesTable.section, input.section),
+        // Only rows that actually hold a claim — avoids event spam when a
+        // demo engine or an already-released engine quiesces.
+        sql`${liveExecutionStatesTable.ownerClaimedAt} IS NOT NULL`,
+      ),
+    )
+    .returning({ userId: liveExecutionStatesTable.userId });
+  if (!released) return false;
+  await appendLiveSafetyEvent({
+    targetUserId: input.userId,
+    section: input.section,
+    eventType: "OWNERSHIP_RELEASED",
+    actorType: "system",
+    reasonCode: input.reasonCode,
+    reason: input.reason,
+  });
+  return true;
+}
+
+/**
+ * Boot-time sweep: this new process owns no execution yet, so every persisted
+ * claim belongs to a dead generation and must not gate the platform aggregate.
+ * Engines resumed right after by auto-resume re-claim ownership as they start.
+ * Best-effort callers treat a thrown error as "sweep unavailable" — the
+ * fail-closed consequence is that stale claims keep blocking global equity
+ * until the next successful boot, exactly the pre-fix behavior.
+ */
+export async function releaseAllLiveExecutionOwnership(input: {
+  reasonCode: string;
+  reason: string;
+}): Promise<number> {
+  const released = await db
+    .update(liveExecutionStatesTable)
+    .set({ ownerInstanceId: null, ownerClaimedAt: null })
+    .where(sql`${liveExecutionStatesTable.ownerClaimedAt} IS NOT NULL`)
+    .returning({ userId: liveExecutionStatesTable.userId, section: liveExecutionStatesTable.section });
+  if (released.length === 0) return 0;
+  await appendLiveSafetyEvent({
+    targetUserId: 0,
+    section: "*",
+    eventType: "OWNERSHIP_RELEASED",
+    actorType: "system",
+    reasonCode: input.reasonCode,
+    reason: input.reason,
+    payload: {
+      released: released.map((row) => `${row.userId}:${row.section}`),
+    },
+  });
+  return released.length;
 }
 
 export async function updateLiveReconciliationProjection(input: {

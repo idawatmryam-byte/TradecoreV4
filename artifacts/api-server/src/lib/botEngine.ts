@@ -123,6 +123,7 @@ import {
 } from "./execution/liveSafety";
 import {
   claimLiveExecutionOwnership,
+  releaseLiveExecutionOwnership,
   evaluatePersistedLiveSafety,
   getLiveExecutionHealth,
   appendLiveSafetyEvent,
@@ -1086,10 +1087,18 @@ class BotEngine {
     if (now - this.lastStrategyConfigLoad < this.STRATEGY_CONFIG_CACHE_MS && this.strategyConfigs.size > 0) {
       return this.strategyConfigs;
     }
-    this.strategyConfigs = await loadStrategyConfigs(this.userId, this.section);
+    // Keep the PERSISTED configs for authorization identity (BUG-004): the
+    // immutable autopilot mandate freezes strategyConfigVersion from the raw
+    // rows, so versioning the high-frequency-overridden copies could never
+    // match while test mode was on.
+    this.rawStrategyConfigs = await loadStrategyConfigs(this.userId, this.section);
+    this.strategyConfigs = this.rawStrategyConfigs;
     this.lastStrategyConfigLoad = now;
     return this.highFreqStrategyConfigs(this.strategyConfigs);
   }
+
+  /** Persisted (pre-HF-override) strategy configs, for identity checks only. */
+  private rawStrategyConfigs: Map<string, StrategyConfig> = new Map();
 
   /**
    * The user's custom strategies allowed in the LIVE selector: valid rules
@@ -2370,6 +2379,27 @@ class BotEngine {
    * do not return until this completes. */
   private async quiesceAndTeardown(message: string): Promise<void> {
     this.connectionSuspended = true;
+    // A quiesced live engine no longer owns execution: release the persisted
+    // claim so its stale equity snapshot cannot hold the platform-wide global
+    // drawdown projection at UNKNOWN (which blocks every user's broker
+    // entries). start() re-claims and re-proves reconciliation. Best-effort:
+    // teardown must proceed even if the safety-store write fails, and a live
+    // engine that fails to release stays fail-closed on its next start.
+    if (this.executionTarget === "live") {
+      try {
+        const released = await releaseLiveExecutionOwnership({
+          userId: this.userId,
+          section: this.section,
+          reasonCode: "ENGINE_QUIESCED",
+          reason: `Live execution ownership released because the engine stopped: ${message}`,
+        });
+        if (released) {
+          logger.info({ userId: this.userId, section: this.section }, "Live ownership released on quiesce");
+        }
+      } catch (err) {
+        logger.error({ err, userId: this.userId, section: this.section }, "Could not release live execution ownership during quiesce");
+      }
+    }
     if (this.scanTimer) {
       clearInterval(this.scanTimer);
       this.scanTimer = null;
@@ -2480,7 +2510,8 @@ class BotEngine {
       // Effective config for this scan = stored settings + high-frequency test
       // overrides (a no-op unless highFrequencyTestMode is on AND on testnet).
       // This also sets this.highFreqActive for getStrategyConfigs/isToxicHour.
-      const config = this.applyHighFreqOverrides(await this.loadConfig());
+      const rawConfig = await this.loadConfig();
+      const config = this.applyHighFreqOverrides(rawConfig);
       // Re-resolved each scan so a mid-session switch takes effect on the next
       // tick rather than requiring a restart.
       this.executionTarget = config.executionTarget === "demo" ? "demo" : "live";
@@ -3808,7 +3839,12 @@ class BotEngine {
           const authorizationInput: Parameters<typeof authorizeAutopilotEntry>[0] = {
             userId: this.userId,
             section: this.section,
-            config,
+            // Identity must be the PERSISTED configuration: the mandate froze
+            // its fingerprint from the stored row, and fingerprinting the
+            // HF-overridden copy here could never match while test mode was
+            // on (BUG-003: every autonomous decision refused as
+            // CONFIGURATION_CHANGED with nothing actually changed).
+            config: rawConfig,
             executionAuthority,
             providerConfigurationValid:
               this.credentialsVerified && this.marketsLoaded > 0,
@@ -3823,7 +3859,12 @@ class BotEngine {
                 : null,
             unifiedBrainEvidenceAvailable,
             plan: bestSignal,
-            ...(stratConfig && { strategyConfig: stratConfig }),
+            // Identity input: the PERSISTED strategy config, not the
+            // HF-overridden effective one (BUG-004 — see rawStrategyConfigs).
+            ...(stratConfig && {
+              strategyConfig:
+                this.rawStrategyConfigs.get(bestSignal.strategyId) ?? stratConfig,
+            }),
             riskChecks: preChecks,
             balanceUsdt:
               Number.isFinite(balance) && balance > 0 ? balance : null,
