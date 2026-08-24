@@ -11,7 +11,6 @@ import {
   verifyFinancialRequestOrigin,
   verifyFinancialStepUp,
 } from "../middleware/auth";
-import { authorizeRestrictedLiveBrainVersion } from "../lib/autopilot/store";
 import { resolveEligibleTradingAccounts } from "../lib/tradingMandates/service";
 import {
   MandateConflictError,
@@ -326,22 +325,8 @@ router.post(
     }
     try {
       const currentSection = section(req);
-      const mandate = await getTradingMandateView({
-        mandateId: Number(req.params.mandateId),
-        userId: req.userId!,
-        section: currentSection,
-      });
-      await authorizeRestrictedLiveBrainVersion({
-        userId: req.userId!,
-        section: currentSection,
-        versionId: mandate.terms.brainVersionId,
-        expectedVersion: mandate.terms.brainVersion,
-        expectedFingerprint: mandate.terms.brainFingerprint,
-        reason: parsed.data.reason,
-        actorUserId: req.userId!,
-      });
       const approved = await approveTradingMandate({
-        mandateId: mandate.id,
+        mandateId: Number(req.params.mandateId),
         userId: req.userId!,
         section: currentSection,
         expectedRevision: parsed.data.expectedRevision,

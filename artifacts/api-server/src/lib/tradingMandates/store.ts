@@ -1,10 +1,13 @@
 import { randomUUID } from "crypto";
 import {
   and,
+  count,
   desc,
   eq,
+  gte,
   lte,
   ne,
+  or,
   sql,
   type InferSelectModel,
 } from "drizzle-orm";
@@ -18,6 +21,7 @@ import {
   tradingMandateUsageTable,
   tradingMandatesTable,
 } from "@workspace/db";
+import { authorizeRestrictedLiveBrainVersionInTransaction } from "../autopilot/store";
 import { sha256Fingerprint } from "../intelligence/canonical";
 import {
   TRADING_MANDATE_SCHEMA_VERSION,
@@ -153,27 +157,32 @@ async function appendEvent(
     fingerprint?: string;
     payload?: Record<string, unknown>;
   },
-): Promise<void> {
-  await tx.insert(tradingMandateEventsTable).values({
-    eventKey: sha256Fingerprint({
-      type: input.eventType,
-      userId: input.userId,
+): Promise<number> {
+  const [event] = await tx
+    .insert(tradingMandateEventsTable)
+    .values({
+      eventKey: sha256Fingerprint({
+        type: input.eventType,
+        userId: input.userId,
+        mandateId: input.mandateId,
+        clientRequestId: input.clientRequestId,
+      }),
       mandateId: input.mandateId,
-      clientRequestId: input.clientRequestId,
-    }),
-    mandateId: input.mandateId,
-    userId: input.userId,
-    section: input.section,
-    eventType: input.eventType,
-    actorType: input.actorType,
-    actorUserId: input.actorUserId ?? null,
-    fromState: input.fromState ?? null,
-    toState: input.toState ?? null,
-    reasonCode: input.reasonCode,
-    reason: input.reason,
-    fingerprint: input.fingerprint ?? null,
-    payload: input.payload ?? null,
-  });
+      userId: input.userId,
+      section: input.section,
+      eventType: input.eventType,
+      actorType: input.actorType,
+      actorUserId: input.actorUserId ?? null,
+      fromState: input.fromState ?? null,
+      toState: input.toState ?? null,
+      reasonCode: input.reasonCode,
+      reason: input.reason,
+      fingerprint: input.fingerprint ?? null,
+      payload: input.payload ?? null,
+    })
+    .returning({ id: tradingMandateEventsTable.id });
+  if (!event) throw new Error("Trading mandate event was not persisted");
+  return event.id;
 }
 
 async function loadLocked(
@@ -200,55 +209,64 @@ async function loadLocked(
   return row;
 }
 
+async function expireTradingMandatesInTransaction(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  userId: number,
+  section: "crypto" | "forex",
+  now = new Date(),
+): Promise<void> {
+  const expired = await tx
+    .select({
+      mandate: tradingMandatesTable,
+      state: tradingMandateStatesTable,
+    })
+    .from(tradingMandatesTable)
+    .innerJoin(
+      tradingMandateStatesTable,
+      eq(tradingMandateStatesTable.mandateId, tradingMandatesTable.id),
+    )
+    .where(
+      and(
+        eq(tradingMandatesTable.userId, userId),
+        eq(tradingMandatesTable.section, section),
+        eq(tradingMandateStatesTable.state, "ACTIVE"),
+        lte(tradingMandatesTable.expiresAt, now),
+      ),
+    )
+    .for("update", { of: tradingMandateStatesTable });
+  for (const row of expired) {
+    await tx
+      .update(tradingMandateStatesTable)
+      .set({
+        state: "EXPIRED",
+        lifecycleVersion: sql`${tradingMandateStatesTable.lifecycleVersion} + 1`,
+        reasonCode: "MANDATE_HARD_EXPIRY",
+        reason: "Hard expiry was reached; new-entry authority is removed",
+      })
+      .where(eq(tradingMandateStatesTable.id, row.state.id));
+    await appendEvent(tx, {
+      clientRequestId: `expiry:${row.mandate.id}:${row.mandate.expiresAt.toISOString()}`,
+      mandateId: row.mandate.id,
+      userId,
+      section,
+      eventType: "MANDATE_EXPIRED",
+      actorType: "SYSTEM",
+      fromState: "ACTIVE",
+      toState: "EXPIRED",
+      reasonCode: "MANDATE_HARD_EXPIRY",
+      reason: "Hard expiry was reached; protective exits remain available",
+      fingerprint: row.mandate.fingerprint,
+    });
+  }
+}
+
 export async function expireTradingMandates(
   userId: number,
   section: "crypto" | "forex",
   now = new Date(),
 ): Promise<void> {
   await db.transaction(async (tx) => {
-    const expired = await tx
-      .select({
-        mandate: tradingMandatesTable,
-        state: tradingMandateStatesTable,
-      })
-      .from(tradingMandatesTable)
-      .innerJoin(
-        tradingMandateStatesTable,
-        eq(tradingMandateStatesTable.mandateId, tradingMandatesTable.id),
-      )
-      .where(
-        and(
-          eq(tradingMandatesTable.userId, userId),
-          eq(tradingMandatesTable.section, section),
-          eq(tradingMandateStatesTable.state, "ACTIVE"),
-          lte(tradingMandatesTable.expiresAt, now),
-        ),
-      )
-      .for("update", { of: tradingMandateStatesTable });
-    for (const row of expired) {
-      await tx
-        .update(tradingMandateStatesTable)
-        .set({
-          state: "EXPIRED",
-          lifecycleVersion: sql`${tradingMandateStatesTable.lifecycleVersion} + 1`,
-          reasonCode: "MANDATE_HARD_EXPIRY",
-          reason: "Hard expiry was reached; new-entry authority is removed",
-        })
-        .where(eq(tradingMandateStatesTable.id, row.state.id));
-      await appendEvent(tx, {
-        clientRequestId: `expiry:${row.mandate.id}:${row.mandate.expiresAt.toISOString()}`,
-        mandateId: row.mandate.id,
-        userId,
-        section,
-        eventType: "MANDATE_EXPIRED",
-        actorType: "SYSTEM",
-        fromState: "ACTIVE",
-        toState: "EXPIRED",
-        reasonCode: "MANDATE_HARD_EXPIRY",
-        reason: "Hard expiry was reached; protective exits remain available",
-        fingerprint: row.mandate.fingerprint,
-      });
-    }
+    await expireTradingMandatesInTransaction(tx, userId, section, now);
   });
 }
 
@@ -421,7 +439,7 @@ export async function createTradingMandate(input: {
   });
 }
 
-export async function transitionTradingMandate(input: {
+interface TradingMandateTransitionInput {
   mandateId: number;
   userId: number;
   section: "crypto" | "forex";
@@ -432,7 +450,13 @@ export async function transitionTradingMandate(input: {
   actorUserId?: number;
   action: "SUBMIT" | "SUSPEND" | "REVOKE" | "RETIRE";
   reasonCode?: string;
-}): Promise<TradingMandateView> {
+}
+
+async function transitionLockedTradingMandate(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  current: { mandate: MandateRecord; state: StateRecord },
+  input: TradingMandateTransitionInput,
+): Promise<{ view: TradingMandateView; eventId: number | null }> {
   const rules: Record<
     typeof input.action,
     { from: readonly TradingMandateState[]; to: TradingMandateState }
@@ -445,45 +469,53 @@ export async function transitionTradingMandate(input: {
     },
     RETIRE: { from: ["EXPIRED", "REPLACED"], to: "RETIRED" },
   };
-  return db.transaction(async (tx) => {
-    const current = await loadLocked(tx, input);
-    if (current.mandate.revision !== input.expectedRevision) {
-      throw new MandateConflictError("Mandate revision is stale");
-    }
-    const rule = rules[input.action];
-    const currentState = TradingMandateStateSchema.parse(current.state.state);
-    if (currentState === rule.to) return toView(current.mandate, current.state);
-    if (!rule.from.includes(currentState)) {
-      throw new MandateConflictError(
-        `${input.action} is not allowed from ${currentState}`,
-      );
-    }
-    const [updated] = await tx
-      .update(tradingMandateStatesTable)
-      .set({
-        state: rule.to,
-        lifecycleVersion: sql`${tradingMandateStatesTable.lifecycleVersion} + 1`,
-        reasonCode: input.reasonCode ?? `MANDATE_${rule.to}`,
-        reason: input.reason,
-      })
-      .where(eq(tradingMandateStatesTable.id, current.state.id))
-      .returning();
-    if (!updated) throw new Error("Mandate transition was not persisted");
-    await appendEvent(tx, {
-      clientRequestId: input.clientRequestId,
-      mandateId: current.mandate.id,
-      userId: input.userId,
-      section: input.section,
-      eventType: `MANDATE_${rule.to}`,
-      actorType: input.actorType,
-      actorUserId: input.actorUserId,
-      fromState: currentState,
-      toState: rule.to,
+  if (current.mandate.revision !== input.expectedRevision) {
+    throw new MandateConflictError("Mandate revision is stale");
+  }
+  const rule = rules[input.action];
+  const currentState = TradingMandateStateSchema.parse(current.state.state);
+  if (currentState === rule.to) {
+    return { view: toView(current.mandate, current.state), eventId: null };
+  }
+  if (!rule.from.includes(currentState)) {
+    throw new MandateConflictError(
+      `${input.action} is not allowed from ${currentState}`,
+    );
+  }
+  const [updated] = await tx
+    .update(tradingMandateStatesTable)
+    .set({
+      state: rule.to,
+      lifecycleVersion: sql`${tradingMandateStatesTable.lifecycleVersion} + 1`,
       reasonCode: input.reasonCode ?? `MANDATE_${rule.to}`,
       reason: input.reason,
-      fingerprint: current.mandate.fingerprint,
-    });
-    return toView(current.mandate, updated);
+    })
+    .where(eq(tradingMandateStatesTable.id, current.state.id))
+    .returning();
+  if (!updated) throw new Error("Mandate transition was not persisted");
+  const eventId = await appendEvent(tx, {
+    clientRequestId: input.clientRequestId,
+    mandateId: current.mandate.id,
+    userId: input.userId,
+    section: input.section,
+    eventType: `MANDATE_${rule.to}`,
+    actorType: input.actorType,
+    actorUserId: input.actorUserId,
+    fromState: currentState,
+    toState: rule.to,
+    reasonCode: input.reasonCode ?? `MANDATE_${rule.to}`,
+    reason: input.reason,
+    fingerprint: current.mandate.fingerprint,
+  });
+  return { view: toView(current.mandate, updated), eventId };
+}
+
+export async function transitionTradingMandate(
+  input: TradingMandateTransitionInput,
+): Promise<TradingMandateView> {
+  return db.transaction(async (tx) => {
+    const current = await loadLocked(tx, input);
+    return (await transitionLockedTradingMandate(tx, current, input)).view;
   });
 }
 
@@ -499,8 +531,8 @@ export async function approveTradingMandate(input: {
   sessionVersion: number;
   authorizationMethod: "PASSWORD_STEP_UP" | "BASIC_REAUTH";
 }): Promise<TradingMandateView> {
-  await expireTradingMandates(input.userId, input.section);
   return db.transaction(async (tx) => {
+    await expireTradingMandatesInTransaction(tx, input.userId, input.section);
     const current = await loadLocked(tx, input);
     if (current.mandate.revision !== input.expectedRevision) {
       throw new MandateConflictError("Mandate revision is stale");
@@ -524,6 +556,15 @@ export async function approveTradingMandate(input: {
         )
         .limit(1);
       if (originalAuthorization) {
+        await authorizeRestrictedLiveBrainVersionInTransaction(tx, {
+          userId: input.userId,
+          section: input.section,
+          versionId: current.mandate.brainVersionId,
+          expectedVersion: current.mandate.brainVersion,
+          expectedFingerprint: current.mandate.brainFingerprint,
+          reason: input.reason,
+          actorUserId: input.actorUserId,
+        });
         return toView(current.mandate, current.state);
       }
       throw new MandateConflictError(
@@ -578,6 +619,17 @@ export async function approveTradingMandate(input: {
           "Another active mandate exists and is not this revision's replacement target",
         );
       }
+    }
+    await authorizeRestrictedLiveBrainVersionInTransaction(tx, {
+      userId: input.userId,
+      section: input.section,
+      versionId: current.mandate.brainVersionId,
+      expectedVersion: current.mandate.brainVersion,
+      expectedFingerprint: current.mandate.brainFingerprint,
+      reason: input.reason,
+      actorUserId: input.actorUserId,
+    });
+    for (const prior of active) {
       await tx
         .update(tradingMandateStatesTable)
         .set({
@@ -790,91 +842,185 @@ export interface RestrictedLiveClaimIdentity {
   idempotencyKey: string;
 }
 
-export async function evaluateAndClaimRestrictedLiveDecision(input: {
+async function loadClaimDerivedMetrics(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  mandateId: number,
+  now: Date,
+): Promise<{
+  decisionsLastHour: number;
+  entriesLastHour: number;
+  fillLatencyMs: number | null;
+  liveDemoDivergenceBps: number | null;
+  canaryUsed: bigint;
+  outstandingReservedNotional: bigint;
+  outstandingClaimCount: number;
+}> {
+  const hourAgo = new Date(now.getTime() - 60 * 60 * 1_000);
+  const [hour] = await tx
+    .select({
+      decisionsLastHour: count(),
+      entriesLastHour: sql<number>`count(*) filter (where ${tradingMandateDecisionClaimsTable.status} in ('CLAIMED','BOUNDARY_AUTHORIZED','EXECUTED','OUTCOME_UNKNOWN'))::int`,
+      fillLatencyMs: sql<
+        number | null
+      >`max(${tradingMandateDecisionClaimsTable.fillLatencyMs})::int`,
+      liveDemoDivergenceBps: sql<
+        number | null
+      >`max(abs(${tradingMandateDecisionClaimsTable.liveDemoDivergenceBps}))::int`,
+    })
+    .from(tradingMandateDecisionClaimsTable)
+    .where(
+      and(
+        eq(tradingMandateDecisionClaimsTable.mandateId, mandateId),
+        gte(tradingMandateDecisionClaimsTable.createdAt, hourAgo),
+      ),
+    );
+  const [lifetime] = await tx
+    .select({
+      canaryUsed: sql<string>`coalesce(sum(case when ${tradingMandateDecisionClaimsTable.status} in ('CLAIMED','BOUNDARY_AUTHORIZED','EXECUTED','OUTCOME_UNKNOWN') then ${tradingMandateDecisionClaimsTable.reservedNotional}::numeric else 0 end), 0)::text`,
+      outstandingReservedNotional: sql<string>`coalesce(sum(case when ${tradingMandateDecisionClaimsTable.status} in ('CLAIMED','BOUNDARY_AUTHORIZED','OUTCOME_UNKNOWN') then ${tradingMandateDecisionClaimsTable.reservedNotional}::numeric else 0 end), 0)::text`,
+      outstandingClaimCount: sql<number>`count(*) filter (where ${tradingMandateDecisionClaimsTable.status} in ('CLAIMED','BOUNDARY_AUTHORIZED'))::int`,
+    })
+    .from(tradingMandateDecisionClaimsTable)
+    .where(eq(tradingMandateDecisionClaimsTable.mandateId, mandateId));
+  return {
+    decisionsLastHour: Number(hour?.decisionsLastHour ?? 0),
+    entriesLastHour: Number(hour?.entriesLastHour ?? 0),
+    fillLatencyMs: hour?.fillLatencyMs ?? null,
+    liveDemoDivergenceBps: hour?.liveDemoDivergenceBps ?? null,
+    canaryUsed: BigInt(lifetime?.canaryUsed ?? "0"),
+    outstandingReservedNotional: BigInt(
+      lifetime?.outstandingReservedNotional ?? "0",
+    ),
+    outstandingClaimCount: Number(lifetime?.outstandingClaimCount ?? 0),
+  };
+}
+
+export interface EvaluateRestrictedLiveDecisionInput {
   mandateId: number;
   mandateFingerprint: string;
   userId: number;
   section: "crypto" | "forex";
   evidence: RestrictedLiveEvidence;
   identity: RestrictedLiveClaimIdentity;
-}): Promise<
+}
+
+export type RestrictedLiveClaimResult =
   | {
       allowed: true;
       claimId: number;
       evaluation: MandateEvaluation;
       core: TradingMandateCore;
     }
-  | { allowed: false; evaluation: MandateEvaluation }
-> {
-  return db.transaction(async (tx) => {
-    const current = await loadLocked(tx, input);
-    if (current.mandate.fingerprint !== input.mandateFingerprint) {
-      throw new MandateConflictError(
-        "Mandate fingerprint changed or was tampered",
-      );
-    }
-    const core = coreFromRecord(current.mandate);
-    const evidence = {
-      ...input.evidence,
-      lifecycleState: TradingMandateStateSchema.parse(current.state.state),
+  | {
+      allowed: false;
+      evaluation: MandateEvaluation;
+      automaticallySuspended: boolean;
     };
-    const evaluation = evaluateRestrictedLiveEntry(core, evidence);
-    const usageStatus = [
-      evidence.aggregateExposure,
-      evidence.canaryUsed,
-      evidence.dailyLoss,
-      evidence.weeklyLoss,
-      evidence.monthlyLoss,
-      evidence.drawdownBps,
-      evidence.openPositionCount,
-      evidence.openOrderCount,
-    ].every((value) => value !== null)
-      ? "CURRENT"
-      : "UNAVAILABLE";
-    await tx
-      .update(tradingMandateUsageTable)
-      .set({
-        aggregateExposure: evidence.aggregateExposure?.toString() ?? null,
-        canaryUsed: evidence.canaryUsed?.toString() ?? null,
-        dailyLoss: evidence.dailyLoss?.toString() ?? null,
-        weeklyLoss: evidence.weeklyLoss?.toString() ?? null,
-        monthlyLoss: evidence.monthlyLoss?.toString() ?? null,
-        drawdownBps: evidence.drawdownBps,
-        openPositionCount: evidence.openPositionCount,
-        openOrderCount: evidence.openOrderCount,
-        decisionsLastHour: evidence.decisionsLastHour ?? 0,
-        entriesLastHour: evidence.entriesLastHour ?? 0,
-        status: usageStatus,
-        staleReasons:
-          usageStatus === "CURRENT"
-            ? []
-            : ["One or more server-authoritative usage inputs are unavailable"],
-        observedAt: evidence.now,
-        lastDecisionAt: evidence.now,
-      })
-      .where(eq(tradingMandateUsageTable.mandateId, current.mandate.id));
-    if (!evaluation.allowed) {
-      await tx
-        .insert(tradingMandateDecisionClaimsTable)
-        .values({
-          mandateId: current.mandate.id,
-          mandateRevision: current.mandate.revision,
-          mandateFingerprint: current.mandate.fingerprint,
-          userId: input.userId,
-          section: input.section,
-          ...input.identity,
-          reservedRisk: evidence.perTradeRisk?.toString() ?? null,
-          reservedNotional: evidence.positionNotional?.toString() ?? null,
-          spreadBps: evidence.spreadBps,
-          expectedSlippageBps: evidence.expectedSlippageBps,
-          status: "REFUSED",
-          reasonCode: evaluation.reasonCode,
-          reason: evaluation.reason,
-        })
-        .onConflictDoNothing();
-      return { allowed: false, evaluation };
-    }
-    const [claim] = await tx
+
+export async function evaluateAndClaimRestrictedLiveDecisionInTransaction(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  input: EvaluateRestrictedLiveDecisionInput,
+): Promise<RestrictedLiveClaimResult> {
+  const current = await loadLocked(tx, input);
+  if (current.mandate.fingerprint !== input.mandateFingerprint) {
+    throw new MandateConflictError(
+      "Mandate fingerprint changed or was tampered",
+    );
+  }
+  const [existingClaim] = await tx
+    .select({ id: tradingMandateDecisionClaimsTable.id })
+    .from(tradingMandateDecisionClaimsTable)
+    .where(
+      or(
+        and(
+          eq(tradingMandateDecisionClaimsTable.mandateId, current.mandate.id),
+          eq(
+            tradingMandateDecisionClaimsTable.decisionFingerprint,
+            input.identity.decisionFingerprint,
+          ),
+        ),
+        eq(
+          tradingMandateDecisionClaimsTable.idempotencyKey,
+          input.identity.idempotencyKey,
+        ),
+      ),
+    )
+    .limit(1);
+  if (existingClaim) {
+    return {
+      allowed: false,
+      automaticallySuspended: false,
+      evaluation: {
+        allowed: false,
+        reasonCode: "DUPLICATE_RESTRICTED_LIVE_DECISION",
+        reason: "The exact mandate-bound decision was already claimed",
+        fallbackEligible: false,
+        automaticSuspensionRequired: false,
+        checks: [],
+      },
+    };
+  }
+  const core = coreFromRecord(current.mandate);
+  const metrics = await loadClaimDerivedMetrics(
+    tx,
+    current.mandate.id,
+    input.evidence.now,
+  );
+  const evidence = {
+    ...input.evidence,
+    lifecycleState: TradingMandateStateSchema.parse(current.state.state),
+    aggregateExposure:
+      input.evidence.aggregateExposure === null
+        ? null
+        : input.evidence.aggregateExposure +
+          metrics.outstandingReservedNotional,
+    canaryUsed: metrics.canaryUsed,
+    openOrderCount:
+      input.evidence.openOrderCount === null
+        ? null
+        : input.evidence.openOrderCount + metrics.outstandingClaimCount,
+    decisionsLastHour: metrics.decisionsLastHour,
+    entriesLastHour: metrics.entriesLastHour,
+    fillLatencyMs: metrics.fillLatencyMs,
+    liveDemoDivergenceBps: metrics.liveDemoDivergenceBps,
+  };
+  const evaluation = evaluateRestrictedLiveEntry(core, evidence);
+  const usageStatus = [
+    evidence.aggregateExposure,
+    evidence.canaryUsed,
+    evidence.dailyLoss,
+    evidence.weeklyLoss,
+    evidence.monthlyLoss,
+    evidence.drawdownBps,
+    evidence.openPositionCount,
+    evidence.openOrderCount,
+  ].every((value) => value !== null)
+    ? "CURRENT"
+    : "UNAVAILABLE";
+  await tx
+    .update(tradingMandateUsageTable)
+    .set({
+      aggregateExposure: evidence.aggregateExposure?.toString() ?? null,
+      canaryUsed: evidence.canaryUsed?.toString() ?? null,
+      dailyLoss: evidence.dailyLoss?.toString() ?? null,
+      weeklyLoss: evidence.weeklyLoss?.toString() ?? null,
+      monthlyLoss: evidence.monthlyLoss?.toString() ?? null,
+      drawdownBps: evidence.drawdownBps,
+      openPositionCount: evidence.openPositionCount,
+      openOrderCount: evidence.openOrderCount,
+      decisionsLastHour: evidence.decisionsLastHour ?? 0,
+      entriesLastHour: evidence.entriesLastHour ?? 0,
+      status: usageStatus,
+      staleReasons:
+        usageStatus === "CURRENT"
+          ? []
+          : ["One or more server-authoritative usage inputs are unavailable"],
+      observedAt: evidence.now,
+      lastDecisionAt: evidence.now,
+    })
+    .where(eq(tradingMandateUsageTable.mandateId, current.mandate.id));
+  if (!evaluation.allowed) {
+    const [refusal] = await tx
       .insert(tradingMandateDecisionClaimsTable)
       .values({
         mandateId: current.mandate.id,
@@ -883,35 +1029,106 @@ export async function evaluateAndClaimRestrictedLiveDecision(input: {
         userId: input.userId,
         section: input.section,
         ...input.identity,
-        reservedRisk: evidence.perTradeRisk!.toString(),
-        reservedNotional: evidence.positionNotional!.toString(),
+        reservedRisk: evidence.perTradeRisk?.toString() ?? null,
+        reservedNotional: evidence.positionNotional?.toString() ?? null,
         spreadBps: evidence.spreadBps,
         expectedSlippageBps: evidence.expectedSlippageBps,
-        status: "CLAIMED",
-        reasonCode: "RESTRICTED_LIVE_AUTHORIZED",
+        status: "REFUSED",
+        reasonCode: evaluation.reasonCode,
         reason: evaluation.reason,
       })
       .onConflictDoNothing()
-      .returning();
-    if (!claim) {
+      .returning({ id: tradingMandateDecisionClaimsTable.id });
+    if (!refusal) {
       return {
         allowed: false,
+        automaticallySuspended: false,
         evaluation: {
           ...evaluation,
-          allowed: false,
+          automaticSuspensionRequired: false,
           reasonCode: "DUPLICATE_RESTRICTED_LIVE_DECISION",
           reason: "The exact mandate-bound decision was already claimed",
         },
       };
     }
-    await tx
-      .update(tradingMandateUsageTable)
-      .set({
-        decisionsLastHour: sql`${tradingMandateUsageTable.decisionsLastHour} + 1`,
-      })
-      .where(eq(tradingMandateUsageTable.mandateId, current.mandate.id));
-    return { allowed: true, claimId: claim.id, evaluation, core };
-  });
+    let automaticallySuspended = false;
+    if (
+      evaluation.automaticSuspensionRequired &&
+      current.state.state === "ACTIVE"
+    ) {
+      const transition = await transitionLockedTradingMandate(tx, current, {
+        mandateId: current.mandate.id,
+        userId: input.userId,
+        section: input.section,
+        expectedRevision: current.mandate.revision,
+        clientRequestId: `automatic-suspension:${input.identity.decisionFingerprint}:${evaluation.reasonCode}`,
+        reason: evaluation.reason,
+        actorType: "SYSTEM",
+        action: "SUSPEND",
+        reasonCode: evaluation.reasonCode,
+      });
+      if (transition.eventId === null) {
+        throw new Error("Automatic suspension event was not persisted");
+      }
+      await tx
+        .update(tradingMandateDecisionClaimsTable)
+        .set({ suspensionEventId: transition.eventId })
+        .where(eq(tradingMandateDecisionClaimsTable.id, refusal.id));
+      automaticallySuspended = true;
+    }
+    return { allowed: false, evaluation, automaticallySuspended };
+  }
+  const [claim] = await tx
+    .insert(tradingMandateDecisionClaimsTable)
+    .values({
+      mandateId: current.mandate.id,
+      mandateRevision: current.mandate.revision,
+      mandateFingerprint: current.mandate.fingerprint,
+      userId: input.userId,
+      section: input.section,
+      ...input.identity,
+      reservedRisk: evidence.perTradeRisk!.toString(),
+      reservedNotional: evidence.positionNotional!.toString(),
+      spreadBps: evidence.spreadBps,
+      expectedSlippageBps: evidence.expectedSlippageBps,
+      status: "CLAIMED",
+      reasonCode: "RESTRICTED_LIVE_AUTHORIZED",
+      reason: evaluation.reason,
+    })
+    .onConflictDoNothing()
+    .returning();
+  if (!claim) {
+    return {
+      allowed: false,
+      automaticallySuspended: false,
+      evaluation: {
+        ...evaluation,
+        allowed: false,
+        reasonCode: "DUPLICATE_RESTRICTED_LIVE_DECISION",
+        reason: "The exact mandate-bound decision was already claimed",
+      },
+    };
+  }
+  await tx
+    .update(tradingMandateUsageTable)
+    .set({
+      aggregateExposure: evidence.aggregateExposure?.toString() ?? null,
+      canaryUsed: (
+        evidence.canaryUsed! + evidence.positionNotional!
+      ).toString(),
+      decisionsLastHour: evidence.decisionsLastHour! + 1,
+      entriesLastHour: evidence.entriesLastHour! + 1,
+    })
+    .where(eq(tradingMandateUsageTable.mandateId, current.mandate.id));
+  return { allowed: true, claimId: claim.id, evaluation, core };
+}
+
+export async function evaluateAndClaimRestrictedLiveDecision(
+  input: EvaluateRestrictedLiveDecisionInput,
+): Promise<RestrictedLiveClaimResult> {
+  return db.transaction((tx) =>
+    evaluateAndClaimRestrictedLiveDecisionInTransaction(tx, input),
+  );
 }
 
 export async function completeRestrictedLiveDecision(input: {
