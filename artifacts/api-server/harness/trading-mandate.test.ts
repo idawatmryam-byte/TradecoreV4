@@ -356,6 +356,15 @@ expect(
   }).allowed,
 );
 expect(
+  "pending entry reservation does not invent executed-fill evidence",
+  verdict({
+    entriesLastHour: 1,
+    executedEntriesLastHour: 0,
+    fillLatencyMs: null,
+    liveDemoDivergenceBps: null,
+  }).allowed,
+);
+expect(
   "missing later latency fails closed",
   verdict({ entriesLastHour: 1, fillLatencyMs: null, liveDemoDivergenceBps: 0 })
     .reasonCode === "LATENCY_THRESHOLD_REACHED",

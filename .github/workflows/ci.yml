@@ -149,6 +149,28 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Test Restricted Live browser regression
+        run: |
+          export PORT=4173 BASE_PATH=/
+          pnpm --filter @workspace/tradecore-pro run build
+          (
+            cd artifacts/tradecore-pro
+            exec ./node_modules/.bin/vite preview --config vite.config.ts --host 127.0.0.1
+          ) > /tmp/restricted-live-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/restricted-live > /dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              cat /tmp/restricted-live-preview.log
+              exit 1
+            fi
+            sleep 1
+          done
+          pnpm --filter @workspace/tradecore-pro run test:restricted-live-browser
+
       - name: Test (Phase 7 browser regression)
         run: pnpm run test:e2e
 
