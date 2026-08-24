@@ -330,6 +330,7 @@ export interface RestrictedLiveEvidence {
   drawdownBps: number | null;
   decisionsLastHour: number | null;
   entriesLastHour: number | null;
+  executedEntriesLastHour?: number | null;
   spreadBps: number | null;
   expectedSlippageBps: number | null;
   fillLatencyMs: number | null;
@@ -410,6 +411,8 @@ export function evaluateRestrictedLiveEntry(
     evidence.ownershipGeneration !== null &&
     Number.isInteger(evidence.ownershipGeneration) &&
     evidence.ownershipGeneration > 0;
+  const executedEntriesLastHour =
+    evidence.executedEntriesLastHour ?? evidence.entriesLastHour;
   const checks: MandateCheck[] = [
     check(
       "Lifecycle",
@@ -653,13 +656,13 @@ export function evaluateRestrictedLiveEntry(
     ),
     check(
       "Fill latency",
-      evidence.entriesLastHour === 0 ||
+      executedEntriesLastHour === 0 ||
         belowThreshold(
           evidence.fillLatencyMs,
           terms.automaticSuspension.maximumFillLatencyMs,
         ),
       "LATENCY_THRESHOLD_REACHED",
-      evidence.entriesLastHour === 0
+      executedEntriesLastHour === 0
         ? "No prior canary fill requires latency evidence"
         : "Fill latency is unavailable or at/beyond suspension threshold",
     ),
@@ -690,13 +693,13 @@ export function evaluateRestrictedLiveEntry(
     ),
     check(
       "Live/Demo divergence",
-      evidence.entriesLastHour === 0 ||
+      executedEntriesLastHour === 0 ||
         belowThreshold(
           evidence.liveDemoDivergenceBps,
           terms.automaticSuspension.maximumLiveDemoDivergenceBps,
         ),
       "LIVE_DEMO_DIVERGENCE_THRESHOLD_REACHED",
-      evidence.entriesLastHour === 0
+      executedEntriesLastHour === 0
         ? "No prior canary fill requires divergence evidence"
         : "Live/Demo divergence is unavailable or at/beyond suspension threshold",
     ),

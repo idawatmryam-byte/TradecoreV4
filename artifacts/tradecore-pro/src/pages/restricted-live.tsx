@@ -10,6 +10,8 @@ import {
   useGetAutopilotControl,
   useGetConfig,
   useGetTradingMandateControl,
+  type AutopilotControlCenter,
+  type AutopilotMandate,
   type CreateTradingMandateRequest,
   type TradingMandate,
   type TradingMandateTerms,
@@ -119,6 +121,37 @@ function termsSummary(mandate: TradingMandate) {
   ];
 }
 
+function selectCurrentDemoMandate(
+  control: AutopilotControlCenter | undefined,
+  now = Date.now(),
+): AutopilotMandate | null {
+  if (!control) return null;
+  const snapshot = control.snapshot as {
+    control?: { mandateId?: unknown };
+    mandateState?: { mandateId?: unknown; state?: unknown } | null;
+    brainVersion?: { id?: unknown; state?: unknown } | null;
+  };
+  const mandateId = snapshot.control?.mandateId;
+  if (
+    typeof mandateId !== "number" ||
+    snapshot.mandateState?.mandateId !== mandateId ||
+    snapshot.mandateState.state !== "ACTIVE"
+  ) {
+    return null;
+  }
+  const candidates = control.mandates.filter(
+    (mandate) =>
+      mandate.id === mandateId &&
+      mandate.brainVersionId === snapshot.brainVersion?.id &&
+      ["DEMO_APPROVED", "LIVE_RESTRICTED"].includes(
+        String(snapshot.brainVersion?.state),
+      ) &&
+      Date.parse(mandate.validFrom) <= now &&
+      now < Date.parse(mandate.expiresAt),
+  );
+  return candidates.length === 1 ? candidates[0]! : null;
+}
+
 export function RestrictedLivePage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -135,12 +168,15 @@ export function RestrictedLivePage() {
   const latest = control?.mandates[0] ?? null;
   const controlled =
     active ?? (latest?.lifecycleState === "SUSPENDED" ? latest : null);
-  const demoMandate = brainQuery.data?.mandates?.at(-1);
-  const brain =
-    brainQuery.data?.versions.find(
-      (item) => item.state === "LIVE_RESTRICTED",
-    ) ??
-    brainQuery.data?.versions.find((item) => item.state === "DEMO_APPROVED");
+  const demoMandate = selectCurrentDemoMandate(brainQuery.data);
+  const brain = demoMandate
+    ? brainQuery.data?.versions.find(
+        (item) =>
+          item.id === demoMandate.brainVersionId &&
+          item.version === demoMandate.brainVersion &&
+          ["DEMO_APPROVED", "LIVE_RESTRICTED"].includes(item.state),
+      )
+    : undefined;
   const config = configQuery.data;
 
   const [reason, setReason] = useState(
