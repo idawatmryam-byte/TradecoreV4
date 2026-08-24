@@ -74,6 +74,12 @@ export const tradesTable = pgTable("trades", {
   brainDecisionFingerprint: text("brain_decision_fingerprint"),
   riskDecisionFingerprint: text("risk_decision_fingerprint"),
   autopilotPhase7Actions: jsonb("autopilot_phase7_actions"),
+  /** Exact Phase 12 Restricted Live authority. Immutable for the position. */
+  restrictedLiveClaimId: integer("restricted_live_claim_id"),
+  tradingMandateId: integer("trading_mandate_id"),
+  tradingMandateRevision: integer("trading_mandate_revision"),
+  tradingMandateFingerprint: text("trading_mandate_fingerprint"),
+  configurationFingerprint: text("configuration_fingerprint"),
   /** Maximum FAVOURABLE excursion in quote currency — the best unrealised P&L
    *  this position ever showed. Tracked per scan tick while open. The backtest
    *  engine has computed this since Phase 4C; live trades had no equivalent,
@@ -166,6 +172,7 @@ export const tradesTable = pgTable("trades", {
   index("trades_user_status_idx").on(t.userId, t.status),
   index("trades_user_symbol_idx").on(t.userId, t.symbol),
   index("trades_user_section_autopilot_mandate_idx").on(t.userId, t.section, t.autopilotMandateId),
+  index("trades_user_section_trading_mandate_idx").on(t.userId, t.section, t.tradingMandateId),
   // Composite for the per-symbol "last 10 closed trades" query in updateBlacklist
   index("trades_user_symbol_status_exit_time_idx").on(t.userId, t.symbol, t.status, t.exitTime),
   check("trades_management_authority_check", sql`${t.managementAuthority} IN ('fixed', 'phase7')`),

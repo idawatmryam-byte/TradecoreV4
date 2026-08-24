@@ -236,8 +236,18 @@ import {
   suspendAutopilotForSafetyViolation,
 } from "./autopilot/service";
 import { autopilotMandatePermitsManagementAction } from "./autopilot/contracts";
+import { isAutonomousLiveAuthority } from "./autopilot/contracts";
 import { autopilotConfigFingerprint, strategyConfigVersion } from "./autopilot/fingerprints";
 import { getAutopilotSnapshot } from "./autopilot/store";
+import {
+  authorizeRestrictedLiveEntry,
+  type RestrictedLiveExecutionContext,
+} from "./tradingMandates/service";
+import {
+  completeRestrictedLiveDecision,
+  authorizeRestrictedLiveClaimAtBoundary,
+  transitionTradingMandate,
+} from "./tradingMandates/store";
 import {
   assertPhase10ValidationAuthorization,
   assertSimulatedDemoValidationBoundary,
@@ -528,6 +538,7 @@ class BotEngine {
         req.stratConfig,
         req.positionManagement,
         req.autopilot,
+        req.restrictedLive,
         req.liveCommand,
       ),
     (req) => this.authorizeLiveExecution(req),
@@ -555,17 +566,27 @@ class BotEngine {
     this.executorOverride = executor;
   }
 
-  private authorizeLiveExecution(req: ExecutionRequest) {
-    return evaluatePersistedLiveSafety({
+  private async authorizeLiveExecution(req: ExecutionRequest) {
+    const phase11 = await evaluatePersistedLiveSafety({
       userId: this.userId,
       section: this.section,
       executionAuthority: this.activeExecutionAuthority,
       marketType: req.config.marketType,
       symbol: req.symbol,
       strategyId: req.plan.strategyId,
-      autopilot: Boolean(req.autopilot),
+      autopilot: Boolean(req.autopilot || req.restrictedLive),
       command: req.liveCommand ?? null,
     });
+    if (!phase11.allowed || !req.restrictedLive) return phase11;
+    const mandate = await authorizeRestrictedLiveClaimAtBoundary({
+      context: req.restrictedLive,
+      userId: this.userId,
+      section: this.section,
+      ownershipGeneration: req.liveCommand?.ownershipGeneration ?? 0,
+    });
+    return mandate.allowed
+      ? phase11
+      : { allowed: false as const, code: mandate.code, reason: mandate.reason };
   }
 
   /**
@@ -3743,7 +3764,7 @@ class BotEngine {
         // Stop/reconnect may have begun while this scan was evaluating. Once
         // quiescing starts, no new financial action may cross the executor
         // boundary; the in-flight scan is still allowed to finish recording.
-        const executor = this.resolveExecutor(config);
+        let executor = this.resolveExecutor(config);
         if (this.connectionSuspended || !this.state.running) {
           const reason =
             "Engine stopped or reconnecting before order submission";
@@ -3800,6 +3821,11 @@ class BotEngine {
           continue;
         }
         let autopilotContext: AutopilotExecutionContext | undefined;
+        let restrictedLiveContext: RestrictedLiveExecutionContext | undefined;
+        let restrictedLiveCommand: LiveCommandIdentity | undefined;
+        let mandateFallback:
+          | { reasonCode: string; reason: string; mandateId: number | null }
+          | undefined;
         if (config.mode === "autopilot") {
           let unifiedBrainEvidenceAvailable = false;
           if (sameScanSpecialists && sameScanCouncil) {
@@ -3828,6 +3854,76 @@ class BotEngine {
               "Demo Autopilot could not resolve an unambiguous execution authority",
             );
           }
+          if (isAutonomousLiveAuthority(executionAuthority)) {
+            const ticker = this.liveTickers.get(symbol);
+            const authorization = await authorizeRestrictedLiveEntry({
+              userId: this.userId,
+              section: this.section,
+              config: rawConfig,
+              executionAuthority,
+              plan: bestSignal,
+              ...(stratConfig && {
+                strategyConfig:
+                  this.rawStrategyConfigs.get(bestSignal.strategyId) ?? stratConfig,
+              }),
+              riskChecks: preChecks,
+              marketState:
+                marketStateResult.status === "available"
+                  ? marketStateResult.state
+                  : null,
+              unifiedBrainEvidenceAvailable,
+              balanceUsdt:
+                Number.isFinite(balance) && balance > 0 ? balance : null,
+              aggregateExposureUsdt: Number.isFinite(totalPossibleCluster)
+                ? totalPossibleCluster
+                : null,
+              portfolioRiskPercent:
+                balance > 0
+                  ? ((existingRiskUsdt + candidateRiskUsdt) / balance) * 100
+                  : null,
+              symbolExposurePercent:
+                balance > 0
+                  ? ((existingSymbolNotionalUsdt + candidateNotionalUsdt) /
+                      balance) * 100
+                  : null,
+              netExposurePercent:
+                balance > 0 ? (netExposureUsdt / balance) * 100 : null,
+              correlatedExposurePercent:
+                balance > 0 ? (correlatedExposureUsdt / balance) * 100 : null,
+              openPositionCount: openTrades.length + enteredThisScan.length,
+              ownershipGeneration: this.liveOwnershipGeneration,
+              spreadBps:
+                ticker && Number.isFinite(ticker.spreadPercent)
+                  ? Math.ceil(ticker.spreadPercent * 100)
+                  : null,
+              expectedSlippageBps: Number.isFinite(this.activeSlippageRate)
+                ? Math.ceil(this.activeSlippageRate * 10_000)
+                : null,
+              now,
+            });
+            if (!authorization.allowed) {
+              orderStage.status = "fail";
+              orderStage.detail = authorization.reason;
+              record("BLOCKED", "Restricted Live mandate", authorization.reason, bestSignal.confidence);
+              noteDecision(planToRecord(bestSignal, "approved_not_taken", {
+                stage: "Restricted Live mandate",
+                reason: `${authorization.reasonCode}: ${authorization.reason}`,
+              }));
+              if (authorization.fallbackEligible) {
+                executor = this.copilotExecutor;
+                mandateFallback = {
+                  reasonCode: authorization.reasonCode,
+                  reason: authorization.reason,
+                  mandateId: null,
+                };
+              } else {
+                continue;
+              }
+            } else {
+              restrictedLiveContext = authorization.context;
+              restrictedLiveCommand = authorization.liveCommand;
+            }
+          } else {
           const reconciliationState: "HEALTHY" | "UNHEALTHY" | "UNKNOWN" = this
             .state.newEntriesAllowed
             ? "HEALTHY"
@@ -3941,6 +4037,7 @@ class BotEngine {
               continue;
             }
           }
+          }
         }
         let copilotSupervision;
         if (executor === this.copilotExecutor) {
@@ -3971,6 +4068,7 @@ class BotEngine {
               councilRun,
               portfolio,
               creationRiskChecks: preChecks.map((check) => ({ ...check })),
+              ...(mandateFallback && { mandateRefusal: mandateFallback }),
             };
           } catch (err) {
             const reason =
@@ -4012,8 +4110,15 @@ class BotEngine {
             ].map((s) => ({ ...s })),
             ...(copilotSupervision && { copilotSupervision }),
             ...(autopilotContext && { autopilot: autopilotContext }),
+            ...(restrictedLiveContext && {
+              restrictedLive: restrictedLiveContext,
+            }),
+            ...(restrictedLiveCommand && {
+              liveCommand: restrictedLiveCommand,
+            }),
             ...(executor === this.liveExecutor &&
-              autopilotContext && {
+              autopilotContext &&
+              !restrictedLiveCommand && {
                 liveCommand: {
                   decisionId: `autopilot:${autopilotContext.decisionFingerprint}`,
                   riskDecisionId: `risk:${autopilotContext.riskFingerprint}`,
@@ -4045,6 +4150,42 @@ class BotEngine {
               );
             }
           }
+          if (restrictedLiveContext) {
+            const reason = error instanceof Error
+              ? error.message
+              : "Restricted Live execution failed without a terminal outcome";
+            const outcomeUnknown = /timeout|unknown|ambiguous|may have/i.test(reason);
+            try {
+              await completeRestrictedLiveDecision({
+                claimId: restrictedLiveContext.claimId,
+                userId: this.userId,
+                section: this.section,
+                status: outcomeUnknown ? "OUTCOME_UNKNOWN" : "FAILED",
+                reasonCode: outcomeUnknown
+                  ? "BROKER_OUTCOME_UNKNOWN"
+                  : "RESTRICTED_LIVE_EXECUTION_FAILED",
+                reason,
+              });
+              await transitionTradingMandate({
+                mandateId: restrictedLiveContext.mandateId,
+                userId: this.userId,
+                section: this.section,
+                expectedRevision: restrictedLiveContext.mandateRevision,
+                clientRequestId: `runtime-failure:${restrictedLiveContext.claimId}`,
+                reason,
+                actorType: "SYSTEM",
+                action: "SUSPEND",
+                reasonCode: outcomeUnknown
+                  ? "BROKER_OUTCOME_UNKNOWN"
+                  : "RESTRICTED_LIVE_EXECUTION_FAILED",
+              });
+            } catch (auditError) {
+              logger.error(
+                { auditError, symbol, claimId: restrictedLiveContext.claimId },
+                "Failed to persist Restricted Live failure suspension",
+              );
+            }
+          }
           throw error;
         }
         if (autopilotContext) {
@@ -4059,6 +4200,48 @@ class BotEngine {
               executionIntentId: execResult.executionIntentId,
             }),
           });
+        }
+        if (restrictedLiveContext) {
+          await completeRestrictedLiveDecision({
+            claimId: restrictedLiveContext.claimId,
+            userId: this.userId,
+            section: this.section,
+            status: execResult.entered ? "EXECUTED" : "FAILED",
+            reasonCode: execResult.entered
+              ? "RESTRICTED_LIVE_EXECUTION_SUCCEEDED"
+              : "RESTRICTED_LIVE_EXECUTION_REFUSED",
+            reason: execResult.reason,
+            ...(execResult.tradeId != null && { tradeId: execResult.tradeId }),
+            ...(execResult.executionIntentId != null && {
+              executionIntentId: execResult.executionIntentId,
+            }),
+            brokerCommandId: restrictedLiveCommand?.idempotencyKey,
+            ...(execResult.brokerOrderId && { brokerOrderId: execResult.brokerOrderId }),
+            ...(execResult.fillId && { fillId: execResult.fillId }),
+            ...(execResult.fillLatencyMs != null && { fillLatencyMs: execResult.fillLatencyMs }),
+            ...(execResult.realizedSlippageBps != null && { realizedSlippageBps: execResult.realizedSlippageBps }),
+            ...(execResult.liveDemoDivergenceBps != null && { liveDemoDivergenceBps: execResult.liveDemoDivergenceBps }),
+          });
+          if (!execResult.entered) {
+            try {
+              await transitionTradingMandate({
+                mandateId: restrictedLiveContext.mandateId,
+                userId: this.userId,
+                section: this.section,
+                expectedRevision: restrictedLiveContext.mandateRevision,
+                clientRequestId: `runtime-refusal:${restrictedLiveContext.claimId}`,
+                reason: execResult.reason,
+                actorType: "SYSTEM",
+                action: "SUSPEND",
+                reasonCode: "RESTRICTED_LIVE_EXECUTION_REFUSED",
+              });
+            } catch (suspensionError) {
+              logger.error(
+                { suspensionError, claimId: restrictedLiveContext.claimId },
+                "Restricted Live refusal was recorded but its defensive suspension could not be persisted",
+              );
+            }
+          }
         }
         if (validationFixture?.stage === "entry") {
           validationResult = {
@@ -4297,6 +4480,7 @@ class BotEngine {
     stratConfig?: StrategyConfig,
     positionManagement?: PositionManagementContext,
     autopilot?: AutopilotExecutionContext,
+    restrictedLive?: RestrictedLiveExecutionContext,
     liveCommand?: LiveCommandIdentity,
   ): Promise<ExecutionResult> {
     const executionAuthority = resolveExecutionAuthority({
@@ -4332,6 +4516,7 @@ class BotEngine {
     // null through every pre-flight refusal below — an entry we never sent to
     // the broker leaves no execution record, by design.
     let intent: IntentHandle | null = null;
+    let brokerCommandStartedAt: number | null = null;
 
     try {
       const marketInfo = ex.markets[market];
@@ -4567,6 +4752,7 @@ class BotEngine {
         plannedQuantity: qty,
         ...(isFutures && { plannedLeverage: effectiveLeverage }),
         ...(autopilot && { autopilot }),
+        ...(restrictedLive && { restrictedLive }),
         mandatory: true,
         ...(liveCommand && { command: liveCommand }),
       });
@@ -4599,6 +4785,7 @@ class BotEngine {
         "ORDER_SUBMITTED",
         "market entry sent to broker",
       );
+      brokerCommandStartedAt = Date.now();
       if (isForex) {
         // OANDA identifies orders by clientExtensions rather than a client
         // order id param; wiring that through placeProtectedEntry() belongs
@@ -4610,7 +4797,9 @@ class BotEngine {
           qty,
           parseFloat(ex.priceToPrecision(market, entry.slPrice)),
           parseFloat(ex.priceToPrecision(market, entry.tpPrice)),
-          autopilot?.idempotencyKey ? intent?.clientOrderId : undefined,
+          autopilot?.idempotencyKey || restrictedLive?.idempotencyKey
+            ? intent?.clientOrderId
+            : undefined,
         );
       } else {
         // newClientOrderId makes the fill findable after a timeout. Never
@@ -4631,6 +4820,18 @@ class BotEngine {
       const filledQty = forexBracket
         ? forexBracket.filledUnits
         : (openOrder.filled ?? qty);
+      const fillLatencyMs = brokerCommandStartedAt == null
+        ? undefined
+        : Math.max(0, Date.now() - brokerCommandStartedAt);
+      const realizedSlippageBps = entry.entryPrice > 0
+        ? Math.ceil((Math.abs(fillPrice - entry.entryPrice) / entry.entryPrice) * 10_000)
+        : undefined;
+      const expectedSlippageBps = Math.ceil(
+        Math.max(0, this.activeSlippageRate) * 10_000,
+      );
+      const liveDemoDivergenceBps = realizedSlippageBps == null
+        ? undefined
+        : Math.abs(realizedSlippageBps - expectedSlippageBps);
 
       // A position now exists on the venue. From here every exit path must
       // leave the intent in a terminal state, or startup recovery will treat
@@ -4940,6 +5141,16 @@ class BotEngine {
                 brainDecisionFingerprint: autopilot.decisionFingerprint,
                 riskDecisionFingerprint: autopilot.riskFingerprint,
                 autopilotPhase7Actions: autopilot.permittedPhase7Actions,
+              }),
+              ...(restrictedLive && {
+                restrictedLiveClaimId: restrictedLive.claimId,
+                tradingMandateId: restrictedLive.mandateId,
+                tradingMandateRevision: restrictedLive.mandateRevision,
+                tradingMandateFingerprint: restrictedLive.mandateFingerprint,
+                configurationFingerprint: restrictedLive.configurationFingerprint,
+                brainVersion: restrictedLive.brainVersion,
+                brainDecisionFingerprint: restrictedLive.decisionFingerprint,
+                riskDecisionFingerprint: restrictedLive.riskFingerprint,
               }),
               ...(positionManagement && {
                 managementAuthority: positionManagement.assignment.authority,
@@ -5315,6 +5526,13 @@ class BotEngine {
         ...(intent && { correlationId: intent.correlationId }),
         tradeId: trade!.id,
         ...(intent && { executionIntentId: intent.id }),
+        ...(openOrder?.id != null && { brokerOrderId: String(openOrder.id) }),
+        ...(forexBracket?.oandaTradeId && {
+          brokerOrderId: forexBracket.oandaTradeId,
+        }),
+        ...(fillLatencyMs != null && { fillLatencyMs }),
+        ...(realizedSlippageBps != null && { realizedSlippageBps }),
+        ...(liveDemoDivergenceBps != null && { liveDemoDivergenceBps }),
         reason: bothPlaced
           ? `market ${openSide.toUpperCase()} filled, TP + SL protection placed`
           : neitherPlaced

@@ -478,6 +478,1658 @@ export const ApplyExecutionIntentActionResponse = zod.object({
 
 
 /**
+ * @summary Read Restricted Live mandate authority, usage, and audit evidence
+ */
+
+
+
+
+
+export const getTradingMandateControlResponseActiveMandateOneFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+
+export const getTradingMandateControlResponseActiveMandateOneTermsBrainVersionMax = 120;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsBrainFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getTradingMandateControlResponseActiveMandateOneTermsAccountIdsItemMax = 160;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsAccountIdsMax = 20;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsExchangesMax = 3;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsMarketsMax = 3;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsSymbolsItemMax = 80;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsSymbolsMax = 50;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsStrategiesMaxOne = 160;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsModelsItemMax = 160;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsModelsMax = 20;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsMaximumPerTradeRiskRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateControlResponseActiveMandateOneTermsMaximumPositionNotionalRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateControlResponseActiveMandateOneTermsMaximumAggregateExposureRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateControlResponseActiveMandateOneTermsMaximumLeverageBpsMin = 10000;
+export const getTradingMandateControlResponseActiveMandateOneTermsMaximumLeverageBpsMax = 1250000;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsMaximumConcurrentPositionsMax = 1000;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsMaximumConcurrentOrdersMax = 1000;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsDailyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateControlResponseActiveMandateOneTermsWeeklyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateControlResponseActiveMandateOneTermsMonthlyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateControlResponseActiveMandateOneTermsMaximumDrawdownBpsMax = 10000;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsTradingHoursItemTimezoneMax = 80;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsTradingHoursItemDaysOfWeekItemMin = 0;
+export const getTradingMandateControlResponseActiveMandateOneTermsTradingHoursItemDaysOfWeekItemMax = 6;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsTradingHoursItemDaysOfWeekMax = 7;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsTradingHoursItemStartMinuteMin = 0;
+export const getTradingMandateControlResponseActiveMandateOneTermsTradingHoursItemStartMinuteMax = 1439;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsTradingHoursItemEndMinuteMax = 1440;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsTradingHoursMax = 32;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsCanaryAllocationRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumSpreadBpsMax = 10000;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumSlippageBpsMax = 10000;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumFillLatencyMsMax = 300000;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumProtectionFailuresMin = 0;
+export const getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumProtectionFailuresMax = 100;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax = 3600;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumDecisionRatePerHourMax = 10000;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumEntryRatePerHourMax = 1000;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax = 10000;
+
+export const getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax = 300;
+
+
+
+
+
+
+
+
+export const getTradingMandateControlResponseMandatesItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+
+export const getTradingMandateControlResponseMandatesItemTermsBrainVersionMax = 120;
+
+export const getTradingMandateControlResponseMandatesItemTermsBrainFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getTradingMandateControlResponseMandatesItemTermsAccountIdsItemMax = 160;
+
+export const getTradingMandateControlResponseMandatesItemTermsAccountIdsMax = 20;
+
+export const getTradingMandateControlResponseMandatesItemTermsExchangesMax = 3;
+
+export const getTradingMandateControlResponseMandatesItemTermsMarketsMax = 3;
+
+export const getTradingMandateControlResponseMandatesItemTermsSymbolsItemMax = 80;
+
+export const getTradingMandateControlResponseMandatesItemTermsSymbolsMax = 50;
+
+export const getTradingMandateControlResponseMandatesItemTermsStrategiesMaxOne = 160;
+
+export const getTradingMandateControlResponseMandatesItemTermsModelsItemMax = 160;
+
+export const getTradingMandateControlResponseMandatesItemTermsModelsMax = 20;
+
+export const getTradingMandateControlResponseMandatesItemTermsMaximumPerTradeRiskRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateControlResponseMandatesItemTermsMaximumPositionNotionalRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateControlResponseMandatesItemTermsMaximumAggregateExposureRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateControlResponseMandatesItemTermsMaximumLeverageBpsMin = 10000;
+export const getTradingMandateControlResponseMandatesItemTermsMaximumLeverageBpsMax = 1250000;
+
+export const getTradingMandateControlResponseMandatesItemTermsMaximumConcurrentPositionsMax = 1000;
+
+export const getTradingMandateControlResponseMandatesItemTermsMaximumConcurrentOrdersMax = 1000;
+
+export const getTradingMandateControlResponseMandatesItemTermsDailyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateControlResponseMandatesItemTermsWeeklyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateControlResponseMandatesItemTermsMonthlyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateControlResponseMandatesItemTermsMaximumDrawdownBpsMax = 10000;
+
+export const getTradingMandateControlResponseMandatesItemTermsTradingHoursItemTimezoneMax = 80;
+
+export const getTradingMandateControlResponseMandatesItemTermsTradingHoursItemDaysOfWeekItemMin = 0;
+export const getTradingMandateControlResponseMandatesItemTermsTradingHoursItemDaysOfWeekItemMax = 6;
+
+export const getTradingMandateControlResponseMandatesItemTermsTradingHoursItemDaysOfWeekMax = 7;
+
+export const getTradingMandateControlResponseMandatesItemTermsTradingHoursItemStartMinuteMin = 0;
+export const getTradingMandateControlResponseMandatesItemTermsTradingHoursItemStartMinuteMax = 1439;
+
+export const getTradingMandateControlResponseMandatesItemTermsTradingHoursItemEndMinuteMax = 1440;
+
+export const getTradingMandateControlResponseMandatesItemTermsTradingHoursMax = 32;
+
+export const getTradingMandateControlResponseMandatesItemTermsCanaryAllocationRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumSpreadBpsMax = 10000;
+
+export const getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumSlippageBpsMax = 10000;
+
+export const getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumFillLatencyMsMax = 300000;
+
+export const getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumProtectionFailuresMin = 0;
+export const getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumProtectionFailuresMax = 100;
+
+export const getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax = 3600;
+
+export const getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumDecisionRatePerHourMax = 10000;
+
+export const getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumEntryRatePerHourMax = 1000;
+
+export const getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax = 10000;
+
+export const getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax = 300;
+
+
+
+export const getTradingMandateControlResponseUsageOneAggregateExposureRegExp = new RegExp('^[0-9]+$');
+export const getTradingMandateControlResponseUsageOneRemainingExposureRegExp = new RegExp('^[0-9]+$');
+export const getTradingMandateControlResponseUsageOneCanaryUsedRegExp = new RegExp('^[0-9]+$');
+export const getTradingMandateControlResponseUsageOneCanaryRemainingRegExp = new RegExp('^[0-9]+$');
+export const getTradingMandateControlResponseUsageOneDailyLossRegExp = new RegExp('^[0-9]+$');
+export const getTradingMandateControlResponseUsageOneWeeklyLossRegExp = new RegExp('^[0-9]+$');
+export const getTradingMandateControlResponseUsageOneMonthlyLossRegExp = new RegExp('^[0-9]+$');
+export const getTradingMandateControlResponseUsageOneMaximumPossibleExposureRegExp = new RegExp('^[0-9]+$');
+export const getTradingMandateControlResponseDecisionsItemDecisionFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getTradingMandateControlResponseDecisionsItemRiskFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+
+
+export const GetTradingMandateControlResponse = zod.object({
+  "authorityLabel": zod.literal("RESTRICTED_LIVE"),
+  "productionActivationRequired": zod.boolean(),
+  "role": zod.enum(['OWNER', 'FINANCIAL_OPERATOR', 'VIEWER']),
+  "eligibleAccounts": zod.array(zod.object({
+  "accountId": zod.string().describe('Server-derived opaque account fingerprint; provider credentials are never returned.'),
+  "authorities": zod.array(zod.enum(['binance_spot_live', 'binance_futures_live', 'oanda_live']))
+})),
+  "activeMandate": zod.union([zod.object({
+  "id": zod.number().min(1),
+  "mandateKey": zod.string().uuid(),
+  "revision": zod.number().min(1),
+  "replacesMandateId": zod.number().min(1).nullish(),
+  "userId": zod.number().min(1),
+  "tenantId": zod.string().min(1),
+  "section": zod.enum(['crypto', 'forex']),
+  "lifecycleState": zod.enum(['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'SUSPENDED', 'REVOKED', 'EXPIRED', 'REPLACED', 'RETIRED']),
+  "fingerprint": zod.string().regex(getTradingMandateControlResponseActiveMandateOneFingerprintRegExp),
+  "terms": zod.object({
+  "brainVersionId": zod.number().min(1),
+  "brainVersion": zod.string().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsBrainVersionMax),
+  "brainFingerprint": zod.string().regex(getTradingMandateControlResponseActiveMandateOneTermsBrainFingerprintRegExp),
+  "accountIds": zod.array(zod.string().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsAccountIdsItemMax)).min(1).max(getTradingMandateControlResponseActiveMandateOneTermsAccountIdsMax),
+  "exchanges": zod.array(zod.enum(['binance_spot_live', 'binance_futures_live', 'oanda_live'])).min(1).max(getTradingMandateControlResponseActiveMandateOneTermsExchangesMax),
+  "markets": zod.array(zod.enum(['spot', 'futures', 'forex'])).min(1).max(getTradingMandateControlResponseActiveMandateOneTermsMarketsMax),
+  "symbols": zod.array(zod.string().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsSymbolsItemMax)).min(1).max(getTradingMandateControlResponseActiveMandateOneTermsSymbolsMax),
+  "strategies": zod.record(zod.string(), zod.string().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsStrategiesMaxOne)),
+  "models": zod.array(zod.string().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsModelsItemMax)).min(1).max(getTradingMandateControlResponseActiveMandateOneTermsModelsMax),
+  "settlementCurrency": zod.enum(['USD', 'USDT']),
+  "monetaryScale": zod.number().describe('All monetary strings are non-negative integers in 10^-8 currency units.'),
+  "maximumPerTradeRisk": zod.string().regex(getTradingMandateControlResponseActiveMandateOneTermsMaximumPerTradeRiskRegExp),
+  "maximumPositionNotional": zod.string().regex(getTradingMandateControlResponseActiveMandateOneTermsMaximumPositionNotionalRegExp),
+  "maximumAggregateExposure": zod.string().regex(getTradingMandateControlResponseActiveMandateOneTermsMaximumAggregateExposureRegExp),
+  "maximumLeverageBps": zod.number().min(getTradingMandateControlResponseActiveMandateOneTermsMaximumLeverageBpsMin).max(getTradingMandateControlResponseActiveMandateOneTermsMaximumLeverageBpsMax).describe('10000 means 1.0000x; the maximum is inclusive.'),
+  "maximumConcurrentPositions": zod.number().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsMaximumConcurrentPositionsMax),
+  "maximumConcurrentOrders": zod.number().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsMaximumConcurrentOrdersMax),
+  "dailyLossLimit": zod.string().regex(getTradingMandateControlResponseActiveMandateOneTermsDailyLossLimitRegExp),
+  "weeklyLossLimit": zod.string().regex(getTradingMandateControlResponseActiveMandateOneTermsWeeklyLossLimitRegExp),
+  "monthlyLossLimit": zod.string().regex(getTradingMandateControlResponseActiveMandateOneTermsMonthlyLossLimitRegExp),
+  "maximumDrawdownBps": zod.number().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsMaximumDrawdownBpsMax),
+  "tradingHours": zod.array(zod.object({
+  "timezone": zod.string().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsTradingHoursItemTimezoneMax).describe('IANA timezone evaluated by the server at the command timestamp.'),
+  "daysOfWeek": zod.array(zod.number().min(getTradingMandateControlResponseActiveMandateOneTermsTradingHoursItemDaysOfWeekItemMin).max(getTradingMandateControlResponseActiveMandateOneTermsTradingHoursItemDaysOfWeekItemMax)).min(1).max(getTradingMandateControlResponseActiveMandateOneTermsTradingHoursItemDaysOfWeekMax),
+  "startMinute": zod.number().min(getTradingMandateControlResponseActiveMandateOneTermsTradingHoursItemStartMinuteMin).max(getTradingMandateControlResponseActiveMandateOneTermsTradingHoursItemStartMinuteMax),
+  "endMinute": zod.number().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsTradingHoursItemEndMinuteMax).describe('Exclusive local-wall-clock boundary; overnight windows are separate records.')
+})).min(1).max(getTradingMandateControlResponseActiveMandateOneTermsTradingHoursMax),
+  "effectiveAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date().describe('Exclusive hard-expiry boundary; maximum duration is 30 days.'),
+  "canaryAllocation": zod.string().regex(getTradingMandateControlResponseActiveMandateOneTermsCanaryAllocationRegExp).describe('Inclusive aggregate autonomous Live notional ceiling in 10^-8 currency units.'),
+  "automaticSuspension": zod.object({
+  "maximumSpreadBps": zod.number().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumSpreadBpsMax),
+  "maximumSlippageBps": zod.number().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumSlippageBpsMax),
+  "maximumFillLatencyMs": zod.number().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumFillLatencyMsMax),
+  "maximumProtectionFailures": zod.number().min(getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumProtectionFailuresMin).max(getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumProtectionFailuresMax),
+  "maximumReconciliationAgeSeconds": zod.number().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax),
+  "maximumDecisionRatePerHour": zod.number().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumDecisionRatePerHourMax),
+  "maximumEntryRatePerHour": zod.number().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumEntryRatePerHourMax),
+  "maximumLiveDemoDivergenceBps": zod.number().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax),
+  "maximumMarketDataAgeSeconds": zod.number().min(1).max(getTradingMandateControlResponseActiveMandateOneTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax)
+}),
+  "fallbackPolicy": zod.enum(['COPILOT_VALID_ONLY', 'ABSTAIN'])
+}),
+  "changeReason": zod.string(),
+  "approvingHumanId": zod.number().min(1).nullable(),
+  "authorizationMethod": zod.union([zod.literal('PASSWORD_STEP_UP'),zod.literal('BASIC_REAUTH'),zod.literal(null)]).nullable(),
+  "authorizedAt": zod.coerce.date().nullable(),
+  "createdByUserId": zod.number().min(1),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),zod.null()]),
+  "mandates": zod.array(zod.object({
+  "id": zod.number().min(1),
+  "mandateKey": zod.string().uuid(),
+  "revision": zod.number().min(1),
+  "replacesMandateId": zod.number().min(1).nullish(),
+  "userId": zod.number().min(1),
+  "tenantId": zod.string().min(1),
+  "section": zod.enum(['crypto', 'forex']),
+  "lifecycleState": zod.enum(['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'SUSPENDED', 'REVOKED', 'EXPIRED', 'REPLACED', 'RETIRED']),
+  "fingerprint": zod.string().regex(getTradingMandateControlResponseMandatesItemFingerprintRegExp),
+  "terms": zod.object({
+  "brainVersionId": zod.number().min(1),
+  "brainVersion": zod.string().min(1).max(getTradingMandateControlResponseMandatesItemTermsBrainVersionMax),
+  "brainFingerprint": zod.string().regex(getTradingMandateControlResponseMandatesItemTermsBrainFingerprintRegExp),
+  "accountIds": zod.array(zod.string().min(1).max(getTradingMandateControlResponseMandatesItemTermsAccountIdsItemMax)).min(1).max(getTradingMandateControlResponseMandatesItemTermsAccountIdsMax),
+  "exchanges": zod.array(zod.enum(['binance_spot_live', 'binance_futures_live', 'oanda_live'])).min(1).max(getTradingMandateControlResponseMandatesItemTermsExchangesMax),
+  "markets": zod.array(zod.enum(['spot', 'futures', 'forex'])).min(1).max(getTradingMandateControlResponseMandatesItemTermsMarketsMax),
+  "symbols": zod.array(zod.string().min(1).max(getTradingMandateControlResponseMandatesItemTermsSymbolsItemMax)).min(1).max(getTradingMandateControlResponseMandatesItemTermsSymbolsMax),
+  "strategies": zod.record(zod.string(), zod.string().min(1).max(getTradingMandateControlResponseMandatesItemTermsStrategiesMaxOne)),
+  "models": zod.array(zod.string().min(1).max(getTradingMandateControlResponseMandatesItemTermsModelsItemMax)).min(1).max(getTradingMandateControlResponseMandatesItemTermsModelsMax),
+  "settlementCurrency": zod.enum(['USD', 'USDT']),
+  "monetaryScale": zod.number().describe('All monetary strings are non-negative integers in 10^-8 currency units.'),
+  "maximumPerTradeRisk": zod.string().regex(getTradingMandateControlResponseMandatesItemTermsMaximumPerTradeRiskRegExp),
+  "maximumPositionNotional": zod.string().regex(getTradingMandateControlResponseMandatesItemTermsMaximumPositionNotionalRegExp),
+  "maximumAggregateExposure": zod.string().regex(getTradingMandateControlResponseMandatesItemTermsMaximumAggregateExposureRegExp),
+  "maximumLeverageBps": zod.number().min(getTradingMandateControlResponseMandatesItemTermsMaximumLeverageBpsMin).max(getTradingMandateControlResponseMandatesItemTermsMaximumLeverageBpsMax).describe('10000 means 1.0000x; the maximum is inclusive.'),
+  "maximumConcurrentPositions": zod.number().min(1).max(getTradingMandateControlResponseMandatesItemTermsMaximumConcurrentPositionsMax),
+  "maximumConcurrentOrders": zod.number().min(1).max(getTradingMandateControlResponseMandatesItemTermsMaximumConcurrentOrdersMax),
+  "dailyLossLimit": zod.string().regex(getTradingMandateControlResponseMandatesItemTermsDailyLossLimitRegExp),
+  "weeklyLossLimit": zod.string().regex(getTradingMandateControlResponseMandatesItemTermsWeeklyLossLimitRegExp),
+  "monthlyLossLimit": zod.string().regex(getTradingMandateControlResponseMandatesItemTermsMonthlyLossLimitRegExp),
+  "maximumDrawdownBps": zod.number().min(1).max(getTradingMandateControlResponseMandatesItemTermsMaximumDrawdownBpsMax),
+  "tradingHours": zod.array(zod.object({
+  "timezone": zod.string().min(1).max(getTradingMandateControlResponseMandatesItemTermsTradingHoursItemTimezoneMax).describe('IANA timezone evaluated by the server at the command timestamp.'),
+  "daysOfWeek": zod.array(zod.number().min(getTradingMandateControlResponseMandatesItemTermsTradingHoursItemDaysOfWeekItemMin).max(getTradingMandateControlResponseMandatesItemTermsTradingHoursItemDaysOfWeekItemMax)).min(1).max(getTradingMandateControlResponseMandatesItemTermsTradingHoursItemDaysOfWeekMax),
+  "startMinute": zod.number().min(getTradingMandateControlResponseMandatesItemTermsTradingHoursItemStartMinuteMin).max(getTradingMandateControlResponseMandatesItemTermsTradingHoursItemStartMinuteMax),
+  "endMinute": zod.number().min(1).max(getTradingMandateControlResponseMandatesItemTermsTradingHoursItemEndMinuteMax).describe('Exclusive local-wall-clock boundary; overnight windows are separate records.')
+})).min(1).max(getTradingMandateControlResponseMandatesItemTermsTradingHoursMax),
+  "effectiveAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date().describe('Exclusive hard-expiry boundary; maximum duration is 30 days.'),
+  "canaryAllocation": zod.string().regex(getTradingMandateControlResponseMandatesItemTermsCanaryAllocationRegExp).describe('Inclusive aggregate autonomous Live notional ceiling in 10^-8 currency units.'),
+  "automaticSuspension": zod.object({
+  "maximumSpreadBps": zod.number().min(1).max(getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumSpreadBpsMax),
+  "maximumSlippageBps": zod.number().min(1).max(getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumSlippageBpsMax),
+  "maximumFillLatencyMs": zod.number().min(1).max(getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumFillLatencyMsMax),
+  "maximumProtectionFailures": zod.number().min(getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumProtectionFailuresMin).max(getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumProtectionFailuresMax),
+  "maximumReconciliationAgeSeconds": zod.number().min(1).max(getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax),
+  "maximumDecisionRatePerHour": zod.number().min(1).max(getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumDecisionRatePerHourMax),
+  "maximumEntryRatePerHour": zod.number().min(1).max(getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumEntryRatePerHourMax),
+  "maximumLiveDemoDivergenceBps": zod.number().min(1).max(getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax),
+  "maximumMarketDataAgeSeconds": zod.number().min(1).max(getTradingMandateControlResponseMandatesItemTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax)
+}),
+  "fallbackPolicy": zod.enum(['COPILOT_VALID_ONLY', 'ABSTAIN'])
+}),
+  "changeReason": zod.string(),
+  "approvingHumanId": zod.number().min(1).nullable(),
+  "authorizationMethod": zod.union([zod.literal('PASSWORD_STEP_UP'),zod.literal('BASIC_REAUTH'),zod.literal(null)]).nullable(),
+  "authorizedAt": zod.coerce.date().nullable(),
+  "createdByUserId": zod.number().min(1),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
+  "usage": zod.union([zod.object({
+  "status": zod.enum(['CURRENT', 'STALE', 'UNAVAILABLE']),
+  "calculatedAt": zod.coerce.date(),
+  "currency": zod.enum(['USD', 'USDT']),
+  "monetaryScale": zod.number(),
+  "openPositionCount": zod.number().nullable(),
+  "openOrderCount": zod.number().nullable(),
+  "aggregateExposure": zod.string().regex(getTradingMandateControlResponseUsageOneAggregateExposureRegExp).nullable(),
+  "remainingExposure": zod.string().regex(getTradingMandateControlResponseUsageOneRemainingExposureRegExp).nullable(),
+  "canaryUsed": zod.string().regex(getTradingMandateControlResponseUsageOneCanaryUsedRegExp).nullable(),
+  "canaryRemaining": zod.string().regex(getTradingMandateControlResponseUsageOneCanaryRemainingRegExp).nullable(),
+  "dailyLoss": zod.string().regex(getTradingMandateControlResponseUsageOneDailyLossRegExp).nullable(),
+  "weeklyLoss": zod.string().regex(getTradingMandateControlResponseUsageOneWeeklyLossRegExp).nullable(),
+  "monthlyLoss": zod.string().regex(getTradingMandateControlResponseUsageOneMonthlyLossRegExp).nullable(),
+  "drawdownBps": zod.number().nullable(),
+  "maximumPossibleExposure": zod.string().regex(getTradingMandateControlResponseUsageOneMaximumPossibleExposureRegExp),
+  "staleReasons": zod.array(zod.string())
+}),zod.null()]),
+  "events": zod.array(zod.object({
+  "id": zod.number(),
+  "mandateId": zod.number(),
+  "eventType": zod.string(),
+  "actorType": zod.enum(['HUMAN', 'SYSTEM']),
+  "actorUserId": zod.number().nullish(),
+  "reasonCode": zod.string(),
+  "reason": zod.string(),
+  "fromState": zod.string().nullish(),
+  "toState": zod.string().nullish(),
+  "fingerprint": zod.string().nullish(),
+  "occurredAt": zod.coerce.date()
+})),
+  "decisions": zod.array(zod.object({
+  "id": zod.number(),
+  "mandateId": zod.number(),
+  "decisionFingerprint": zod.string().regex(getTradingMandateControlResponseDecisionsItemDecisionFingerprintRegExp),
+  "riskFingerprint": zod.string().regex(getTradingMandateControlResponseDecisionsItemRiskFingerprintRegExp),
+  "status": zod.enum(['CLAIMED', 'BOUNDARY_AUTHORIZED', 'EXECUTED', 'REFUSED', 'FAILED', 'OUTCOME_UNKNOWN']),
+  "reasonCode": zod.string(),
+  "reason": zod.string(),
+  "intentId": zod.number().nullish(),
+  "tradeId": zod.number().nullish(),
+  "createdAt": zod.coerce.date()
+})),
+  "degradedReasons": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Freeze one immutable Draft mandate revision with no execution authority
+ */
+
+
+export const createTradingMandateBodyChangeReasonMin = 12;
+export const createTradingMandateBodyChangeReasonMax = 1000;
+
+
+export const createTradingMandateBodyTermsBrainVersionMax = 120;
+
+export const createTradingMandateBodyTermsBrainFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const createTradingMandateBodyTermsAccountIdsItemMax = 160;
+
+export const createTradingMandateBodyTermsAccountIdsMax = 20;
+
+export const createTradingMandateBodyTermsExchangesMax = 3;
+
+export const createTradingMandateBodyTermsMarketsMax = 3;
+
+export const createTradingMandateBodyTermsSymbolsItemMax = 80;
+
+export const createTradingMandateBodyTermsSymbolsMax = 50;
+
+export const createTradingMandateBodyTermsStrategiesMaxOne = 160;
+
+export const createTradingMandateBodyTermsModelsItemMax = 160;
+
+export const createTradingMandateBodyTermsModelsMax = 20;
+
+export const createTradingMandateBodyTermsMaximumPerTradeRiskRegExp = new RegExp('^[1-9][0-9]*$');
+export const createTradingMandateBodyTermsMaximumPositionNotionalRegExp = new RegExp('^[1-9][0-9]*$');
+export const createTradingMandateBodyTermsMaximumAggregateExposureRegExp = new RegExp('^[1-9][0-9]*$');
+export const createTradingMandateBodyTermsMaximumLeverageBpsMin = 10000;
+export const createTradingMandateBodyTermsMaximumLeverageBpsMax = 1250000;
+
+export const createTradingMandateBodyTermsMaximumConcurrentPositionsMax = 1000;
+
+export const createTradingMandateBodyTermsMaximumConcurrentOrdersMax = 1000;
+
+export const createTradingMandateBodyTermsDailyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const createTradingMandateBodyTermsWeeklyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const createTradingMandateBodyTermsMonthlyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const createTradingMandateBodyTermsMaximumDrawdownBpsMax = 10000;
+
+export const createTradingMandateBodyTermsTradingHoursItemTimezoneMax = 80;
+
+export const createTradingMandateBodyTermsTradingHoursItemDaysOfWeekItemMin = 0;
+export const createTradingMandateBodyTermsTradingHoursItemDaysOfWeekItemMax = 6;
+
+export const createTradingMandateBodyTermsTradingHoursItemDaysOfWeekMax = 7;
+
+export const createTradingMandateBodyTermsTradingHoursItemStartMinuteMin = 0;
+export const createTradingMandateBodyTermsTradingHoursItemStartMinuteMax = 1439;
+
+export const createTradingMandateBodyTermsTradingHoursItemEndMinuteMax = 1440;
+
+export const createTradingMandateBodyTermsTradingHoursMax = 32;
+
+export const createTradingMandateBodyTermsCanaryAllocationRegExp = new RegExp('^[1-9][0-9]*$');
+export const createTradingMandateBodyTermsAutomaticSuspensionMaximumSpreadBpsMax = 10000;
+
+export const createTradingMandateBodyTermsAutomaticSuspensionMaximumSlippageBpsMax = 10000;
+
+export const createTradingMandateBodyTermsAutomaticSuspensionMaximumFillLatencyMsMax = 300000;
+
+export const createTradingMandateBodyTermsAutomaticSuspensionMaximumProtectionFailuresMin = 0;
+export const createTradingMandateBodyTermsAutomaticSuspensionMaximumProtectionFailuresMax = 100;
+
+export const createTradingMandateBodyTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax = 3600;
+
+export const createTradingMandateBodyTermsAutomaticSuspensionMaximumDecisionRatePerHourMax = 10000;
+
+export const createTradingMandateBodyTermsAutomaticSuspensionMaximumEntryRatePerHourMax = 1000;
+
+export const createTradingMandateBodyTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax = 10000;
+
+export const createTradingMandateBodyTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax = 300;
+
+
+
+export const CreateTradingMandateBody = zod.object({
+  "clientRequestId": zod.string().uuid(),
+  "expectedNextRevision": zod.number().min(1),
+  "replacesMandateId": zod.number().min(1).nullish(),
+  "changeReason": zod.string().min(createTradingMandateBodyChangeReasonMin).max(createTradingMandateBodyChangeReasonMax),
+  "terms": zod.object({
+  "brainVersionId": zod.number().min(1),
+  "brainVersion": zod.string().min(1).max(createTradingMandateBodyTermsBrainVersionMax),
+  "brainFingerprint": zod.string().regex(createTradingMandateBodyTermsBrainFingerprintRegExp),
+  "accountIds": zod.array(zod.string().min(1).max(createTradingMandateBodyTermsAccountIdsItemMax)).min(1).max(createTradingMandateBodyTermsAccountIdsMax),
+  "exchanges": zod.array(zod.enum(['binance_spot_live', 'binance_futures_live', 'oanda_live'])).min(1).max(createTradingMandateBodyTermsExchangesMax),
+  "markets": zod.array(zod.enum(['spot', 'futures', 'forex'])).min(1).max(createTradingMandateBodyTermsMarketsMax),
+  "symbols": zod.array(zod.string().min(1).max(createTradingMandateBodyTermsSymbolsItemMax)).min(1).max(createTradingMandateBodyTermsSymbolsMax),
+  "strategies": zod.record(zod.string(), zod.string().min(1).max(createTradingMandateBodyTermsStrategiesMaxOne)),
+  "models": zod.array(zod.string().min(1).max(createTradingMandateBodyTermsModelsItemMax)).min(1).max(createTradingMandateBodyTermsModelsMax),
+  "settlementCurrency": zod.enum(['USD', 'USDT']),
+  "monetaryScale": zod.number().describe('All monetary strings are non-negative integers in 10^-8 currency units.'),
+  "maximumPerTradeRisk": zod.string().regex(createTradingMandateBodyTermsMaximumPerTradeRiskRegExp),
+  "maximumPositionNotional": zod.string().regex(createTradingMandateBodyTermsMaximumPositionNotionalRegExp),
+  "maximumAggregateExposure": zod.string().regex(createTradingMandateBodyTermsMaximumAggregateExposureRegExp),
+  "maximumLeverageBps": zod.number().min(createTradingMandateBodyTermsMaximumLeverageBpsMin).max(createTradingMandateBodyTermsMaximumLeverageBpsMax).describe('10000 means 1.0000x; the maximum is inclusive.'),
+  "maximumConcurrentPositions": zod.number().min(1).max(createTradingMandateBodyTermsMaximumConcurrentPositionsMax),
+  "maximumConcurrentOrders": zod.number().min(1).max(createTradingMandateBodyTermsMaximumConcurrentOrdersMax),
+  "dailyLossLimit": zod.string().regex(createTradingMandateBodyTermsDailyLossLimitRegExp),
+  "weeklyLossLimit": zod.string().regex(createTradingMandateBodyTermsWeeklyLossLimitRegExp),
+  "monthlyLossLimit": zod.string().regex(createTradingMandateBodyTermsMonthlyLossLimitRegExp),
+  "maximumDrawdownBps": zod.number().min(1).max(createTradingMandateBodyTermsMaximumDrawdownBpsMax),
+  "tradingHours": zod.array(zod.object({
+  "timezone": zod.string().min(1).max(createTradingMandateBodyTermsTradingHoursItemTimezoneMax).describe('IANA timezone evaluated by the server at the command timestamp.'),
+  "daysOfWeek": zod.array(zod.number().min(createTradingMandateBodyTermsTradingHoursItemDaysOfWeekItemMin).max(createTradingMandateBodyTermsTradingHoursItemDaysOfWeekItemMax)).min(1).max(createTradingMandateBodyTermsTradingHoursItemDaysOfWeekMax),
+  "startMinute": zod.number().min(createTradingMandateBodyTermsTradingHoursItemStartMinuteMin).max(createTradingMandateBodyTermsTradingHoursItemStartMinuteMax),
+  "endMinute": zod.number().min(1).max(createTradingMandateBodyTermsTradingHoursItemEndMinuteMax).describe('Exclusive local-wall-clock boundary; overnight windows are separate records.')
+})).min(1).max(createTradingMandateBodyTermsTradingHoursMax),
+  "effectiveAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date().describe('Exclusive hard-expiry boundary; maximum duration is 30 days.'),
+  "canaryAllocation": zod.string().regex(createTradingMandateBodyTermsCanaryAllocationRegExp).describe('Inclusive aggregate autonomous Live notional ceiling in 10^-8 currency units.'),
+  "automaticSuspension": zod.object({
+  "maximumSpreadBps": zod.number().min(1).max(createTradingMandateBodyTermsAutomaticSuspensionMaximumSpreadBpsMax),
+  "maximumSlippageBps": zod.number().min(1).max(createTradingMandateBodyTermsAutomaticSuspensionMaximumSlippageBpsMax),
+  "maximumFillLatencyMs": zod.number().min(1).max(createTradingMandateBodyTermsAutomaticSuspensionMaximumFillLatencyMsMax),
+  "maximumProtectionFailures": zod.number().min(createTradingMandateBodyTermsAutomaticSuspensionMaximumProtectionFailuresMin).max(createTradingMandateBodyTermsAutomaticSuspensionMaximumProtectionFailuresMax),
+  "maximumReconciliationAgeSeconds": zod.number().min(1).max(createTradingMandateBodyTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax),
+  "maximumDecisionRatePerHour": zod.number().min(1).max(createTradingMandateBodyTermsAutomaticSuspensionMaximumDecisionRatePerHourMax),
+  "maximumEntryRatePerHour": zod.number().min(1).max(createTradingMandateBodyTermsAutomaticSuspensionMaximumEntryRatePerHourMax),
+  "maximumLiveDemoDivergenceBps": zod.number().min(1).max(createTradingMandateBodyTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax),
+  "maximumMarketDataAgeSeconds": zod.number().min(1).max(createTradingMandateBodyTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax)
+}),
+  "fallbackPolicy": zod.enum(['COPILOT_VALID_ONLY', 'ABSTAIN'])
+})
+})
+
+
+
+
+
+
+export const createTradingMandateResponseFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+
+export const createTradingMandateResponseTermsBrainVersionMax = 120;
+
+export const createTradingMandateResponseTermsBrainFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const createTradingMandateResponseTermsAccountIdsItemMax = 160;
+
+export const createTradingMandateResponseTermsAccountIdsMax = 20;
+
+export const createTradingMandateResponseTermsExchangesMax = 3;
+
+export const createTradingMandateResponseTermsMarketsMax = 3;
+
+export const createTradingMandateResponseTermsSymbolsItemMax = 80;
+
+export const createTradingMandateResponseTermsSymbolsMax = 50;
+
+export const createTradingMandateResponseTermsStrategiesMaxOne = 160;
+
+export const createTradingMandateResponseTermsModelsItemMax = 160;
+
+export const createTradingMandateResponseTermsModelsMax = 20;
+
+export const createTradingMandateResponseTermsMaximumPerTradeRiskRegExp = new RegExp('^[1-9][0-9]*$');
+export const createTradingMandateResponseTermsMaximumPositionNotionalRegExp = new RegExp('^[1-9][0-9]*$');
+export const createTradingMandateResponseTermsMaximumAggregateExposureRegExp = new RegExp('^[1-9][0-9]*$');
+export const createTradingMandateResponseTermsMaximumLeverageBpsMin = 10000;
+export const createTradingMandateResponseTermsMaximumLeverageBpsMax = 1250000;
+
+export const createTradingMandateResponseTermsMaximumConcurrentPositionsMax = 1000;
+
+export const createTradingMandateResponseTermsMaximumConcurrentOrdersMax = 1000;
+
+export const createTradingMandateResponseTermsDailyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const createTradingMandateResponseTermsWeeklyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const createTradingMandateResponseTermsMonthlyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const createTradingMandateResponseTermsMaximumDrawdownBpsMax = 10000;
+
+export const createTradingMandateResponseTermsTradingHoursItemTimezoneMax = 80;
+
+export const createTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMin = 0;
+export const createTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMax = 6;
+
+export const createTradingMandateResponseTermsTradingHoursItemDaysOfWeekMax = 7;
+
+export const createTradingMandateResponseTermsTradingHoursItemStartMinuteMin = 0;
+export const createTradingMandateResponseTermsTradingHoursItemStartMinuteMax = 1439;
+
+export const createTradingMandateResponseTermsTradingHoursItemEndMinuteMax = 1440;
+
+export const createTradingMandateResponseTermsTradingHoursMax = 32;
+
+export const createTradingMandateResponseTermsCanaryAllocationRegExp = new RegExp('^[1-9][0-9]*$');
+export const createTradingMandateResponseTermsAutomaticSuspensionMaximumSpreadBpsMax = 10000;
+
+export const createTradingMandateResponseTermsAutomaticSuspensionMaximumSlippageBpsMax = 10000;
+
+export const createTradingMandateResponseTermsAutomaticSuspensionMaximumFillLatencyMsMax = 300000;
+
+export const createTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMin = 0;
+export const createTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMax = 100;
+
+export const createTradingMandateResponseTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax = 3600;
+
+export const createTradingMandateResponseTermsAutomaticSuspensionMaximumDecisionRatePerHourMax = 10000;
+
+export const createTradingMandateResponseTermsAutomaticSuspensionMaximumEntryRatePerHourMax = 1000;
+
+export const createTradingMandateResponseTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax = 10000;
+
+export const createTradingMandateResponseTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax = 300;
+
+
+
+
+
+export const CreateTradingMandateResponse = zod.object({
+  "id": zod.number().min(1),
+  "mandateKey": zod.string().uuid(),
+  "revision": zod.number().min(1),
+  "replacesMandateId": zod.number().min(1).nullish(),
+  "userId": zod.number().min(1),
+  "tenantId": zod.string().min(1),
+  "section": zod.enum(['crypto', 'forex']),
+  "lifecycleState": zod.enum(['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'SUSPENDED', 'REVOKED', 'EXPIRED', 'REPLACED', 'RETIRED']),
+  "fingerprint": zod.string().regex(createTradingMandateResponseFingerprintRegExp),
+  "terms": zod.object({
+  "brainVersionId": zod.number().min(1),
+  "brainVersion": zod.string().min(1).max(createTradingMandateResponseTermsBrainVersionMax),
+  "brainFingerprint": zod.string().regex(createTradingMandateResponseTermsBrainFingerprintRegExp),
+  "accountIds": zod.array(zod.string().min(1).max(createTradingMandateResponseTermsAccountIdsItemMax)).min(1).max(createTradingMandateResponseTermsAccountIdsMax),
+  "exchanges": zod.array(zod.enum(['binance_spot_live', 'binance_futures_live', 'oanda_live'])).min(1).max(createTradingMandateResponseTermsExchangesMax),
+  "markets": zod.array(zod.enum(['spot', 'futures', 'forex'])).min(1).max(createTradingMandateResponseTermsMarketsMax),
+  "symbols": zod.array(zod.string().min(1).max(createTradingMandateResponseTermsSymbolsItemMax)).min(1).max(createTradingMandateResponseTermsSymbolsMax),
+  "strategies": zod.record(zod.string(), zod.string().min(1).max(createTradingMandateResponseTermsStrategiesMaxOne)),
+  "models": zod.array(zod.string().min(1).max(createTradingMandateResponseTermsModelsItemMax)).min(1).max(createTradingMandateResponseTermsModelsMax),
+  "settlementCurrency": zod.enum(['USD', 'USDT']),
+  "monetaryScale": zod.number().describe('All monetary strings are non-negative integers in 10^-8 currency units.'),
+  "maximumPerTradeRisk": zod.string().regex(createTradingMandateResponseTermsMaximumPerTradeRiskRegExp),
+  "maximumPositionNotional": zod.string().regex(createTradingMandateResponseTermsMaximumPositionNotionalRegExp),
+  "maximumAggregateExposure": zod.string().regex(createTradingMandateResponseTermsMaximumAggregateExposureRegExp),
+  "maximumLeverageBps": zod.number().min(createTradingMandateResponseTermsMaximumLeverageBpsMin).max(createTradingMandateResponseTermsMaximumLeverageBpsMax).describe('10000 means 1.0000x; the maximum is inclusive.'),
+  "maximumConcurrentPositions": zod.number().min(1).max(createTradingMandateResponseTermsMaximumConcurrentPositionsMax),
+  "maximumConcurrentOrders": zod.number().min(1).max(createTradingMandateResponseTermsMaximumConcurrentOrdersMax),
+  "dailyLossLimit": zod.string().regex(createTradingMandateResponseTermsDailyLossLimitRegExp),
+  "weeklyLossLimit": zod.string().regex(createTradingMandateResponseTermsWeeklyLossLimitRegExp),
+  "monthlyLossLimit": zod.string().regex(createTradingMandateResponseTermsMonthlyLossLimitRegExp),
+  "maximumDrawdownBps": zod.number().min(1).max(createTradingMandateResponseTermsMaximumDrawdownBpsMax),
+  "tradingHours": zod.array(zod.object({
+  "timezone": zod.string().min(1).max(createTradingMandateResponseTermsTradingHoursItemTimezoneMax).describe('IANA timezone evaluated by the server at the command timestamp.'),
+  "daysOfWeek": zod.array(zod.number().min(createTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMin).max(createTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMax)).min(1).max(createTradingMandateResponseTermsTradingHoursItemDaysOfWeekMax),
+  "startMinute": zod.number().min(createTradingMandateResponseTermsTradingHoursItemStartMinuteMin).max(createTradingMandateResponseTermsTradingHoursItemStartMinuteMax),
+  "endMinute": zod.number().min(1).max(createTradingMandateResponseTermsTradingHoursItemEndMinuteMax).describe('Exclusive local-wall-clock boundary; overnight windows are separate records.')
+})).min(1).max(createTradingMandateResponseTermsTradingHoursMax),
+  "effectiveAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date().describe('Exclusive hard-expiry boundary; maximum duration is 30 days.'),
+  "canaryAllocation": zod.string().regex(createTradingMandateResponseTermsCanaryAllocationRegExp).describe('Inclusive aggregate autonomous Live notional ceiling in 10^-8 currency units.'),
+  "automaticSuspension": zod.object({
+  "maximumSpreadBps": zod.number().min(1).max(createTradingMandateResponseTermsAutomaticSuspensionMaximumSpreadBpsMax),
+  "maximumSlippageBps": zod.number().min(1).max(createTradingMandateResponseTermsAutomaticSuspensionMaximumSlippageBpsMax),
+  "maximumFillLatencyMs": zod.number().min(1).max(createTradingMandateResponseTermsAutomaticSuspensionMaximumFillLatencyMsMax),
+  "maximumProtectionFailures": zod.number().min(createTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMin).max(createTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMax),
+  "maximumReconciliationAgeSeconds": zod.number().min(1).max(createTradingMandateResponseTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax),
+  "maximumDecisionRatePerHour": zod.number().min(1).max(createTradingMandateResponseTermsAutomaticSuspensionMaximumDecisionRatePerHourMax),
+  "maximumEntryRatePerHour": zod.number().min(1).max(createTradingMandateResponseTermsAutomaticSuspensionMaximumEntryRatePerHourMax),
+  "maximumLiveDemoDivergenceBps": zod.number().min(1).max(createTradingMandateResponseTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax),
+  "maximumMarketDataAgeSeconds": zod.number().min(1).max(createTradingMandateResponseTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax)
+}),
+  "fallbackPolicy": zod.enum(['COPILOT_VALID_ONLY', 'ABSTAIN'])
+}),
+  "changeReason": zod.string(),
+  "approvingHumanId": zod.number().min(1).nullable(),
+  "authorizationMethod": zod.union([zod.literal('PASSWORD_STEP_UP'),zod.literal('BASIC_REAUTH'),zod.literal(null)]).nullable(),
+  "authorizedAt": zod.coerce.date().nullable(),
+  "createdByUserId": zod.number().min(1),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Read one tenant-scoped immutable mandate revision and its audit trail
+ */
+
+
+
+export const GetTradingMandateParams = zod.object({
+  "mandateId": zod.coerce.number().min(1)
+})
+
+
+
+
+
+
+export const getTradingMandateResponseMandateFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+
+export const getTradingMandateResponseMandateTermsBrainVersionMax = 120;
+
+export const getTradingMandateResponseMandateTermsBrainFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getTradingMandateResponseMandateTermsAccountIdsItemMax = 160;
+
+export const getTradingMandateResponseMandateTermsAccountIdsMax = 20;
+
+export const getTradingMandateResponseMandateTermsExchangesMax = 3;
+
+export const getTradingMandateResponseMandateTermsMarketsMax = 3;
+
+export const getTradingMandateResponseMandateTermsSymbolsItemMax = 80;
+
+export const getTradingMandateResponseMandateTermsSymbolsMax = 50;
+
+export const getTradingMandateResponseMandateTermsStrategiesMaxOne = 160;
+
+export const getTradingMandateResponseMandateTermsModelsItemMax = 160;
+
+export const getTradingMandateResponseMandateTermsModelsMax = 20;
+
+export const getTradingMandateResponseMandateTermsMaximumPerTradeRiskRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateResponseMandateTermsMaximumPositionNotionalRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateResponseMandateTermsMaximumAggregateExposureRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateResponseMandateTermsMaximumLeverageBpsMin = 10000;
+export const getTradingMandateResponseMandateTermsMaximumLeverageBpsMax = 1250000;
+
+export const getTradingMandateResponseMandateTermsMaximumConcurrentPositionsMax = 1000;
+
+export const getTradingMandateResponseMandateTermsMaximumConcurrentOrdersMax = 1000;
+
+export const getTradingMandateResponseMandateTermsDailyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateResponseMandateTermsWeeklyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateResponseMandateTermsMonthlyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateResponseMandateTermsMaximumDrawdownBpsMax = 10000;
+
+export const getTradingMandateResponseMandateTermsTradingHoursItemTimezoneMax = 80;
+
+export const getTradingMandateResponseMandateTermsTradingHoursItemDaysOfWeekItemMin = 0;
+export const getTradingMandateResponseMandateTermsTradingHoursItemDaysOfWeekItemMax = 6;
+
+export const getTradingMandateResponseMandateTermsTradingHoursItemDaysOfWeekMax = 7;
+
+export const getTradingMandateResponseMandateTermsTradingHoursItemStartMinuteMin = 0;
+export const getTradingMandateResponseMandateTermsTradingHoursItemStartMinuteMax = 1439;
+
+export const getTradingMandateResponseMandateTermsTradingHoursItemEndMinuteMax = 1440;
+
+export const getTradingMandateResponseMandateTermsTradingHoursMax = 32;
+
+export const getTradingMandateResponseMandateTermsCanaryAllocationRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumSpreadBpsMax = 10000;
+
+export const getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumSlippageBpsMax = 10000;
+
+export const getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumFillLatencyMsMax = 300000;
+
+export const getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumProtectionFailuresMin = 0;
+export const getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumProtectionFailuresMax = 100;
+
+export const getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax = 3600;
+
+export const getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumDecisionRatePerHourMax = 10000;
+
+export const getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumEntryRatePerHourMax = 1000;
+
+export const getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax = 10000;
+
+export const getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax = 300;
+
+
+
+export const getTradingMandateResponseUsageOneAggregateExposureRegExp = new RegExp('^[0-9]+$');
+export const getTradingMandateResponseUsageOneRemainingExposureRegExp = new RegExp('^[0-9]+$');
+export const getTradingMandateResponseUsageOneCanaryUsedRegExp = new RegExp('^[0-9]+$');
+export const getTradingMandateResponseUsageOneCanaryRemainingRegExp = new RegExp('^[0-9]+$');
+export const getTradingMandateResponseUsageOneDailyLossRegExp = new RegExp('^[0-9]+$');
+export const getTradingMandateResponseUsageOneWeeklyLossRegExp = new RegExp('^[0-9]+$');
+export const getTradingMandateResponseUsageOneMonthlyLossRegExp = new RegExp('^[0-9]+$');
+export const getTradingMandateResponseUsageOneMaximumPossibleExposureRegExp = new RegExp('^[0-9]+$');
+export const getTradingMandateResponseDecisionsItemDecisionFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getTradingMandateResponseDecisionsItemRiskFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+
+
+
+
+
+export const getTradingMandateResponsePreviousRevisionOneFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+
+export const getTradingMandateResponsePreviousRevisionOneTermsBrainVersionMax = 120;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsBrainFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getTradingMandateResponsePreviousRevisionOneTermsAccountIdsItemMax = 160;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsAccountIdsMax = 20;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsExchangesMax = 3;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsMarketsMax = 3;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsSymbolsItemMax = 80;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsSymbolsMax = 50;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsStrategiesMaxOne = 160;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsModelsItemMax = 160;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsModelsMax = 20;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsMaximumPerTradeRiskRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateResponsePreviousRevisionOneTermsMaximumPositionNotionalRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateResponsePreviousRevisionOneTermsMaximumAggregateExposureRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateResponsePreviousRevisionOneTermsMaximumLeverageBpsMin = 10000;
+export const getTradingMandateResponsePreviousRevisionOneTermsMaximumLeverageBpsMax = 1250000;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsMaximumConcurrentPositionsMax = 1000;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsMaximumConcurrentOrdersMax = 1000;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsDailyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateResponsePreviousRevisionOneTermsWeeklyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateResponsePreviousRevisionOneTermsMonthlyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateResponsePreviousRevisionOneTermsMaximumDrawdownBpsMax = 10000;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsTradingHoursItemTimezoneMax = 80;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsTradingHoursItemDaysOfWeekItemMin = 0;
+export const getTradingMandateResponsePreviousRevisionOneTermsTradingHoursItemDaysOfWeekItemMax = 6;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsTradingHoursItemDaysOfWeekMax = 7;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsTradingHoursItemStartMinuteMin = 0;
+export const getTradingMandateResponsePreviousRevisionOneTermsTradingHoursItemStartMinuteMax = 1439;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsTradingHoursItemEndMinuteMax = 1440;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsTradingHoursMax = 32;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsCanaryAllocationRegExp = new RegExp('^[1-9][0-9]*$');
+export const getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumSpreadBpsMax = 10000;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumSlippageBpsMax = 10000;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumFillLatencyMsMax = 300000;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumProtectionFailuresMin = 0;
+export const getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumProtectionFailuresMax = 100;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax = 3600;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumDecisionRatePerHourMax = 10000;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumEntryRatePerHourMax = 1000;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax = 10000;
+
+export const getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax = 300;
+
+
+
+
+
+export const GetTradingMandateResponse = zod.object({
+  "mandate": zod.object({
+  "id": zod.number().min(1),
+  "mandateKey": zod.string().uuid(),
+  "revision": zod.number().min(1),
+  "replacesMandateId": zod.number().min(1).nullish(),
+  "userId": zod.number().min(1),
+  "tenantId": zod.string().min(1),
+  "section": zod.enum(['crypto', 'forex']),
+  "lifecycleState": zod.enum(['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'SUSPENDED', 'REVOKED', 'EXPIRED', 'REPLACED', 'RETIRED']),
+  "fingerprint": zod.string().regex(getTradingMandateResponseMandateFingerprintRegExp),
+  "terms": zod.object({
+  "brainVersionId": zod.number().min(1),
+  "brainVersion": zod.string().min(1).max(getTradingMandateResponseMandateTermsBrainVersionMax),
+  "brainFingerprint": zod.string().regex(getTradingMandateResponseMandateTermsBrainFingerprintRegExp),
+  "accountIds": zod.array(zod.string().min(1).max(getTradingMandateResponseMandateTermsAccountIdsItemMax)).min(1).max(getTradingMandateResponseMandateTermsAccountIdsMax),
+  "exchanges": zod.array(zod.enum(['binance_spot_live', 'binance_futures_live', 'oanda_live'])).min(1).max(getTradingMandateResponseMandateTermsExchangesMax),
+  "markets": zod.array(zod.enum(['spot', 'futures', 'forex'])).min(1).max(getTradingMandateResponseMandateTermsMarketsMax),
+  "symbols": zod.array(zod.string().min(1).max(getTradingMandateResponseMandateTermsSymbolsItemMax)).min(1).max(getTradingMandateResponseMandateTermsSymbolsMax),
+  "strategies": zod.record(zod.string(), zod.string().min(1).max(getTradingMandateResponseMandateTermsStrategiesMaxOne)),
+  "models": zod.array(zod.string().min(1).max(getTradingMandateResponseMandateTermsModelsItemMax)).min(1).max(getTradingMandateResponseMandateTermsModelsMax),
+  "settlementCurrency": zod.enum(['USD', 'USDT']),
+  "monetaryScale": zod.number().describe('All monetary strings are non-negative integers in 10^-8 currency units.'),
+  "maximumPerTradeRisk": zod.string().regex(getTradingMandateResponseMandateTermsMaximumPerTradeRiskRegExp),
+  "maximumPositionNotional": zod.string().regex(getTradingMandateResponseMandateTermsMaximumPositionNotionalRegExp),
+  "maximumAggregateExposure": zod.string().regex(getTradingMandateResponseMandateTermsMaximumAggregateExposureRegExp),
+  "maximumLeverageBps": zod.number().min(getTradingMandateResponseMandateTermsMaximumLeverageBpsMin).max(getTradingMandateResponseMandateTermsMaximumLeverageBpsMax).describe('10000 means 1.0000x; the maximum is inclusive.'),
+  "maximumConcurrentPositions": zod.number().min(1).max(getTradingMandateResponseMandateTermsMaximumConcurrentPositionsMax),
+  "maximumConcurrentOrders": zod.number().min(1).max(getTradingMandateResponseMandateTermsMaximumConcurrentOrdersMax),
+  "dailyLossLimit": zod.string().regex(getTradingMandateResponseMandateTermsDailyLossLimitRegExp),
+  "weeklyLossLimit": zod.string().regex(getTradingMandateResponseMandateTermsWeeklyLossLimitRegExp),
+  "monthlyLossLimit": zod.string().regex(getTradingMandateResponseMandateTermsMonthlyLossLimitRegExp),
+  "maximumDrawdownBps": zod.number().min(1).max(getTradingMandateResponseMandateTermsMaximumDrawdownBpsMax),
+  "tradingHours": zod.array(zod.object({
+  "timezone": zod.string().min(1).max(getTradingMandateResponseMandateTermsTradingHoursItemTimezoneMax).describe('IANA timezone evaluated by the server at the command timestamp.'),
+  "daysOfWeek": zod.array(zod.number().min(getTradingMandateResponseMandateTermsTradingHoursItemDaysOfWeekItemMin).max(getTradingMandateResponseMandateTermsTradingHoursItemDaysOfWeekItemMax)).min(1).max(getTradingMandateResponseMandateTermsTradingHoursItemDaysOfWeekMax),
+  "startMinute": zod.number().min(getTradingMandateResponseMandateTermsTradingHoursItemStartMinuteMin).max(getTradingMandateResponseMandateTermsTradingHoursItemStartMinuteMax),
+  "endMinute": zod.number().min(1).max(getTradingMandateResponseMandateTermsTradingHoursItemEndMinuteMax).describe('Exclusive local-wall-clock boundary; overnight windows are separate records.')
+})).min(1).max(getTradingMandateResponseMandateTermsTradingHoursMax),
+  "effectiveAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date().describe('Exclusive hard-expiry boundary; maximum duration is 30 days.'),
+  "canaryAllocation": zod.string().regex(getTradingMandateResponseMandateTermsCanaryAllocationRegExp).describe('Inclusive aggregate autonomous Live notional ceiling in 10^-8 currency units.'),
+  "automaticSuspension": zod.object({
+  "maximumSpreadBps": zod.number().min(1).max(getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumSpreadBpsMax),
+  "maximumSlippageBps": zod.number().min(1).max(getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumSlippageBpsMax),
+  "maximumFillLatencyMs": zod.number().min(1).max(getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumFillLatencyMsMax),
+  "maximumProtectionFailures": zod.number().min(getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumProtectionFailuresMin).max(getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumProtectionFailuresMax),
+  "maximumReconciliationAgeSeconds": zod.number().min(1).max(getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax),
+  "maximumDecisionRatePerHour": zod.number().min(1).max(getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumDecisionRatePerHourMax),
+  "maximumEntryRatePerHour": zod.number().min(1).max(getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumEntryRatePerHourMax),
+  "maximumLiveDemoDivergenceBps": zod.number().min(1).max(getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax),
+  "maximumMarketDataAgeSeconds": zod.number().min(1).max(getTradingMandateResponseMandateTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax)
+}),
+  "fallbackPolicy": zod.enum(['COPILOT_VALID_ONLY', 'ABSTAIN'])
+}),
+  "changeReason": zod.string(),
+  "approvingHumanId": zod.number().min(1).nullable(),
+  "authorizationMethod": zod.union([zod.literal('PASSWORD_STEP_UP'),zod.literal('BASIC_REAUTH'),zod.literal(null)]).nullable(),
+  "authorizedAt": zod.coerce.date().nullable(),
+  "createdByUserId": zod.number().min(1),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),
+  "usage": zod.union([zod.object({
+  "status": zod.enum(['CURRENT', 'STALE', 'UNAVAILABLE']),
+  "calculatedAt": zod.coerce.date(),
+  "currency": zod.enum(['USD', 'USDT']),
+  "monetaryScale": zod.number(),
+  "openPositionCount": zod.number().nullable(),
+  "openOrderCount": zod.number().nullable(),
+  "aggregateExposure": zod.string().regex(getTradingMandateResponseUsageOneAggregateExposureRegExp).nullable(),
+  "remainingExposure": zod.string().regex(getTradingMandateResponseUsageOneRemainingExposureRegExp).nullable(),
+  "canaryUsed": zod.string().regex(getTradingMandateResponseUsageOneCanaryUsedRegExp).nullable(),
+  "canaryRemaining": zod.string().regex(getTradingMandateResponseUsageOneCanaryRemainingRegExp).nullable(),
+  "dailyLoss": zod.string().regex(getTradingMandateResponseUsageOneDailyLossRegExp).nullable(),
+  "weeklyLoss": zod.string().regex(getTradingMandateResponseUsageOneWeeklyLossRegExp).nullable(),
+  "monthlyLoss": zod.string().regex(getTradingMandateResponseUsageOneMonthlyLossRegExp).nullable(),
+  "drawdownBps": zod.number().nullable(),
+  "maximumPossibleExposure": zod.string().regex(getTradingMandateResponseUsageOneMaximumPossibleExposureRegExp),
+  "staleReasons": zod.array(zod.string())
+}),zod.null()]),
+  "events": zod.array(zod.object({
+  "id": zod.number(),
+  "mandateId": zod.number(),
+  "eventType": zod.string(),
+  "actorType": zod.enum(['HUMAN', 'SYSTEM']),
+  "actorUserId": zod.number().nullish(),
+  "reasonCode": zod.string(),
+  "reason": zod.string(),
+  "fromState": zod.string().nullish(),
+  "toState": zod.string().nullish(),
+  "fingerprint": zod.string().nullish(),
+  "occurredAt": zod.coerce.date()
+})),
+  "decisions": zod.array(zod.object({
+  "id": zod.number(),
+  "mandateId": zod.number(),
+  "decisionFingerprint": zod.string().regex(getTradingMandateResponseDecisionsItemDecisionFingerprintRegExp),
+  "riskFingerprint": zod.string().regex(getTradingMandateResponseDecisionsItemRiskFingerprintRegExp),
+  "status": zod.enum(['CLAIMED', 'BOUNDARY_AUTHORIZED', 'EXECUTED', 'REFUSED', 'FAILED', 'OUTCOME_UNKNOWN']),
+  "reasonCode": zod.string(),
+  "reason": zod.string(),
+  "intentId": zod.number().nullish(),
+  "tradeId": zod.number().nullish(),
+  "createdAt": zod.coerce.date()
+})),
+  "previousRevision": zod.union([zod.object({
+  "id": zod.number().min(1),
+  "mandateKey": zod.string().uuid(),
+  "revision": zod.number().min(1),
+  "replacesMandateId": zod.number().min(1).nullish(),
+  "userId": zod.number().min(1),
+  "tenantId": zod.string().min(1),
+  "section": zod.enum(['crypto', 'forex']),
+  "lifecycleState": zod.enum(['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'SUSPENDED', 'REVOKED', 'EXPIRED', 'REPLACED', 'RETIRED']),
+  "fingerprint": zod.string().regex(getTradingMandateResponsePreviousRevisionOneFingerprintRegExp),
+  "terms": zod.object({
+  "brainVersionId": zod.number().min(1),
+  "brainVersion": zod.string().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsBrainVersionMax),
+  "brainFingerprint": zod.string().regex(getTradingMandateResponsePreviousRevisionOneTermsBrainFingerprintRegExp),
+  "accountIds": zod.array(zod.string().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsAccountIdsItemMax)).min(1).max(getTradingMandateResponsePreviousRevisionOneTermsAccountIdsMax),
+  "exchanges": zod.array(zod.enum(['binance_spot_live', 'binance_futures_live', 'oanda_live'])).min(1).max(getTradingMandateResponsePreviousRevisionOneTermsExchangesMax),
+  "markets": zod.array(zod.enum(['spot', 'futures', 'forex'])).min(1).max(getTradingMandateResponsePreviousRevisionOneTermsMarketsMax),
+  "symbols": zod.array(zod.string().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsSymbolsItemMax)).min(1).max(getTradingMandateResponsePreviousRevisionOneTermsSymbolsMax),
+  "strategies": zod.record(zod.string(), zod.string().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsStrategiesMaxOne)),
+  "models": zod.array(zod.string().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsModelsItemMax)).min(1).max(getTradingMandateResponsePreviousRevisionOneTermsModelsMax),
+  "settlementCurrency": zod.enum(['USD', 'USDT']),
+  "monetaryScale": zod.number().describe('All monetary strings are non-negative integers in 10^-8 currency units.'),
+  "maximumPerTradeRisk": zod.string().regex(getTradingMandateResponsePreviousRevisionOneTermsMaximumPerTradeRiskRegExp),
+  "maximumPositionNotional": zod.string().regex(getTradingMandateResponsePreviousRevisionOneTermsMaximumPositionNotionalRegExp),
+  "maximumAggregateExposure": zod.string().regex(getTradingMandateResponsePreviousRevisionOneTermsMaximumAggregateExposureRegExp),
+  "maximumLeverageBps": zod.number().min(getTradingMandateResponsePreviousRevisionOneTermsMaximumLeverageBpsMin).max(getTradingMandateResponsePreviousRevisionOneTermsMaximumLeverageBpsMax).describe('10000 means 1.0000x; the maximum is inclusive.'),
+  "maximumConcurrentPositions": zod.number().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsMaximumConcurrentPositionsMax),
+  "maximumConcurrentOrders": zod.number().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsMaximumConcurrentOrdersMax),
+  "dailyLossLimit": zod.string().regex(getTradingMandateResponsePreviousRevisionOneTermsDailyLossLimitRegExp),
+  "weeklyLossLimit": zod.string().regex(getTradingMandateResponsePreviousRevisionOneTermsWeeklyLossLimitRegExp),
+  "monthlyLossLimit": zod.string().regex(getTradingMandateResponsePreviousRevisionOneTermsMonthlyLossLimitRegExp),
+  "maximumDrawdownBps": zod.number().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsMaximumDrawdownBpsMax),
+  "tradingHours": zod.array(zod.object({
+  "timezone": zod.string().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsTradingHoursItemTimezoneMax).describe('IANA timezone evaluated by the server at the command timestamp.'),
+  "daysOfWeek": zod.array(zod.number().min(getTradingMandateResponsePreviousRevisionOneTermsTradingHoursItemDaysOfWeekItemMin).max(getTradingMandateResponsePreviousRevisionOneTermsTradingHoursItemDaysOfWeekItemMax)).min(1).max(getTradingMandateResponsePreviousRevisionOneTermsTradingHoursItemDaysOfWeekMax),
+  "startMinute": zod.number().min(getTradingMandateResponsePreviousRevisionOneTermsTradingHoursItemStartMinuteMin).max(getTradingMandateResponsePreviousRevisionOneTermsTradingHoursItemStartMinuteMax),
+  "endMinute": zod.number().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsTradingHoursItemEndMinuteMax).describe('Exclusive local-wall-clock boundary; overnight windows are separate records.')
+})).min(1).max(getTradingMandateResponsePreviousRevisionOneTermsTradingHoursMax),
+  "effectiveAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date().describe('Exclusive hard-expiry boundary; maximum duration is 30 days.'),
+  "canaryAllocation": zod.string().regex(getTradingMandateResponsePreviousRevisionOneTermsCanaryAllocationRegExp).describe('Inclusive aggregate autonomous Live notional ceiling in 10^-8 currency units.'),
+  "automaticSuspension": zod.object({
+  "maximumSpreadBps": zod.number().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumSpreadBpsMax),
+  "maximumSlippageBps": zod.number().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumSlippageBpsMax),
+  "maximumFillLatencyMs": zod.number().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumFillLatencyMsMax),
+  "maximumProtectionFailures": zod.number().min(getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumProtectionFailuresMin).max(getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumProtectionFailuresMax),
+  "maximumReconciliationAgeSeconds": zod.number().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax),
+  "maximumDecisionRatePerHour": zod.number().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumDecisionRatePerHourMax),
+  "maximumEntryRatePerHour": zod.number().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumEntryRatePerHourMax),
+  "maximumLiveDemoDivergenceBps": zod.number().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax),
+  "maximumMarketDataAgeSeconds": zod.number().min(1).max(getTradingMandateResponsePreviousRevisionOneTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax)
+}),
+  "fallbackPolicy": zod.enum(['COPILOT_VALID_ONLY', 'ABSTAIN'])
+}),
+  "changeReason": zod.string(),
+  "approvingHumanId": zod.number().min(1).nullable(),
+  "authorizationMethod": zod.union([zod.literal('PASSWORD_STEP_UP'),zod.literal('BASIC_REAUTH'),zod.literal(null)]).nullable(),
+  "authorizedAt": zod.coerce.date().nullable(),
+  "createdByUserId": zod.number().min(1),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Move an exact Draft revision to Pending approval without granting authority
+ */
+
+
+
+export const SubmitTradingMandateParams = zod.object({
+  "mandateId": zod.coerce.number().min(1)
+})
+
+
+export const submitTradingMandateBodyReasonMin = 12;
+export const submitTradingMandateBodyReasonMax = 1000;
+
+
+
+export const SubmitTradingMandateBody = zod.object({
+  "clientRequestId": zod.string().uuid(),
+  "expectedRevision": zod.number().min(1),
+  "reason": zod.string().min(submitTradingMandateBodyReasonMin).max(submitTradingMandateBodyReasonMax)
+})
+
+
+
+
+
+
+export const submitTradingMandateResponseFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+
+export const submitTradingMandateResponseTermsBrainVersionMax = 120;
+
+export const submitTradingMandateResponseTermsBrainFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const submitTradingMandateResponseTermsAccountIdsItemMax = 160;
+
+export const submitTradingMandateResponseTermsAccountIdsMax = 20;
+
+export const submitTradingMandateResponseTermsExchangesMax = 3;
+
+export const submitTradingMandateResponseTermsMarketsMax = 3;
+
+export const submitTradingMandateResponseTermsSymbolsItemMax = 80;
+
+export const submitTradingMandateResponseTermsSymbolsMax = 50;
+
+export const submitTradingMandateResponseTermsStrategiesMaxOne = 160;
+
+export const submitTradingMandateResponseTermsModelsItemMax = 160;
+
+export const submitTradingMandateResponseTermsModelsMax = 20;
+
+export const submitTradingMandateResponseTermsMaximumPerTradeRiskRegExp = new RegExp('^[1-9][0-9]*$');
+export const submitTradingMandateResponseTermsMaximumPositionNotionalRegExp = new RegExp('^[1-9][0-9]*$');
+export const submitTradingMandateResponseTermsMaximumAggregateExposureRegExp = new RegExp('^[1-9][0-9]*$');
+export const submitTradingMandateResponseTermsMaximumLeverageBpsMin = 10000;
+export const submitTradingMandateResponseTermsMaximumLeverageBpsMax = 1250000;
+
+export const submitTradingMandateResponseTermsMaximumConcurrentPositionsMax = 1000;
+
+export const submitTradingMandateResponseTermsMaximumConcurrentOrdersMax = 1000;
+
+export const submitTradingMandateResponseTermsDailyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const submitTradingMandateResponseTermsWeeklyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const submitTradingMandateResponseTermsMonthlyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const submitTradingMandateResponseTermsMaximumDrawdownBpsMax = 10000;
+
+export const submitTradingMandateResponseTermsTradingHoursItemTimezoneMax = 80;
+
+export const submitTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMin = 0;
+export const submitTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMax = 6;
+
+export const submitTradingMandateResponseTermsTradingHoursItemDaysOfWeekMax = 7;
+
+export const submitTradingMandateResponseTermsTradingHoursItemStartMinuteMin = 0;
+export const submitTradingMandateResponseTermsTradingHoursItemStartMinuteMax = 1439;
+
+export const submitTradingMandateResponseTermsTradingHoursItemEndMinuteMax = 1440;
+
+export const submitTradingMandateResponseTermsTradingHoursMax = 32;
+
+export const submitTradingMandateResponseTermsCanaryAllocationRegExp = new RegExp('^[1-9][0-9]*$');
+export const submitTradingMandateResponseTermsAutomaticSuspensionMaximumSpreadBpsMax = 10000;
+
+export const submitTradingMandateResponseTermsAutomaticSuspensionMaximumSlippageBpsMax = 10000;
+
+export const submitTradingMandateResponseTermsAutomaticSuspensionMaximumFillLatencyMsMax = 300000;
+
+export const submitTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMin = 0;
+export const submitTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMax = 100;
+
+export const submitTradingMandateResponseTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax = 3600;
+
+export const submitTradingMandateResponseTermsAutomaticSuspensionMaximumDecisionRatePerHourMax = 10000;
+
+export const submitTradingMandateResponseTermsAutomaticSuspensionMaximumEntryRatePerHourMax = 1000;
+
+export const submitTradingMandateResponseTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax = 10000;
+
+export const submitTradingMandateResponseTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax = 300;
+
+
+
+
+
+export const SubmitTradingMandateResponse = zod.object({
+  "id": zod.number().min(1),
+  "mandateKey": zod.string().uuid(),
+  "revision": zod.number().min(1),
+  "replacesMandateId": zod.number().min(1).nullish(),
+  "userId": zod.number().min(1),
+  "tenantId": zod.string().min(1),
+  "section": zod.enum(['crypto', 'forex']),
+  "lifecycleState": zod.enum(['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'SUSPENDED', 'REVOKED', 'EXPIRED', 'REPLACED', 'RETIRED']),
+  "fingerprint": zod.string().regex(submitTradingMandateResponseFingerprintRegExp),
+  "terms": zod.object({
+  "brainVersionId": zod.number().min(1),
+  "brainVersion": zod.string().min(1).max(submitTradingMandateResponseTermsBrainVersionMax),
+  "brainFingerprint": zod.string().regex(submitTradingMandateResponseTermsBrainFingerprintRegExp),
+  "accountIds": zod.array(zod.string().min(1).max(submitTradingMandateResponseTermsAccountIdsItemMax)).min(1).max(submitTradingMandateResponseTermsAccountIdsMax),
+  "exchanges": zod.array(zod.enum(['binance_spot_live', 'binance_futures_live', 'oanda_live'])).min(1).max(submitTradingMandateResponseTermsExchangesMax),
+  "markets": zod.array(zod.enum(['spot', 'futures', 'forex'])).min(1).max(submitTradingMandateResponseTermsMarketsMax),
+  "symbols": zod.array(zod.string().min(1).max(submitTradingMandateResponseTermsSymbolsItemMax)).min(1).max(submitTradingMandateResponseTermsSymbolsMax),
+  "strategies": zod.record(zod.string(), zod.string().min(1).max(submitTradingMandateResponseTermsStrategiesMaxOne)),
+  "models": zod.array(zod.string().min(1).max(submitTradingMandateResponseTermsModelsItemMax)).min(1).max(submitTradingMandateResponseTermsModelsMax),
+  "settlementCurrency": zod.enum(['USD', 'USDT']),
+  "monetaryScale": zod.number().describe('All monetary strings are non-negative integers in 10^-8 currency units.'),
+  "maximumPerTradeRisk": zod.string().regex(submitTradingMandateResponseTermsMaximumPerTradeRiskRegExp),
+  "maximumPositionNotional": zod.string().regex(submitTradingMandateResponseTermsMaximumPositionNotionalRegExp),
+  "maximumAggregateExposure": zod.string().regex(submitTradingMandateResponseTermsMaximumAggregateExposureRegExp),
+  "maximumLeverageBps": zod.number().min(submitTradingMandateResponseTermsMaximumLeverageBpsMin).max(submitTradingMandateResponseTermsMaximumLeverageBpsMax).describe('10000 means 1.0000x; the maximum is inclusive.'),
+  "maximumConcurrentPositions": zod.number().min(1).max(submitTradingMandateResponseTermsMaximumConcurrentPositionsMax),
+  "maximumConcurrentOrders": zod.number().min(1).max(submitTradingMandateResponseTermsMaximumConcurrentOrdersMax),
+  "dailyLossLimit": zod.string().regex(submitTradingMandateResponseTermsDailyLossLimitRegExp),
+  "weeklyLossLimit": zod.string().regex(submitTradingMandateResponseTermsWeeklyLossLimitRegExp),
+  "monthlyLossLimit": zod.string().regex(submitTradingMandateResponseTermsMonthlyLossLimitRegExp),
+  "maximumDrawdownBps": zod.number().min(1).max(submitTradingMandateResponseTermsMaximumDrawdownBpsMax),
+  "tradingHours": zod.array(zod.object({
+  "timezone": zod.string().min(1).max(submitTradingMandateResponseTermsTradingHoursItemTimezoneMax).describe('IANA timezone evaluated by the server at the command timestamp.'),
+  "daysOfWeek": zod.array(zod.number().min(submitTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMin).max(submitTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMax)).min(1).max(submitTradingMandateResponseTermsTradingHoursItemDaysOfWeekMax),
+  "startMinute": zod.number().min(submitTradingMandateResponseTermsTradingHoursItemStartMinuteMin).max(submitTradingMandateResponseTermsTradingHoursItemStartMinuteMax),
+  "endMinute": zod.number().min(1).max(submitTradingMandateResponseTermsTradingHoursItemEndMinuteMax).describe('Exclusive local-wall-clock boundary; overnight windows are separate records.')
+})).min(1).max(submitTradingMandateResponseTermsTradingHoursMax),
+  "effectiveAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date().describe('Exclusive hard-expiry boundary; maximum duration is 30 days.'),
+  "canaryAllocation": zod.string().regex(submitTradingMandateResponseTermsCanaryAllocationRegExp).describe('Inclusive aggregate autonomous Live notional ceiling in 10^-8 currency units.'),
+  "automaticSuspension": zod.object({
+  "maximumSpreadBps": zod.number().min(1).max(submitTradingMandateResponseTermsAutomaticSuspensionMaximumSpreadBpsMax),
+  "maximumSlippageBps": zod.number().min(1).max(submitTradingMandateResponseTermsAutomaticSuspensionMaximumSlippageBpsMax),
+  "maximumFillLatencyMs": zod.number().min(1).max(submitTradingMandateResponseTermsAutomaticSuspensionMaximumFillLatencyMsMax),
+  "maximumProtectionFailures": zod.number().min(submitTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMin).max(submitTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMax),
+  "maximumReconciliationAgeSeconds": zod.number().min(1).max(submitTradingMandateResponseTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax),
+  "maximumDecisionRatePerHour": zod.number().min(1).max(submitTradingMandateResponseTermsAutomaticSuspensionMaximumDecisionRatePerHourMax),
+  "maximumEntryRatePerHour": zod.number().min(1).max(submitTradingMandateResponseTermsAutomaticSuspensionMaximumEntryRatePerHourMax),
+  "maximumLiveDemoDivergenceBps": zod.number().min(1).max(submitTradingMandateResponseTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax),
+  "maximumMarketDataAgeSeconds": zod.number().min(1).max(submitTradingMandateResponseTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax)
+}),
+  "fallbackPolicy": zod.enum(['COPILOT_VALID_ONLY', 'ABSTAIN'])
+}),
+  "changeReason": zod.string(),
+  "approvingHumanId": zod.number().min(1).nullable(),
+  "authorizationMethod": zod.union([zod.literal('PASSWORD_STEP_UP'),zod.literal('BASIC_REAUTH'),zod.literal(null)]).nullable(),
+  "authorizedAt": zod.coerce.date().nullable(),
+  "createdByUserId": zod.number().min(1),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Step-up authorize and activate one exact Pending mandate revision
+ */
+
+
+
+export const ApproveTradingMandateParams = zod.object({
+  "mandateId": zod.coerce.number().min(1)
+})
+
+
+export const approveTradingMandateBodyReasonMin = 12;
+export const approveTradingMandateBodyReasonMax = 1000;
+
+
+
+
+export const ApproveTradingMandateBody = zod.object({
+  "clientRequestId": zod.string().uuid(),
+  "authorizationId": zod.string().uuid(),
+  "expectedRevision": zod.number().min(1),
+  "reason": zod.string().min(approveTradingMandateBodyReasonMin).max(approveTradingMandateBodyReasonMax),
+  "confirmation": zod.literal("AUTHORIZE_RESTRICTED_LIVE_MANDATE"),
+  "currentPassword": zod.string().min(1).optional()
+})
+
+
+
+
+
+
+export const approveTradingMandateResponseFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+
+export const approveTradingMandateResponseTermsBrainVersionMax = 120;
+
+export const approveTradingMandateResponseTermsBrainFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const approveTradingMandateResponseTermsAccountIdsItemMax = 160;
+
+export const approveTradingMandateResponseTermsAccountIdsMax = 20;
+
+export const approveTradingMandateResponseTermsExchangesMax = 3;
+
+export const approveTradingMandateResponseTermsMarketsMax = 3;
+
+export const approveTradingMandateResponseTermsSymbolsItemMax = 80;
+
+export const approveTradingMandateResponseTermsSymbolsMax = 50;
+
+export const approveTradingMandateResponseTermsStrategiesMaxOne = 160;
+
+export const approveTradingMandateResponseTermsModelsItemMax = 160;
+
+export const approveTradingMandateResponseTermsModelsMax = 20;
+
+export const approveTradingMandateResponseTermsMaximumPerTradeRiskRegExp = new RegExp('^[1-9][0-9]*$');
+export const approveTradingMandateResponseTermsMaximumPositionNotionalRegExp = new RegExp('^[1-9][0-9]*$');
+export const approveTradingMandateResponseTermsMaximumAggregateExposureRegExp = new RegExp('^[1-9][0-9]*$');
+export const approveTradingMandateResponseTermsMaximumLeverageBpsMin = 10000;
+export const approveTradingMandateResponseTermsMaximumLeverageBpsMax = 1250000;
+
+export const approveTradingMandateResponseTermsMaximumConcurrentPositionsMax = 1000;
+
+export const approveTradingMandateResponseTermsMaximumConcurrentOrdersMax = 1000;
+
+export const approveTradingMandateResponseTermsDailyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const approveTradingMandateResponseTermsWeeklyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const approveTradingMandateResponseTermsMonthlyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const approveTradingMandateResponseTermsMaximumDrawdownBpsMax = 10000;
+
+export const approveTradingMandateResponseTermsTradingHoursItemTimezoneMax = 80;
+
+export const approveTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMin = 0;
+export const approveTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMax = 6;
+
+export const approveTradingMandateResponseTermsTradingHoursItemDaysOfWeekMax = 7;
+
+export const approveTradingMandateResponseTermsTradingHoursItemStartMinuteMin = 0;
+export const approveTradingMandateResponseTermsTradingHoursItemStartMinuteMax = 1439;
+
+export const approveTradingMandateResponseTermsTradingHoursItemEndMinuteMax = 1440;
+
+export const approveTradingMandateResponseTermsTradingHoursMax = 32;
+
+export const approveTradingMandateResponseTermsCanaryAllocationRegExp = new RegExp('^[1-9][0-9]*$');
+export const approveTradingMandateResponseTermsAutomaticSuspensionMaximumSpreadBpsMax = 10000;
+
+export const approveTradingMandateResponseTermsAutomaticSuspensionMaximumSlippageBpsMax = 10000;
+
+export const approveTradingMandateResponseTermsAutomaticSuspensionMaximumFillLatencyMsMax = 300000;
+
+export const approveTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMin = 0;
+export const approveTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMax = 100;
+
+export const approveTradingMandateResponseTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax = 3600;
+
+export const approveTradingMandateResponseTermsAutomaticSuspensionMaximumDecisionRatePerHourMax = 10000;
+
+export const approveTradingMandateResponseTermsAutomaticSuspensionMaximumEntryRatePerHourMax = 1000;
+
+export const approveTradingMandateResponseTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax = 10000;
+
+export const approveTradingMandateResponseTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax = 300;
+
+
+
+
+
+export const ApproveTradingMandateResponse = zod.object({
+  "id": zod.number().min(1),
+  "mandateKey": zod.string().uuid(),
+  "revision": zod.number().min(1),
+  "replacesMandateId": zod.number().min(1).nullish(),
+  "userId": zod.number().min(1),
+  "tenantId": zod.string().min(1),
+  "section": zod.enum(['crypto', 'forex']),
+  "lifecycleState": zod.enum(['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'SUSPENDED', 'REVOKED', 'EXPIRED', 'REPLACED', 'RETIRED']),
+  "fingerprint": zod.string().regex(approveTradingMandateResponseFingerprintRegExp),
+  "terms": zod.object({
+  "brainVersionId": zod.number().min(1),
+  "brainVersion": zod.string().min(1).max(approveTradingMandateResponseTermsBrainVersionMax),
+  "brainFingerprint": zod.string().regex(approveTradingMandateResponseTermsBrainFingerprintRegExp),
+  "accountIds": zod.array(zod.string().min(1).max(approveTradingMandateResponseTermsAccountIdsItemMax)).min(1).max(approveTradingMandateResponseTermsAccountIdsMax),
+  "exchanges": zod.array(zod.enum(['binance_spot_live', 'binance_futures_live', 'oanda_live'])).min(1).max(approveTradingMandateResponseTermsExchangesMax),
+  "markets": zod.array(zod.enum(['spot', 'futures', 'forex'])).min(1).max(approveTradingMandateResponseTermsMarketsMax),
+  "symbols": zod.array(zod.string().min(1).max(approveTradingMandateResponseTermsSymbolsItemMax)).min(1).max(approveTradingMandateResponseTermsSymbolsMax),
+  "strategies": zod.record(zod.string(), zod.string().min(1).max(approveTradingMandateResponseTermsStrategiesMaxOne)),
+  "models": zod.array(zod.string().min(1).max(approveTradingMandateResponseTermsModelsItemMax)).min(1).max(approveTradingMandateResponseTermsModelsMax),
+  "settlementCurrency": zod.enum(['USD', 'USDT']),
+  "monetaryScale": zod.number().describe('All monetary strings are non-negative integers in 10^-8 currency units.'),
+  "maximumPerTradeRisk": zod.string().regex(approveTradingMandateResponseTermsMaximumPerTradeRiskRegExp),
+  "maximumPositionNotional": zod.string().regex(approveTradingMandateResponseTermsMaximumPositionNotionalRegExp),
+  "maximumAggregateExposure": zod.string().regex(approveTradingMandateResponseTermsMaximumAggregateExposureRegExp),
+  "maximumLeverageBps": zod.number().min(approveTradingMandateResponseTermsMaximumLeverageBpsMin).max(approveTradingMandateResponseTermsMaximumLeverageBpsMax).describe('10000 means 1.0000x; the maximum is inclusive.'),
+  "maximumConcurrentPositions": zod.number().min(1).max(approveTradingMandateResponseTermsMaximumConcurrentPositionsMax),
+  "maximumConcurrentOrders": zod.number().min(1).max(approveTradingMandateResponseTermsMaximumConcurrentOrdersMax),
+  "dailyLossLimit": zod.string().regex(approveTradingMandateResponseTermsDailyLossLimitRegExp),
+  "weeklyLossLimit": zod.string().regex(approveTradingMandateResponseTermsWeeklyLossLimitRegExp),
+  "monthlyLossLimit": zod.string().regex(approveTradingMandateResponseTermsMonthlyLossLimitRegExp),
+  "maximumDrawdownBps": zod.number().min(1).max(approveTradingMandateResponseTermsMaximumDrawdownBpsMax),
+  "tradingHours": zod.array(zod.object({
+  "timezone": zod.string().min(1).max(approveTradingMandateResponseTermsTradingHoursItemTimezoneMax).describe('IANA timezone evaluated by the server at the command timestamp.'),
+  "daysOfWeek": zod.array(zod.number().min(approveTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMin).max(approveTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMax)).min(1).max(approveTradingMandateResponseTermsTradingHoursItemDaysOfWeekMax),
+  "startMinute": zod.number().min(approveTradingMandateResponseTermsTradingHoursItemStartMinuteMin).max(approveTradingMandateResponseTermsTradingHoursItemStartMinuteMax),
+  "endMinute": zod.number().min(1).max(approveTradingMandateResponseTermsTradingHoursItemEndMinuteMax).describe('Exclusive local-wall-clock boundary; overnight windows are separate records.')
+})).min(1).max(approveTradingMandateResponseTermsTradingHoursMax),
+  "effectiveAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date().describe('Exclusive hard-expiry boundary; maximum duration is 30 days.'),
+  "canaryAllocation": zod.string().regex(approveTradingMandateResponseTermsCanaryAllocationRegExp).describe('Inclusive aggregate autonomous Live notional ceiling in 10^-8 currency units.'),
+  "automaticSuspension": zod.object({
+  "maximumSpreadBps": zod.number().min(1).max(approveTradingMandateResponseTermsAutomaticSuspensionMaximumSpreadBpsMax),
+  "maximumSlippageBps": zod.number().min(1).max(approveTradingMandateResponseTermsAutomaticSuspensionMaximumSlippageBpsMax),
+  "maximumFillLatencyMs": zod.number().min(1).max(approveTradingMandateResponseTermsAutomaticSuspensionMaximumFillLatencyMsMax),
+  "maximumProtectionFailures": zod.number().min(approveTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMin).max(approveTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMax),
+  "maximumReconciliationAgeSeconds": zod.number().min(1).max(approveTradingMandateResponseTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax),
+  "maximumDecisionRatePerHour": zod.number().min(1).max(approveTradingMandateResponseTermsAutomaticSuspensionMaximumDecisionRatePerHourMax),
+  "maximumEntryRatePerHour": zod.number().min(1).max(approveTradingMandateResponseTermsAutomaticSuspensionMaximumEntryRatePerHourMax),
+  "maximumLiveDemoDivergenceBps": zod.number().min(1).max(approveTradingMandateResponseTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax),
+  "maximumMarketDataAgeSeconds": zod.number().min(1).max(approveTradingMandateResponseTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax)
+}),
+  "fallbackPolicy": zod.enum(['COPILOT_VALID_ONLY', 'ABSTAIN'])
+}),
+  "changeReason": zod.string(),
+  "approvingHumanId": zod.number().min(1).nullable(),
+  "authorizationMethod": zod.union([zod.literal('PASSWORD_STEP_UP'),zod.literal('BASIC_REAUTH'),zod.literal(null)]).nullable(),
+  "authorizedAt": zod.coerce.date().nullable(),
+  "createdByUserId": zod.number().min(1),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Persistently reduce authority; protective exits remain available
+ */
+
+
+
+export const SuspendTradingMandateParams = zod.object({
+  "mandateId": zod.coerce.number().min(1)
+})
+
+
+export const suspendTradingMandateBodyReasonMin = 12;
+export const suspendTradingMandateBodyReasonMax = 1000;
+
+
+
+export const SuspendTradingMandateBody = zod.object({
+  "clientRequestId": zod.string().uuid(),
+  "expectedRevision": zod.number().min(1),
+  "reason": zod.string().min(suspendTradingMandateBodyReasonMin).max(suspendTradingMandateBodyReasonMax)
+})
+
+
+
+
+
+
+export const suspendTradingMandateResponseFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+
+export const suspendTradingMandateResponseTermsBrainVersionMax = 120;
+
+export const suspendTradingMandateResponseTermsBrainFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const suspendTradingMandateResponseTermsAccountIdsItemMax = 160;
+
+export const suspendTradingMandateResponseTermsAccountIdsMax = 20;
+
+export const suspendTradingMandateResponseTermsExchangesMax = 3;
+
+export const suspendTradingMandateResponseTermsMarketsMax = 3;
+
+export const suspendTradingMandateResponseTermsSymbolsItemMax = 80;
+
+export const suspendTradingMandateResponseTermsSymbolsMax = 50;
+
+export const suspendTradingMandateResponseTermsStrategiesMaxOne = 160;
+
+export const suspendTradingMandateResponseTermsModelsItemMax = 160;
+
+export const suspendTradingMandateResponseTermsModelsMax = 20;
+
+export const suspendTradingMandateResponseTermsMaximumPerTradeRiskRegExp = new RegExp('^[1-9][0-9]*$');
+export const suspendTradingMandateResponseTermsMaximumPositionNotionalRegExp = new RegExp('^[1-9][0-9]*$');
+export const suspendTradingMandateResponseTermsMaximumAggregateExposureRegExp = new RegExp('^[1-9][0-9]*$');
+export const suspendTradingMandateResponseTermsMaximumLeverageBpsMin = 10000;
+export const suspendTradingMandateResponseTermsMaximumLeverageBpsMax = 1250000;
+
+export const suspendTradingMandateResponseTermsMaximumConcurrentPositionsMax = 1000;
+
+export const suspendTradingMandateResponseTermsMaximumConcurrentOrdersMax = 1000;
+
+export const suspendTradingMandateResponseTermsDailyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const suspendTradingMandateResponseTermsWeeklyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const suspendTradingMandateResponseTermsMonthlyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const suspendTradingMandateResponseTermsMaximumDrawdownBpsMax = 10000;
+
+export const suspendTradingMandateResponseTermsTradingHoursItemTimezoneMax = 80;
+
+export const suspendTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMin = 0;
+export const suspendTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMax = 6;
+
+export const suspendTradingMandateResponseTermsTradingHoursItemDaysOfWeekMax = 7;
+
+export const suspendTradingMandateResponseTermsTradingHoursItemStartMinuteMin = 0;
+export const suspendTradingMandateResponseTermsTradingHoursItemStartMinuteMax = 1439;
+
+export const suspendTradingMandateResponseTermsTradingHoursItemEndMinuteMax = 1440;
+
+export const suspendTradingMandateResponseTermsTradingHoursMax = 32;
+
+export const suspendTradingMandateResponseTermsCanaryAllocationRegExp = new RegExp('^[1-9][0-9]*$');
+export const suspendTradingMandateResponseTermsAutomaticSuspensionMaximumSpreadBpsMax = 10000;
+
+export const suspendTradingMandateResponseTermsAutomaticSuspensionMaximumSlippageBpsMax = 10000;
+
+export const suspendTradingMandateResponseTermsAutomaticSuspensionMaximumFillLatencyMsMax = 300000;
+
+export const suspendTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMin = 0;
+export const suspendTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMax = 100;
+
+export const suspendTradingMandateResponseTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax = 3600;
+
+export const suspendTradingMandateResponseTermsAutomaticSuspensionMaximumDecisionRatePerHourMax = 10000;
+
+export const suspendTradingMandateResponseTermsAutomaticSuspensionMaximumEntryRatePerHourMax = 1000;
+
+export const suspendTradingMandateResponseTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax = 10000;
+
+export const suspendTradingMandateResponseTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax = 300;
+
+
+
+
+
+export const SuspendTradingMandateResponse = zod.object({
+  "id": zod.number().min(1),
+  "mandateKey": zod.string().uuid(),
+  "revision": zod.number().min(1),
+  "replacesMandateId": zod.number().min(1).nullish(),
+  "userId": zod.number().min(1),
+  "tenantId": zod.string().min(1),
+  "section": zod.enum(['crypto', 'forex']),
+  "lifecycleState": zod.enum(['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'SUSPENDED', 'REVOKED', 'EXPIRED', 'REPLACED', 'RETIRED']),
+  "fingerprint": zod.string().regex(suspendTradingMandateResponseFingerprintRegExp),
+  "terms": zod.object({
+  "brainVersionId": zod.number().min(1),
+  "brainVersion": zod.string().min(1).max(suspendTradingMandateResponseTermsBrainVersionMax),
+  "brainFingerprint": zod.string().regex(suspendTradingMandateResponseTermsBrainFingerprintRegExp),
+  "accountIds": zod.array(zod.string().min(1).max(suspendTradingMandateResponseTermsAccountIdsItemMax)).min(1).max(suspendTradingMandateResponseTermsAccountIdsMax),
+  "exchanges": zod.array(zod.enum(['binance_spot_live', 'binance_futures_live', 'oanda_live'])).min(1).max(suspendTradingMandateResponseTermsExchangesMax),
+  "markets": zod.array(zod.enum(['spot', 'futures', 'forex'])).min(1).max(suspendTradingMandateResponseTermsMarketsMax),
+  "symbols": zod.array(zod.string().min(1).max(suspendTradingMandateResponseTermsSymbolsItemMax)).min(1).max(suspendTradingMandateResponseTermsSymbolsMax),
+  "strategies": zod.record(zod.string(), zod.string().min(1).max(suspendTradingMandateResponseTermsStrategiesMaxOne)),
+  "models": zod.array(zod.string().min(1).max(suspendTradingMandateResponseTermsModelsItemMax)).min(1).max(suspendTradingMandateResponseTermsModelsMax),
+  "settlementCurrency": zod.enum(['USD', 'USDT']),
+  "monetaryScale": zod.number().describe('All monetary strings are non-negative integers in 10^-8 currency units.'),
+  "maximumPerTradeRisk": zod.string().regex(suspendTradingMandateResponseTermsMaximumPerTradeRiskRegExp),
+  "maximumPositionNotional": zod.string().regex(suspendTradingMandateResponseTermsMaximumPositionNotionalRegExp),
+  "maximumAggregateExposure": zod.string().regex(suspendTradingMandateResponseTermsMaximumAggregateExposureRegExp),
+  "maximumLeverageBps": zod.number().min(suspendTradingMandateResponseTermsMaximumLeverageBpsMin).max(suspendTradingMandateResponseTermsMaximumLeverageBpsMax).describe('10000 means 1.0000x; the maximum is inclusive.'),
+  "maximumConcurrentPositions": zod.number().min(1).max(suspendTradingMandateResponseTermsMaximumConcurrentPositionsMax),
+  "maximumConcurrentOrders": zod.number().min(1).max(suspendTradingMandateResponseTermsMaximumConcurrentOrdersMax),
+  "dailyLossLimit": zod.string().regex(suspendTradingMandateResponseTermsDailyLossLimitRegExp),
+  "weeklyLossLimit": zod.string().regex(suspendTradingMandateResponseTermsWeeklyLossLimitRegExp),
+  "monthlyLossLimit": zod.string().regex(suspendTradingMandateResponseTermsMonthlyLossLimitRegExp),
+  "maximumDrawdownBps": zod.number().min(1).max(suspendTradingMandateResponseTermsMaximumDrawdownBpsMax),
+  "tradingHours": zod.array(zod.object({
+  "timezone": zod.string().min(1).max(suspendTradingMandateResponseTermsTradingHoursItemTimezoneMax).describe('IANA timezone evaluated by the server at the command timestamp.'),
+  "daysOfWeek": zod.array(zod.number().min(suspendTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMin).max(suspendTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMax)).min(1).max(suspendTradingMandateResponseTermsTradingHoursItemDaysOfWeekMax),
+  "startMinute": zod.number().min(suspendTradingMandateResponseTermsTradingHoursItemStartMinuteMin).max(suspendTradingMandateResponseTermsTradingHoursItemStartMinuteMax),
+  "endMinute": zod.number().min(1).max(suspendTradingMandateResponseTermsTradingHoursItemEndMinuteMax).describe('Exclusive local-wall-clock boundary; overnight windows are separate records.')
+})).min(1).max(suspendTradingMandateResponseTermsTradingHoursMax),
+  "effectiveAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date().describe('Exclusive hard-expiry boundary; maximum duration is 30 days.'),
+  "canaryAllocation": zod.string().regex(suspendTradingMandateResponseTermsCanaryAllocationRegExp).describe('Inclusive aggregate autonomous Live notional ceiling in 10^-8 currency units.'),
+  "automaticSuspension": zod.object({
+  "maximumSpreadBps": zod.number().min(1).max(suspendTradingMandateResponseTermsAutomaticSuspensionMaximumSpreadBpsMax),
+  "maximumSlippageBps": zod.number().min(1).max(suspendTradingMandateResponseTermsAutomaticSuspensionMaximumSlippageBpsMax),
+  "maximumFillLatencyMs": zod.number().min(1).max(suspendTradingMandateResponseTermsAutomaticSuspensionMaximumFillLatencyMsMax),
+  "maximumProtectionFailures": zod.number().min(suspendTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMin).max(suspendTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMax),
+  "maximumReconciliationAgeSeconds": zod.number().min(1).max(suspendTradingMandateResponseTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax),
+  "maximumDecisionRatePerHour": zod.number().min(1).max(suspendTradingMandateResponseTermsAutomaticSuspensionMaximumDecisionRatePerHourMax),
+  "maximumEntryRatePerHour": zod.number().min(1).max(suspendTradingMandateResponseTermsAutomaticSuspensionMaximumEntryRatePerHourMax),
+  "maximumLiveDemoDivergenceBps": zod.number().min(1).max(suspendTradingMandateResponseTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax),
+  "maximumMarketDataAgeSeconds": zod.number().min(1).max(suspendTradingMandateResponseTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax)
+}),
+  "fallbackPolicy": zod.enum(['COPILOT_VALID_ONLY', 'ABSTAIN'])
+}),
+  "changeReason": zod.string(),
+  "approvingHumanId": zod.number().min(1).nullable(),
+  "authorizationMethod": zod.union([zod.literal('PASSWORD_STEP_UP'),zod.literal('BASIC_REAUTH'),zod.literal(null)]).nullable(),
+  "authorizedAt": zod.coerce.date().nullable(),
+  "createdByUserId": zod.number().min(1),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Permanently revoke entry authority; this operation is irreversible
+ */
+
+
+
+export const RevokeTradingMandateParams = zod.object({
+  "mandateId": zod.coerce.number().min(1)
+})
+
+
+export const revokeTradingMandateBodyReasonMin = 12;
+export const revokeTradingMandateBodyReasonMax = 1000;
+
+
+
+export const RevokeTradingMandateBody = zod.object({
+  "clientRequestId": zod.string().uuid(),
+  "expectedRevision": zod.number().min(1),
+  "reason": zod.string().min(revokeTradingMandateBodyReasonMin).max(revokeTradingMandateBodyReasonMax)
+})
+
+
+
+
+
+
+export const revokeTradingMandateResponseFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+
+export const revokeTradingMandateResponseTermsBrainVersionMax = 120;
+
+export const revokeTradingMandateResponseTermsBrainFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const revokeTradingMandateResponseTermsAccountIdsItemMax = 160;
+
+export const revokeTradingMandateResponseTermsAccountIdsMax = 20;
+
+export const revokeTradingMandateResponseTermsExchangesMax = 3;
+
+export const revokeTradingMandateResponseTermsMarketsMax = 3;
+
+export const revokeTradingMandateResponseTermsSymbolsItemMax = 80;
+
+export const revokeTradingMandateResponseTermsSymbolsMax = 50;
+
+export const revokeTradingMandateResponseTermsStrategiesMaxOne = 160;
+
+export const revokeTradingMandateResponseTermsModelsItemMax = 160;
+
+export const revokeTradingMandateResponseTermsModelsMax = 20;
+
+export const revokeTradingMandateResponseTermsMaximumPerTradeRiskRegExp = new RegExp('^[1-9][0-9]*$');
+export const revokeTradingMandateResponseTermsMaximumPositionNotionalRegExp = new RegExp('^[1-9][0-9]*$');
+export const revokeTradingMandateResponseTermsMaximumAggregateExposureRegExp = new RegExp('^[1-9][0-9]*$');
+export const revokeTradingMandateResponseTermsMaximumLeverageBpsMin = 10000;
+export const revokeTradingMandateResponseTermsMaximumLeverageBpsMax = 1250000;
+
+export const revokeTradingMandateResponseTermsMaximumConcurrentPositionsMax = 1000;
+
+export const revokeTradingMandateResponseTermsMaximumConcurrentOrdersMax = 1000;
+
+export const revokeTradingMandateResponseTermsDailyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const revokeTradingMandateResponseTermsWeeklyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const revokeTradingMandateResponseTermsMonthlyLossLimitRegExp = new RegExp('^[1-9][0-9]*$');
+export const revokeTradingMandateResponseTermsMaximumDrawdownBpsMax = 10000;
+
+export const revokeTradingMandateResponseTermsTradingHoursItemTimezoneMax = 80;
+
+export const revokeTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMin = 0;
+export const revokeTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMax = 6;
+
+export const revokeTradingMandateResponseTermsTradingHoursItemDaysOfWeekMax = 7;
+
+export const revokeTradingMandateResponseTermsTradingHoursItemStartMinuteMin = 0;
+export const revokeTradingMandateResponseTermsTradingHoursItemStartMinuteMax = 1439;
+
+export const revokeTradingMandateResponseTermsTradingHoursItemEndMinuteMax = 1440;
+
+export const revokeTradingMandateResponseTermsTradingHoursMax = 32;
+
+export const revokeTradingMandateResponseTermsCanaryAllocationRegExp = new RegExp('^[1-9][0-9]*$');
+export const revokeTradingMandateResponseTermsAutomaticSuspensionMaximumSpreadBpsMax = 10000;
+
+export const revokeTradingMandateResponseTermsAutomaticSuspensionMaximumSlippageBpsMax = 10000;
+
+export const revokeTradingMandateResponseTermsAutomaticSuspensionMaximumFillLatencyMsMax = 300000;
+
+export const revokeTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMin = 0;
+export const revokeTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMax = 100;
+
+export const revokeTradingMandateResponseTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax = 3600;
+
+export const revokeTradingMandateResponseTermsAutomaticSuspensionMaximumDecisionRatePerHourMax = 10000;
+
+export const revokeTradingMandateResponseTermsAutomaticSuspensionMaximumEntryRatePerHourMax = 1000;
+
+export const revokeTradingMandateResponseTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax = 10000;
+
+export const revokeTradingMandateResponseTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax = 300;
+
+
+
+
+
+export const RevokeTradingMandateResponse = zod.object({
+  "id": zod.number().min(1),
+  "mandateKey": zod.string().uuid(),
+  "revision": zod.number().min(1),
+  "replacesMandateId": zod.number().min(1).nullish(),
+  "userId": zod.number().min(1),
+  "tenantId": zod.string().min(1),
+  "section": zod.enum(['crypto', 'forex']),
+  "lifecycleState": zod.enum(['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'SUSPENDED', 'REVOKED', 'EXPIRED', 'REPLACED', 'RETIRED']),
+  "fingerprint": zod.string().regex(revokeTradingMandateResponseFingerprintRegExp),
+  "terms": zod.object({
+  "brainVersionId": zod.number().min(1),
+  "brainVersion": zod.string().min(1).max(revokeTradingMandateResponseTermsBrainVersionMax),
+  "brainFingerprint": zod.string().regex(revokeTradingMandateResponseTermsBrainFingerprintRegExp),
+  "accountIds": zod.array(zod.string().min(1).max(revokeTradingMandateResponseTermsAccountIdsItemMax)).min(1).max(revokeTradingMandateResponseTermsAccountIdsMax),
+  "exchanges": zod.array(zod.enum(['binance_spot_live', 'binance_futures_live', 'oanda_live'])).min(1).max(revokeTradingMandateResponseTermsExchangesMax),
+  "markets": zod.array(zod.enum(['spot', 'futures', 'forex'])).min(1).max(revokeTradingMandateResponseTermsMarketsMax),
+  "symbols": zod.array(zod.string().min(1).max(revokeTradingMandateResponseTermsSymbolsItemMax)).min(1).max(revokeTradingMandateResponseTermsSymbolsMax),
+  "strategies": zod.record(zod.string(), zod.string().min(1).max(revokeTradingMandateResponseTermsStrategiesMaxOne)),
+  "models": zod.array(zod.string().min(1).max(revokeTradingMandateResponseTermsModelsItemMax)).min(1).max(revokeTradingMandateResponseTermsModelsMax),
+  "settlementCurrency": zod.enum(['USD', 'USDT']),
+  "monetaryScale": zod.number().describe('All monetary strings are non-negative integers in 10^-8 currency units.'),
+  "maximumPerTradeRisk": zod.string().regex(revokeTradingMandateResponseTermsMaximumPerTradeRiskRegExp),
+  "maximumPositionNotional": zod.string().regex(revokeTradingMandateResponseTermsMaximumPositionNotionalRegExp),
+  "maximumAggregateExposure": zod.string().regex(revokeTradingMandateResponseTermsMaximumAggregateExposureRegExp),
+  "maximumLeverageBps": zod.number().min(revokeTradingMandateResponseTermsMaximumLeverageBpsMin).max(revokeTradingMandateResponseTermsMaximumLeverageBpsMax).describe('10000 means 1.0000x; the maximum is inclusive.'),
+  "maximumConcurrentPositions": zod.number().min(1).max(revokeTradingMandateResponseTermsMaximumConcurrentPositionsMax),
+  "maximumConcurrentOrders": zod.number().min(1).max(revokeTradingMandateResponseTermsMaximumConcurrentOrdersMax),
+  "dailyLossLimit": zod.string().regex(revokeTradingMandateResponseTermsDailyLossLimitRegExp),
+  "weeklyLossLimit": zod.string().regex(revokeTradingMandateResponseTermsWeeklyLossLimitRegExp),
+  "monthlyLossLimit": zod.string().regex(revokeTradingMandateResponseTermsMonthlyLossLimitRegExp),
+  "maximumDrawdownBps": zod.number().min(1).max(revokeTradingMandateResponseTermsMaximumDrawdownBpsMax),
+  "tradingHours": zod.array(zod.object({
+  "timezone": zod.string().min(1).max(revokeTradingMandateResponseTermsTradingHoursItemTimezoneMax).describe('IANA timezone evaluated by the server at the command timestamp.'),
+  "daysOfWeek": zod.array(zod.number().min(revokeTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMin).max(revokeTradingMandateResponseTermsTradingHoursItemDaysOfWeekItemMax)).min(1).max(revokeTradingMandateResponseTermsTradingHoursItemDaysOfWeekMax),
+  "startMinute": zod.number().min(revokeTradingMandateResponseTermsTradingHoursItemStartMinuteMin).max(revokeTradingMandateResponseTermsTradingHoursItemStartMinuteMax),
+  "endMinute": zod.number().min(1).max(revokeTradingMandateResponseTermsTradingHoursItemEndMinuteMax).describe('Exclusive local-wall-clock boundary; overnight windows are separate records.')
+})).min(1).max(revokeTradingMandateResponseTermsTradingHoursMax),
+  "effectiveAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date().describe('Exclusive hard-expiry boundary; maximum duration is 30 days.'),
+  "canaryAllocation": zod.string().regex(revokeTradingMandateResponseTermsCanaryAllocationRegExp).describe('Inclusive aggregate autonomous Live notional ceiling in 10^-8 currency units.'),
+  "automaticSuspension": zod.object({
+  "maximumSpreadBps": zod.number().min(1).max(revokeTradingMandateResponseTermsAutomaticSuspensionMaximumSpreadBpsMax),
+  "maximumSlippageBps": zod.number().min(1).max(revokeTradingMandateResponseTermsAutomaticSuspensionMaximumSlippageBpsMax),
+  "maximumFillLatencyMs": zod.number().min(1).max(revokeTradingMandateResponseTermsAutomaticSuspensionMaximumFillLatencyMsMax),
+  "maximumProtectionFailures": zod.number().min(revokeTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMin).max(revokeTradingMandateResponseTermsAutomaticSuspensionMaximumProtectionFailuresMax),
+  "maximumReconciliationAgeSeconds": zod.number().min(1).max(revokeTradingMandateResponseTermsAutomaticSuspensionMaximumReconciliationAgeSecondsMax),
+  "maximumDecisionRatePerHour": zod.number().min(1).max(revokeTradingMandateResponseTermsAutomaticSuspensionMaximumDecisionRatePerHourMax),
+  "maximumEntryRatePerHour": zod.number().min(1).max(revokeTradingMandateResponseTermsAutomaticSuspensionMaximumEntryRatePerHourMax),
+  "maximumLiveDemoDivergenceBps": zod.number().min(1).max(revokeTradingMandateResponseTermsAutomaticSuspensionMaximumLiveDemoDivergenceBpsMax),
+  "maximumMarketDataAgeSeconds": zod.number().min(1).max(revokeTradingMandateResponseTermsAutomaticSuspensionMaximumMarketDataAgeSecondsMax)
+}),
+  "fallbackPolicy": zod.enum(['COPILOT_VALID_ONLY', 'ABSTAIN'])
+}),
+  "changeReason": zod.string(),
+  "approvingHumanId": zod.number().min(1).nullable(),
+  "authorizationMethod": zod.union([zod.literal('PASSWORD_STEP_UP'),zod.literal('BASIC_REAUTH'),zod.literal(null)]).nullable(),
+  "authorizedAt": zod.coerce.date().nullable(),
+  "createdByUserId": zod.number().min(1),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
  * Starts the trading bot engine
  * @summary Start the bot
  */

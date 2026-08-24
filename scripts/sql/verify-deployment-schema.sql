@@ -50,7 +50,15 @@ BEGIN
       ('autopilot_controls', 'global_suspended'),
       ('autopilot_decision_claims', 'idempotency_key'),
       ('autopilot_events', 'reason_code'),
+      ('trading_mandates', 'fingerprint'),
+      ('trading_mandate_states', 'authorization_id'),
+      ('trading_mandate_events', 'event_key'),
+      ('trading_mandate_authorizations', 'session_version'),
+      ('trading_mandate_usage', 'aggregate_exposure'),
+      ('trading_mandate_decision_claims', 'configuration_fingerprint'),
       ('execution_intents', 'autopilot_idempotency_key'),
+      ('execution_intents', 'restricted_live_claim_id'),
+      ('execution_intents', 'trading_mandate_fingerprint'),
       ('execution_intents', 'command_idempotency_key'),
       ('execution_intents', 'ownership_generation'),
       ('execution_intents', 'recovery_client_order_id'),
@@ -61,7 +69,9 @@ BEGIN
       ('live_kill_switches', 'scope'),
       ('live_safety_events', 'reason_code'),
       ('live_safety_events', 'event_key'),
-      ('trades', 'autopilot_phase7_actions')
+      ('trades', 'autopilot_phase7_actions'),
+      ('trades', 'restricted_live_claim_id'),
+      ('users', 'financial_role')
   )
   SELECT array_agg(format('%I.%I', required.object_name, required.column_name)
                    ORDER BY required.object_name, required.column_name)
@@ -75,10 +85,10 @@ BEGIN
 
   IF missing_objects IS NOT NULL THEN
     RAISE EXCEPTION
-      'deployment schema verification failed: missing expected Phase 10/11 objects %',
+      'deployment schema verification failed: missing expected Phase 10/11/12 objects %',
       missing_objects;
   END IF;
 END
 $verify$;
 
-\echo 'PASS: deployment schema and Phase 10/11 objects verified'
+\echo 'PASS: deployment schema and Phase 10/11/12 objects verified'

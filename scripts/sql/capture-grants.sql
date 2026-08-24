@@ -79,6 +79,13 @@ BEGIN
   DELETE FROM public.autopilot_mandate_states WHERE user_id = target_user_id;
   DELETE FROM public.autopilot_controls WHERE user_id = target_user_id;
   DELETE FROM public.demo_autopilot_mandates WHERE user_id = target_user_id;
+
+  DELETE FROM public.trading_mandate_decision_claims WHERE user_id = target_user_id;
+  DELETE FROM public.trading_mandate_usage WHERE user_id = target_user_id;
+  DELETE FROM public.trading_mandate_authorizations WHERE user_id = target_user_id;
+  DELETE FROM public.trading_mandate_events WHERE user_id = target_user_id;
+  DELETE FROM public.trading_mandate_states WHERE user_id = target_user_id;
+  DELETE FROM public.trading_mandates WHERE user_id = target_user_id;
   DELETE FROM public.brain_versions WHERE user_id = target_user_id;
 
   DELETE FROM capture.research_replay_events WHERE user_id = target_user_id;
@@ -115,7 +122,7 @@ GRANT INSERT, SELECT ON ALL TABLES IN SCHEMA capture TO :"app_role";
 -- serial primary keys need the sequence.
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA capture TO :"app_role";
 
--- Phase 10 lives in public rather than capture. Reapply its exact runtime
+-- Phases 10-12 live in public rather than capture. Reapply their exact runtime
 -- policy after every schema push so later tables cannot retain the broader
 -- public-schema defaults installed during the one-time role migration.
 \ir phase-10-runtime-grants.sql

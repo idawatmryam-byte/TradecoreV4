@@ -77,6 +77,19 @@ SELECT
         'live_safety_events'
       )
   ) AS phase11_tables_exist,
+  (
+    SELECT count(*) = 6
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name IN (
+        'trading_mandates',
+        'trading_mandate_states',
+        'trading_mandate_events',
+        'trading_mandate_authorizations',
+        'trading_mandate_usage',
+        'trading_mandate_decision_claims'
+      )
+  ) AS phase12_tables_exist,
   NOT EXISTS (
     SELECT 1
     FROM information_schema.tables
@@ -197,7 +210,81 @@ SELECT
             THEN column_name IN ('active', 'deactivated_at', 'updated_at')
           ELSE false
         END
-    ) AS phase11_privileges_are_bounded,
+  ) AS phase11_privileges_are_bounded,
+  NOT EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name IN (
+        'trading_mandates',
+        'trading_mandate_states',
+        'trading_mandate_events',
+        'trading_mandate_authorizations',
+        'trading_mandate_usage',
+        'trading_mandate_decision_claims'
+      )
+      AND (
+        NOT has_table_privilege(:'app_role', format('%I.%I', table_schema, table_name), 'SELECT')
+        OR NOT has_table_privilege(:'app_role', format('%I.%I', table_schema, table_name), 'INSERT')
+        OR has_table_privilege(:'app_role', format('%I.%I', table_schema, table_name), 'DELETE')
+        OR has_table_privilege(:'app_role', format('%I.%I', table_schema, table_name), 'TRUNCATE')
+      )
+  )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name IN (
+          'trading_mandates',
+          'trading_mandate_events',
+          'trading_mandate_authorizations'
+        )
+        AND has_column_privilege(
+          :'app_role',
+          format('%I.%I', table_schema, table_name),
+          column_name,
+          'UPDATE'
+        )
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name IN (
+          'trading_mandate_states',
+          'trading_mandate_usage',
+          'trading_mandate_decision_claims'
+        )
+        AND has_column_privilege(
+          :'app_role',
+          format('%I.%I', table_schema, table_name),
+          column_name,
+          'UPDATE'
+        ) IS DISTINCT FROM CASE
+          WHEN table_name = 'trading_mandate_states'
+            THEN column_name IN (
+              'state', 'lifecycle_version', 'reason_code', 'reason',
+              'approving_human_id', 'authorization_method',
+              'authorization_id', 'authorized_at', 'updated_at'
+            )
+          WHEN table_name = 'trading_mandate_usage'
+            THEN column_name IN (
+              'aggregate_exposure', 'canary_used', 'daily_loss',
+              'weekly_loss', 'monthly_loss', 'drawdown_bps',
+              'open_position_count', 'open_order_count', 'last_decision_at',
+              'decisions_last_hour', 'entries_last_hour', 'status',
+              'stale_reasons', 'observed_at', 'updated_at'
+            )
+          WHEN table_name = 'trading_mandate_decision_claims'
+            THEN column_name IN (
+              'status', 'reason_code', 'reason', 'execution_intent_id',
+              'broker_command_id', 'broker_order_id', 'trade_id', 'fill_id',
+              'suspension_event_id', 'realized_slippage_bps',
+              'fill_latency_ms', 'live_demo_divergence_bps', 'updated_at'
+            )
+          ELSE false
+        END
+    ) AS phase12_privileges_are_bounded,
   has_table_privilege(:'app_role', 'public.execution_events', 'SELECT')
     AND has_table_privilege(:'app_role', 'public.execution_events', 'INSERT')
     AND has_table_privilege(:'app_role', 'public.recommendation_events', 'SELECT')
@@ -307,6 +394,11 @@ SELECT
   \echo 'FAIL: one or more required Phase 11 Live safety tables are missing'
   DO $failure$ BEGIN RAISE EXCEPTION 'database security verification failed: one or more required Phase 11 tables are missing'; END $failure$;
 \endif
+\if :phase12_tables_exist
+\else
+  \echo 'FAIL: one or more required Phase 12 TradingMandate tables are missing'
+  DO $failure$ BEGIN RAISE EXCEPTION 'database security verification failed: one or more required Phase 12 tables are missing'; END $failure$;
+\endif
 \if :autopilot_evidence_is_immutable
 \else
   \echo 'FAIL: runtime role can mutate immutable Demo Autopilot evidence'
@@ -321,6 +413,11 @@ SELECT
 \else
   \echo 'FAIL: Phase 11 Live safety table privileges are broader than required'
   DO $failure$ BEGIN RAISE EXCEPTION 'database security verification failed: Phase 11 Live safety privileges are not bounded'; END $failure$;
+\endif
+\if :phase12_privileges_are_bounded
+\else
+  \echo 'FAIL: Phase 12 TradingMandate privileges are broader than required'
+  DO $failure$ BEGIN RAISE EXCEPTION 'database security verification failed: Phase 12 privileges are not bounded'; END $failure$;
 \endif
 \if :public_events_have_required_access
 \else
@@ -366,6 +463,12 @@ WHERE table_schema = 'capture'
      'autopilot_controls',
      'autopilot_decision_claims',
      'autopilot_events',
+     'trading_mandates',
+     'trading_mandate_states',
+     'trading_mandate_events',
+     'trading_mandate_authorizations',
+     'trading_mandate_usage',
+     'trading_mandate_decision_claims',
      'live_execution_states',
      'live_global_equity_state',
      'live_kill_switches',
