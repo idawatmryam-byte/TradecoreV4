@@ -155,7 +155,7 @@ const ALLOWED_TRANSITIONS: Readonly<Record<BrainVersionState, readonly BrainVers
   RESEARCH: ["SHADOW", "SUSPENDED", "RETIRED"],
   SHADOW: ["COPILOT", "SUSPENDED", "RETIRED"],
   COPILOT: ["DEMO_APPROVED", "SUSPENDED", "RETIRED"],
-  DEMO_APPROVED: ["SHADOW", "SUSPENDED", "RETIRED"],
+  DEMO_APPROVED: ["LIVE_RESTRICTED", "SHADOW", "SUSPENDED", "RETIRED"],
   LIVE_RESTRICTED: ["SUSPENDED", "RETIRED"],
   SUSPENDED: ["COPILOT", "RETIRED"],
   RETIRED: [],
@@ -232,6 +232,54 @@ export async function transitionBrainVersion(input: {
       userId: input.userId, section: input.section, eventType: "BRAIN_VERSION_TRANSITIONED",
       actor: { actorType: "user", actorUserId: input.actorUserId }, brainVersionId: current.id,
       fromState, toState, reasonCode: `BRAIN_VERSION_${toState}`, reason: input.reason,
+      fingerprint: current.fingerprint,
+    }, tx);
+    return updated;
+  });
+}
+
+/**
+ * Phase 12-only exact-version transition. The Phase 10 route remains unable to
+ * request LIVE_RESTRICTED; only an already step-up-protected mandate approval
+ * route may invoke this separate entry point.
+ */
+export async function authorizeRestrictedLiveBrainVersion(input: {
+  userId: number;
+  section: "crypto" | "forex";
+  versionId: number;
+  expectedVersion: string;
+  expectedFingerprint: string;
+  reason: string;
+  actorUserId: number;
+}): Promise<BrainVersionRecord> {
+  return db.transaction(async (tx) => {
+    const [current] = await tx.select().from(brainVersionsTable).where(and(
+      eq(brainVersionsTable.id, input.versionId),
+      eq(brainVersionsTable.userId, input.userId),
+      eq(brainVersionsTable.section, input.section),
+      eq(brainVersionsTable.version, input.expectedVersion),
+      eq(brainVersionsTable.fingerprint, input.expectedFingerprint),
+    )).limit(1).for("update");
+    if (!current) throw new Error("Exact brain version was not found");
+    if (current.state === "LIVE_RESTRICTED") return current;
+    if (current.state !== "DEMO_APPROVED") {
+      throw new Error("Restricted Live requires the exact DEMO_APPROVED brain version");
+    }
+    const [updated] = await tx.update(brainVersionsTable)
+      .set({ state: "LIVE_RESTRICTED" })
+      .where(eq(brainVersionsTable.id, current.id))
+      .returning();
+    if (!updated) throw new Error("Brain Live restriction was not persisted");
+    await appendEvent({
+      userId: input.userId,
+      section: input.section,
+      eventType: "BRAIN_VERSION_TRANSITIONED",
+      actor: { actorType: "user", actorUserId: input.actorUserId },
+      brainVersionId: current.id,
+      fromState: "DEMO_APPROVED",
+      toState: "LIVE_RESTRICTED",
+      reasonCode: "BRAIN_VERSION_LIVE_RESTRICTED",
+      reason: input.reason,
       fingerprint: current.fingerprint,
     }, tx);
     return updated;

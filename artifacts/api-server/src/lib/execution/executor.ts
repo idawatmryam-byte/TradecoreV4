@@ -38,6 +38,7 @@ import type { ShadowCouncilRun } from "../intelligence/council";
 import type { SpecialistCouncilSnapshot } from "../intelligence/specialists";
 import type { PortfolioIntelligenceProjection } from "../intelligence/portfolio";
 import type { LiveCommandIdentity } from "./liveSafety";
+import type { RestrictedLiveExecutionContext } from "../tradingMandates/service";
 
 /** The engine's resolved per-scan configuration (market type, caps, cooldowns). */
 export type RuntimeConfig = Awaited<ReturnType<BotEngine["loadConfig"]>>;
@@ -53,6 +54,11 @@ export interface CopilotSupervisionContext {
   readonly councilRun: ShadowCouncilRun;
   readonly portfolio: PortfolioIntelligenceProjection;
   readonly creationRiskChecks: readonly RiskCheck[];
+  readonly mandateRefusal?: {
+    readonly reasonCode: string;
+    readonly reason: string;
+    readonly mandateId: number | null;
+  };
 }
 
 export interface AutopilotExecutionContext {
@@ -96,6 +102,9 @@ export interface ExecutionRequest {
   /** Present only after Phase 10 has atomically claimed an authorized Demo,
    * testnet, or practice decision. Executors must make its intent durable. */
   autopilot?: AutopilotExecutionContext;
+  /** Present only after Phase 12 atomically claims an exact Restricted Live
+   * mandate decision. It never grants authority without liveCommand. */
+  restrictedLive?: RestrictedLiveExecutionContext;
   /** Required for every broker-backed command at the Phase 11 Live seam. */
   liveCommand?: LiveCommandIdentity;
 }
@@ -111,6 +120,12 @@ export interface ExecutionResult {
   tradeId?: number;
   /** Durable intent projection used to link the autonomous claim. */
   executionIntentId?: number;
+  /** Provider telemetry captured by the existing Live path. */
+  brokerOrderId?: string;
+  fillId?: string;
+  fillLatencyMs?: number;
+  realizedSlippageBps?: number;
+  liveDemoDivergenceBps?: number;
 }
 
 export interface TradeExecutor {

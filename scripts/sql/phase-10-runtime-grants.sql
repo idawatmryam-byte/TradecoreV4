@@ -1,4 +1,4 @@
--- Idempotent runtime privileges for the Phase 10/11 public-schema tables.
+-- Idempotent runtime privileges for the Phase 10/11/12 public-schema tables.
 --
 -- This fragment is included by both the one-time ownership migration and the
 -- regular post-schema security installation. The second path is authoritative:
@@ -30,6 +30,12 @@ WHERE table_schema = 'public'
     'autopilot_controls',
     'autopilot_decision_claims',
     'autopilot_events',
+    'trading_mandates',
+    'trading_mandate_states',
+    'trading_mandate_events',
+    'trading_mandate_authorizations',
+    'trading_mandate_usage',
+    'trading_mandate_decision_claims',
     'live_execution_states',
     'live_global_equity_state',
     'live_kill_switches',
@@ -45,6 +51,12 @@ REVOKE ALL ON TABLE
   public.autopilot_controls,
   public.autopilot_decision_claims,
   public.autopilot_events,
+  public.trading_mandates,
+  public.trading_mandate_states,
+  public.trading_mandate_events,
+  public.trading_mandate_authorizations,
+  public.trading_mandate_usage,
+  public.trading_mandate_decision_claims,
   public.live_execution_states,
   public.live_global_equity_state,
   public.live_kill_switches,
@@ -60,6 +72,12 @@ GRANT SELECT, INSERT ON TABLE
   public.autopilot_controls,
   public.autopilot_decision_claims,
   public.autopilot_events,
+  public.trading_mandates,
+  public.trading_mandate_states,
+  public.trading_mandate_events,
+  public.trading_mandate_authorizations,
+  public.trading_mandate_usage,
+  public.trading_mandate_decision_claims,
   public.live_execution_states,
   public.live_global_equity_state,
   public.live_kill_switches,
@@ -88,6 +106,52 @@ GRANT UPDATE (
 ) ON TABLE public.autopilot_controls TO :"app_role";
 GRANT UPDATE (status, execution_intent_id, trade_id, outcome_reason, updated_at)
   ON TABLE public.autopilot_decision_claims TO :"app_role";
+
+-- Phase 12 immutable terms, authorizations, and lifecycle events receive no
+-- UPDATE path. Only their projections and outcome telemetry are mutable.
+GRANT UPDATE (
+  state,
+  lifecycle_version,
+  reason_code,
+  reason,
+  approving_human_id,
+  authorization_method,
+  authorization_id,
+  authorized_at,
+  updated_at
+) ON TABLE public.trading_mandate_states TO :"app_role";
+GRANT UPDATE (
+  aggregate_exposure,
+  canary_used,
+  daily_loss,
+  weekly_loss,
+  monthly_loss,
+  drawdown_bps,
+  open_position_count,
+  open_order_count,
+  last_decision_at,
+  decisions_last_hour,
+  entries_last_hour,
+  status,
+  stale_reasons,
+  observed_at,
+  updated_at
+) ON TABLE public.trading_mandate_usage TO :"app_role";
+GRANT UPDATE (
+  status,
+  reason_code,
+  reason,
+  execution_intent_id,
+  broker_command_id,
+  broker_order_id,
+  trade_id,
+  fill_id,
+  suspension_event_id,
+  realized_slippage_bps,
+  fill_latency_ms,
+  live_demo_divergence_bps,
+  updated_at
+) ON TABLE public.trading_mandate_decision_claims TO :"app_role";
 
 -- Phase 11 safety events are immutable. State and switch rows are projections:
 -- the runtime may move only their operational fields, never their ownership or
