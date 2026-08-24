@@ -151,10 +151,11 @@ jobs:
 
       - name: Test Restricted Live browser regression
         run: |
-          PORT=8090 BASE_PATH=/ pnpm --filter @workspace/tradecore-pro run build
-          pnpm --filter @workspace/tradecore-pro run serve -- --port 4173 > /tmp/restricted-live-preview.log 2>&1 &
+          export PORT=8090 BASE_PATH=/
+          pnpm --filter @workspace/tradecore-pro run build
+          pnpm --filter @workspace/tradecore-pro run serve > /tmp/restricted-live-preview.log 2>&1 &
           preview_pid=$!
-          trap 'kill "$preview_pid"' EXIT
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:4173/restricted-live > /dev/null; then
               break
