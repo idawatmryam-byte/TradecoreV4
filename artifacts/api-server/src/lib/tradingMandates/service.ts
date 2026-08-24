@@ -1,10 +1,9 @@
-import { and, count, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import {
   brainVersionsTable,
   db,
   executionIntentsTable,
   tradesTable,
-  tradingMandateDecisionClaimsTable,
 } from "@workspace/db";
 import type { BotConfig } from "@workspace/db";
 import type { RiskCheck } from "../decisionTrace";
@@ -30,7 +29,6 @@ import { plannedRiskDollars } from "../metrics/kernel";
 import {
   evaluateAndClaimRestrictedLiveDecision,
   getActiveTradingMandate,
-  transitionTradingMandate,
   type RestrictedLiveClaimIdentity,
 } from "./store";
 import type { RestrictedLiveEvidence } from "./contracts";
@@ -194,43 +192,6 @@ async function realizedLosses(
   return { daily, weekly, monthly };
 }
 
-async function recentMandateMetrics(mandateId: number, now: Date) {
-  const hourAgo = new Date(now.getTime() - 60 * 60 * 1_000);
-  const [[counts], [lifetime]] = await Promise.all([
-    db
-      .select({
-        decisions: count(),
-        entries: sql<number>`count(*) filter (where ${tradingMandateDecisionClaimsTable.status} = 'EXECUTED')::int`,
-        fillLatencyMs: sql<
-          number | null
-        >`max(${tradingMandateDecisionClaimsTable.fillLatencyMs})::int`,
-        liveDemoDivergenceBps: sql<
-          number | null
-        >`max(abs(${tradingMandateDecisionClaimsTable.liveDemoDivergenceBps}))::int`,
-      })
-      .from(tradingMandateDecisionClaimsTable)
-      .where(
-        and(
-          eq(tradingMandateDecisionClaimsTable.mandateId, mandateId),
-          gte(tradingMandateDecisionClaimsTable.createdAt, hourAgo),
-        ),
-      ),
-    db
-      .select({
-        canaryUsed: sql<string>`coalesce(sum(case when ${tradingMandateDecisionClaimsTable.status} in ('CLAIMED','BOUNDARY_AUTHORIZED','EXECUTED','OUTCOME_UNKNOWN') then ${tradingMandateDecisionClaimsTable.reservedNotional}::numeric else 0 end), 0)::text`,
-      })
-      .from(tradingMandateDecisionClaimsTable)
-      .where(eq(tradingMandateDecisionClaimsTable.mandateId, mandateId)),
-  ]);
-  return {
-    decisions: Number(counts?.decisions ?? 0),
-    entries: Number(counts?.entries ?? 0),
-    fillLatencyMs: counts?.fillLatencyMs ?? null,
-    liveDemoDivergenceBps: counts?.liveDemoDivergenceBps ?? null,
-    canaryUsed: BigInt(lifetime?.canaryUsed ?? "0"),
-  };
-}
-
 function drawdownBps(
   peak: string | null,
   current: string | null,
@@ -341,7 +302,7 @@ export async function authorizeRestrictedLiveEntry(
     brainVersion: active.core.terms.brainVersion,
     idempotencyKey,
   };
-  const [health, safety, losses, recent] = await Promise.all([
+  const [health, safety, losses] = await Promise.all([
     getLiveExecutionHealth(input.userId, input.section),
     evaluatePersistedLiveSafety({
       userId: input.userId,
@@ -354,7 +315,6 @@ export async function authorizeRestrictedLiveEntry(
       command: liveCommand,
     }),
     realizedLosses(input.userId, input.section, input.now),
-    recentMandateMetrics(active.view.id, input.now),
   ]);
   const perTradeRisk = decimalToAtomicCeil(
     plannedRiskDollars(
@@ -406,7 +366,7 @@ export async function authorizeRestrictedLiveEntry(
     perTradeRisk,
     positionNotional,
     aggregateExposure,
-    canaryUsed: recent.canaryUsed,
+    canaryUsed: null,
     leverageBps: Number.isFinite(input.plan.leverage)
       ? Math.ceil(Math.max(1, input.plan.leverage) * 10_000)
       : null,
@@ -419,14 +379,14 @@ export async function authorizeRestrictedLiveEntry(
       health.state.peakEquityMinor,
       health.state.currentEquityMinor,
     ),
-    decisionsLastHour: recent.decisions,
-    entriesLastHour: recent.entries,
+    decisionsLastHour: null,
+    entriesLastHour: null,
     spreadBps: input.spreadBps,
     expectedSlippageBps: input.expectedSlippageBps,
-    fillLatencyMs: recent.fillLatencyMs,
+    fillLatencyMs: null,
     protectionFailures: health.state.protectionState === "HEALTHY" ? 0 : 1,
     reconciliationAgeSeconds,
-    liveDemoDivergenceBps: recent.liveDemoDivergenceBps,
+    liveDemoDivergenceBps: null,
     marketDataAgeSeconds,
     deterministicRiskPassed: input.riskChecks.every((item) => item.passed),
     currentStateRevalidated:
@@ -461,35 +421,12 @@ export async function authorizeRestrictedLiveEntry(
     identity,
   });
   if (!claim.allowed) {
-    let automaticallySuspended = false;
-    if (
-      claim.evaluation.automaticSuspensionRequired &&
-      active.view.lifecycleState === "ACTIVE"
-    ) {
-      await transitionTradingMandate({
-        mandateId: active.view.id,
-        userId: input.userId,
-        section: input.section,
-        expectedRevision: active.view.revision,
-        clientRequestId: deterministicUuid({
-          type: "phase12-automatic-suspension",
-          mandateId: active.view.id,
-          decisionFingerprint,
-          reasonCode: claim.evaluation.reasonCode,
-        }),
-        reason: claim.evaluation.reason,
-        actorType: "SYSTEM",
-        action: "SUSPEND",
-        reasonCode: claim.evaluation.reasonCode,
-      });
-      automaticallySuspended = true;
-    }
     return {
       allowed: false,
       reasonCode: claim.evaluation.reasonCode,
       reason: claim.evaluation.reason,
       fallbackEligible: claim.evaluation.fallbackEligible,
-      automaticallySuspended,
+      automaticallySuspended: claim.automaticallySuspended,
     };
   }
   return {

@@ -8,7 +8,8 @@ page.on("pageerror", (error) =>
   console.error(`  PAGE ERROR  ${error.stack ?? error.message}`),
 );
 page.on("console", (message) => {
-  if (message.type() === "error") console.error(`  BROWSER ERROR  ${message.text()}`);
+  if (message.type() === "error")
+    console.error(`  BROWSER ERROR  ${message.text()}`);
 });
 let failures = 0;
 let role = "OWNER";
@@ -16,8 +17,10 @@ let degraded = [];
 let mandate = null;
 let previous = null;
 let nextId = 12;
+let createdDraftTerms = null;
 const now = new Date();
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function expect(name, condition) {
   if (condition) console.log(`  PASS  ${name}`);
@@ -65,7 +68,7 @@ const demoMandate = {
   schemaVersion: "phase10-demo-autopilot-v1",
   userId: 42,
   section: "crypto",
-  version: 1,
+  version: 2,
   botConfigId: 1,
   configFingerprint: "b".repeat(64),
   brainVersionId: 7,
@@ -90,6 +93,14 @@ const demoMandate = {
   expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
   fingerprint: "c".repeat(64),
   createdAt: now.toISOString(),
+};
+const oldDemoMandate = {
+  ...demoMandate,
+  id: 3,
+  version: 1,
+  instruments: ["OLDUSDT"],
+  strategyVersions: { legacy: "strategy-v1" },
+  fingerprint: "d".repeat(64),
 };
 const config = {
   demoDataAvailable: true,
@@ -255,15 +266,21 @@ await page.route("**/api/**", async (route) => {
       globalSuspended: true,
       liveAuthorityEnabled: false,
       authorityBoundary: ["simulated_demo"],
-      snapshot: {},
+      snapshot: {
+        control: { mandateId: demoMandate.id },
+        mandate: demoMandate,
+        brainVersion: brain,
+        mandateState: { mandateId: demoMandate.id, state: "ACTIVE" },
+      },
       versions: [brain],
-      mandates: [demoMandate],
+      mandates: [demoMandate, oldDemoMandate],
       events: [],
     });
   if (url.pathname === "/api/trading-mandates" && method === "GET")
     return json(control());
   if (url.pathname === "/api/trading-mandates" && method === "POST") {
     const body = route.request().postDataJSON();
+    createdDraftTerms = body.terms;
     previous = mandate;
     mandate = view(
       {
@@ -337,6 +354,12 @@ try {
 
   await page.getByRole("button", { name: "Create immutable draft" }).click();
   await page.getByRole("button", { name: "Submit exact revision" }).waitFor();
+  expect(
+    "draft pins the authoritative current Demo scope, not the oldest list item",
+    createdDraftTerms?.symbols?.join(",") === "BTCUSDT,ETHUSDT" &&
+      createdDraftTerms?.strategies?.momentum === "strategy-v3" &&
+      createdDraftTerms?.strategies?.legacy === undefined,
+  );
   expect(
     "draft creation workflow is visible",
     await page.getByText("DRAFT", { exact: true }).first().isVisible(),
