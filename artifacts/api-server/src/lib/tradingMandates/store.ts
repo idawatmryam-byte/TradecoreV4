@@ -849,6 +849,7 @@ async function loadClaimDerivedMetrics(
 ): Promise<{
   decisionsLastHour: number;
   entriesLastHour: number;
+  executedEntriesLastHour: number;
   fillLatencyMs: number | null;
   liveDemoDivergenceBps: number | null;
   canaryUsed: bigint;
@@ -860,6 +861,7 @@ async function loadClaimDerivedMetrics(
     .select({
       decisionsLastHour: count(),
       entriesLastHour: sql<number>`count(*) filter (where ${tradingMandateDecisionClaimsTable.status} in ('CLAIMED','BOUNDARY_AUTHORIZED','EXECUTED','OUTCOME_UNKNOWN'))::int`,
+      executedEntriesLastHour: sql<number>`count(*) filter (where ${tradingMandateDecisionClaimsTable.status} = 'EXECUTED')::int`,
       fillLatencyMs: sql<
         number | null
       >`max(${tradingMandateDecisionClaimsTable.fillLatencyMs})::int`,
@@ -885,6 +887,7 @@ async function loadClaimDerivedMetrics(
   return {
     decisionsLastHour: Number(hour?.decisionsLastHour ?? 0),
     entriesLastHour: Number(hour?.entriesLastHour ?? 0),
+    executedEntriesLastHour: Number(hour?.executedEntriesLastHour ?? 0),
     fillLatencyMs: hour?.fillLatencyMs ?? null,
     liveDemoDivergenceBps: hour?.liveDemoDivergenceBps ?? null,
     canaryUsed: BigInt(lifetime?.canaryUsed ?? "0"),
@@ -981,6 +984,7 @@ export async function evaluateAndClaimRestrictedLiveDecisionInTransaction(
         : input.evidence.openOrderCount + metrics.outstandingClaimCount,
     decisionsLastHour: metrics.decisionsLastHour,
     entriesLastHour: metrics.entriesLastHour,
+    executedEntriesLastHour: metrics.executedEntriesLastHour,
     fillLatencyMs: metrics.fillLatencyMs,
     liveDemoDivergenceBps: metrics.liveDemoDivergenceBps,
   };
