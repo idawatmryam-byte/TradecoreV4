@@ -192,25 +192,25 @@ export async function verifyFinancialStepUp(
   return ok ? { ok: true } : { ok: false, reason: "Live approval step-up authentication failed" };
 }
 
-/** Fail closed when a cookie-authenticated financial mutation is not same-origin. */
-export function verifyFinancialRequestOrigin(req: Request): { ok: true } | { ok: false; reason: string } {
-  if (req.authMethod === "basic") return { ok: true };
-  const fetchSite = req.get("sec-fetch-site")?.toLowerCase();
-  if (fetchSite && fetchSite !== "same-origin" && fetchSite !== "none") {
-    return { ok: false, reason: "Cross-site financial actions are not permitted" };
+export const FINANCIAL_ROLES = ["OWNER", "FINANCIAL_OPERATOR", "VIEWER"] as const;
+export type FinancialRole = (typeof FINANCIAL_ROLES)[number];
+
+/** Server-side role and session-version lookup for financial authority writes. */
+export async function getFinancialAuthorizationIdentity(
+  userId: number,
+): Promise<{ role: FinancialRole; sessionVersion: number } | null> {
+  const [user] = await db.select({
+    role: usersTable.financialRole,
+    sessionVersion: usersTable.sessionVersion,
+  }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (!user || !FINANCIAL_ROLES.includes(user.role as FinancialRole)
+    || !Number.isInteger(user.sessionVersion) || user.sessionVersion < 0) {
+    return null;
   }
-  const origin = req.get("origin");
-  const host = req.get("host");
-  if (!origin || !host) {
-    return { ok: false, reason: "Financial actions require a verifiable same-origin browser request" };
-  }
-  try {
-    if (new URL(origin).host !== host) return { ok: false, reason: "Cross-origin financial actions are not permitted" };
-  } catch {
-    return { ok: false, reason: "Financial action origin is invalid" };
-  }
-  return { ok: true };
+  return { role: user.role as FinancialRole, sessionVersion: user.sessionVersion };
 }
+
+export { verifyFinancialRequestOrigin } from "./financialRequest";
 
 export async function getAuthenticatedUserId(req: Request): Promise<number | null> {
   const cookieUserId = await verifyCookieAuth(req.cookies?.[SESSION_COOKIE_NAME]);

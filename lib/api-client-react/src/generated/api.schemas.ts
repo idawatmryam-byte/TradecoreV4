@@ -5,6 +5,492 @@
  * TradeCore Pro - Binance Spot Trading Bot API
  * OpenAPI spec version: 0.1.0
  */
+export type TradingMandateLifecycleState = typeof TradingMandateLifecycleState[keyof typeof TradingMandateLifecycleState];
+
+
+export const TradingMandateLifecycleState = {
+  DRAFT: 'DRAFT',
+  PENDING_APPROVAL: 'PENDING_APPROVAL',
+  ACTIVE: 'ACTIVE',
+  SUSPENDED: 'SUSPENDED',
+  REVOKED: 'REVOKED',
+  EXPIRED: 'EXPIRED',
+  REPLACED: 'REPLACED',
+  RETIRED: 'RETIRED',
+} as const;
+
+export interface TradingMandateWindow {
+  /**
+     * IANA timezone evaluated by the server at the command timestamp.
+     * @minLength 1
+     * @maxLength 80
+     */
+  timezone: string;
+  /**
+     * @minItems 1
+     * @maxItems 7
+     * @items.minimum 0
+     * @items.maximum 6
+     */
+  daysOfWeek: number[];
+  /**
+     * @minimum 0
+     * @maximum 1439
+     */
+  startMinute: number;
+  /**
+     * Exclusive local-wall-clock boundary; overnight windows are separate records.
+     * @minimum 1
+     * @maximum 1440
+     */
+  endMinute: number;
+}
+
+export interface TradingMandateSuspensionThresholds {
+  /**
+     * @minimum 1
+     * @maximum 10000
+     */
+  maximumSpreadBps: number;
+  /**
+     * @minimum 1
+     * @maximum 10000
+     */
+  maximumSlippageBps: number;
+  /**
+     * @minimum 1
+     * @maximum 300000
+     */
+  maximumFillLatencyMs: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  maximumProtectionFailures: number;
+  /**
+     * @minimum 1
+     * @maximum 3600
+     */
+  maximumReconciliationAgeSeconds: number;
+  /**
+     * @minimum 1
+     * @maximum 10000
+     */
+  maximumDecisionRatePerHour: number;
+  /**
+     * @minimum 1
+     * @maximum 1000
+     */
+  maximumEntryRatePerHour: number;
+  /**
+     * @minimum 1
+     * @maximum 10000
+     */
+  maximumLiveDemoDivergenceBps: number;
+  /**
+     * @minimum 1
+     * @maximum 300
+     */
+  maximumMarketDataAgeSeconds: number;
+}
+
+export type TradingMandateTermsExchangesItem = typeof TradingMandateTermsExchangesItem[keyof typeof TradingMandateTermsExchangesItem];
+
+
+export const TradingMandateTermsExchangesItem = {
+  binance_spot_live: 'binance_spot_live',
+  binance_futures_live: 'binance_futures_live',
+  oanda_live: 'oanda_live',
+} as const;
+
+export type TradingMandateTermsMarketsItem = typeof TradingMandateTermsMarketsItem[keyof typeof TradingMandateTermsMarketsItem];
+
+
+export const TradingMandateTermsMarketsItem = {
+  spot: 'spot',
+  futures: 'futures',
+  forex: 'forex',
+} as const;
+
+export type TradingMandateTermsStrategies = {[key: string]: string};
+
+export type TradingMandateTermsSettlementCurrency = typeof TradingMandateTermsSettlementCurrency[keyof typeof TradingMandateTermsSettlementCurrency];
+
+
+export const TradingMandateTermsSettlementCurrency = {
+  USD: 'USD',
+  USDT: 'USDT',
+} as const;
+
+export type TradingMandateTermsFallbackPolicy = typeof TradingMandateTermsFallbackPolicy[keyof typeof TradingMandateTermsFallbackPolicy];
+
+
+export const TradingMandateTermsFallbackPolicy = {
+  COPILOT_VALID_ONLY: 'COPILOT_VALID_ONLY',
+  ABSTAIN: 'ABSTAIN',
+} as const;
+
+export interface TradingMandateTerms {
+  /** @minimum 1 */
+  brainVersionId: number;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  brainVersion: string;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  brainFingerprint: string;
+  /**
+     * @minItems 1
+     * @maxItems 20
+     * @items.minLength 1
+     * @items.maxLength 160
+     */
+  accountIds: string[];
+  /**
+     * @minItems 1
+     * @maxItems 3
+     */
+  exchanges: TradingMandateTermsExchangesItem[];
+  /**
+     * @minItems 1
+     * @maxItems 3
+     */
+  markets: TradingMandateTermsMarketsItem[];
+  /**
+     * @minItems 1
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 80
+     */
+  symbols: string[];
+  strategies: TradingMandateTermsStrategies;
+  /**
+     * @minItems 1
+     * @maxItems 20
+     * @items.minLength 1
+     * @items.maxLength 160
+     */
+  models: string[];
+  settlementCurrency: TradingMandateTermsSettlementCurrency;
+  /** All monetary strings are non-negative integers in 10^-8 currency units. */
+  monetaryScale: 8;
+  /** @pattern ^[1-9][0-9]*$ */
+  maximumPerTradeRisk: string;
+  /** @pattern ^[1-9][0-9]*$ */
+  maximumPositionNotional: string;
+  /** @pattern ^[1-9][0-9]*$ */
+  maximumAggregateExposure: string;
+  /**
+     * 10000 means 1.0000x; the maximum is inclusive.
+     * @minimum 10000
+     * @maximum 1250000
+     */
+  maximumLeverageBps: number;
+  /**
+     * @minimum 1
+     * @maximum 1000
+     */
+  maximumConcurrentPositions: number;
+  /**
+     * @minimum 1
+     * @maximum 1000
+     */
+  maximumConcurrentOrders: number;
+  /** @pattern ^[1-9][0-9]*$ */
+  dailyLossLimit: string;
+  /** @pattern ^[1-9][0-9]*$ */
+  weeklyLossLimit: string;
+  /** @pattern ^[1-9][0-9]*$ */
+  monthlyLossLimit: string;
+  /**
+     * @minimum 1
+     * @maximum 10000
+     */
+  maximumDrawdownBps: number;
+  /**
+     * @minItems 1
+     * @maxItems 32
+     */
+  tradingHours: TradingMandateWindow[];
+  effectiveAt: string;
+  /** Exclusive hard-expiry boundary; maximum duration is 30 days. */
+  expiresAt: string;
+  /**
+     * Inclusive aggregate autonomous Live notional ceiling in 10^-8 currency units.
+     * @pattern ^[1-9][0-9]*$
+     */
+  canaryAllocation: string;
+  automaticSuspension: TradingMandateSuspensionThresholds;
+  fallbackPolicy: TradingMandateTermsFallbackPolicy;
+}
+
+export interface CreateTradingMandateRequest {
+  clientRequestId: string;
+  /** @minimum 1 */
+  expectedNextRevision: number;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  replacesMandateId?: number | null;
+  /**
+     * @minLength 12
+     * @maxLength 1000
+     */
+  changeReason: string;
+  terms: TradingMandateTerms;
+}
+
+export interface TradingMandateTransitionRequest {
+  clientRequestId: string;
+  /** @minimum 1 */
+  expectedRevision: number;
+  /**
+     * @minLength 12
+     * @maxLength 1000
+     */
+  reason: string;
+}
+
+export interface ApproveTradingMandateRequest {
+  clientRequestId: string;
+  authorizationId: string;
+  /** @minimum 1 */
+  expectedRevision: number;
+  /**
+     * @minLength 12
+     * @maxLength 1000
+     */
+  reason: string;
+  confirmation: 'AUTHORIZE_RESTRICTED_LIVE_MANDATE';
+  /** @minLength 1 */
+  currentPassword?: string;
+}
+
+export type TradingMandateSection = typeof TradingMandateSection[keyof typeof TradingMandateSection];
+
+
+export const TradingMandateSection = {
+  crypto: 'crypto',
+  forex: 'forex',
+} as const;
+
+/**
+ * @nullable
+ */
+export type TradingMandateAuthorizationMethod = typeof TradingMandateAuthorizationMethod[keyof typeof TradingMandateAuthorizationMethod] | null;
+
+
+export const TradingMandateAuthorizationMethod = {
+  PASSWORD_STEP_UP: 'PASSWORD_STEP_UP',
+  BASIC_REAUTH: 'BASIC_REAUTH',
+} as const;
+
+export interface TradingMandate {
+  /** @minimum 1 */
+  id: number;
+  mandateKey: string;
+  /** @minimum 1 */
+  revision: number;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  replacesMandateId?: number | null;
+  /** @minimum 1 */
+  userId: number;
+  /** @minLength 1 */
+  tenantId: string;
+  section: TradingMandateSection;
+  lifecycleState: TradingMandateLifecycleState;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  fingerprint: string;
+  terms: TradingMandateTerms;
+  changeReason: string;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  approvingHumanId: number | null;
+  /** @nullable */
+  authorizationMethod: TradingMandateAuthorizationMethod;
+  /** @nullable */
+  authorizedAt: string | null;
+  /** @minimum 1 */
+  createdByUserId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TradingMandateUsageStatus = typeof TradingMandateUsageStatus[keyof typeof TradingMandateUsageStatus];
+
+
+export const TradingMandateUsageStatus = {
+  CURRENT: 'CURRENT',
+  STALE: 'STALE',
+  UNAVAILABLE: 'UNAVAILABLE',
+} as const;
+
+export type TradingMandateUsageCurrency = typeof TradingMandateUsageCurrency[keyof typeof TradingMandateUsageCurrency];
+
+
+export const TradingMandateUsageCurrency = {
+  USD: 'USD',
+  USDT: 'USDT',
+} as const;
+
+export interface TradingMandateUsage {
+  status: TradingMandateUsageStatus;
+  calculatedAt: string;
+  currency: TradingMandateUsageCurrency;
+  monetaryScale: 8;
+  /** @nullable */
+  openPositionCount: number | null;
+  /** @nullable */
+  openOrderCount: number | null;
+  /**
+     * @nullable
+     * @pattern ^[0-9]+$
+     */
+  aggregateExposure: string | null;
+  /**
+     * @nullable
+     * @pattern ^[0-9]+$
+     */
+  remainingExposure: string | null;
+  /**
+     * @nullable
+     * @pattern ^[0-9]+$
+     */
+  canaryUsed: string | null;
+  /**
+     * @nullable
+     * @pattern ^[0-9]+$
+     */
+  canaryRemaining: string | null;
+  /**
+     * @nullable
+     * @pattern ^[0-9]+$
+     */
+  dailyLoss: string | null;
+  /**
+     * @nullable
+     * @pattern ^[0-9]+$
+     */
+  weeklyLoss: string | null;
+  /**
+     * @nullable
+     * @pattern ^[0-9]+$
+     */
+  monthlyLoss: string | null;
+  /** @nullable */
+  drawdownBps: number | null;
+  /** @pattern ^[0-9]+$ */
+  maximumPossibleExposure: string;
+  staleReasons: string[];
+}
+
+export type TradingMandateEventActorType = typeof TradingMandateEventActorType[keyof typeof TradingMandateEventActorType];
+
+
+export const TradingMandateEventActorType = {
+  HUMAN: 'HUMAN',
+  SYSTEM: 'SYSTEM',
+} as const;
+
+export interface TradingMandateEvent {
+  id: number;
+  mandateId: number;
+  eventType: string;
+  actorType: TradingMandateEventActorType;
+  /** @nullable */
+  actorUserId?: number | null;
+  reasonCode: string;
+  reason: string;
+  /** @nullable */
+  fromState?: string | null;
+  /** @nullable */
+  toState?: string | null;
+  /** @nullable */
+  fingerprint?: string | null;
+  occurredAt: string;
+}
+
+export type TradingMandateDecisionStatus = typeof TradingMandateDecisionStatus[keyof typeof TradingMandateDecisionStatus];
+
+
+export const TradingMandateDecisionStatus = {
+  CLAIMED: 'CLAIMED',
+  BOUNDARY_AUTHORIZED: 'BOUNDARY_AUTHORIZED',
+  EXECUTED: 'EXECUTED',
+  REFUSED: 'REFUSED',
+  FAILED: 'FAILED',
+  OUTCOME_UNKNOWN: 'OUTCOME_UNKNOWN',
+} as const;
+
+export interface TradingMandateDecision {
+  id: number;
+  mandateId: number;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  decisionFingerprint: string;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  riskFingerprint: string;
+  status: TradingMandateDecisionStatus;
+  reasonCode: string;
+  reason: string;
+  /** @nullable */
+  intentId?: number | null;
+  /** @nullable */
+  tradeId?: number | null;
+  createdAt: string;
+}
+
+export type TradingMandateControlRole = typeof TradingMandateControlRole[keyof typeof TradingMandateControlRole];
+
+
+export const TradingMandateControlRole = {
+  OWNER: 'OWNER',
+  FINANCIAL_OPERATOR: 'FINANCIAL_OPERATOR',
+  VIEWER: 'VIEWER',
+} as const;
+
+export type TradingMandateEligibleAccountAuthoritiesItem = typeof TradingMandateEligibleAccountAuthoritiesItem[keyof typeof TradingMandateEligibleAccountAuthoritiesItem];
+
+
+export const TradingMandateEligibleAccountAuthoritiesItem = {
+  binance_spot_live: 'binance_spot_live',
+  binance_futures_live: 'binance_futures_live',
+  oanda_live: 'oanda_live',
+} as const;
+
+export interface TradingMandateEligibleAccount {
+  /** Server-derived opaque account fingerprint; provider credentials are never returned. */
+  accountId: string;
+  authorities: TradingMandateEligibleAccountAuthoritiesItem[];
+}
+
+export interface TradingMandateControl {
+  authorityLabel: 'RESTRICTED_LIVE';
+  productionActivationRequired: true;
+  role: TradingMandateControlRole;
+  eligibleAccounts: TradingMandateEligibleAccount[];
+  activeMandate: TradingMandate | null;
+  mandates: TradingMandate[];
+  usage: TradingMandateUsage | null;
+  events: TradingMandateEvent[];
+  decisions: TradingMandateDecision[];
+  degradedReasons: string[];
+}
+
+export interface TradingMandateDetail {
+  mandate: TradingMandate;
+  usage: TradingMandateUsage | null;
+  events: TradingMandateEvent[];
+  decisions: TradingMandateDecision[];
+  previousRevision: TradingMandate | null;
+}
+
 export type AutopilotForwardSoakReportStatus = typeof AutopilotForwardSoakReportStatus[keyof typeof AutopilotForwardSoakReportStatus];
 
 

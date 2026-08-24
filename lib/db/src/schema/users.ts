@@ -1,4 +1,5 @@
-import { pgTable, serial, integer, text, timestamp, unique, boolean } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { pgTable, serial, integer, text, timestamp, unique, boolean, check } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -32,8 +33,13 @@ export const usersTable = pgTable("users", {
    *  one account can revoke its own outstanding sessions without rotating the
    *  global SESSION_SECRET and logging out every user. */
   sessionVersion: integer("session_version").notNull().default(0),
+  /** Tenant-local financial authorization role. VIEWER cannot mutate money
+   *  authority; OWNER and FINANCIAL_OPERATOR may do so only with step-up. */
+  financialRole: text("financial_role").notNull().default("OWNER"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  check("users_financial_role_check", sql`${t.financialRole} IN ('OWNER','FINANCIAL_OPERATOR','VIEWER')`),
+]);
 
 // ---------------------------------------------------------------------------
 // Linked sign-in identities — one row per (provider, provider account) pair.

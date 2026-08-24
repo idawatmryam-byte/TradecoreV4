@@ -17,3 +17,4 @@ export * from "./evidence";
 export * from "./research";
 export * from "./autopilot";
 export * from "./liveSafety";
+export * from "./tradingMandates";

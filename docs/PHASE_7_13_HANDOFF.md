@@ -129,7 +129,7 @@ Preserve these rules:
 that phase. It does not mean promoted to autonomous Demo or Live execution.
 
 | Phase                        | Status                                                              | Implemented outcome                                                                                                                                                                        | Authority boundary                                                                                                                        |
-| ---------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| ---------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | 0 — Baseline                 | Complete                                                            | Versioned Brain V0 manifest, deterministic fingerprints, metric and promotion contracts, rollback classes, baseline UI/status, and harness coverage                                        | Observational only; no decision or execution behavior change                                                                              |
 | 1 — Unified contracts        | Complete                                                            | Versioned intelligence schemas, canonical serialization/hashing, TradePlan adapters, append-only capture definitions, OpenAPI and generated client contracts                               | Compatibility-first; Brain V0 remains the money path                                                                                      |
 | 2 — Shared market perception | Complete                                                            | Immutable closed-candle `MarketState`, data-quality/freshness refusal, market overview/radar surfaces, and deterministic fixtures                                                          | Observational; no fabricated cross-symbol data and no execution authority                                                                 |
@@ -1041,6 +1041,25 @@ revocable, time-bounded human mandate. This is not unrestricted autonomy.
 - Mandate builder/status/audit UI.
 - Canary and suspension monitoring.
 - Security, testnet/practice, and explicit authorization evidence.
+
+### Phase 12 implementation record (2026-08-24)
+
+- Added canonical immutable `TradingMandate` revisions, lifecycle/usage projections,
+  append-only authorization/lifecycle/decision evidence, database constraints, and
+  bounded runtime grants.
+- Added role/origin/session/step-up API lifecycle, authorization replay protection,
+  one-active-mandate concurrency control, server-derived opaque accounts, and
+  server-authoritative financial usage.
+- Added the mandate gate and durable decision claim to the existing Live path,
+  with a second locked check at `LiveExecutor`, Phase 11 command identity, mandatory
+  intent linkage, deterministic suspension/revocation ordering, and unknown-outcome
+  reconciliation semantics.
+- Added valid scope-only Co-Pilot fallback, canary/threshold suspension, execution
+  telemetry, operator UI, deterministic/integration/browser harnesses, ADR-011, and
+  the operator/security guide in `docs/phase-12-restricted-live-autopilot.md`.
+- Repository implementation does not deploy or activate Restricted Live authority.
+  Database-backed, testnet/practice, VPS/provider, and real-money evidence remain
+  separate and must be reported only when the corresponding checks actually run.
 
 ## 14. Phase 13 — Scalable Intelligence Platform
 

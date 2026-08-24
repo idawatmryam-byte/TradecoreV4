@@ -32,6 +32,7 @@ import {
   makeClientOrderId,
 } from "./ids";
 import type { LiveCommandIdentity } from "./liveSafety";
+import type { RestrictedLiveExecutionContext } from "../tradingMandates/service";
 
 export { makeClientOrderId };
 
@@ -71,6 +72,7 @@ export interface OpenIntentArgs {
     riskFingerprint: string;
     idempotencyKey: string;
   };
+  restrictedLive?: RestrictedLiveExecutionContext;
 }
 
 /**
@@ -84,7 +86,9 @@ export async function openIntent(
   args: OpenIntentArgs,
 ): Promise<IntentHandle | null> {
   const stableIdempotencyKey =
-    args.command?.idempotencyKey ?? args.autopilot?.idempotencyKey;
+    args.command?.idempotencyKey ??
+    args.restrictedLive?.idempotencyKey ??
+    args.autopilot?.idempotencyKey;
   const correlationId = stableIdempotencyKey
     ? makeCommandCorrelationId(stableIdempotencyKey)
     : randomUUID();
@@ -115,6 +119,17 @@ export async function openIntent(
           brainDecisionFingerprint: args.autopilot.decisionFingerprint,
           riskDecisionFingerprint: args.autopilot.riskFingerprint,
           autopilotIdempotencyKey: args.autopilot.idempotencyKey,
+        }),
+        ...(args.restrictedLive && {
+          restrictedLiveClaimId: args.restrictedLive.claimId,
+          tradingMandateId: args.restrictedLive.mandateId,
+          tradingMandateRevision: args.restrictedLive.mandateRevision,
+          tradingMandateFingerprint: args.restrictedLive.mandateFingerprint,
+          configurationFingerprint:
+            args.restrictedLive.configurationFingerprint,
+          brainVersion: args.restrictedLive.brainVersion,
+          brainDecisionFingerprint: args.restrictedLive.decisionFingerprint,
+          riskDecisionFingerprint: args.restrictedLive.riskFingerprint,
         }),
         symbol: args.symbol,
         side: args.side,
@@ -172,7 +187,7 @@ export async function openIntent(
       existing: false,
     };
   } catch (err) {
-    if (args.mandatory || args.autopilot) {
+    if (args.mandatory || args.autopilot || args.restrictedLive) {
       throw new Error(
         "Execution refused because its durable intent could not be persisted",
         {
