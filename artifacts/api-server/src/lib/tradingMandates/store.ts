@@ -195,7 +195,7 @@ async function loadLocked(
       ),
     )
     .limit(1)
-    .for("update");
+    .for("update", { of: tradingMandateStatesTable });
   if (!row) throw new MandateNotFoundError("Trading mandate not found");
   return row;
 }
@@ -224,7 +224,7 @@ export async function expireTradingMandates(
           lte(tradingMandatesTable.expiresAt, now),
         ),
       )
-      .for("update");
+      .for("update", { of: tradingMandateStatesTable });
     for (const row of expired) {
       await tx
         .update(tradingMandateStatesTable)
@@ -571,7 +571,7 @@ export async function approveTradingMandate(input: {
           ne(tradingMandatesTable.id, current.mandate.id),
         ),
       )
-      .for("update");
+      .for("update", { of: tradingMandateStatesTable });
     for (const prior of active) {
       if (current.mandate.replacesMandateId !== prior.mandate.id) {
         throw new MandateConflictError(
