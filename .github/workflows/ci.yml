@@ -151,7 +151,7 @@ jobs:
 
       - name: Test Restricted Live browser regression
         run: |
-          export PORT=8090 BASE_PATH=/
+          export PORT=4173 BASE_PATH=/
           pnpm --filter @workspace/tradecore-pro run build
           pnpm --filter @workspace/tradecore-pro run serve > /tmp/restricted-live-preview.log 2>&1 &
           preview_pid=$!
