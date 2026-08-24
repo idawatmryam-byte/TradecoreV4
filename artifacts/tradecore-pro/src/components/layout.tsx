@@ -142,6 +142,7 @@ const PRIMARY_NAV: NavItem[] = [
   { href: "/copilot", label: "AI Co-Pilot", icon: Inbox },
   { href: "/autopilot", label: "Demo Autopilot", icon: ShieldAlert },
   { href: "/execution-health", label: "Execution Health", icon: ShieldCheck },
+  { href: "/restricted-live", label: "Restricted Live", icon: ShieldAlert },
   { href: "/portfolio", label: "Portfolio", icon: PieChart, match: ["/trades", "/journal"] },
   { href: "/stats", label: "Performance", icon: BarChart2, match: ["/decisions"] },
   { href: "/settings", label: "Settings", icon: Settings, match: ["/account"] },

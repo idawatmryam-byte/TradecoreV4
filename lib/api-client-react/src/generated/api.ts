@@ -21,6 +21,7 @@ import type {
 
 import type {
   ActivateAutopilotRequest,
+  ApproveTradingMandateRequest,
   AutopilotBrainVersion,
   AutopilotControl,
   AutopilotControlCenter,
@@ -43,6 +44,7 @@ import type {
   ConnectionTestResult,
   CorrelationHeatMap,
   CreateAutopilotMandateRequest,
+  CreateTradingMandateRequest,
   CustomStrategy,
   CustomStrategyCreate,
   CustomStrategyUpdate,
@@ -127,6 +129,10 @@ import type {
   TestOandaConnectionBody,
   ToxicHour,
   Trade,
+  TradingMandate,
+  TradingMandateControl,
+  TradingMandateDetail,
+  TradingMandateTransitionRequest,
   TransitionAutopilotBrainVersionRequest,
   UpdateMemoryInfluence,
   UpdateStrategyConfig200
@@ -821,6 +827,514 @@ export const useApplyExecutionIntentAction = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getApplyExecutionIntentActionMutationOptions(options));
+    }
+
+export const getGetTradingMandateControlUrl = () => {
+
+
+
+
+  return `/api/trading-mandates`
+}
+
+/**
+ * @summary Read Restricted Live mandate authority, usage, and audit evidence
+ */
+export const getTradingMandateControl = async ( options?: RequestInit): Promise<TradingMandateControl> => {
+
+  return customFetch<TradingMandateControl>(getGetTradingMandateControlUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTradingMandateControlQueryKey = () => {
+    return [
+    `/api/trading-mandates`
+    ] as const;
+    }
+
+
+export const getGetTradingMandateControlQueryOptions = <TData = Awaited<ReturnType<typeof getTradingMandateControl>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTradingMandateControl>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTradingMandateControlQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTradingMandateControl>>> = ({ signal }) => getTradingMandateControl({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTradingMandateControl>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTradingMandateControlQueryResult = NonNullable<Awaited<ReturnType<typeof getTradingMandateControl>>>
+export type GetTradingMandateControlQueryError = ErrorType<void>
+
+
+/**
+ * @summary Read Restricted Live mandate authority, usage, and audit evidence
+ */
+
+export function useGetTradingMandateControl<TData = Awaited<ReturnType<typeof getTradingMandateControl>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTradingMandateControl>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTradingMandateControlQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateTradingMandateUrl = () => {
+
+
+
+
+  return `/api/trading-mandates`
+}
+
+/**
+ * @summary Freeze one immutable Draft mandate revision with no execution authority
+ */
+export const createTradingMandate = async (createTradingMandateRequest: CreateTradingMandateRequest, options?: RequestInit): Promise<TradingMandate> => {
+
+  return customFetch<TradingMandate>(getCreateTradingMandateUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createTradingMandateRequest)
+  }
+);}
+
+
+
+
+export const getCreateTradingMandateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTradingMandate>>, TError,{data: BodyType<CreateTradingMandateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTradingMandate>>, TError,{data: BodyType<CreateTradingMandateRequest>}, TContext> => {
+
+const mutationKey = ['createTradingMandate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTradingMandate>>, {data: BodyType<CreateTradingMandateRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTradingMandate(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTradingMandateMutationResult = NonNullable<Awaited<ReturnType<typeof createTradingMandate>>>
+    export type CreateTradingMandateMutationBody = BodyType<CreateTradingMandateRequest>
+    export type CreateTradingMandateMutationError = ErrorType<void>
+
+    /**
+ * @summary Freeze one immutable Draft mandate revision with no execution authority
+ */
+export const useCreateTradingMandate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTradingMandate>>, TError,{data: BodyType<CreateTradingMandateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createTradingMandate>>,
+        TError,
+        {data: BodyType<CreateTradingMandateRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateTradingMandateMutationOptions(options));
+    }
+
+export const getGetTradingMandateUrl = (mandateId: number,) => {
+
+
+
+
+  return `/api/trading-mandates/${mandateId}`
+}
+
+/**
+ * @summary Read one tenant-scoped immutable mandate revision and its audit trail
+ */
+export const getTradingMandate = async (mandateId: number, options?: RequestInit): Promise<TradingMandateDetail> => {
+
+  return customFetch<TradingMandateDetail>(getGetTradingMandateUrl(mandateId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTradingMandateQueryKey = (mandateId: number,) => {
+    return [
+    `/api/trading-mandates/${mandateId}`
+    ] as const;
+    }
+
+
+export const getGetTradingMandateQueryOptions = <TData = Awaited<ReturnType<typeof getTradingMandate>>, TError = ErrorType<void>>(mandateId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTradingMandate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTradingMandateQueryKey(mandateId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTradingMandate>>> = ({ signal }) => getTradingMandate(mandateId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: mandateId !== null && mandateId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTradingMandate>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTradingMandateQueryResult = NonNullable<Awaited<ReturnType<typeof getTradingMandate>>>
+export type GetTradingMandateQueryError = ErrorType<void>
+
+
+/**
+ * @summary Read one tenant-scoped immutable mandate revision and its audit trail
+ */
+
+export function useGetTradingMandate<TData = Awaited<ReturnType<typeof getTradingMandate>>, TError = ErrorType<void>>(
+ mandateId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTradingMandate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTradingMandateQueryOptions(mandateId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSubmitTradingMandateUrl = (mandateId: number,) => {
+
+
+
+
+  return `/api/trading-mandates/${mandateId}/submit`
+}
+
+/**
+ * @summary Move an exact Draft revision to Pending approval without granting authority
+ */
+export const submitTradingMandate = async (mandateId: number,
+    tradingMandateTransitionRequest: TradingMandateTransitionRequest, options?: RequestInit): Promise<TradingMandate> => {
+
+  return customFetch<TradingMandate>(getSubmitTradingMandateUrl(mandateId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tradingMandateTransitionRequest)
+  }
+);}
+
+
+
+
+export const getSubmitTradingMandateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitTradingMandate>>, TError,{mandateId: number;data: BodyType<TradingMandateTransitionRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitTradingMandate>>, TError,{mandateId: number;data: BodyType<TradingMandateTransitionRequest>}, TContext> => {
+
+const mutationKey = ['submitTradingMandate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitTradingMandate>>, {mandateId: number;data: BodyType<TradingMandateTransitionRequest>}> = (props) => {
+          const {mandateId,data} = props ?? {};
+
+          return  submitTradingMandate(mandateId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitTradingMandateMutationResult = NonNullable<Awaited<ReturnType<typeof submitTradingMandate>>>
+    export type SubmitTradingMandateMutationBody = BodyType<TradingMandateTransitionRequest>
+    export type SubmitTradingMandateMutationError = ErrorType<void>
+
+    /**
+ * @summary Move an exact Draft revision to Pending approval without granting authority
+ */
+export const useSubmitTradingMandate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitTradingMandate>>, TError,{mandateId: number;data: BodyType<TradingMandateTransitionRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitTradingMandate>>,
+        TError,
+        {mandateId: number;data: BodyType<TradingMandateTransitionRequest>},
+        TContext
+      > => {
+      return useMutation(getSubmitTradingMandateMutationOptions(options));
+    }
+
+export const getApproveTradingMandateUrl = (mandateId: number,) => {
+
+
+
+
+  return `/api/trading-mandates/${mandateId}/approve`
+}
+
+/**
+ * @summary Step-up authorize and activate one exact Pending mandate revision
+ */
+export const approveTradingMandate = async (mandateId: number,
+    approveTradingMandateRequest: ApproveTradingMandateRequest, options?: RequestInit): Promise<TradingMandate> => {
+
+  return customFetch<TradingMandate>(getApproveTradingMandateUrl(mandateId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(approveTradingMandateRequest)
+  }
+);}
+
+
+
+
+export const getApproveTradingMandateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveTradingMandate>>, TError,{mandateId: number;data: BodyType<ApproveTradingMandateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveTradingMandate>>, TError,{mandateId: number;data: BodyType<ApproveTradingMandateRequest>}, TContext> => {
+
+const mutationKey = ['approveTradingMandate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveTradingMandate>>, {mandateId: number;data: BodyType<ApproveTradingMandateRequest>}> = (props) => {
+          const {mandateId,data} = props ?? {};
+
+          return  approveTradingMandate(mandateId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveTradingMandateMutationResult = NonNullable<Awaited<ReturnType<typeof approveTradingMandate>>>
+    export type ApproveTradingMandateMutationBody = BodyType<ApproveTradingMandateRequest>
+    export type ApproveTradingMandateMutationError = ErrorType<void>
+
+    /**
+ * @summary Step-up authorize and activate one exact Pending mandate revision
+ */
+export const useApproveTradingMandate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveTradingMandate>>, TError,{mandateId: number;data: BodyType<ApproveTradingMandateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveTradingMandate>>,
+        TError,
+        {mandateId: number;data: BodyType<ApproveTradingMandateRequest>},
+        TContext
+      > => {
+      return useMutation(getApproveTradingMandateMutationOptions(options));
+    }
+
+export const getSuspendTradingMandateUrl = (mandateId: number,) => {
+
+
+
+
+  return `/api/trading-mandates/${mandateId}/suspend`
+}
+
+/**
+ * @summary Persistently reduce authority; protective exits remain available
+ */
+export const suspendTradingMandate = async (mandateId: number,
+    tradingMandateTransitionRequest: TradingMandateTransitionRequest, options?: RequestInit): Promise<TradingMandate> => {
+
+  return customFetch<TradingMandate>(getSuspendTradingMandateUrl(mandateId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tradingMandateTransitionRequest)
+  }
+);}
+
+
+
+
+export const getSuspendTradingMandateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suspendTradingMandate>>, TError,{mandateId: number;data: BodyType<TradingMandateTransitionRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof suspendTradingMandate>>, TError,{mandateId: number;data: BodyType<TradingMandateTransitionRequest>}, TContext> => {
+
+const mutationKey = ['suspendTradingMandate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof suspendTradingMandate>>, {mandateId: number;data: BodyType<TradingMandateTransitionRequest>}> = (props) => {
+          const {mandateId,data} = props ?? {};
+
+          return  suspendTradingMandate(mandateId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SuspendTradingMandateMutationResult = NonNullable<Awaited<ReturnType<typeof suspendTradingMandate>>>
+    export type SuspendTradingMandateMutationBody = BodyType<TradingMandateTransitionRequest>
+    export type SuspendTradingMandateMutationError = ErrorType<void>
+
+    /**
+ * @summary Persistently reduce authority; protective exits remain available
+ */
+export const useSuspendTradingMandate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suspendTradingMandate>>, TError,{mandateId: number;data: BodyType<TradingMandateTransitionRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof suspendTradingMandate>>,
+        TError,
+        {mandateId: number;data: BodyType<TradingMandateTransitionRequest>},
+        TContext
+      > => {
+      return useMutation(getSuspendTradingMandateMutationOptions(options));
+    }
+
+export const getRevokeTradingMandateUrl = (mandateId: number,) => {
+
+
+
+
+  return `/api/trading-mandates/${mandateId}/revoke`
+}
+
+/**
+ * @summary Permanently revoke entry authority; this operation is irreversible
+ */
+export const revokeTradingMandate = async (mandateId: number,
+    tradingMandateTransitionRequest: TradingMandateTransitionRequest, options?: RequestInit): Promise<TradingMandate> => {
+
+  return customFetch<TradingMandate>(getRevokeTradingMandateUrl(mandateId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tradingMandateTransitionRequest)
+  }
+);}
+
+
+
+
+export const getRevokeTradingMandateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeTradingMandate>>, TError,{mandateId: number;data: BodyType<TradingMandateTransitionRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeTradingMandate>>, TError,{mandateId: number;data: BodyType<TradingMandateTransitionRequest>}, TContext> => {
+
+const mutationKey = ['revokeTradingMandate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeTradingMandate>>, {mandateId: number;data: BodyType<TradingMandateTransitionRequest>}> = (props) => {
+          const {mandateId,data} = props ?? {};
+
+          return  revokeTradingMandate(mandateId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeTradingMandateMutationResult = NonNullable<Awaited<ReturnType<typeof revokeTradingMandate>>>
+    export type RevokeTradingMandateMutationBody = BodyType<TradingMandateTransitionRequest>
+    export type RevokeTradingMandateMutationError = ErrorType<void>
+
+    /**
+ * @summary Permanently revoke entry authority; this operation is irreversible
+ */
+export const useRevokeTradingMandate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeTradingMandate>>, TError,{mandateId: number;data: BodyType<TradingMandateTransitionRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revokeTradingMandate>>,
+        TError,
+        {mandateId: number;data: BodyType<TradingMandateTransitionRequest>},
+        TContext
+      > => {
+      return useMutation(getRevokeTradingMandateMutationOptions(options));
     }
 
 export const getStartBotUrl = () => {

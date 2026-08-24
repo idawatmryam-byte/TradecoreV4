@@ -101,6 +101,12 @@ export const executionIntentsTable = pgTable("execution_intents", {
   brainDecisionFingerprint: text("brain_decision_fingerprint"),
   riskDecisionFingerprint: text("risk_decision_fingerprint"),
   autopilotIdempotencyKey: text("autopilot_idempotency_key"),
+  /** Phase 12 Restricted Live authority bindings. */
+  restrictedLiveClaimId: integer("restricted_live_claim_id"),
+  tradingMandateId: integer("trading_mandate_id"),
+  tradingMandateRevision: integer("trading_mandate_revision"),
+  tradingMandateFingerprint: text("trading_mandate_fingerprint"),
+  configurationFingerprint: text("configuration_fingerprint"),
 
   symbol: text("symbol").notNull(),
   /** Order side that OPENS the position: "buy" | "sell". */

@@ -131,6 +131,9 @@ export class RecommendExecutor implements TradeExecutor {
       },
       limitations: [
         ...supervision.portfolio.dataIssues,
+        ...(supervision.mandateRefusal
+          ? [`Restricted Live mandate refusal ${supervision.mandateRefusal.reasonCode}: ${supervision.mandateRefusal.reason}. This proposal has no autonomous execution authority.`]
+          : []),
         ...(supervision.portfolio.context.correlationClusters.length === 0
           ? [
               "No authoritative correlation cluster was available at proposal creation.",
@@ -184,13 +187,18 @@ export class RecommendExecutor implements TradeExecutor {
           planFingerprint: fingerprint,
           decisionBundleFingerprint,
           executionTarget,
-          reasonCode: "COPILOT_PROPOSAL_CREATED",
+          reasonCode: supervision.mandateRefusal
+            ? "RESTRICTED_LIVE_SCOPE_FALLBACK"
+            : "COPILOT_PROPOSAL_CREATED",
           reason:
             "Immutable Co-Pilot proposal created for explicit human supervision",
           payload: {
             decisionId: supervision.councilRun.decision.decisionId,
             decisionFingerprint: supervision.councilRun.decisionFingerprint,
             portfolioFingerprint: supervision.portfolio.fingerprint,
+            ...(supervision.mandateRefusal && {
+              mandateRefusal: supervision.mandateRefusal,
+            }),
           },
         });
         return inserted!;

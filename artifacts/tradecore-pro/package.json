@@ -8,6 +8,7 @@
     "build": "vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "test:execution-health-browser": "node harness/execution-health.browser.test.mjs",
+    "test:restricted-live-browser": "node harness/restricted-live.browser.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

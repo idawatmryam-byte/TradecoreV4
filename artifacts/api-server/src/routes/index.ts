@@ -25,6 +25,7 @@ import intelligenceRouter from "./intelligence";
 import researchRouter from "./research";
 import autopilotRouter from "./autopilot";
 import executionHealthRouter from "./executionHealth";
+import tradingMandatesRouter from "./tradingMandates";
 
 // Deliberately NOT behind requireAuth (Phase 5B) — mounted separately in
 // app.ts, before the auth gate. /healthz needs to stay reachable for
@@ -50,6 +51,7 @@ router.use(intelligenceRouter);
 router.use(researchRouter);
 router.use(autopilotRouter);
 router.use(executionHealthRouter);
+router.use(tradingMandatesRouter);
 router.use(scannerRouter);
 router.use(marketRouter);
 router.use(tradesRouter);
