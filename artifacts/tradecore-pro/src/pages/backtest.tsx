@@ -1335,7 +1335,7 @@ export function Backtest() {
       <div className="mx-auto max-w-7xl space-y-6">
         <PageHeader
           icon={FlaskConical}
-          title="Experiment Lab"
+          title="Backtest Lab · Scientific Experiments"
           description="Validate the complete decision brain under point-in-time, out-of-sample controls."
           actions={<Button variant="outline" size="sm" onClick={() => setLabView("classic")}>Classic strategy backtests</Button>}
         />
@@ -1348,7 +1348,7 @@ export function Backtest() {
     <div className="max-w-7xl mx-auto space-y-6">
       <PageHeader
         icon={FlaskConical}
-        title="Classic Backtesting"
+          title="Backtest Lab · Historical Runs"
         description="Replay individual strategy entries and exits. Use Scientific validation for full-brain promotion evidence."
         actions={
           <div className="flex gap-2">

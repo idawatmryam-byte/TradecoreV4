@@ -17,6 +17,15 @@ import { getOrCreateEngine } from "../lib/engineRegistry";
 import { logger } from "../lib/logger";
 import { MIN_VIABLE_TAKE_PROFIT_PERCENT } from "../lib/tradingCosts";
 import { UpdateStrategyConfigBody } from "@workspace/api-zod";
+import { z } from "zod/v4";
+import {
+  builtInStrategyIdentity,
+  customStrategyIdentity,
+  listStrategyAssignments,
+  StrategyAssignmentConflictError,
+  StrategyAssignmentNotFoundError,
+  updateStrategyAssignment,
+} from "../lib/strategyAssignments";
 
 const router = Router();
 
@@ -71,6 +80,9 @@ router.get("/strategies", async (req, res) => {
       return {
         strategyId: s.strategyId,
         strategyName: s.strategyName,
+        ...builtInStrategyIdentity(s.strategyId),
+        kind: "built-in" as const,
+        supportedMarket: req.section!,
         supportedRegimes: s.supportedRegimes,
         // What this brain reads — shown as chips on the Strategies page.
         indicators: s.indicators,
@@ -107,6 +119,9 @@ router.get("/strategies", async (req, res) => {
       strategies.push({
         strategyId: row.strategyId,
         strategyName: row.name,
+        ...customStrategyIdentity(row),
+        kind: "custom",
+        supportedMarket: req.section!,
         supportedRegimes: ["strong_trend", "weak_trend", "range", "high_volatility", "low_volatility"],
         indicators,
         decisionMaker: true,
@@ -127,12 +142,87 @@ router.get("/strategies", async (req, res) => {
       } as unknown as (typeof strategies)[number]);
     }
 
-    res.json(strategies);
+    const assignments = await listStrategyAssignments(
+      req.userId!,
+      req.section!,
+      strategies.map((strategy) => strategy.strategyId),
+    );
+    const assignmentsById = new Map(
+      assignments.map((assignment) => [assignment.strategyId, assignment]),
+    );
+
+    res.json(
+      strategies.map((strategy) => ({
+        ...strategy,
+        assignment: assignmentsById.get(strategy.strategyId),
+      })),
+    );
   } catch (err) {
     logger.error({ err }, "GET /strategies failed");
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+const UpdateStrategyAssignmentBody = z
+  .object({
+    expectedRevision: z.number().int().min(0),
+    brain: z.boolean(),
+    copilot: z.boolean(),
+    autopilot: z.boolean(),
+  })
+  .strict();
+
+router.get("/strategies/assignments", async (req, res): Promise<void> => {
+  res.json(await listStrategyAssignments(req.userId!, req.section!));
+});
+
+router.put(
+  "/strategies/assignments/:strategyId",
+  async (req, res): Promise<void> => {
+    const strategyId = String(req.params.strategyId ?? "").trim();
+    const parsed = UpdateStrategyAssignmentBody.safeParse(req.body);
+    if (!strategyId || !parsed.success) {
+      res.status(400).json({
+        error: "Invalid strategy assignment",
+        code: "STRATEGY_ASSIGNMENT_INVALID",
+      });
+      return;
+    }
+    try {
+      const assignment = await updateStrategyAssignment({
+        userId: req.userId!,
+        section: req.section!,
+        strategyId,
+        ...parsed.data,
+      });
+      req.log.info(
+        {
+          userId: req.userId,
+          section: req.section,
+          strategyId,
+          revision: assignment.revision,
+        },
+        "Strategy mode assignment updated",
+      );
+      res.json({
+        ...assignment,
+        autopilotAuthorityChanged: false,
+        autopilotNotice:
+          "This is the desired next AutoPilot set. An active immutable mandate is unchanged until a replacement is reviewed and approved.",
+      });
+    } catch (error) {
+      if (error instanceof StrategyAssignmentNotFoundError) {
+        res.status(404).json({ error: error.message, code: error.code });
+        return;
+      }
+      if (error instanceof StrategyAssignmentConflictError) {
+        res.status(409).json({ error: error.message, code: error.code });
+        return;
+      }
+      throw error;
+    }
+  },
+);
 
 // ---------------------------------------------------------------------------
 // GET /strategies/council — read-only Phase 3 specialist opinions

@@ -125,6 +125,26 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
   // rm(distDir) clean step above. Safe to skip if the frontend hasn't been
   // built yet (dev-only workflows that don't need static serving).
   await copyFrontend(distDir);
+  await copyAdminFrontend(distDir);
+}
+
+async function copyAdminFrontend(distDir) {
+  const artifactDir = path.dirname(fileURLToPath(import.meta.url));
+  const adminPublic = path.resolve(artifactDir, "../tradecore-admin/dist/public");
+  const targetAdmin = path.resolve(distDir, "public/admin");
+
+  try {
+    await access(adminPublic);
+  } catch (err) {
+    if (err.code === "ENOENT") {
+      console.log("[build] No Admin Console build found at ../tradecore-admin/dist/public — skipping copy.");
+      return;
+    }
+    throw new Error(`[build] Cannot access Admin Console source at ${adminPublic}: ${err.message}`);
+  }
+
+  await cp(adminPublic, targetAdmin, { recursive: true });
+  console.log(`[build] Copied Admin Console → ${targetAdmin}`);
 }
 
 async function copyFrontend(distDir) {

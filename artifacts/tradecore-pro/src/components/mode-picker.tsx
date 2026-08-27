@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Who authorises a trade: Research / Co-Pilot / AutoPilot.
+ * Who authorises a trade: Brain / Co-Pilot / AutoPilot.
  *
  * Extracted from `settings.tsx` so the onboarding wizard asks the question the
  * same way Settings does — same three options, same wording, same ordering.
@@ -19,12 +19,12 @@ export type TradingMode = "research" | "copilot" | "autopilot";
 export const MODE_OPTIONS = [
   { value: "copilot",   label: "Co-Pilot",  blurb: "It recommends, you approve each trade." },
   { value: "autopilot", label: "AutoPilot", blurb: "It executes automatically within your risk limits." },
-  { value: "research",  label: "Research",  blurb: "Analysis only — it never trades." },
+  { value: "research",  label: "Brain",  blurb: "Analysis and evidence only — it cannot execute." },
 ] as const satisfies ReadonlyArray<{ value: TradingMode; label: string; blurb: string }>;
 
 /** Display names for a mode, for badges and confirmation copy. */
 export const MODE_LABELS: Record<string, string> = {
-  copilot: "Co-Pilot", autopilot: "AutoPilot", research: "Research",
+  copilot: "Co-Pilot", autopilot: "AutoPilot", research: "Brain",
 };
 
 export function ModePicker({

@@ -95,6 +95,7 @@ app.use("/api/{*path}", (_req, res) => {
 // Deployment always places the Vite build output into this directory so
 // __dirname (= .../dist/) + "public" resolves correctly in every environment.
 const frontendDist = path.resolve(__dirname, "public");
+const adminFrontendDist = path.resolve(frontendDist, "admin");
 
 // Where the dashboard app lives, in lock-step with the Vite build's `base`
 // (both read BASE_PATH). When BASE_PATH is a sub-path like "/app", the bare
@@ -140,6 +141,17 @@ function noCacheHtml(res: express.Response): void {
   res.set("Pragma", "no-cache");
   res.set("Expires", "0");
 }
+
+// The Admin Console is a separate Vite bundle and business navigation. Its
+// JavaScript is public like any web asset; every datum and permission remains
+// protected by server-side /api/admin middleware and recent step-up auth.
+app.use("/admin", express.static(adminFrontendDist, staticOptions));
+app.get("/admin/{*path}", (req, res, next) => {
+  const accept = req.headers.accept ?? "";
+  if (!accept.includes("text/html")) return next();
+  noCacheHtml(res);
+  res.sendFile(path.join(adminFrontendDist, "index.html"));
+});
 
 if (appBase) {
   // Public marketing landing page at the bare domain.

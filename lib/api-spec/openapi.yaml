@@ -55,6 +55,14 @@ tags:
       Phase 12 immutable, human-authorized Restricted Live mandates. Draft and
       pending records have no execution authority; approval never deploys or
       changes provider configuration.
+  - name: dashboard
+    description: >-
+      Cactus AI trader-session aggregation and capability discovery. Read
+      models preserve source, freshness, unavailable reasons, and authority.
+  - name: admin
+    description: >-
+      Separate platform-operator console. Platform roles never inherit tenant
+      financial authority; protected reads require a recent admin step-up.
 
 # Every operation requires ONE of these by default (either is sufficient —
 # see components.securitySchemes below). /healthz and /auth/* override this
@@ -2327,6 +2335,335 @@ paths:
                 additionalProperties: true
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /capabilities:
+    get:
+      operationId: getTraderCapabilities
+      tags: [dashboard]
+      summary: Discover server-backed trader capabilities
+      responses:
+        "200":
+          description: Capabilities for the authenticated user and market section
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TraderCapabilities" }
+
+  /dashboard/session:
+    get:
+      operationId: getDashboardSession
+      tags: [dashboard]
+      summary: Get one authoritative trader-session snapshot
+      description: >-
+        Account metrics, risk, runtime, health, activity, recommendations,
+        AutoPilot authority, and alerts share one asOf time. Unknown or stale
+        sources remain explicit and are never serialized as healthy zeroes.
+      responses:
+        "200":
+          description: Current section-scoped trader session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardSession" }
+
+  /strategies/assignments:
+    get:
+      operationId: getStrategyModeAssignments
+      tags: [strategies]
+      summary: List revisioned mode assignments
+      responses:
+        "200":
+          description: Desired Brain, Co-Pilot, and next-AutoPilot assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/StrategyModeAssignment" }
+
+  /strategies/assignments/{strategyId}:
+    put:
+      operationId: updateStrategyModeAssignment
+      tags: [strategies]
+      summary: Update a revisioned strategy assignment
+      description: >-
+        AutoPilot is desired-next configuration only. This endpoint cannot
+        modify an active immutable mandate or grant execution authority.
+      parameters:
+        - name: strategyId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StrategyModeAssignmentUpdate" }
+      responses:
+        "200":
+          description: Server-confirmed assignment
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [assignment, authority]
+                properties:
+                  assignment: { $ref: "#/components/schemas/StrategyModeAssignment" }
+                  authority:
+                    type: object
+                    required: [autopilotMandateChanged, message]
+                    properties:
+                      autopilotMandateChanged: { type: boolean, const: false }
+                      message: { type: string }
+        "404": { description: Strategy not found, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /me/account:
+    get:
+      operationId: getMyAccount
+      tags: [auth]
+      summary: Get the authenticated user's profile and security status
+      responses:
+        "200":
+          description: Profile without password hashes or secrets
+          content: { application/json: { schema: { $ref: "#/components/schemas/AccountProfile" } } }
+    put:
+      operationId: updateMyAccount
+      tags: [auth]
+      summary: Update user-owned profile fields
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/AccountProfileUpdate" } } }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/OkResponse" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+    delete:
+      operationId: deleteMyAccount
+      tags: [auth]
+      summary: Permanently delete the authenticated account
+      description: >-
+        Stops both engines before an all-or-nothing purge. Staff identities
+        must first complete audited out-of-band platform-role offboarding.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [confirm]
+              properties: { confirm: { type: string, minLength: 1, maxLength: 64 } }
+      responses:
+        "200": { description: Deleted, content: { application/json: { schema: { $ref: "#/components/schemas/OkResponse" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { description: Engines could not be stopped safely, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+
+  /me/account/password:
+    post:
+      operationId: changeMyPassword
+      tags: [auth]
+      summary: Set or change the current user's password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [newPassword]
+              properties:
+                currentPassword: { type: string, writeOnly: true, maxLength: 1024 }
+                newPassword: { type: string, writeOnly: true, minLength: 12, maxLength: 1024 }
+      responses:
+        "200": { description: Password changed and sessions rotated, content: { application/json: { schema: { $ref: "#/components/schemas/OkResponse" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { description: Current password refused, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+
+  /market/candles:
+    get:
+      operationId: getMarketCandles
+      tags: [market]
+      summary: Get recent validated candles from the engine's market-data path
+      parameters:
+        - { name: symbol, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 40 } }
+        - { name: timeframe, in: query, required: false, schema: { type: string, enum: [1m, 3m, 5m, 15m, 1h], default: 1m } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 20, maximum: 500, default: 180 } }
+        - { name: marketType, in: query, required: false, schema: { type: string, enum: [spot, futures, forex] } }
+      responses:
+        "200":
+          description: Timestamp/open/high/low/close/volume rows
+          content: { application/json: { schema: { $ref: "#/components/schemas/MarketCandles" } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "502": { description: Provider data unavailable, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+
+  /trades/monitor/active:
+    get:
+      operationId: getActivePositionMonitor
+      tags: [trades]
+      summary: Get marked active-position monitoring evidence
+      responses:
+        "200":
+          description: Active positions or an explicit read failure
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ActivePositionMonitor" }
+
+  /trades/{id}/close:
+    post:
+      operationId: closeOpenPosition
+      tags: [trades]
+      summary: Close one owned open position through the existing managed exit path
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200": { description: Server-confirmed close result, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { description: Trade not found, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /backtests/preview-config:
+    post:
+      operationId: previewBacktestConfig
+      tags: [backtests]
+      summary: Preview the exact effective backtest configuration without creating a run
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/BacktestConfigPreviewRequest" } } }
+      responses:
+        "200": { description: Effective overrides and per-strategy configuration, content: { application/json: { schema: { $ref: "#/components/schemas/BacktestConfigPreview" } } } }
+
+  /reports/edge-forensics:
+    get:
+      operationId: getEdgeForensicsReport
+      tags: [stats]
+      summary: Get section-scoped account-trade edge evidence
+      responses:
+        "200": { description: "Forensics, selection evidence, and noise-floor flags", content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+
+  /reports/trades.csv:
+    get:
+      operationId: exportAccountTradesCsv
+      tags: [stats]
+      summary: Export closed account trades as CSV
+      responses:
+        "200":
+          description: CSV export
+          content:
+            text/csv:
+              schema: { type: string }
+
+  /admin/session/status:
+    get:
+      operationId: getAdminSessionStatus
+      tags: [admin]
+      summary: Get platform eligibility and recent step-up state
+      responses:
+        "200": { description: Admin session state, content: { application/json: { schema: { $ref: "#/components/schemas/AdminSessionStatus" } } } }
+
+  /admin/session/step-up:
+    post:
+      operationId: stepUpAdminSession
+      tags: [admin]
+      summary: Create a short-lived HttpOnly Admin Console session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [password]
+              properties: { password: { type: string, writeOnly: true, minLength: 1, maxLength: 1024 } }
+      responses:
+        "200": { description: Step-up established, content: { application/json: { schema: { $ref: "#/components/schemas/AdminStepUpResult" } } } }
+        "403": { description: Step-up refused, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+
+  /admin/session/logout:
+    post:
+      operationId: logoutAdminSession
+      tags: [admin]
+      summary: Clear only the Admin Console step-up session
+      responses:
+        "200": { description: Admin step-up cleared, content: { application/json: { schema: { $ref: "#/components/schemas/OkResponse" } } } }
+
+  /admin/overview:
+    get:
+      operationId: getAdminOverview
+      tags: [admin]
+      summary: Get cross-platform operational overview
+      responses:
+        "200": { description: Overview, content: { application/json: { schema: { $ref: "#/components/schemas/AdminOverview" } } } }
+        "403": { description: Platform permission or step-up required, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+
+  /admin/health:
+    get:
+      operationId: getAdminSystemHealth
+      tags: [admin]
+      summary: Get authoritative and not-provisioned service health
+      responses:
+        "200": { description: System health, content: { application/json: { schema: { $ref: "#/components/schemas/AdminOperationalReadModel" } } } }
+        "403": { description: Platform permission or step-up required, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+
+  /admin/ai:
+    get:
+      operationId: getAdminAiBrain
+      tags: [admin]
+      summary: Get deterministic Brain infrastructure status
+      description: External provider configuration is reported unsupported until an adapter exists.
+      responses:
+        "200": { description: AI and Brain status, content: { application/json: { schema: { $ref: "#/components/schemas/AdminOperationalReadModel" } } } }
+        "403": { description: Platform permission or step-up required, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+
+  /admin/execution:
+    get:
+      operationId: getAdminExecution
+      tags: [admin]
+      summary: Get platform execution visibility without trading authority
+      responses:
+        "200": { description: Execution evidence, content: { application/json: { schema: { $ref: "#/components/schemas/AdminOperationalReadModel" } } } }
+        "403": { description: Platform permission or step-up required, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+
+  /admin/risk:
+    get:
+      operationId: getAdminRiskSafety
+      tags: [admin]
+      summary: Get platform risk and safety visibility
+      responses:
+        "200": { description: Risk and safety evidence, content: { application/json: { schema: { $ref: "#/components/schemas/AdminOperationalReadModel" } } } }
+        "403": { description: Platform permission or step-up required, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+
+  /admin/users:
+    get:
+      operationId: getAdminUsers
+      tags: [admin]
+      summary: Get paginated, minimized user-access metadata
+      parameters:
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: before, in: query, required: false, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200": { description: Masked user and separate role data, content: { application/json: { schema: { $ref: "#/components/schemas/AdminOperationalReadModel" } } } }
+        "403": { description: Platform permission or step-up required, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+
+  /admin/audit:
+    get:
+      operationId: getAdminAudit
+      tags: [admin]
+      summary: Get paginated append-only operator evidence
+      parameters:
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: before, in: query, required: false, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200": { description: Redacted audit events, content: { application/json: { schema: { $ref: "#/components/schemas/AdminOperationalReadModel" } } } }
+        "403": { description: Platform permission or step-up required, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+
+  /admin/configuration:
+    get:
+      operationId: getAdminPlatformConfiguration
+      tags: [admin]
+      summary: Get non-secret platform capability configuration
+      responses:
+        "200": { description: Configuration capability manifest, content: { application/json: { schema: { $ref: "#/components/schemas/AdminOperationalReadModel" } } } }
+        "403": { description: Platform permission or step-up required, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+
 components:
   parameters:
     TradingMandateId:
@@ -3586,6 +3923,301 @@ components:
         ruleVersion: { type: string }
         status: { type: string, enum: [active, suspended] }
         reason: { type: string }
+
+    OkResponse:
+      type: object
+      additionalProperties: false
+      required: [ok]
+      properties: { ok: { type: boolean, const: true } }
+
+    AccountProfile:
+      type: object
+      additionalProperties: false
+      required: [id, username, email, displayName, createdAt, hasPassword, isDemo, providers]
+      properties:
+        id: { type: integer }
+        username: { type: string }
+        email: { type: [string, "null"] }
+        displayName: { type: [string, "null"] }
+        createdAt: { type: string, format: date-time }
+        hasPassword: { type: boolean }
+        isDemo: { type: boolean }
+        providers:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [provider, email]
+            properties:
+              provider: { type: string }
+              email: { type: [string, "null"] }
+
+    AccountProfileUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        displayName: { type: string, maxLength: 64 }
+        email: { type: string, maxLength: 128 }
+
+    MarketCandles:
+      type: object
+      additionalProperties: false
+      required: [symbol, timeframe, candles]
+      properties:
+        symbol: { type: string }
+        timeframe: { type: string }
+        candles:
+          type: array
+          items:
+            type: array
+            minItems: 6
+            maxItems: 6
+            items: { type: number }
+
+    ActivePositionMonitor:
+      type: object
+      required: [tradeId, symbol, side, marketType, entryPrice, currentPrice, stopLossPrice, takeProfitPrice, remainingQuantity, unrealizedPnl, unrealizedPnlPercent]
+      properties:
+        tradeId: { type: integer }
+        symbol: { type: string }
+        side: { type: string, enum: [long, short] }
+        strategyName: { type: [string, "null"] }
+        marketType: { type: string, enum: [spot, futures, forex] }
+        leverage: { type: [number, "null"] }
+        entryPrice: { type: number }
+        currentPrice: { type: number }
+        stopLossPrice: { type: number }
+        takeProfitPrice: { type: number }
+        tp1Price: { type: [number, "null"] }
+        remainingQuantity: { type: number }
+        unrealizedPnl: { type: number }
+        unrealizedPnlPercent: { type: number }
+        breakEvenActive: { type: boolean }
+        trailingStopActive: { type: boolean }
+        tp1Filled: { type: boolean }
+        holdingSeconds: { type: integer }
+
+    BacktestConfigPreviewRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        confidenceThreshold: { type: number, minimum: 0, maximum: 100, default: 65 }
+        stopLossPercent: { type: number, exclusiveMinimum: 0, default: 1.5 }
+        takeProfitPercent: { type: number, exclusiveMinimum: 0, default: 2.5 }
+        riskPercent: { type: number, minimum: 0, default: 0 }
+
+    BacktestConfigPreview:
+      type: object
+      required: [runLevelOverrides, strategies]
+      properties:
+        runLevelOverrides: { type: object, additionalProperties: true }
+        strategies:
+          type: array
+          items: { type: object, additionalProperties: true }
+
+    StrategyModeAssignment:
+      type: object
+      additionalProperties: false
+      required: [strategyId, brain, copilot, autopilot, revision, updatedAt]
+      properties:
+        strategyId: { type: string }
+        brain: { type: boolean }
+        copilot: { type: boolean }
+        autopilot:
+          type: boolean
+          description: Desired next assignment only; never active mandate authority.
+        revision: { type: integer, minimum: 0 }
+        updatedAt: { type: [string, "null"], format: date-time }
+
+    StrategyModeAssignmentUpdate:
+      type: object
+      additionalProperties: false
+      required: [expectedRevision, brain, copilot, autopilot]
+      properties:
+        expectedRevision: { type: integer, minimum: 0 }
+        brain: { type: boolean }
+        copilot: { type: boolean }
+        autopilot: { type: boolean }
+
+    TraderCapabilities:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, section, financialRole, readOnlyDemoAccount, modes, accounts, features, serverAuthoritative, generatedAt]
+      properties:
+        schemaVersion: { type: string, enum: [cactus-trader-capabilities-v1] }
+        section: { type: string, enum: [crypto, forex] }
+        financialRole: { type: string }
+        readOnlyDemoAccount: { type: boolean }
+        modes:
+          type: object
+          required: [manual, brain, copilot, autopilot]
+          properties:
+            manual: { type: object, required: [supported, reason], properties: { supported: { type: boolean, const: false }, reason: { type: string } } }
+            brain: { type: object, required: [supported, backendMode, canExecute], properties: { supported: { type: boolean }, backendMode: { type: string, const: research }, canExecute: { type: boolean, const: false } } }
+            copilot: { type: object, required: [supported, approvalRequired, canApprove], properties: { supported: { type: boolean }, approvalRequired: { type: boolean, const: true }, canApprove: { type: boolean } } }
+            autopilot: { type: object, required: [supported, uiSelectionGrantsAuthority, liveAuthorityEnabled], properties: { supported: { type: boolean }, uiSelectionGrantsAuthority: { type: boolean, const: false }, liveAuthorityEnabled: { type: boolean } } }
+        accounts:
+          type: object
+          required: [multipleBrokerAccounts, demo, broker]
+          properties:
+            multipleBrokerAccounts: { type: boolean, const: false }
+            demo: { type: object, required: [supported, label], properties: { supported: { type: boolean }, label: { type: string } } }
+            broker:
+              type: object
+              required: [provider, configured, maskedIdentifier, environments]
+              properties:
+                provider: { type: string, enum: [binance, oanda] }
+                configured: { type: boolean }
+                maskedIdentifier: { type: [string, "null"] }
+                environments: { type: array, items: { type: string } }
+        features:
+          type: object
+          required: [dashboardSession, strategyModeAssignments, pendingOrders, pendingOrdersReason, manualEntry, externalAiProviders, multipleBrokerAccounts, adminConsole]
+          properties:
+            dashboardSession: { type: boolean }
+            strategyModeAssignments: { type: boolean }
+            pendingOrders: { type: boolean }
+            pendingOrdersReason: { type: string }
+            manualEntry: { type: boolean, const: false }
+            externalAiProviders: { type: boolean, const: false }
+            multipleBrokerAccounts: { type: boolean, const: false }
+            adminConsole: { type: boolean }
+        serverAuthoritative: { type: boolean, const: true }
+        generatedAt: { type: string, format: date-time }
+
+    DashboardMetric:
+      type: object
+      additionalProperties: false
+      required: [state, value, unit, source, observedAt, reason]
+      properties:
+        state: { type: string, enum: [available, partial, stale, unavailable] }
+        value: { type: [number, "null"] }
+        unit: { type: string, enum: [currency, percent, count] }
+        source: { type: [string, "null"] }
+        observedAt: { type: [string, "null"], format: date-time }
+        reason: { type: [string, "null"] }
+
+    DashboardPosition:
+      type: object
+      required: [id, symbol, side, quantity, entryPrice, stopLoss, takeProfit, executionTarget, entryTime]
+      properties:
+        id: { type: integer }
+        symbol: { type: string }
+        side: { type: string, enum: [long, short] }
+        quantity: { type: number }
+        entryPrice: { type: number }
+        stopLoss: { type: number }
+        takeProfit: { type: number }
+        strategyId: { type: [string, "null"] }
+        strategyName: { type: [string, "null"] }
+        executionTarget: { type: string, enum: [demo, live] }
+        executionAuthority: { type: [string, "null"] }
+        managementAuthority: { type: [string, "null"] }
+        entryTime: { type: string, format: date-time }
+
+    DashboardRecommendation:
+      type: object
+      required: [id, symbol, side, confidence, entryPrice, stopLoss, takeProfit, quantity, executionTarget, status, expiresAt, createdAt, approvalRequired]
+      properties:
+        id: { type: integer }
+        symbol: { type: string }
+        side: { type: string, enum: [long, short] }
+        confidence: { type: number }
+        entryPrice: { type: number }
+        stopLoss: { type: number }
+        takeProfit: { type: number }
+        quantity: { type: number }
+        strategyId: { type: [string, "null"] }
+        strategyName: { type: [string, "null"] }
+        executionTarget: { type: string, enum: [demo, live] }
+        status: { type: string }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        approvalRequired: { type: boolean, const: true }
+
+    DashboardSession:
+      type: object
+      required: [schemaVersion, asOf, context, metrics, runtime, health, activity, performance, autopilot, alerts, limitations]
+      properties:
+        schemaVersion: { type: string, enum: [cactus-dashboard-session-v1] }
+        asOf: { type: string, format: date-time }
+        context:
+          type: object
+          required: [section, market, broker, marketType, environment, account, mode]
+          properties:
+            section: { type: string, enum: [crypto, forex] }
+            market: { type: string, enum: [Crypto, Forex] }
+            broker: { type: string, enum: [binance, oanda] }
+            marketType: { type: string }
+            environment:
+              type: object
+              required: [id, label, realFunds]
+              properties:
+                id: { type: string, enum: [CACTUS_DEMO, BINANCE_TESTNET, BINANCE_LIVE, OANDA_PRACTICE, OANDA_LIVE] }
+                label: { type: string }
+                realFunds: { type: boolean }
+            account: { type: object, required: [id, label, singleConnectionPerMarket], properties: { id: { type: string }, label: { type: string }, singleConnectionPerMarket: { type: boolean, const: true } } }
+            mode: { type: object, required: [configured, backendValue, effectiveAuthority], properties: { configured: { type: string, enum: [brain, copilot, autopilot] }, backendValue: { type: string, enum: [research, copilot, autopilot] }, effectiveAuthority: { type: string } } }
+        metrics:
+          type: object
+          required: [availableFunds, equity, marginUsed, realizedDayPnl, exposure, drawdown, risk]
+          properties:
+            availableFunds: { $ref: "#/components/schemas/DashboardMetric" }
+            equity: { $ref: "#/components/schemas/DashboardMetric" }
+            marginUsed: { $ref: "#/components/schemas/DashboardMetric" }
+            realizedDayPnl: { $ref: "#/components/schemas/DashboardMetric" }
+            exposure: { $ref: "#/components/schemas/DashboardMetric" }
+            drawdown: { $ref: "#/components/schemas/DashboardMetric" }
+            risk: { type: object, required: [state, newEntriesAllowed, protectiveManagementContinues, reason], properties: { state: { type: string, enum: [CLEAR, BLOCKED, SUSPENDED] }, newEntriesAllowed: { type: boolean }, protectiveManagementContinues: { type: boolean, const: true }, reason: { type: [string, "null"] } } }
+        runtime: { type: object, additionalProperties: true }
+        health: { type: object, additionalProperties: { type: object, required: [state], properties: { state: { type: string, enum: [available, partial, stale, unavailable] }, label: { type: string }, reason: { type: [string, "null"] }, observedAt: { type: [string, "null"], format: date-time }, ageMs: { type: [number, "null"] } } } }
+        activity:
+          type: object
+          required: [positions, pendingOrders, recentTrades, recommendations]
+          properties:
+            positions: { type: array, items: { $ref: "#/components/schemas/DashboardPosition" } }
+            pendingOrders: { type: object, required: [state, orders, reason], properties: { state: { type: string, const: unavailable }, orders: { type: "null" }, reason: { type: string } } }
+            recentTrades: { type: array, items: { type: object, additionalProperties: true } }
+            recommendations: { type: array, items: { $ref: "#/components/schemas/DashboardRecommendation" } }
+        performance: { type: object, additionalProperties: true }
+        autopilot: { type: [object, "null"], additionalProperties: true }
+        alerts: { type: array, items: { type: object, required: [id, severity, source, message, occurredAt, persistent], properties: { id: { type: string }, severity: { type: string, enum: [info, warning, critical] }, source: { type: string }, message: { type: string }, occurredAt: { type: string, format: date-time }, persistent: { type: boolean } } } }
+        limitations: { type: array, items: { type: string } }
+
+    AdminSessionStatus:
+      type: object
+      required: [eligible, roles, permissions, stepUp, mutationsSupported, mutationReason]
+      properties:
+        eligible: { type: boolean }
+        roles: { type: array, items: { type: string, enum: [PLATFORM_ADMIN, OPERATIONS_RISK, SUPPORT, AUDITOR] } }
+        permissions: { type: array, items: { type: string } }
+        stepUp: { type: object, required: [active, expiresAt], properties: { active: { type: boolean }, expiresAt: { type: [string, "null"], format: date-time }, reason: { type: string } } }
+        mutationsSupported: { type: boolean, const: false }
+        mutationReason: { type: string }
+
+    AdminStepUpResult:
+      type: object
+      additionalProperties: false
+      required: [ok, roles, expiresAt]
+      properties:
+        ok: { type: boolean, const: true }
+        roles: { type: array, items: { type: string, enum: [PLATFORM_ADMIN, OPERATIONS_RISK, SUPPORT, AUDITOR] } }
+        expiresAt: { type: string, format: date-time }
+
+    AdminOverview:
+      type: object
+      required: [asOf, status, counts, autopilot, authorityBoundary]
+      properties:
+        asOf: { type: string, format: date-time }
+        status: { type: string, enum: [OPERATIONAL, ATTENTION_REQUIRED] }
+        counts: { type: object, additionalProperties: { type: integer } }
+        autopilot: { type: object, additionalProperties: { type: integer } }
+        authorityBoundary: { type: string }
+
+    AdminOperationalReadModel:
+      type: object
+      description: Endpoint-specific read-only data; unsupported subsystems report NOT_PROVISIONED.
+      additionalProperties: true
 
     HealthStatus:
       type: object
@@ -8102,12 +8734,31 @@ components:
           decisionMaker,
           config,
           performance,
+          version,
+          fingerprint,
+          kind,
+          supportedMarket,
+          assignment,
         ]
       properties:
         strategyId:
           type: string
         strategyName:
           type: string
+        version:
+          type: string
+          description: Immutable implementation/version identity.
+        fingerprint:
+          type: string
+          pattern: "^[a-fA-F0-9]{64}$"
+        kind:
+          type: string
+          enum: [built-in, custom]
+        supportedMarket:
+          type: string
+          enum: [crypto, forex]
+        assignment:
+          $ref: "#/components/schemas/StrategyModeAssignment"
         supportedRegimes:
           type: array
           items:

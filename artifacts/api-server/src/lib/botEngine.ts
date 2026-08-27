@@ -73,6 +73,7 @@ import {
   type InstrumentClass,
 } from "./marketHours";
 import { loadStrategyConfigs } from "./strategyConfigLoader";
+import { configsForAssignedMode } from "./strategyAssignments";
 import { loadCustomStrategies, liveEligible } from "./customStrategyLoader";
 import type { Strategy } from "./strategies";
 import { ExitManager, type OpenOrderIds } from "./exitManager";
@@ -2120,8 +2121,14 @@ class BotEngine {
     } catch {
       financialStateAvailable = false;
     }
-    const strategyConfigs = await this.getStrategyConfigs();
+    const strategyConfigs = await configsForAssignedMode(
+      this.userId,
+      this.section,
+      "copilot",
+      await this.getStrategyConfigs(),
+    );
     const stratCfg = strategyConfigs.get(plan.strategyId);
+    const strategyEligible = stratCfg?.enabled === true;
     const blacklist = await this.loadActiveBlacklist(now);
 
     // Prefer the poller's cached tick; fall back to a direct fetch. Undefined
@@ -2207,7 +2214,7 @@ class BotEngine {
     const currentExecutionTarget = config.executionTarget === "demo" ? "demo" : "live";
     const reconciliationHealthy = currentExecutionTarget === "demo" || this.state.newEntriesAllowed;
     const executionEligible = financialStateAvailable && this.state.running && !this.connectionSuspended
-      && config.mode === "copilot" && reconciliationHealthy;
+      && config.mode === "copilot" && reconciliationHealthy && strategyEligible;
 
     return {
       engineRunning: this.state.running,
@@ -2250,8 +2257,12 @@ class BotEngine {
       correlatedExposureAfterUsdt,
       maxCorrelatedExposureUsdt,
       correlationKnownOrAllowed,
-      sizingValid: sizing.ok,
-      sizingDetail: sizing.ok ? "Entry, stop, equity, and quantity remain valid" : (sizing.reason ?? "Sizing rejected"),
+      sizingValid: sizing.ok && strategyEligible,
+      sizingDetail: !strategyEligible
+        ? "The strategy is disabled or no longer assigned to Co-Pilot"
+        : sizing.ok
+          ? "Entry, stop, equity, and quantity remain valid"
+          : (sizing.reason ?? "Sizing rejected"),
       executionCostViable,
       executionCostDetail: executionCostViable
         ? `Expected move ${(expectedMoveFraction * 100).toFixed(3)}% exceeds current round-trip costs ${(currentRoundTripCost * 100).toFixed(3)}%`
@@ -2292,8 +2303,19 @@ class BotEngine {
         reason: this.state.entryBlockReason ?? "Live entries are blocked until reconciliation succeeds",
       };
     }
-    const strategyConfigs = await this.getStrategyConfigs();
+    const strategyConfigs = await configsForAssignedMode(
+      this.userId,
+      this.section,
+      "copilot",
+      await this.getStrategyConfigs(),
+    );
     const stratConfig = strategyConfigs.get(plan.strategyId);
+    if (!stratConfig?.enabled) {
+      return {
+        entered: false,
+        reason: "Strategy is disabled or no longer assigned to Co-Pilot; create a new proposal",
+      };
+    }
     // Co-Pilot's own executor must never be chosen here — that would record a
     // second recommendation instead of opening the position the user approved.
     const executor = approvedTarget === "demo" ? this.demoExecutor : this.liveExecutor;
@@ -2760,7 +2782,17 @@ class BotEngine {
       );
       // Loaded once per scan (cached internally) — used both for the
       // max-holding-time exit check below and for entry evaluation further down.
-      const strategyConfigs = await this.getStrategyConfigs();
+      const persistedStrategyConfigs = await this.getStrategyConfigs();
+      const strategyConfigs = await configsForAssignedMode(
+        this.userId,
+        this.section,
+        rawConfig.mode === "copilot"
+          ? "copilot"
+          : rawConfig.mode === "autopilot"
+            ? "autopilot"
+            : "research",
+        persistedStrategyConfigs,
+      );
       // User-built strategies that passed the backtest-first gate — injected
       // into the selector per-call, never into the shared built-in roster.
       const customStrategies = await this.getCustomStrategies();

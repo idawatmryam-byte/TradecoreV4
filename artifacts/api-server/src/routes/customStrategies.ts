@@ -13,7 +13,12 @@
  */
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { customStrategiesTable, strategyConfigsTable, type CustomStrategyRow } from "@workspace/db";
+import {
+  customStrategiesTable,
+  strategyConfigsTable,
+  strategyModeAssignmentsTable,
+  type CustomStrategyRow,
+} from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { CustomRulesSchema, describeRules, parseCustomRules, MAX_CUSTOM_STRATEGIES } from "../lib/customRules";
@@ -269,6 +274,13 @@ router.delete("/custom-strategies/:id", async (req, res) => {
         eq(strategyConfigsTable.userId, req.userId!),
         eq(strategyConfigsTable.section, req.section!),
         eq(strategyConfigsTable.strategyId, row.strategyId),
+      ));
+    await db
+      .delete(strategyModeAssignmentsTable)
+      .where(and(
+        eq(strategyModeAssignmentsTable.userId, req.userId!),
+        eq(strategyModeAssignmentsTable.section, req.section!),
+        eq(strategyModeAssignmentsTable.strategyId, row.strategyId),
       ));
 
     invalidateCustomStrategies(req.userId!, req.section!);
