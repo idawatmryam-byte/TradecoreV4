@@ -1,0 +1,77 @@
+@import "@workspace/ui/tokens.css";
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-surface: hsl(var(--surface));
+  --color-elevated: hsl(var(--elevated));
+  --color-border: hsl(var(--border));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-destructive: hsl(var(--destructive));
+  --color-demo: hsl(var(--demo));
+  --color-practice: hsl(var(--practice));
+  --color-live: hsl(var(--live));
+  --font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; border-color: hsl(var(--border)); }
+html { background: hsl(var(--background)); }
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100dvh;
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  font-family: "Inter Variable", "Inter", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+button, input { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .55; }
+:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+
+.admin-panel {
+  border: 1px solid hsl(var(--border) / .72);
+  border-radius: 10px;
+  background: hsl(var(--surface));
+  box-shadow: var(--tc-shadow-panel);
+}
+.admin-kicker {
+  color: hsl(var(--muted-foreground));
+  font-family: "JetBrains Mono Variable", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.admin-table-wrap { width: 100%; overflow-x: auto; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.admin-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 10px 12px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--surface));
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.admin-table td { padding: 11px 12px; border-top: 1px solid hsl(var(--border) / .65); vertical-align: top; }
+.admin-table tbody tr:hover { background: hsl(var(--muted) / .55); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}

@@ -71,7 +71,11 @@ BEGIN
       ('live_safety_events', 'event_key'),
       ('trades', 'autopilot_phase7_actions'),
       ('trades', 'restricted_live_claim_id'),
-      ('users', 'financial_role')
+      ('users', 'financial_role'),
+      ('strategy_mode_assignments', 'revision'),
+      ('platform_role_assignments', 'status'),
+      ('platform_access_versions', 'version'),
+      ('platform_audit_events', 'request_id')
   )
   SELECT array_agg(format('%I.%I', required.object_name, required.column_name)
                    ORDER BY required.object_name, required.column_name)
@@ -85,10 +89,10 @@ BEGIN
 
   IF missing_objects IS NOT NULL THEN
     RAISE EXCEPTION
-      'deployment schema verification failed: missing expected Phase 10/11/12 objects %',
+      'deployment schema verification failed: missing expected safety and Cactus redesign objects %',
       missing_objects;
   END IF;
 END
 $verify$;
 
-\echo 'PASS: deployment schema and Phase 10/11/12 objects verified'
+\echo 'PASS: deployment schema, safety, and Cactus redesign objects verified'

@@ -5273,9 +5273,26 @@ export const DeleteBacktestResponse = zod.object({
  * Returns all 6 built-in strategies with their current configuration and lifetime performance metrics
  * @summary List all strategies with config and performance
  */
+export const getStrategiesResponseFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
+export const getStrategiesResponseAssignmentRevisionMin = 0;
+
+
+
 export const GetStrategiesResponseItem = zod.object({
   "strategyId": zod.string(),
   "strategyName": zod.string(),
+  "version": zod.string().describe('Immutable implementation\/version identity.'),
+  "fingerprint": zod.string().regex(getStrategiesResponseFingerprintRegExp),
+  "kind": zod.enum(['built-in', 'custom']),
+  "supportedMarket": zod.enum(['crypto', 'forex']),
+  "assignment": zod.object({
+  "strategyId": zod.string(),
+  "brain": zod.boolean(),
+  "copilot": zod.boolean(),
+  "autopilot": zod.boolean().describe('Desired next assignment only; never active mandate authority.'),
+  "revision": zod.number().min(getStrategiesResponseAssignmentRevisionMin),
+  "updatedAt": zod.coerce.date().nullable()
+}),
   "supportedRegimes": zod.array(zod.string()),
   "indicators": zod.array(zod.string()).describe('The indicators this strategy reads, human-readable with timeframe.'),
   "decisionMaker": zod.boolean().describe('True when the strategy is a native decision-maker owning its full TradePlan (leverage, structural stop, duration, written reasoning).'),
@@ -7640,5 +7657,572 @@ export const RevokeAutopilotMandateBody = zod.object({
 })
 
 export const RevokeAutopilotMandateResponse = zod.record(zod.string(), zod.unknown())
+
+
+/**
+ * @summary Discover server-backed trader capabilities
+ */
+export const GetTraderCapabilitiesResponse = zod.object({
+  "schemaVersion": zod.enum(['cactus-trader-capabilities-v1']),
+  "section": zod.enum(['crypto', 'forex']),
+  "financialRole": zod.string(),
+  "readOnlyDemoAccount": zod.boolean(),
+  "modes": zod.object({
+  "manual": zod.object({
+  "supported": zod.boolean(),
+  "reason": zod.string()
+}),
+  "brain": zod.object({
+  "supported": zod.boolean(),
+  "backendMode": zod.literal("research"),
+  "canExecute": zod.boolean()
+}),
+  "copilot": zod.object({
+  "supported": zod.boolean(),
+  "approvalRequired": zod.boolean(),
+  "canApprove": zod.boolean()
+}),
+  "autopilot": zod.object({
+  "supported": zod.boolean(),
+  "uiSelectionGrantsAuthority": zod.boolean(),
+  "liveAuthorityEnabled": zod.boolean()
+})
+}),
+  "accounts": zod.object({
+  "multipleBrokerAccounts": zod.boolean(),
+  "demo": zod.object({
+  "supported": zod.boolean(),
+  "label": zod.string()
+}),
+  "broker": zod.object({
+  "provider": zod.enum(['binance', 'oanda']),
+  "configured": zod.boolean(),
+  "maskedIdentifier": zod.string().nullable(),
+  "environments": zod.array(zod.string())
+})
+}),
+  "features": zod.object({
+  "dashboardSession": zod.boolean(),
+  "strategyModeAssignments": zod.boolean(),
+  "pendingOrders": zod.boolean(),
+  "pendingOrdersReason": zod.string(),
+  "manualEntry": zod.boolean(),
+  "externalAiProviders": zod.boolean(),
+  "multipleBrokerAccounts": zod.boolean(),
+  "adminConsole": zod.boolean()
+}),
+  "serverAuthoritative": zod.boolean(),
+  "generatedAt": zod.coerce.date()
+})
+
+
+/**
+ * Account metrics, risk, runtime, health, activity, recommendations, AutoPilot authority, and alerts share one asOf time. Unknown or stale sources remain explicit and are never serialized as healthy zeroes.
+ * @summary Get one authoritative trader-session snapshot
+ */
+export const GetDashboardSessionResponse = zod.object({
+  "schemaVersion": zod.enum(['cactus-dashboard-session-v1']),
+  "asOf": zod.coerce.date(),
+  "context": zod.object({
+  "section": zod.enum(['crypto', 'forex']),
+  "market": zod.enum(['Crypto', 'Forex']),
+  "broker": zod.enum(['binance', 'oanda']),
+  "marketType": zod.string(),
+  "environment": zod.object({
+  "id": zod.enum(['CACTUS_DEMO', 'BINANCE_TESTNET', 'BINANCE_LIVE', 'OANDA_PRACTICE', 'OANDA_LIVE']),
+  "label": zod.string(),
+  "realFunds": zod.boolean()
+}),
+  "account": zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "singleConnectionPerMarket": zod.boolean()
+}),
+  "mode": zod.object({
+  "configured": zod.enum(['brain', 'copilot', 'autopilot']),
+  "backendValue": zod.enum(['research', 'copilot', 'autopilot']),
+  "effectiveAuthority": zod.string()
+})
+}),
+  "metrics": zod.object({
+  "availableFunds": zod.object({
+  "state": zod.enum(['available', 'partial', 'stale', 'unavailable']),
+  "value": zod.number().nullable(),
+  "unit": zod.enum(['currency', 'percent', 'count']),
+  "source": zod.string().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "reason": zod.string().nullable()
+}),
+  "equity": zod.object({
+  "state": zod.enum(['available', 'partial', 'stale', 'unavailable']),
+  "value": zod.number().nullable(),
+  "unit": zod.enum(['currency', 'percent', 'count']),
+  "source": zod.string().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "reason": zod.string().nullable()
+}),
+  "marginUsed": zod.object({
+  "state": zod.enum(['available', 'partial', 'stale', 'unavailable']),
+  "value": zod.number().nullable(),
+  "unit": zod.enum(['currency', 'percent', 'count']),
+  "source": zod.string().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "reason": zod.string().nullable()
+}),
+  "realizedDayPnl": zod.object({
+  "state": zod.enum(['available', 'partial', 'stale', 'unavailable']),
+  "value": zod.number().nullable(),
+  "unit": zod.enum(['currency', 'percent', 'count']),
+  "source": zod.string().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "reason": zod.string().nullable()
+}),
+  "exposure": zod.object({
+  "state": zod.enum(['available', 'partial', 'stale', 'unavailable']),
+  "value": zod.number().nullable(),
+  "unit": zod.enum(['currency', 'percent', 'count']),
+  "source": zod.string().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "reason": zod.string().nullable()
+}),
+  "drawdown": zod.object({
+  "state": zod.enum(['available', 'partial', 'stale', 'unavailable']),
+  "value": zod.number().nullable(),
+  "unit": zod.enum(['currency', 'percent', 'count']),
+  "source": zod.string().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "reason": zod.string().nullable()
+}),
+  "risk": zod.object({
+  "state": zod.enum(['CLEAR', 'BLOCKED', 'SUSPENDED']),
+  "newEntriesAllowed": zod.boolean(),
+  "protectiveManagementContinues": zod.boolean(),
+  "reason": zod.string().nullable()
+})
+}),
+  "runtime": zod.record(zod.string(), zod.unknown()),
+  "health": zod.record(zod.string(), zod.object({
+  "state": zod.enum(['available', 'partial', 'stale', 'unavailable']),
+  "label": zod.string().optional(),
+  "reason": zod.string().nullish(),
+  "observedAt": zod.coerce.date().nullish(),
+  "ageMs": zod.number().nullish()
+})),
+  "activity": zod.object({
+  "positions": zod.array(zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "side": zod.enum(['long', 'short']),
+  "quantity": zod.number(),
+  "entryPrice": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "strategyId": zod.string().nullish(),
+  "strategyName": zod.string().nullish(),
+  "executionTarget": zod.enum(['demo', 'live']),
+  "executionAuthority": zod.string().nullish(),
+  "managementAuthority": zod.string().nullish(),
+  "entryTime": zod.coerce.date()
+})),
+  "pendingOrders": zod.object({
+  "state": zod.literal("unavailable"),
+  "orders": zod.null(),
+  "reason": zod.string()
+}),
+  "recentTrades": zod.array(zod.record(zod.string(), zod.unknown())),
+  "recommendations": zod.array(zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "side": zod.enum(['long', 'short']),
+  "confidence": zod.number(),
+  "entryPrice": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "strategyId": zod.string().nullish(),
+  "strategyName": zod.string().nullish(),
+  "executionTarget": zod.enum(['demo', 'live']),
+  "status": zod.string(),
+  "expiresAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date(),
+  "approvalRequired": zod.boolean()
+}))
+}),
+  "performance": zod.record(zod.string(), zod.unknown()),
+  "autopilot": zod.record(zod.string(), zod.unknown()).nullable(),
+  "alerts": zod.array(zod.object({
+  "id": zod.string(),
+  "severity": zod.enum(['info', 'warning', 'critical']),
+  "source": zod.string(),
+  "message": zod.string(),
+  "occurredAt": zod.coerce.date(),
+  "persistent": zod.boolean()
+})),
+  "limitations": zod.array(zod.string())
+})
+
+
+/**
+ * @summary List revisioned mode assignments
+ */
+export const getStrategyModeAssignmentsResponseRevisionMin = 0;
+
+
+
+export const GetStrategyModeAssignmentsResponseItem = zod.object({
+  "strategyId": zod.string(),
+  "brain": zod.boolean(),
+  "copilot": zod.boolean(),
+  "autopilot": zod.boolean().describe('Desired next assignment only; never active mandate authority.'),
+  "revision": zod.number().min(getStrategyModeAssignmentsResponseRevisionMin),
+  "updatedAt": zod.coerce.date().nullable()
+})
+export const GetStrategyModeAssignmentsResponse = zod.array(GetStrategyModeAssignmentsResponseItem)
+
+
+/**
+ * AutoPilot is desired-next configuration only. This endpoint cannot modify an active immutable mandate or grant execution authority.
+ * @summary Update a revisioned strategy assignment
+ */
+export const UpdateStrategyModeAssignmentParams = zod.object({
+  "strategyId": zod.coerce.string()
+})
+
+export const updateStrategyModeAssignmentBodyExpectedRevisionMin = 0;
+
+
+
+export const UpdateStrategyModeAssignmentBody = zod.object({
+  "expectedRevision": zod.number().min(updateStrategyModeAssignmentBodyExpectedRevisionMin),
+  "brain": zod.boolean(),
+  "copilot": zod.boolean(),
+  "autopilot": zod.boolean()
+})
+
+export const updateStrategyModeAssignmentResponseAssignmentRevisionMin = 0;
+
+
+
+export const UpdateStrategyModeAssignmentResponse = zod.object({
+  "assignment": zod.object({
+  "strategyId": zod.string(),
+  "brain": zod.boolean(),
+  "copilot": zod.boolean(),
+  "autopilot": zod.boolean().describe('Desired next assignment only; never active mandate authority.'),
+  "revision": zod.number().min(updateStrategyModeAssignmentResponseAssignmentRevisionMin),
+  "updatedAt": zod.coerce.date().nullable()
+}),
+  "authority": zod.object({
+  "autopilotMandateChanged": zod.boolean(),
+  "message": zod.string()
+})
+})
+
+
+/**
+ * @summary Get the authenticated user's profile and security status
+ */
+export const GetMyAccountResponse = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "email": zod.string().nullable(),
+  "displayName": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "hasPassword": zod.boolean(),
+  "isDemo": zod.boolean(),
+  "providers": zod.array(zod.object({
+  "provider": zod.string(),
+  "email": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Update user-owned profile fields
+ */
+export const updateMyAccountBodyDisplayNameMax = 64;
+
+export const updateMyAccountBodyEmailMax = 128;
+
+
+
+export const UpdateMyAccountBody = zod.object({
+  "displayName": zod.string().max(updateMyAccountBodyDisplayNameMax).optional(),
+  "email": zod.string().max(updateMyAccountBodyEmailMax).optional()
+})
+
+export const UpdateMyAccountResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * Stops both engines before an all-or-nothing purge. Staff identities must first complete audited out-of-band platform-role offboarding.
+ * @summary Permanently delete the authenticated account
+ */
+export const deleteMyAccountBodyConfirmMax = 64;
+
+
+
+export const DeleteMyAccountBody = zod.object({
+  "confirm": zod.string().min(1).max(deleteMyAccountBodyConfirmMax)
+})
+
+export const DeleteMyAccountResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Set or change the current user's password
+ */
+export const changeMyPasswordBodyCurrentPasswordMax = 1024;
+
+export const changeMyPasswordBodyNewPasswordMin = 12;
+export const changeMyPasswordBodyNewPasswordMax = 1024;
+
+
+
+export const ChangeMyPasswordBody = zod.object({
+  "currentPassword": zod.string().max(changeMyPasswordBodyCurrentPasswordMax).optional(),
+  "newPassword": zod.string().min(changeMyPasswordBodyNewPasswordMin).max(changeMyPasswordBodyNewPasswordMax)
+})
+
+export const ChangeMyPasswordResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Get recent validated candles from the engine's market-data path
+ */
+export const getMarketCandlesQuerySymbolMax = 40;
+
+export const getMarketCandlesQueryTimeframeDefault = `1m`;
+export const getMarketCandlesQueryLimitDefault = 180;
+export const getMarketCandlesQueryLimitMin = 20;
+export const getMarketCandlesQueryLimitMax = 500;
+
+
+
+export const GetMarketCandlesQueryParams = zod.object({
+  "symbol": zod.coerce.string().min(1).max(getMarketCandlesQuerySymbolMax),
+  "timeframe": zod.enum(['1m', '3m', '5m', '15m', '1h']).default(getMarketCandlesQueryTimeframeDefault),
+  "limit": zod.coerce.number().min(getMarketCandlesQueryLimitMin).max(getMarketCandlesQueryLimitMax).default(getMarketCandlesQueryLimitDefault),
+  "marketType": zod.enum(['spot', 'futures', 'forex']).optional()
+})
+
+export const getMarketCandlesResponseCandlesItemMin = 6;
+export const getMarketCandlesResponseCandlesItemMax = 6;
+
+
+
+export const GetMarketCandlesResponse = zod.object({
+  "symbol": zod.string(),
+  "timeframe": zod.string(),
+  "candles": zod.array(zod.array(zod.number()).min(getMarketCandlesResponseCandlesItemMin).max(getMarketCandlesResponseCandlesItemMax))
+})
+
+
+/**
+ * @summary Get marked active-position monitoring evidence
+ */
+export const GetActivePositionMonitorResponseItem = zod.object({
+  "tradeId": zod.number(),
+  "symbol": zod.string(),
+  "side": zod.enum(['long', 'short']),
+  "strategyName": zod.string().nullish(),
+  "marketType": zod.enum(['spot', 'futures', 'forex']),
+  "leverage": zod.number().nullish(),
+  "entryPrice": zod.number(),
+  "currentPrice": zod.number(),
+  "stopLossPrice": zod.number(),
+  "takeProfitPrice": zod.number(),
+  "tp1Price": zod.number().nullish(),
+  "remainingQuantity": zod.number(),
+  "unrealizedPnl": zod.number(),
+  "unrealizedPnlPercent": zod.number(),
+  "breakEvenActive": zod.boolean().optional(),
+  "trailingStopActive": zod.boolean().optional(),
+  "tp1Filled": zod.boolean().optional(),
+  "holdingSeconds": zod.number().optional()
+})
+export const GetActivePositionMonitorResponse = zod.array(GetActivePositionMonitorResponseItem)
+
+
+/**
+ * @summary Close one owned open position through the existing managed exit path
+ */
+
+
+
+export const CloseOpenPositionParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+export const CloseOpenPositionResponse = zod.record(zod.string(), zod.unknown())
+
+
+/**
+ * @summary Preview the exact effective backtest configuration without creating a run
+ */
+export const previewBacktestConfigBodyConfidenceThresholdDefault = 65;
+export const previewBacktestConfigBodyConfidenceThresholdMin = 0;
+export const previewBacktestConfigBodyConfidenceThresholdMax = 100;
+
+export const previewBacktestConfigBodyStopLossPercentDefault = 1.5;
+export const previewBacktestConfigBodyStopLossPercentExclusiveMin = 0;
+
+export const previewBacktestConfigBodyTakeProfitPercentDefault = 2.5;
+export const previewBacktestConfigBodyTakeProfitPercentExclusiveMin = 0;
+
+export const previewBacktestConfigBodyRiskPercentDefault = 0;
+export const previewBacktestConfigBodyRiskPercentMin = 0;
+
+
+
+export const PreviewBacktestConfigBody = zod.object({
+  "confidenceThreshold": zod.number().min(previewBacktestConfigBodyConfidenceThresholdMin).max(previewBacktestConfigBodyConfidenceThresholdMax).default(previewBacktestConfigBodyConfidenceThresholdDefault),
+  "stopLossPercent": zod.number().gt(previewBacktestConfigBodyStopLossPercentExclusiveMin).default(previewBacktestConfigBodyStopLossPercentDefault),
+  "takeProfitPercent": zod.number().gt(previewBacktestConfigBodyTakeProfitPercentExclusiveMin).default(previewBacktestConfigBodyTakeProfitPercentDefault),
+  "riskPercent": zod.number().min(previewBacktestConfigBodyRiskPercentMin).default(previewBacktestConfigBodyRiskPercentDefault)
+})
+
+export const PreviewBacktestConfigResponse = zod.object({
+  "runLevelOverrides": zod.record(zod.string(), zod.unknown()),
+  "strategies": zod.array(zod.record(zod.string(), zod.unknown()))
+})
+
+
+/**
+ * @summary Get section-scoped account-trade edge evidence
+ */
+export const GetEdgeForensicsReportResponse = zod.record(zod.string(), zod.unknown())
+
+
+/**
+ * @summary Export closed account trades as CSV
+ */
+export const ExportAccountTradesCsvResponse = zod.unknown()
+
+
+/**
+ * @summary Get platform eligibility and recent step-up state
+ */
+export const GetAdminSessionStatusResponse = zod.object({
+  "eligible": zod.boolean(),
+  "roles": zod.array(zod.enum(['PLATFORM_ADMIN', 'OPERATIONS_RISK', 'SUPPORT', 'AUDITOR'])),
+  "permissions": zod.array(zod.string()),
+  "stepUp": zod.object({
+  "active": zod.boolean(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "reason": zod.string().optional()
+}),
+  "mutationsSupported": zod.boolean(),
+  "mutationReason": zod.string()
+})
+
+
+/**
+ * @summary Create a short-lived HttpOnly Admin Console session
+ */
+export const stepUpAdminSessionBodyPasswordMax = 1024;
+
+
+
+export const StepUpAdminSessionBody = zod.object({
+  "password": zod.string().min(1).max(stepUpAdminSessionBodyPasswordMax)
+})
+
+export const StepUpAdminSessionResponse = zod.object({
+  "ok": zod.boolean(),
+  "roles": zod.array(zod.enum(['PLATFORM_ADMIN', 'OPERATIONS_RISK', 'SUPPORT', 'AUDITOR'])),
+  "expiresAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Clear only the Admin Console step-up session
+ */
+export const LogoutAdminSessionResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Get cross-platform operational overview
+ */
+export const GetAdminOverviewResponse = zod.object({
+  "asOf": zod.coerce.date(),
+  "status": zod.enum(['OPERATIONAL', 'ATTENTION_REQUIRED']),
+  "counts": zod.record(zod.string(), zod.number()),
+  "autopilot": zod.record(zod.string(), zod.number()),
+  "authorityBoundary": zod.string()
+})
+
+
+/**
+ * @summary Get authoritative and not-provisioned service health
+ */
+export const GetAdminSystemHealthResponse = zod.record(zod.string(), zod.unknown()).describe('Endpoint-specific read-only data; unsupported subsystems report NOT_PROVISIONED.')
+
+
+/**
+ * External provider configuration is reported unsupported until an adapter exists.
+ * @summary Get deterministic Brain infrastructure status
+ */
+export const GetAdminAiBrainResponse = zod.record(zod.string(), zod.unknown()).describe('Endpoint-specific read-only data; unsupported subsystems report NOT_PROVISIONED.')
+
+
+/**
+ * @summary Get platform execution visibility without trading authority
+ */
+export const GetAdminExecutionResponse = zod.record(zod.string(), zod.unknown()).describe('Endpoint-specific read-only data; unsupported subsystems report NOT_PROVISIONED.')
+
+
+/**
+ * @summary Get platform risk and safety visibility
+ */
+export const GetAdminRiskSafetyResponse = zod.record(zod.string(), zod.unknown()).describe('Endpoint-specific read-only data; unsupported subsystems report NOT_PROVISIONED.')
+
+
+/**
+ * @summary Get paginated, minimized user-access metadata
+ */
+export const getAdminUsersQueryLimitDefault = 50;
+export const getAdminUsersQueryLimitMax = 100;
+
+
+
+
+export const GetAdminUsersQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(getAdminUsersQueryLimitMax).default(getAdminUsersQueryLimitDefault),
+  "before": zod.coerce.number().min(1).optional()
+})
+
+export const GetAdminUsersResponse = zod.record(zod.string(), zod.unknown()).describe('Endpoint-specific read-only data; unsupported subsystems report NOT_PROVISIONED.')
+
+
+/**
+ * @summary Get paginated append-only operator evidence
+ */
+export const getAdminAuditQueryLimitDefault = 50;
+export const getAdminAuditQueryLimitMax = 100;
+
+
+
+
+export const GetAdminAuditQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(getAdminAuditQueryLimitMax).default(getAdminAuditQueryLimitDefault),
+  "before": zod.coerce.number().min(1).optional()
+})
+
+export const GetAdminAuditResponse = zod.record(zod.string(), zod.unknown()).describe('Endpoint-specific read-only data; unsupported subsystems report NOT_PROVISIONED.')
+
+
+/**
+ * @summary Get non-secret platform capability configuration
+ */
+export const GetAdminPlatformConfigurationResponse = zod.record(zod.string(), zod.unknown()).describe('Endpoint-specific read-only data; unsupported subsystems report NOT_PROVISIONED.')
 
 

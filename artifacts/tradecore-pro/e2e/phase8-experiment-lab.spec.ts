@@ -116,10 +116,10 @@ async function mockApi(page: Page, experiment = { ...baseExperiment, report }) {
   });
 }
 
-test("Experiment Lab makes Research authority and overfitting controls prominent", async ({ page }) => {
+test("Backtest Lab makes Research authority and overfitting controls prominent", async ({ page }) => {
   await mockApi(page);
   await page.goto("/backtest");
-  await expect(page.getByRole("heading", { name: "Experiment Lab" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Backtest Lab" })).toBeVisible();
   await expect(page.getByText("Research has zero execution authority")).toBeVisible();
   await expect(page.getByText(/Synthetic fallback is refused/)).toBeVisible();
   await expect(page.getByText(/Purged walk-forward validation/)).toBeVisible();

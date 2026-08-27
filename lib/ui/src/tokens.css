@@ -1,0 +1,100 @@
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+
+:root {
+  color-scheme: light;
+
+  --background: 150 14% 96%;
+  --foreground: 157 35% 7%;
+  --surface: 0 0% 100%;
+  --surface-foreground: 157 35% 7%;
+  --elevated: 0 0% 100%;
+  --elevated-foreground: 157 35% 7%;
+  --card: 0 0% 100%;
+  --card-foreground: 157 35% 7%;
+  --border: 158 11% 81%;
+  --input: 158 11% 81%;
+  --ring: 160 70% 28%;
+  --primary: 160 70% 28%;
+  --primary-foreground: 150 20% 98%;
+  --secondary: 154 17% 91%;
+  --secondary-foreground: 157 35% 10%;
+  --muted: 154 17% 93%;
+  --muted-foreground: 158 10% 36%;
+  --accent: 154 17% 90%;
+  --accent-foreground: 157 35% 9%;
+  --destructive: 0 72% 42%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 160 88% 26%;
+  --success-foreground: 0 0% 100%;
+  --warning: 40 100% 30%;
+  --warning-foreground: 40 100% 10%;
+  --demo: 201 98% 32%;
+  --practice: 263 70% 50%;
+  --live: 17 88% 40%;
+  --unknown: 158 8% 42%;
+  --radius: 0.5rem;
+
+  --tc-space-1: 0.25rem;
+  --tc-space-2: 0.5rem;
+  --tc-space-3: 0.75rem;
+  --tc-space-4: 1rem;
+  --tc-space-6: 1.5rem;
+  --tc-space-8: 2rem;
+  --tc-space-12: 3rem;
+  --tc-motion-fast: 120ms;
+  --tc-motion-standard: 180ms;
+  --tc-motion-deliberate: 240ms;
+  --tc-shadow-panel: 0 1px 2px hsl(157 35% 7% / 0.05), 0 10px 24px hsl(157 35% 7% / 0.05);
+  --tc-shadow-elevated: 0 2px 6px hsl(157 35% 7% / 0.08), 0 24px 56px hsl(157 35% 7% / 0.12);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: 164 42% 5%;
+  --foreground: 150 27% 96%;
+  --surface: 162 31% 8%;
+  --surface-foreground: 150 27% 96%;
+  --elevated: 161 30% 11%;
+  --elevated-foreground: 150 27% 96%;
+  --card: 162 31% 8%;
+  --card-foreground: 150 27% 96%;
+  --border: 160 22% 21%;
+  --input: 160 22% 24%;
+  --ring: 156 52% 57%;
+  --primary: 156 52% 57%;
+  --primary-foreground: 164 42% 5%;
+  --secondary: 161 24% 15%;
+  --secondary-foreground: 150 27% 96%;
+  --muted: 161 24% 13%;
+  --muted-foreground: 158 10% 67%;
+  --accent: 161 24% 17%;
+  --accent-foreground: 150 27% 96%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 158 64% 52%;
+  --success-foreground: 164 42% 5%;
+  --warning: 43 96% 56%;
+  --warning-foreground: 43 100% 10%;
+  --demo: 199 89% 59%;
+  --practice: 258 90% 75%;
+  --live: 21 90% 54%;
+  --unknown: 158 8% 57%;
+  --tc-shadow-panel: 0 1px 0 hsl(0 0% 100% / 0.025), 0 12px 32px hsl(164 60% 2% / 0.34);
+  --tc-shadow-elevated: 0 1px 0 hsl(0 0% 100% / 0.04), 0 28px 72px hsl(164 60% 2% / 0.56);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --tc-motion-fast: 1ms;
+    --tc-motion-standard: 1ms;
+    --tc-motion-deliberate: 1ms;
+  }
+}
+
+html[data-reduce-motion="true"] {
+  --tc-motion-fast: 1ms;
+  --tc-motion-standard: 1ms;
+  --tc-motion-deliberate: 1ms;
+}

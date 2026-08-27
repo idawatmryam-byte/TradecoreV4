@@ -10,7 +10,7 @@ export const ACTIVE_BRAIN = {
 } as const;
 
 function operatingMode(config: any, bot: any): string {
-  if (config?.mode === "research") return "Research";
+  if (config?.mode === "research") return "Brain";
   if (config?.mode === "copilot") return "Co-Pilot";
   if (config?.executionTarget === "demo" || bot?.mode === "testnet") return "Demo";
   if (bot?.mode === "backtest") return "Research";
