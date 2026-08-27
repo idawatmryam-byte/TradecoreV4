@@ -18,3 +18,5 @@ export * from "./research";
 export * from "./autopilot";
 export * from "./liveSafety";
 export * from "./tradingMandates";
+export * from "./strategyAssignments";
+export * from "./platformAdmin";

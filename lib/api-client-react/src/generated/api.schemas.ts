@@ -1262,6 +1262,591 @@ export interface EvidenceLifecycleResult {
   reason: string;
 }
 
+export const OkResponseValue = {
+  ok: true,
+} as const;
+export type OkResponse = typeof OkResponseValue;
+
+export type AccountProfileProvidersItem = {
+  provider: string;
+  /** @nullable */
+  email: string | null;
+};
+
+export interface AccountProfile {
+  id: number;
+  username: string;
+  /** @nullable */
+  email: string | null;
+  /** @nullable */
+  displayName: string | null;
+  createdAt: string;
+  hasPassword: boolean;
+  isDemo: boolean;
+  providers: AccountProfileProvidersItem[];
+}
+
+export interface AccountProfileUpdate {
+  /** @maxLength 64 */
+  displayName?: string;
+  /** @maxLength 128 */
+  email?: string;
+}
+
+export interface MarketCandles {
+  symbol: string;
+  timeframe: string;
+  /**
+     * @items.minItems 6
+     * @items.maxItems 6
+     */
+  candles: number[][];
+}
+
+export type ActivePositionMonitorSide = typeof ActivePositionMonitorSide[keyof typeof ActivePositionMonitorSide];
+
+
+export const ActivePositionMonitorSide = {
+  long: 'long',
+  short: 'short',
+} as const;
+
+export type ActivePositionMonitorMarketType = typeof ActivePositionMonitorMarketType[keyof typeof ActivePositionMonitorMarketType];
+
+
+export const ActivePositionMonitorMarketType = {
+  spot: 'spot',
+  futures: 'futures',
+  forex: 'forex',
+} as const;
+
+export interface ActivePositionMonitor {
+  tradeId: number;
+  symbol: string;
+  side: ActivePositionMonitorSide;
+  /** @nullable */
+  strategyName?: string | null;
+  marketType: ActivePositionMonitorMarketType;
+  /** @nullable */
+  leverage?: number | null;
+  entryPrice: number;
+  currentPrice: number;
+  stopLossPrice: number;
+  takeProfitPrice: number;
+  /** @nullable */
+  tp1Price?: number | null;
+  remainingQuantity: number;
+  unrealizedPnl: number;
+  unrealizedPnlPercent: number;
+  breakEvenActive?: boolean;
+  trailingStopActive?: boolean;
+  tp1Filled?: boolean;
+  holdingSeconds?: number;
+}
+
+export interface BacktestConfigPreviewRequest {
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  confidenceThreshold?: number;
+  /** @exclusiveMinimum 0 */
+  stopLossPercent?: number;
+  /** @exclusiveMinimum 0 */
+  takeProfitPercent?: number;
+  /** @minimum 0 */
+  riskPercent?: number;
+}
+
+export type BacktestConfigPreviewRunLevelOverrides = { [key: string]: unknown };
+
+export type BacktestConfigPreviewStrategiesItem = { [key: string]: unknown };
+
+export interface BacktestConfigPreview {
+  runLevelOverrides: BacktestConfigPreviewRunLevelOverrides;
+  strategies: BacktestConfigPreviewStrategiesItem[];
+}
+
+export interface StrategyModeAssignment {
+  strategyId: string;
+  brain: boolean;
+  copilot: boolean;
+  /** Desired next assignment only; never active mandate authority. */
+  autopilot: boolean;
+  /** @minimum 0 */
+  revision: number;
+  /** @nullable */
+  updatedAt: string | null;
+}
+
+export interface StrategyModeAssignmentUpdate {
+  /** @minimum 0 */
+  expectedRevision: number;
+  brain: boolean;
+  copilot: boolean;
+  autopilot: boolean;
+}
+
+export type TraderCapabilitiesSchemaVersion = typeof TraderCapabilitiesSchemaVersion[keyof typeof TraderCapabilitiesSchemaVersion];
+
+
+export const TraderCapabilitiesSchemaVersion = {
+  'cactus-trader-capabilities-v1': 'cactus-trader-capabilities-v1',
+} as const;
+
+export type TraderCapabilitiesSection = typeof TraderCapabilitiesSection[keyof typeof TraderCapabilitiesSection];
+
+
+export const TraderCapabilitiesSection = {
+  crypto: 'crypto',
+  forex: 'forex',
+} as const;
+
+export type TraderCapabilitiesModesManual = {
+  supported: false;
+  reason: string;
+};
+
+export type TraderCapabilitiesModesBrain = {
+  supported: boolean;
+  backendMode: 'research';
+  canExecute: false;
+};
+
+export type TraderCapabilitiesModesCopilot = {
+  supported: boolean;
+  approvalRequired: true;
+  canApprove: boolean;
+};
+
+export type TraderCapabilitiesModesAutopilot = {
+  supported: boolean;
+  uiSelectionGrantsAuthority: false;
+  liveAuthorityEnabled: boolean;
+};
+
+export type TraderCapabilitiesModes = {
+  manual: TraderCapabilitiesModesManual;
+  brain: TraderCapabilitiesModesBrain;
+  copilot: TraderCapabilitiesModesCopilot;
+  autopilot: TraderCapabilitiesModesAutopilot;
+};
+
+export type TraderCapabilitiesAccountsDemo = {
+  supported: boolean;
+  label: string;
+};
+
+export type TraderCapabilitiesAccountsBrokerProvider = typeof TraderCapabilitiesAccountsBrokerProvider[keyof typeof TraderCapabilitiesAccountsBrokerProvider];
+
+
+export const TraderCapabilitiesAccountsBrokerProvider = {
+  binance: 'binance',
+  oanda: 'oanda',
+} as const;
+
+export type TraderCapabilitiesAccountsBroker = {
+  provider: TraderCapabilitiesAccountsBrokerProvider;
+  configured: boolean;
+  /** @nullable */
+  maskedIdentifier: string | null;
+  environments: string[];
+};
+
+export type TraderCapabilitiesAccounts = {
+  multipleBrokerAccounts: false;
+  demo: TraderCapabilitiesAccountsDemo;
+  broker: TraderCapabilitiesAccountsBroker;
+};
+
+export type TraderCapabilitiesFeatures = {
+  dashboardSession: boolean;
+  strategyModeAssignments: boolean;
+  pendingOrders: boolean;
+  pendingOrdersReason: string;
+  manualEntry: false;
+  externalAiProviders: false;
+  multipleBrokerAccounts: false;
+  adminConsole: boolean;
+};
+
+export interface TraderCapabilities {
+  schemaVersion: TraderCapabilitiesSchemaVersion;
+  section: TraderCapabilitiesSection;
+  financialRole: string;
+  readOnlyDemoAccount: boolean;
+  modes: TraderCapabilitiesModes;
+  accounts: TraderCapabilitiesAccounts;
+  features: TraderCapabilitiesFeatures;
+  serverAuthoritative: true;
+  generatedAt: string;
+}
+
+export type DashboardMetricState = typeof DashboardMetricState[keyof typeof DashboardMetricState];
+
+
+export const DashboardMetricState = {
+  available: 'available',
+  partial: 'partial',
+  stale: 'stale',
+  unavailable: 'unavailable',
+} as const;
+
+export type DashboardMetricUnit = typeof DashboardMetricUnit[keyof typeof DashboardMetricUnit];
+
+
+export const DashboardMetricUnit = {
+  currency: 'currency',
+  percent: 'percent',
+  count: 'count',
+} as const;
+
+export interface DashboardMetric {
+  state: DashboardMetricState;
+  /** @nullable */
+  value: number | null;
+  unit: DashboardMetricUnit;
+  /** @nullable */
+  source: string | null;
+  /** @nullable */
+  observedAt: string | null;
+  /** @nullable */
+  reason: string | null;
+}
+
+export type DashboardPositionSide = typeof DashboardPositionSide[keyof typeof DashboardPositionSide];
+
+
+export const DashboardPositionSide = {
+  long: 'long',
+  short: 'short',
+} as const;
+
+export type DashboardPositionExecutionTarget = typeof DashboardPositionExecutionTarget[keyof typeof DashboardPositionExecutionTarget];
+
+
+export const DashboardPositionExecutionTarget = {
+  demo: 'demo',
+  live: 'live',
+} as const;
+
+export interface DashboardPosition {
+  id: number;
+  symbol: string;
+  side: DashboardPositionSide;
+  quantity: number;
+  entryPrice: number;
+  stopLoss: number;
+  takeProfit: number;
+  /** @nullable */
+  strategyId?: string | null;
+  /** @nullable */
+  strategyName?: string | null;
+  executionTarget: DashboardPositionExecutionTarget;
+  /** @nullable */
+  executionAuthority?: string | null;
+  /** @nullable */
+  managementAuthority?: string | null;
+  entryTime: string;
+}
+
+export type DashboardRecommendationSide = typeof DashboardRecommendationSide[keyof typeof DashboardRecommendationSide];
+
+
+export const DashboardRecommendationSide = {
+  long: 'long',
+  short: 'short',
+} as const;
+
+export type DashboardRecommendationExecutionTarget = typeof DashboardRecommendationExecutionTarget[keyof typeof DashboardRecommendationExecutionTarget];
+
+
+export const DashboardRecommendationExecutionTarget = {
+  demo: 'demo',
+  live: 'live',
+} as const;
+
+export interface DashboardRecommendation {
+  id: number;
+  symbol: string;
+  side: DashboardRecommendationSide;
+  confidence: number;
+  entryPrice: number;
+  stopLoss: number;
+  takeProfit: number;
+  quantity: number;
+  /** @nullable */
+  strategyId?: string | null;
+  /** @nullable */
+  strategyName?: string | null;
+  executionTarget: DashboardRecommendationExecutionTarget;
+  status: string;
+  expiresAt: string;
+  createdAt: string;
+  approvalRequired: true;
+}
+
+export type DashboardSessionSchemaVersion = typeof DashboardSessionSchemaVersion[keyof typeof DashboardSessionSchemaVersion];
+
+
+export const DashboardSessionSchemaVersion = {
+  'cactus-dashboard-session-v1': 'cactus-dashboard-session-v1',
+} as const;
+
+export type DashboardSessionContextSection = typeof DashboardSessionContextSection[keyof typeof DashboardSessionContextSection];
+
+
+export const DashboardSessionContextSection = {
+  crypto: 'crypto',
+  forex: 'forex',
+} as const;
+
+export type DashboardSessionContextMarket = typeof DashboardSessionContextMarket[keyof typeof DashboardSessionContextMarket];
+
+
+export const DashboardSessionContextMarket = {
+  Crypto: 'Crypto',
+  Forex: 'Forex',
+} as const;
+
+export type DashboardSessionContextBroker = typeof DashboardSessionContextBroker[keyof typeof DashboardSessionContextBroker];
+
+
+export const DashboardSessionContextBroker = {
+  binance: 'binance',
+  oanda: 'oanda',
+} as const;
+
+export type DashboardSessionContextEnvironmentId = typeof DashboardSessionContextEnvironmentId[keyof typeof DashboardSessionContextEnvironmentId];
+
+
+export const DashboardSessionContextEnvironmentId = {
+  CACTUS_DEMO: 'CACTUS_DEMO',
+  BINANCE_TESTNET: 'BINANCE_TESTNET',
+  BINANCE_LIVE: 'BINANCE_LIVE',
+  OANDA_PRACTICE: 'OANDA_PRACTICE',
+  OANDA_LIVE: 'OANDA_LIVE',
+} as const;
+
+export type DashboardSessionContextEnvironment = {
+  id: DashboardSessionContextEnvironmentId;
+  label: string;
+  realFunds: boolean;
+};
+
+export type DashboardSessionContextAccount = {
+  id: string;
+  label: string;
+  singleConnectionPerMarket: true;
+};
+
+export type DashboardSessionContextModeConfigured = typeof DashboardSessionContextModeConfigured[keyof typeof DashboardSessionContextModeConfigured];
+
+
+export const DashboardSessionContextModeConfigured = {
+  brain: 'brain',
+  copilot: 'copilot',
+  autopilot: 'autopilot',
+} as const;
+
+export type DashboardSessionContextModeBackendValue = typeof DashboardSessionContextModeBackendValue[keyof typeof DashboardSessionContextModeBackendValue];
+
+
+export const DashboardSessionContextModeBackendValue = {
+  research: 'research',
+  copilot: 'copilot',
+  autopilot: 'autopilot',
+} as const;
+
+export type DashboardSessionContextMode = {
+  configured: DashboardSessionContextModeConfigured;
+  backendValue: DashboardSessionContextModeBackendValue;
+  effectiveAuthority: string;
+};
+
+export type DashboardSessionContext = {
+  section: DashboardSessionContextSection;
+  market: DashboardSessionContextMarket;
+  broker: DashboardSessionContextBroker;
+  marketType: string;
+  environment: DashboardSessionContextEnvironment;
+  account: DashboardSessionContextAccount;
+  mode: DashboardSessionContextMode;
+};
+
+export type DashboardSessionMetricsRiskState = typeof DashboardSessionMetricsRiskState[keyof typeof DashboardSessionMetricsRiskState];
+
+
+export const DashboardSessionMetricsRiskState = {
+  CLEAR: 'CLEAR',
+  BLOCKED: 'BLOCKED',
+  SUSPENDED: 'SUSPENDED',
+} as const;
+
+export type DashboardSessionMetricsRisk = {
+  state: DashboardSessionMetricsRiskState;
+  newEntriesAllowed: boolean;
+  protectiveManagementContinues: true;
+  /** @nullable */
+  reason: string | null;
+};
+
+export type DashboardSessionMetrics = {
+  availableFunds: DashboardMetric;
+  equity: DashboardMetric;
+  marginUsed: DashboardMetric;
+  realizedDayPnl: DashboardMetric;
+  exposure: DashboardMetric;
+  drawdown: DashboardMetric;
+  risk: DashboardSessionMetricsRisk;
+};
+
+export type DashboardSessionRuntime = { [key: string]: unknown };
+
+export type DashboardSessionHealthState = typeof DashboardSessionHealthState[keyof typeof DashboardSessionHealthState];
+
+
+export const DashboardSessionHealthState = {
+  available: 'available',
+  partial: 'partial',
+  stale: 'stale',
+  unavailable: 'unavailable',
+} as const;
+
+export type DashboardSessionHealth = {[key: string]: {
+  state: DashboardSessionHealthState;
+  label?: string;
+  /** @nullable */
+  reason?: string | null;
+  /** @nullable */
+  observedAt?: string | null;
+  /** @nullable */
+  ageMs?: number | null;
+}};
+
+export type DashboardSessionActivityPendingOrders = {
+  state: 'unavailable';
+  /** @nullable */
+  orders: null;
+  reason: string;
+};
+
+export type DashboardSessionActivityRecentTradesItem = { [key: string]: unknown };
+
+export type DashboardSessionActivity = {
+  positions: DashboardPosition[];
+  pendingOrders: DashboardSessionActivityPendingOrders;
+  recentTrades: DashboardSessionActivityRecentTradesItem[];
+  recommendations: DashboardRecommendation[];
+};
+
+export type DashboardSessionPerformance = { [key: string]: unknown };
+
+/**
+ * @nullable
+ */
+export type DashboardSessionAutopilot = { [key: string]: unknown } | null;
+
+export type DashboardSessionAlertsItemSeverity = typeof DashboardSessionAlertsItemSeverity[keyof typeof DashboardSessionAlertsItemSeverity];
+
+
+export const DashboardSessionAlertsItemSeverity = {
+  info: 'info',
+  warning: 'warning',
+  critical: 'critical',
+} as const;
+
+export type DashboardSessionAlertsItem = {
+  id: string;
+  severity: DashboardSessionAlertsItemSeverity;
+  source: string;
+  message: string;
+  occurredAt: string;
+  persistent: boolean;
+};
+
+export interface DashboardSession {
+  schemaVersion: DashboardSessionSchemaVersion;
+  asOf: string;
+  context: DashboardSessionContext;
+  metrics: DashboardSessionMetrics;
+  runtime: DashboardSessionRuntime;
+  health: DashboardSessionHealth;
+  activity: DashboardSessionActivity;
+  performance: DashboardSessionPerformance;
+  /** @nullable */
+  autopilot: DashboardSessionAutopilot;
+  alerts: DashboardSessionAlertsItem[];
+  limitations: string[];
+}
+
+export type AdminSessionStatusRolesItem = typeof AdminSessionStatusRolesItem[keyof typeof AdminSessionStatusRolesItem];
+
+
+export const AdminSessionStatusRolesItem = {
+  PLATFORM_ADMIN: 'PLATFORM_ADMIN',
+  OPERATIONS_RISK: 'OPERATIONS_RISK',
+  SUPPORT: 'SUPPORT',
+  AUDITOR: 'AUDITOR',
+} as const;
+
+export type AdminSessionStatusStepUp = {
+  active: boolean;
+  /** @nullable */
+  expiresAt: string | null;
+  reason?: string;
+};
+
+export interface AdminSessionStatus {
+  eligible: boolean;
+  roles: AdminSessionStatusRolesItem[];
+  permissions: string[];
+  stepUp: AdminSessionStatusStepUp;
+  mutationsSupported: false;
+  mutationReason: string;
+}
+
+export type AdminStepUpResultRolesItem = typeof AdminStepUpResultRolesItem[keyof typeof AdminStepUpResultRolesItem];
+
+
+export const AdminStepUpResultRolesItem = {
+  PLATFORM_ADMIN: 'PLATFORM_ADMIN',
+  OPERATIONS_RISK: 'OPERATIONS_RISK',
+  SUPPORT: 'SUPPORT',
+  AUDITOR: 'AUDITOR',
+} as const;
+
+export interface AdminStepUpResult {
+  ok: true;
+  roles: AdminStepUpResultRolesItem[];
+  expiresAt: string;
+}
+
+export type AdminOverviewStatus = typeof AdminOverviewStatus[keyof typeof AdminOverviewStatus];
+
+
+export const AdminOverviewStatus = {
+  OPERATIONAL: 'OPERATIONAL',
+  ATTENTION_REQUIRED: 'ATTENTION_REQUIRED',
+} as const;
+
+export type AdminOverviewCounts = {[key: string]: number};
+
+export type AdminOverviewAutopilot = {[key: string]: number};
+
+export interface AdminOverview {
+  asOf: string;
+  status: AdminOverviewStatus;
+  counts: AdminOverviewCounts;
+  autopilot: AdminOverviewAutopilot;
+  authorityBoundary: string;
+}
+
+/**
+ * Endpoint-specific read-only data; unsupported subsystems report NOT_PROVISIONED.
+ */
+export interface AdminOperationalReadModel { [key: string]: unknown }
+
 export interface HealthStatus {
   status: string;
 }
@@ -5562,9 +6147,32 @@ export interface StrategyPerformance {
   avgDurationSeconds: number;
 }
 
+export type StrategyInfoKind = typeof StrategyInfoKind[keyof typeof StrategyInfoKind];
+
+
+export const StrategyInfoKind = {
+  'built-in': 'built-in',
+  custom: 'custom',
+} as const;
+
+export type StrategyInfoSupportedMarket = typeof StrategyInfoSupportedMarket[keyof typeof StrategyInfoSupportedMarket];
+
+
+export const StrategyInfoSupportedMarket = {
+  crypto: 'crypto',
+  forex: 'forex',
+} as const;
+
 export interface StrategyInfo {
   strategyId: string;
   strategyName: string;
+  /** Immutable implementation/version identity. */
+  version: string;
+  /** @pattern ^[a-fA-F0-9]{64}$ */
+  fingerprint: string;
+  kind: StrategyInfoKind;
+  supportedMarket: StrategyInfoSupportedMarket;
+  assignment: StrategyModeAssignment;
   supportedRegimes: string[];
   /** The indicators this strategy reads, human-readable with timeframe. */
   indicators: string[];
@@ -5983,4 +6591,103 @@ export type CancelResearchExperiment202 = {
 };
 
 export type RevokeAutopilotMandate200 = { [key: string]: unknown };
+
+export type UpdateStrategyModeAssignment200Authority = {
+  autopilotMandateChanged: false;
+  message: string;
+};
+
+export type UpdateStrategyModeAssignment200 = {
+  assignment: StrategyModeAssignment;
+  authority: UpdateStrategyModeAssignment200Authority;
+};
+
+export type DeleteMyAccountBody = {
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  confirm: string;
+};
+
+export type ChangeMyPasswordBody = {
+  /** @maxLength 1024 */
+  currentPassword?: string;
+  /**
+     * @minLength 12
+     * @maxLength 1024
+     */
+  newPassword: string;
+};
+
+export type GetMarketCandlesParams = {
+/**
+ * @minLength 1
+ * @maxLength 40
+ */
+symbol: string;
+timeframe?: GetMarketCandlesTimeframe;
+/**
+ * @minimum 20
+ * @maximum 500
+ */
+limit?: number;
+marketType?: GetMarketCandlesMarketType;
+};
+
+export type GetMarketCandlesTimeframe = typeof GetMarketCandlesTimeframe[keyof typeof GetMarketCandlesTimeframe];
+
+
+export const GetMarketCandlesTimeframe = {
+  '1m': '1m',
+  '3m': '3m',
+  '5m': '5m',
+  '15m': '15m',
+  '1h': '1h',
+} as const;
+
+export type GetMarketCandlesMarketType = typeof GetMarketCandlesMarketType[keyof typeof GetMarketCandlesMarketType];
+
+
+export const GetMarketCandlesMarketType = {
+  spot: 'spot',
+  futures: 'futures',
+  forex: 'forex',
+} as const;
+
+export type CloseOpenPosition200 = { [key: string]: unknown };
+
+export type GetEdgeForensicsReport200 = { [key: string]: unknown };
+
+export type StepUpAdminSessionBody = {
+  /**
+     * @minLength 1
+     * @maxLength 1024
+     */
+  password: string;
+};
+
+export type GetAdminUsersParams = {
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+/**
+ * @minimum 1
+ */
+before?: number;
+};
+
+export type GetAdminAuditParams = {
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+/**
+ * @minimum 1
+ */
+before?: number;
+};
 

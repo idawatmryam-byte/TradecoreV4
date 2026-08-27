@@ -39,7 +39,10 @@ WHERE table_schema = 'public'
     'live_execution_states',
     'live_global_equity_state',
     'live_kill_switches',
-    'live_safety_events'
+    'live_safety_events',
+    'platform_role_assignments',
+    'platform_access_versions',
+    'platform_audit_events'
   )
 GROUP BY table_schema, table_name
 \gexec
@@ -60,7 +63,10 @@ REVOKE ALL ON TABLE
   public.live_execution_states,
   public.live_global_equity_state,
   public.live_kill_switches,
-  public.live_safety_events
+  public.live_safety_events,
+  public.platform_role_assignments,
+  public.platform_access_versions,
+  public.platform_audit_events
 FROM :"app_role";
 
 -- Every Phase 10 table is readable and insertable by the runtime. Immutable
@@ -82,6 +88,20 @@ GRANT SELECT, INSERT ON TABLE
   public.live_global_equity_state,
   public.live_kill_switches,
   public.live_safety_events
+TO :"app_role";
+
+-- UI redesign tables. Strategy assignments are a tenant-owned mutable
+-- preference. Platform role/access records are provisioned by the owner and
+-- are runtime-readable only. Operator evidence is append-only.
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
+  public.strategy_mode_assignments
+TO :"app_role";
+GRANT SELECT ON TABLE
+  public.platform_role_assignments,
+  public.platform_access_versions
+TO :"app_role";
+GRANT SELECT, INSERT ON TABLE
+  public.platform_audit_events
 TO :"app_role";
 
 -- Mutable projections receive only the columns their existing state machines

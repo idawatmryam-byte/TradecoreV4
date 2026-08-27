@@ -27,6 +27,7 @@ import {
   positionManagementEventsTable, positionThesesTable,
   researchExperimentsTable, researchReplayEventsTable,
   liveExecutionStatesTable, liveKillSwitchesTable, liveSafetyEventsTable,
+  strategyModeAssignmentsTable, platformRoleAssignmentsTable,
 } from "@workspace/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "../lib/passwordHash";
@@ -126,6 +127,23 @@ router.delete("/me/account", async (req, res) => {
     return;
   }
 
+  // Platform identity is deliberately outside tenant self-service authority.
+  // Any historical or active assignment must be revoked and purged by the
+  // audited out-of-band operator process before the underlying user may be
+  // deleted. This also keeps the runtime DB role read-only on platform roles.
+  const platformAssignments = await db
+    .select({ id: platformRoleAssignmentsTable.id })
+    .from(platformRoleAssignmentsTable)
+    .where(eq(platformRoleAssignmentsTable.userId, req.userId!))
+    .limit(1);
+  if (platformAssignments.length > 0) {
+    res.status(409).json({
+      error:
+        "Platform access must be revoked and purged through the audited operator offboarding process before this account can be deleted.",
+    });
+    return;
+  }
+
   // Stop ALL of the user's engines first (both crypto and forex sections) so
   // nothing writes new rows mid-delete and no open position keeps trading for
   // a deleted account.
@@ -203,6 +221,7 @@ router.delete("/me/account", async (req, res) => {
     await tx.delete(tradesTable).where(eq(tradesTable.userId, userId));
     await tx.delete(blacklistTable).where(eq(blacklistTable.userId, userId));
     await tx.delete(hourlyStatsTable).where(eq(hourlyStatsTable.userId, userId));
+    await tx.delete(strategyModeAssignmentsTable).where(eq(strategyModeAssignmentsTable.userId, userId));
     await tx.delete(strategyConfigsTable).where(eq(strategyConfigsTable.userId, userId));
     await tx.delete(botConfigTable).where(eq(botConfigTable.userId, userId));
     await tx.delete(backtestRunsTable).where(eq(backtestRunsTable.userId, userId));

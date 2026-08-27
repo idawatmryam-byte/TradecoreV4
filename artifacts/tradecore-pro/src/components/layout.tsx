@@ -1,479 +1,264 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
+import { useTheme } from "next-themes";
 import {
-  Activity, BarChart2, BrainCircuit, FlaskConical, History, Settings, ShieldAlert, ShieldCheck,
-  Layers, LogOut, Menu, UserCircle2, Bitcoin, CandlestickChart, Eye, Hammer, Inbox,
-  ChevronDown, Plus, Database, PieChart,
+  Bitcoin,
+  CandlestickChart,
+  FlaskConical,
+  LayoutDashboard,
+  Layers3,
+  LogOut,
+  Menu,
+  Monitor,
+  Moon,
+  Plus,
+  Settings,
+  ShieldAlert,
+  ShieldCheck,
+  Sun,
+  UserCircle2,
 } from "lucide-react";
-import { useGetBotStatus, useHealthCheck, useGetConfig, useGetSections, useGetExecutionHealth, getGetBotStatusQueryKey, getHealthCheckQueryKey, getGetConfigQueryKey, getGetSectionsQueryKey, getGetExecutionHealthQueryKey } from "@workspace/api-client-react";
-import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
-import { useSection, type Section } from "@/lib/section";
-import { useIsDemo } from "@/lib/account";
-import { NotificationBell } from "@/components/notification-bell";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Badge } from "@/components/ui/badge";
-import { MODE_LABELS } from "@/components/mode-picker";
+import {
+  getGetConfigQueryKey,
+  getGetBotStatusQueryKey,
+  getGetExecutionHealthQueryKey,
+  getGetSectionsQueryKey,
+  useGetBotStatus,
+  useGetConfig,
+  useGetExecutionHealth,
+  useGetSections,
+} from "@workspace/api-client-react";
 import { CactusLogo } from "@/components/cactus-logo";
+import { NotificationBell } from "@/components/notification-bell";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
-import { useQueryClient } from "@tanstack/react-query";
-
-const SECTION_LABELS: Record<Section, string> = { crypto: "Crypto", forex: "Forex" };
-
-/**
- * The one place a user can look to answer "am I trading with real money right
- * now?" without opening Settings. Reads the same `config` query `Layout`
- * already fetches for the sidebar Mode row — no extra request. Green/Demo,
- * amber/Live per the founder's spec; the subtitle names the market and mode
- * so the badge stays meaningful once a user has more than one section set up.
- */
-function ExecutionBadge({
-  executionTarget,
-  mode,
-  section,
-  compact = false,
-}: {
-  executionTarget?: "demo" | "live";
-  mode?: string;
-  section: Section;
-  /** Mobile top bar has little room — pill only, no subtitle line. */
-  compact?: boolean;
-}) {
-  if (!executionTarget) return null;
-  const isLive = executionTarget === "live";
-  const pill = (
-    <Badge variant={isLive ? "warning" : "success"} className="gap-1.5 whitespace-nowrap">
-      <span className={cn("h-1.5 w-1.5 rounded-full", isLive ? "bg-warning" : "bg-success")} />
-      {compact ? (isLive ? "Live" : "Demo") : (isLive ? "Live Trading" : "Demo Trading")}
-    </Badge>
-  );
-  if (compact) return pill;
-  return (
-    <div className="flex flex-col items-start gap-1 leading-none">
-      {pill}
-      <span className="text-[11px] text-muted-foreground">
-        {SECTION_LABELS[section]} {isLive ? "Live" : "Demo"} · {MODE_LABELS[mode ?? ""] ?? "—"}
-      </span>
-    </div>
-  );
-}
-
-const SECTION_TABS: { id: Section; label: string; icon: typeof Bitcoin }[] = [
-  { id: "crypto", label: "Crypto", icon: Bitcoin },
-  { id: "forex", label: "Forex", icon: CandlestickChart },
-];
-
-/**
- * Crypto / Forex.
- *
- * Sits above the nav rather than inside it because it scopes everything below
- * it: the two sections are fully independent engines with their own positions,
- * strategies and trade logs, so this is not a filter — it is which product you
- * are looking at.
- *
- * A market the user has not set up is shown but NOT presented as a peer of one
- * they have. Onboarding asks them to choose a single market on purpose; two
- * identical tabs immediately afterwards made that choice look decorative, and
- * tapping the other one silently dropped them into an unconfigured section.
- * It now reads as an offer and routes into Add Market, so the choice visibly
- * means something and the second market is still one tap away.
- */
-function SectionSwitcher({ onSetUp }: { onSetUp: (section: Section) => void }) {
-  const { section, setSection } = useSection();
-  const { data } = useGetSections({ query: { queryKey: getGetSectionsQueryKey() } });
-
-  // An empty list means a brand-new account that skipped onboarding — fall
-  // back to whatever they are looking at rather than offering to set up the
-  // section they are currently using.
-  const activated = data?.activated?.length ? data.activated : [section];
-
-  return (
-    <div className="mb-6">
-      <div className="grid grid-cols-2 gap-1 rounded-lg border bg-muted/40 p-1">
-        {SECTION_TABS.map((tab) => {
-          const Icon = tab.icon;
-          const isSetUp = activated.includes(tab.id);
-          const isActive = section === tab.id && isSetUp;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => (isSetUp ? setSection(tab.id) : onSetUp(tab.id))}
-              aria-pressed={isActive}
-              title={isSetUp ? undefined : `Set up ${tab.label} trading`}
-              className={cn(
-                "flex min-h-9 items-center justify-center gap-2 rounded-md px-2 text-sm font-medium transition-colors",
-                isActive && "bg-background text-foreground shadow-sm",
-                !isActive && isSetUp && "text-muted-foreground hover:text-foreground",
-                !isSetUp && "text-muted-foreground/60 hover:text-foreground",
-              )}
-            >
-              {isSetUp ? <Icon className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { useIsDemo } from "@/lib/account";
+import { useSection, type Section } from "@/lib/section";
+import { traderApi, type TraderCapabilities } from "@/lib/cactus-api";
+import { cn } from "@/lib/utils";
 
 interface NavItem {
   href: string;
   label: string;
-  icon: typeof Activity;
-  /** Routes that should also light this item up, e.g. its detail pages or tabs. */
-  match?: string[];
+  icon: typeof LayoutDashboard;
+  match: string[];
 }
 
-/**
- * Five everyday destinations.
- *
- * The nav used to list all twelve pages flat, which made a first-time user
- * choose between "Decisions", "Journal" and "Analytics" before knowing what
- * any of them meant. Related pages are now reached as tabs within a
- * destination — `match` keeps the parent highlighted while you are on one —
- * and the engineering tools move to the Advanced group below.
- *
- * Routes are unchanged; this is grouping, not a rename of anything addressable.
- */
-const PRIMARY_NAV: NavItem[] = [
-  { href: "/", label: "Dashboard", icon: Activity },
-  { href: "/ai-brain", label: "AI Brain", icon: BrainCircuit },
-  { href: "/copilot", label: "AI Co-Pilot", icon: Inbox },
-  { href: "/autopilot", label: "Demo Autopilot", icon: ShieldAlert },
-  { href: "/execution-health", label: "Execution Health", icon: ShieldCheck },
-  { href: "/restricted-live", label: "Restricted Live", icon: ShieldAlert },
-  { href: "/portfolio", label: "Portfolio", icon: PieChart, match: ["/trades", "/journal"] },
-  { href: "/stats", label: "Performance", icon: BarChart2, match: ["/decisions"] },
+const NAVIGATION: NavItem[] = [
+  {
+    href: "/dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    match: ["/", "/portfolio", "/trades", "/ai-brain", "/copilot", "/autopilot", "/execution-health", "/restricted-live", "/decisions", "/journal", "/stats"],
+  },
+  { href: "/strategies", label: "Strategies", icon: Layers3, match: ["/builder", "/memory"] },
+  { href: "/backtest", label: "Backtest Lab", icon: FlaskConical, match: [] },
   { href: "/settings", label: "Settings", icon: Settings, match: ["/account"] },
 ];
 
-/**
- * Everything that assumes you already know what the engine does.
- *
- * Collapsed by default for everyone — statically, not keyed to account age or
- * trade count. A nav that rearranges itself as you use it is disorienting, and
- * nothing here is hidden or locked: one tap opens it.
- */
-const ADVANCED_NAV: NavItem[] = [
-  { href: "/strategies", label: "Strategies", icon: Layers },
-  { href: "/builder", label: "Strategy Builder", icon: Hammer },
-  { href: "/backtest", label: "Experiment Lab", icon: FlaskConical },
-  { href: "/memory", label: "Learning", icon: Database },
-];
+const MODE_LABELS: Record<string, string> = {
+  research: "Brain",
+  copilot: "Co-Pilot",
+  autopilot: "AutoPilot",
+};
 
-/** Does `location` belong to this nav item? */
-function isItemActive(item: NavItem, location: string): boolean {
-  if (item.href === "/") return location === "/";
-  // Prefix match, so a detail route (/copilot/42) keeps its parent lit —
-  // exact matching left the workspace page with no highlighted nav item.
+function activeItem(item: NavItem, location: string): boolean {
   if (location === item.href || location.startsWith(`${item.href}/`)) return true;
-  return (item.match ?? []).some((m) => location === m || location.startsWith(`${m}/`));
+  return item.match.some((path) => location === path || (path !== "/" && location.startsWith(`${path}/`)));
 }
 
-function NavLink({ item, active }: { item: NavItem; active: boolean }) {
-  const Icon = item.icon;
+function ThemeControl() {
+  const { theme, setTheme } = useTheme();
+  const options = [
+    { id: "dark", label: "Dark", icon: Moon },
+    { id: "light", label: "Light", icon: Sun },
+    { id: "system", label: "System", icon: Monitor },
+  ] as const;
   return (
-    <Link
-      href={item.href}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
-        active
-          ? "bg-primary/10 text-primary"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
-      )}
-    >
-      <Icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
-      {item.label}
-    </Link>
+    <div className="grid grid-cols-3 gap-1 rounded-lg border bg-muted/20 p-1" aria-label="Appearance theme">
+      {options.map((option) => {
+        const Icon = option.icon;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            aria-label={`${option.label} theme`}
+            aria-pressed={theme === option.id}
+            onClick={() => setTheme(option.id)}
+            className={cn("grid min-h-9 place-items-center rounded-md text-muted-foreground transition-colors hover:text-foreground", theme === option.id && "bg-background text-primary shadow-sm")}
+          >
+            <Icon className="h-4 w-4" />
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
-/** The sidebar body — one definition, rendered into both the desktop rail and the mobile sheet. */
-function NavBody({
-  location,
-  online,
-  mode,
-  onLogout,
-  onSetUpSection,
-}: {
-  location: string;
-  online: boolean;
-  mode: string;
-  onLogout: () => void;
-  onSetUpSection: (section: Section) => void;
-}) {
-  const advancedActive = ADVANCED_NAV.some((i) => isItemActive(i, location));
-  const [advancedOpen, setAdvancedOpen] = useState(advancedActive);
-
-  // Opening an Advanced page directly (a bookmark, a deep link) should reveal
-  // where you are rather than leaving the group shut over a highlighted item.
-  useEffect(() => {
-    if (advancedActive) setAdvancedOpen(true);
-  }, [advancedActive]);
-
+function Sidebar({ location, adminEnabled, onLogout }: { location: string; adminEnabled: boolean; onLogout: () => void }) {
   return (
     <div className="flex h-full flex-col p-4">
-      <SectionSwitcher onSetUp={onSetUpSection} />
-
-      <nav className="space-y-1">
-        {PRIMARY_NAV.map((item) => (
-          <NavLink key={item.href} item={item} active={isItemActive(item, location)} />
-        ))}
-      </nav>
-
-      <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="mt-6">
-        <CollapsibleTrigger
-          className={cn(
-            "flex min-h-11 w-full items-center justify-between rounded-md px-3 text-sm font-medium transition-colors",
-            "text-muted-foreground hover:bg-muted hover:text-foreground",
-          )}
-        >
-          <span>Advanced</span>
-          <ChevronDown className={cn("h-4 w-4 transition-transform", advancedOpen && "rotate-180")} />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="mt-1 space-y-1">
-          {ADVANCED_NAV.map((item) => (
-            <NavLink key={item.href} item={item} active={isItemActive(item, location)} />
-          ))}
-        </CollapsibleContent>
-      </Collapsible>
-
-      {/* mt-auto now works: this container is a flex column with a height.
-          It previously sat inside a plain div, so the status block never
-          reached the bottom of the rail it was written to pin to. */}
-      <div className="mt-auto pt-6">
-        <div className="rounded-lg border bg-card p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Engine</span>
-            <span className="flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                {online && (
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
-                )}
-                <span className={cn("relative inline-flex h-2 w-2 rounded-full", online ? "bg-success" : "bg-muted-foreground")} />
-              </span>
-              <span className={cn("text-sm font-medium tabular-nums", online ? "text-success" : "text-muted-foreground")}>
-                {online ? "Running" : "Stopped"}
-              </span>
-            </span>
-          </div>
-          {/* Who decides — NOT the exchange environment.
-              This row used to show botStatus.mode ("testnet" / "live"), which
-              is a different thing entirely and collided with the mode a user
-              actually chooses. Showing the decision mode here is both more
-              useful and the thing they are looking for; demo vs live is
-              already unmistakable from the balance and the banners. */}
-          <div className="mt-2 flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Mode</span>
-            <Link href="/settings" className="text-sm font-medium capitalize hover:text-primary">
-              {mode}
+      <div className="flex items-center gap-3 px-2 pb-6 pt-1">
+        <CactusLogo size="lg" />
+        <span className="rounded border border-primary/30 bg-primary/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-primary">Trader</span>
+      </div>
+      <nav className="space-y-1" aria-label="Trader workspace">
+        {NAVIGATION.map((item) => {
+          const Icon = item.icon;
+          const active = activeItem(item, location);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              className={cn("flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors", active ? "bg-primary/12 text-primary" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}
+            >
+              <Icon className="h-4 w-4" /> {item.label}
             </Link>
-          </div>
+          );
+        })}
+      </nav>
+      <div className="mt-auto space-y-3 pt-8">
+        <ThemeControl />
+        <div className="rounded-lg border bg-muted/15 p-2">
+          <Link href="/settings?view=profile" className="flex min-h-10 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground"><UserCircle2 className="h-4 w-4" /> Profile &amp; security</Link>
+          {adminEnabled && <a href="/admin" className="flex min-h-10 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground"><ShieldCheck className="h-4 w-4" /> Open Admin Console</a>}
+          <button type="button" onClick={onLogout} className="flex min-h-10 w-full items-center gap-2 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground"><LogOut className="h-4 w-4" /> Log out</button>
         </div>
-
-        <button
-          onClick={onLogout}
-          className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <LogOut className="h-4 w-4" />
-          Log out
-        </button>
       </div>
     </div>
   );
 }
 
+function SectionControl({ onSetUp }: { onSetUp: (section: Section) => void }) {
+  const { section, setSection } = useSection();
+  const sections = useGetSections({ query: { queryKey: getGetSectionsQueryKey() } });
+  const activated = sections.data?.activated?.length ? sections.data.activated : [section];
+  return (
+    <div className="flex rounded-lg border bg-background p-1" aria-label="Market mode">
+      {([
+        { id: "crypto" as const, label: "Crypto", icon: Bitcoin },
+        { id: "forex" as const, label: "Forex", icon: CandlestickChart },
+      ]).map((item) => {
+        const Icon = item.icon;
+        const configured = activated.includes(item.id);
+        const active = section === item.id && configured;
+        return (
+          <button
+            key={item.id}
+            type="button"
+            aria-pressed={active}
+            onClick={() => configured ? setSection(item.id) : onSetUp(item.id)}
+            className={cn("flex min-h-9 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium", active ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
+          >
+            {configured ? <Icon className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}{item.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function EnvironmentBadge({ config }: { config: { executionTarget?: string; testnet?: boolean; broker?: string; mode?: string } | undefined }) {
+  if (!config) return <span className="rounded border px-2 py-1 text-[10px] text-muted-foreground">ENVIRONMENT UNKNOWN</span>;
+  const isDemo = config.executionTarget === "demo";
+  const isLive = !isDemo && !config.testnet;
+  const label = isDemo
+    ? "CACTUS DEMO"
+    : config.broker === "oanda"
+      ? config.testnet ? "OANDA PRACTICE" : "OANDA LIVE — REAL FUNDS"
+      : config.testnet ? "BINANCE TESTNET" : "BINANCE LIVE — REAL FUNDS";
+  return <span className={cn("rounded border px-2 py-1 text-[10px] font-bold tracking-[0.08em]", isDemo ? "border-demo/40 bg-demo/10 text-demo" : isLive ? "border-live/50 bg-live/12 text-live" : "border-practice/40 bg-practice/10 text-practice")}>{label}</span>;
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const isDemo = useIsDemo();
   const { section, setSection } = useSection();
-  const { data: botStatus } = useGetBotStatus({
-    query: { refetchInterval: 5000, queryKey: getGetBotStatusQueryKey() }
-  });
-  const { data: health, isError: healthError } = useHealthCheck({
-    query: { refetchInterval: 15000, queryKey: getHealthCheckQueryKey() }
-  });
-  const { data: config } = useGetConfig({ query: { queryKey: getGetConfigQueryKey() } });
-  const {
-    data: executionHealth,
-    isError: executionHealthError,
-  } = useGetExecutionHealth({
+  const queryClient = useQueryClient();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [settingUp, setSettingUp] = useState<{ target: Section; previous: Section } | null>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const isDemoAccount = useIsDemo();
+  const configQuery = useGetConfig({ query: { queryKey: getGetConfigQueryKey() } });
+  const botQuery = useGetBotStatus({ query: { refetchInterval: 5_000, queryKey: getGetBotStatusQueryKey() } });
+  const config = configQuery.data as undefined | { executionTarget?: string; testnet?: boolean; broker?: string; mode?: string };
+  const executionHealth = useGetExecutionHealth({
     query: {
       enabled: config?.executionTarget === "live",
       refetchInterval: 5_000,
       queryKey: getGetExecutionHealthQueryKey(),
     },
   });
-  const queryClient = useQueryClient();
-  void health;
+  const capabilitiesQuery = useQuery({
+    queryKey: ["trader-capabilities", section],
+    queryFn: () => traderApi<TraderCapabilities>("/capabilities"),
+    staleTime: 30_000,
+  });
 
-  // Close the drawer after navigating so it never lingers over the page.
-  useEffect(() => { setMobileOpen(false); }, [location]);
+  const currentNav = useMemo(() => NAVIGATION.find((item) => activeItem(item, location)), [location]);
+  useEffect(() => {
+    setMobileOpen(false);
+    document.title = `${currentNav?.label ?? "Cactus AI"} · Cactus AI`;
+    requestAnimationFrame(() => mainRef.current?.focus({ preventScroll: true }));
+  }, [currentNav?.label, location]);
 
-  const online = Boolean(botStatus?.running) && !healthError;
-  const mode = healthError ? "API error" : (MODE_LABELS[config?.mode ?? ""] ?? "—");
-  const activeSwitchCount = Array.isArray(executionHealth?.activeSwitches)
-    ? executionHealth.activeSwitches.length
-    : "UNKNOWN";
-
-  async function handleLogout() {
+  async function logout() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
     window.location.reload();
   }
 
-  // Setting up the other market runs the onboarding wizard with its market
-  // question skipped — the same flow Settings → Add Market opens, so there is
-  // one path to maintain and the user meets the questions they already know.
-  const [settingUp, setSettingUp] = useState<{ target: Section; previous: Section } | null>(null);
-
-  const navBody = (
-    <NavBody
-      location={location}
-      online={online}
-      mode={mode}
-      onLogout={handleLogout}
-      onSetUpSection={(target) => setSettingUp({ target, previous: section })}
-    />
-  );
-
   if (settingUp) {
-    return (
-      <OnboardingWizard
-        presetMarket={settingUp.target}
-        onDone={(completed) => {
-          // The wizard has to make its target the active section to write to it
-          // at all (every call is X-Section scoped). If the user backed out,
-          // that switch has to be undone — otherwise declining to set Forex up
-          // leaves the whole app sitting in Forex.
-          if (!completed) setSection(settingUp.previous);
-          setSettingUp(null);
-          // The config write is what marks a section set up, so the switcher
-          // must re-read rather than keep offering one that now exists.
-          void queryClient.invalidateQueries({ queryKey: getGetSectionsQueryKey() });
-        }}
-      />
-    );
+    return <OnboardingWizard presetMarket={settingUp.target} onDone={(completed) => {
+      if (!completed) setSection(settingUp.previous);
+      setSettingUp(null);
+      void queryClient.invalidateQueries({ queryKey: getGetSectionsQueryKey() });
+    }} />;
   }
 
+  const sidebar = <Sidebar location={location} adminEnabled={capabilitiesQuery.data?.features?.adminConsole === true} onLogout={logout} />;
+  const liveUnknown = config?.executionTarget === "live" && (executionHealth.isError || !executionHealth.data);
+  const liveBlocked = config?.executionTarget === "live" && executionHealth.data?.status !== "HEALTHY";
+
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background text-foreground md:flex-row">
-      {/* Mobile top bar */}
-      <header className="relative sticky top-0 z-30 flex items-center justify-between overflow-hidden border-b bg-surface px-4 py-3 md:hidden">
-        <div className="ambient-glow" />
-        <div className="relative z-10 flex min-w-0 items-center gap-2.5">
-          <CactusLogo />
-          <ExecutionBadge executionTarget={config?.executionTarget} mode={config?.mode} section={section} compact />
-        </div>
-        <div className="relative z-10 flex items-center gap-2">
-          <NotificationBell />
-          <button
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-            className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-        </div>
-      </header>
-
-      {/* Mobile drawer. Previously the same <aside> toggled by a class swap, so
-          it was an in-flow block that pushed the page down — no overlay, no
-          backdrop, no focus trap, no escape-to-close. Sheet gives all four. */}
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="w-[17rem] p-0 md:hidden">
-          <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <div className="flex h-full flex-col overflow-y-auto pt-10">{navBody}</div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Desktop rail */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r bg-surface md:flex">
-        <div className="relative overflow-hidden border-b p-5">
-          <div className="ambient-glow" />
-          <div className="relative z-10 flex items-center gap-3">
-            <CactusLogo size="lg" />
-            <div className="ml-auto">
-              <NotificationBell />
+    <div className="flex min-h-[100dvh] bg-background text-foreground">
+      <a href="#main-content" className="fixed left-3 top-3 z-[100] -translate-y-20 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground focus:translate-y-0">Skip to content</a>
+      <aside className="hidden w-64 shrink-0 border-r bg-surface md:block">{sidebar}</aside>
+      <div className="min-w-0 flex-1">
+        <header className="sticky top-0 z-40 border-b bg-surface/95 backdrop-blur">
+          <div className="flex min-h-16 items-center gap-3 px-3 sm:px-4 lg:px-6">
+            <button type="button" onClick={() => setMobileOpen(true)} className="grid h-11 w-11 place-items-center rounded-lg text-muted-foreground hover:bg-muted md:hidden" aria-label="Open navigation"><Menu className="h-5 w-5" /></button>
+            <div className="md:hidden"><CactusLogo /></div>
+            <div className="hidden md:block"><SectionControl onSetUp={(target) => setSettingUp({ target, previous: section })} /></div>
+            <div className="h-6 w-px bg-border" aria-hidden="true" />
+            <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto py-2">
+              <EnvironmentBadge config={config} />
+              <Link href="/settings?view=connections" className="whitespace-nowrap rounded border px-2 py-1 text-[10px] font-semibold text-muted-foreground hover:text-foreground">ACCOUNT · {config?.executionTarget === "demo" ? "Cactus Demo" : config?.broker === "oanda" ? "OANDA" : "Binance"}</Link>
+              <span className="whitespace-nowrap rounded border px-2 py-1 text-[10px] font-semibold text-muted-foreground">MODE · {MODE_LABELS[config?.mode ?? ""] ?? "UNKNOWN"}</span>
+              <span className="whitespace-nowrap rounded border px-2 py-1 text-[10px] font-semibold text-muted-foreground md:hidden">{section.toUpperCase()}</span>
             </div>
+            <NotificationBell />
           </div>
-          <div className="relative z-10 mt-3">
-            <ExecutionBadge executionTarget={config?.executionTarget} mode={config?.mode} section={section} />
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto">{navBody}</div>
-      </aside>
+        </header>
 
-      <main className="relative flex flex-1 flex-col overflow-hidden">
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetContent side="left" className="w-[18rem] p-0 md:hidden"><SheetTitle className="sr-only">Trader navigation</SheetTitle>{sidebar}</SheetContent>
+        </Sheet>
+
         {config?.executionTarget === "live" && (
-          <Link
-            href="/execution-health"
-            role="status"
-            className={cn(
-              "flex items-center justify-center gap-3 border-b px-4 py-3 text-sm font-medium",
-              executionHealthError || executionHealth?.status !== "HEALTHY"
-                ? "border-destructive/60 bg-destructive/10 text-destructive"
-                : "border-success/50 bg-success/10 text-success",
-            )}
-          >
-            {executionHealthError || executionHealth?.status !== "HEALTHY" ? (
-              <ShieldAlert className="h-5 w-5 shrink-0" />
-            ) : (
-              <ShieldCheck className="h-5 w-5 shrink-0" />
-            )}
-            <span>
-              {executionHealthError
-                ? "Live execution health unavailable — entry authority is unknown and must be treated as blocked."
-                : !executionHealth
-                  ? "Loading authoritative Live execution health…"
-                  : `Live ${executionHealth.status} · authority ${executionHealth.operatingMode}/${executionHealth.operatingModeSource} · owner gen ${executionHealth.ownershipGeneration} · AI Live version NONE · risk used UNKNOWN · drawdown ${executionHealth.accountDrawdownState} · switches ${activeSwitchCount}${executionHealth.status === "BLOCKED" ? " · existing positions may remain open" : ""}`}
-            </span>
+          <Link href="/execution-health" role="alert" className={cn("flex items-center justify-center gap-2 border-b px-4 py-2.5 text-center text-xs font-semibold", liveUnknown || liveBlocked ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-live/40 bg-live/10 text-live")}>
+            {liveUnknown || liveBlocked ? <ShieldAlert className="h-4 w-4 shrink-0" /> : <ShieldCheck className="h-4 w-4 shrink-0" />}
+            {liveUnknown
+              ? "LIVE — REAL FUNDS · execution authority is unknown and must be treated as blocked"
+              : `LIVE — REAL FUNDS · Live ${executionHealth.data?.status ?? "UNKNOWN"} · authority ${executionHealth.data?.operatingMode ?? "UNKNOWN"}/${executionHealth.data?.operatingModeSource ?? "UNKNOWN"}`}
           </Link>
         )}
-        {isDemo && (
-          <div className="flex items-center justify-center gap-2.5 border-b border-primary/40 bg-primary/10 px-4 py-2.5 text-[13px] font-medium text-primary sm:text-sm">
-            <Eye className="h-4 w-4 shrink-0" />
-            <span>
-              <span className="font-semibold">Demo · read-only</span>
-              <span className="text-muted-foreground"> — a fully-loaded snapshot. Controls are disabled; </span>
-              <button
-                type="button"
-                className="underline hover:text-primary/80"
-                onClick={async () => {
-                  await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }).catch(() => {});
-                  window.location.href = `${window.location.pathname}?signup=1`;
-                }}
-              >
-                create a free account
-              </button>
-              <span className="text-muted-foreground"> to connect your own keys and trade.</span>
-            </span>
-          </div>
-        )}
-        {botStatus?.circuitBreakerActive && (
-          <div className="flex items-center justify-center gap-3 border-b border-destructive bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">
-            <ShieldAlert className="h-5 w-5 shrink-0" />
-            <span>
-              Circuit breaker engaged — the daily loss limit was reached. New entries are
-              halted; existing positions are still monitored.
-            </span>
-          </div>
-        )}
-        {botStatus?.running && !botStatus.newEntriesAllowed && !botStatus.circuitBreakerActive && (
-          <div
-            role="status"
-            className="flex items-center justify-center gap-3 border-b border-warning/60 bg-warning/10 px-4 py-3 text-sm font-medium text-warning"
-          >
-            <ShieldAlert className="h-5 w-5 shrink-0" />
-            <span>
-              {botStatus.entryBlockReason ?? "New entries are blocked."} Existing positions continue to be monitored and may exit.
-            </span>
-          </div>
-        )}
-        <div className="flex-1 overflow-auto p-4 sm:p-6 md:p-8">{children}</div>
-      </main>
+        {isDemoAccount && <div className="border-b border-demo/30 bg-demo/10 px-4 py-2 text-center text-xs"><strong className="text-demo">Cactus Demo account · read-only</strong><span className="text-muted-foreground"> — controls are disabled for the shared snapshot.</span></div>}
+        {botQuery.data?.circuitBreakerActive && <div className="flex items-center justify-center gap-2 border-b border-destructive/50 bg-destructive/10 px-4 py-2.5 text-center text-xs font-semibold text-destructive" role="alert"><ShieldAlert className="h-4 w-4" /> Risk circuit breaker engaged. New entries are halted; existing positions remain managed.</div>}
+        {botQuery.data?.running && !botQuery.data.newEntriesAllowed && !botQuery.data.circuitBreakerActive && <div className="flex items-center justify-center gap-2 border-b border-warning/40 bg-warning/10 px-4 py-2.5 text-center text-xs font-semibold text-warning" role="alert"><ShieldAlert className="h-4 w-4" /> {botQuery.data.entryBlockReason ?? "New entries are blocked."} Protective management continues.</div>}
+
+        <main id="main-content" ref={mainRef} tabIndex={-1} className="min-w-0 p-3 outline-none sm:p-5 lg:p-6">{children}</main>
+      </div>
     </div>
   );
 }

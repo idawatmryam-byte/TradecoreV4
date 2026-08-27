@@ -53,6 +53,21 @@ SELECT
   NOT has_table_privilege(:'app_role', 'public.live_safety_events', 'UPDATE')
     AND NOT has_table_privilege(:'app_role', 'public.live_safety_events', 'DELETE')
     AND NOT has_table_privilege(:'app_role', 'public.live_safety_events', 'TRUNCATE') AS live_safety_events_are_immutable,
+  has_table_privilege(:'app_role', 'public.platform_role_assignments', 'SELECT')
+    AND NOT has_table_privilege(:'app_role', 'public.platform_role_assignments', 'INSERT')
+    AND NOT has_table_privilege(:'app_role', 'public.platform_role_assignments', 'UPDATE')
+    AND NOT has_table_privilege(:'app_role', 'public.platform_role_assignments', 'DELETE')
+    AND has_table_privilege(:'app_role', 'public.platform_access_versions', 'SELECT')
+    AND NOT has_table_privilege(:'app_role', 'public.platform_access_versions', 'INSERT')
+    AND NOT has_table_privilege(:'app_role', 'public.platform_access_versions', 'UPDATE')
+    AND NOT has_table_privilege(:'app_role', 'public.platform_access_versions', 'DELETE')
+    AS platform_identity_is_owner_managed,
+  has_table_privilege(:'app_role', 'public.platform_audit_events', 'SELECT')
+    AND has_table_privilege(:'app_role', 'public.platform_audit_events', 'INSERT')
+    AND NOT has_table_privilege(:'app_role', 'public.platform_audit_events', 'UPDATE')
+    AND NOT has_table_privilege(:'app_role', 'public.platform_audit_events', 'DELETE')
+    AND NOT has_table_privilege(:'app_role', 'public.platform_audit_events', 'TRUNCATE')
+    AS platform_audit_is_append_only,
   (
     SELECT count(*) = 6
     FROM information_schema.tables
