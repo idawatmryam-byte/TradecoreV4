@@ -440,7 +440,11 @@ expect(
 );
 expect(
   "Admin link is profile-only, not trader navigation",
-  (await desktop.locator("aside nav a[href='/admin']").count()) === 0,
+  (await desktop.locator("aside nav a[href='/admin/']").count()) === 0,
+);
+expect(
+  "profile Admin link uses the canonical Admin directory URL",
+  (await desktop.getByRole("link", { name: "Open Admin Console" }).getAttribute("href")) === "/admin/",
 );
 
 let savedSetup = null;
