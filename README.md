@@ -198,6 +198,38 @@ Keep deployment environment files owner-only (`chmod 600 .env.deploy`) and apply
 changes only through the reviewed deployment lifecycle. No deployment is
 performed by this repository change.
 
+### First Admin Console login
+
+There is no hardcoded or automatically created Admin Console password. First
+create a normal, non-demo account through the Cactus login page. Then the
+deployment owner must grant that existing account its first platform role using
+the audited, one-time bootstrap command. For example, for `Awat@admin`:
+
+```bash
+# Run only in an owner-controlled shell on the deployed host.
+# DATABASE_MIGRATION_URL must come from the protected deployment environment;
+# never paste it into source control or command output.
+export PLATFORM_ADMIN_BOOTSTRAP_USERNAME='Awat@admin'
+export PLATFORM_ADMIN_BOOTSTRAP_REASON='Initial owner platform administrator'
+pnpm --filter @workspace/api-server run bootstrap:platform-admin
+unset PLATFORM_ADMIN_BOOTSTRAP_USERNAME PLATFORM_ADMIN_BOOTSTRAP_REASON
+```
+
+The command also requires `DATABASE_MIGRATION_URL` in the process environment.
+It refuses demo accounts and refuses to run after any active platform role
+already exists. It grants `PLATFORM_ADMIN` only; it does not grant tenant trading
+authority or access to broker secrets.
+
+After bootstrap, sign out and sign in again through the normal Cactus login page
+using that account's own password. The server detects the platform role and
+redirects the session to `/admin`. An already authenticated administrator may
+also open `/admin/` directly. The Admin Console then asks for recent password
+verification when the Admin step-up session has expired.
+
+Usernames may contain `@`, but not a backslash, so use `Awat@admin` rather than
+`Awat\@admin`. Passwords are stored as hashes and are changed under **Admin
+Settings**; they are never displayed after storage.
+
 ## Backtesting
 
 The Backtest page runs the real engine over historical data. Key controls:
