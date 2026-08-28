@@ -24,10 +24,25 @@ import {
   XCircle,
 } from "lucide-react";
 import {
+  activateAutopilot,
+  createAutopilotMandate,
+  executeRecommendation,
+  getAutopilotControl,
+  getConfig,
+  getGetCopilotInboxQueryKey,
   getGetBotStatusQueryKey,
+  getGetConfigQueryKey,
+  getRecommendationWorkspace,
+  getStrategies,
+  pauseAutopilot,
+  rejectRecommendation,
+  transitionAutopilotBrainVersion,
+  updateConfig,
   useGetConfig,
   useStartBot,
   useStopBot,
+  type ExecuteRecommendationBody,
+  type RecommendationWorkspace,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +56,8 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MarketChart } from "@/components/market-chart";
+import { CopilotApprovalDialog } from "@/components/copilot-approval-dialog";
+import { DashboardTradeSetup } from "@/components/dashboard-trade-setup";
 import { DashboardStrategySelector } from "@/components/dashboard-strategy-selector";
 import { MarketOverview } from "@/components/market-overview";
 import { useSection } from "@/lib/section";
@@ -103,6 +120,7 @@ function StatusDot({ state }: { state: string }) {
 function ModeControl({ session }: { session: DashboardSession }) {
   const queryClient = useQueryClient();
   const { section } = useSection();
+  const { toast } = useToast();
   const [autopilotReview, setAutopilotReview] = useState(false);
   const mutation = useMutation({
     mutationFn: (mode: "research" | "copilot") =>
@@ -110,6 +128,83 @@ function ModeControl({ session }: { session: DashboardSession }) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["dashboard-session", section] });
       await queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() });
+    },
+  });
+  const enableAutopilot = useMutation({
+    mutationFn: async () => {
+      await updateConfig({ mode: "autopilot" });
+      const [config, strategies, controlCenter] = await Promise.all([
+        getConfig(),
+        getStrategies(),
+        getAutopilotControl(),
+      ]);
+      if (controlCenter.globalSuspended) {
+        throw new Error(
+          "AutoPilot is paused for the whole platform. Your shared setup is saved, but an administrator must clear the platform pause before activation.",
+        );
+      }
+      let approvedBrain = controlCenter.versions.find((version) => version.state === "DEMO_APPROVED");
+      if (!approvedBrain) {
+        const controlBrain = controlCenter.versions.find(
+          (version) => version.implementation === "brain-v0-control" && version.state === "COPILOT",
+        );
+        if (!controlBrain) {
+          throw new Error(
+            "No eligible AutoPilot release is available. A retired release cannot be restored; an administrator must publish a replacement.",
+          );
+        }
+        approvedBrain = await transitionAutopilotBrainVersion(controlBrain.id, {
+          toState: "DEMO_APPROVED",
+          reason: "Trader approved the exact Demo AutoPilot release with the current shared setup",
+          confirmation: "APPROVE_BRAIN_VERSION_FOR_DEMO",
+        });
+      }
+      const enabledStrategies = strategies.filter(
+        (strategy) => strategy.config.enabled && strategy.assignment.autopilot,
+      );
+      if (enabledStrategies.length === 0) {
+        throw new Error("Select at least one active AutoPilot strategy before enabling AutoPilot.");
+      }
+      if (config.dailyLossLimitUsdt <= 0) {
+        throw new Error("Set a positive daily loss limit before enabling AutoPilot.");
+      }
+      const maximumLeverage = config.marketType === "futures" ? config.leverage : 1;
+      const mandate = await createAutopilotMandate({
+        brainVersionId: approvedBrain.id,
+        instruments: config.pairs,
+        strategyIds: enabledStrategies.map((strategy) => strategy.strategyId),
+        maximumPositionSizeUsdt: config.positionSizeUsdt * maximumLeverage,
+        maximumLeverage,
+        maximumPortfolioRiskPercent: config.maxPortfolioRiskPercent,
+        maximumSymbolExposurePercent: config.maxSymbolConcentrationPercent,
+        maximumNetExposurePercent: config.maxNetExposurePercent,
+        maximumCorrelatedExposurePercent: config.maxCorrelatedExposurePercent,
+        dailyLossLimitUsdt: config.dailyLossLimitUsdt,
+        maximumDrawdownPercent: 10,
+        maximumConcurrentPositions: config.maxOpenPositions,
+        maximumMarketDataAgeSeconds: Math.min(300, Math.max(30, config.scanIntervalSeconds * 3)),
+        allowedTradingHoursUtc: [],
+        permittedPhase7Actions: ["HOLD", "FREEZE", "REDUCE", "TIGHTEN_STOP", "APPLY_TRAILING", "EXIT"],
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1_000).toISOString(),
+        confirmation: "CREATE_IMMUTABLE_DEMO_MANDATE",
+      });
+      return activateAutopilot({
+        mandateId: mandate.id,
+        reason: "Trader enabled Demo AutoPilot from the Dashboard using the reviewed shared setup",
+        confirmation: "ENABLE_DEMO_AUTOPILOT",
+      });
+    },
+    onSuccess: async () => {
+      setAutopilotReview(false);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard-session", section] }),
+        queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetConfigQueryKey() }),
+      ]);
+      toast({
+        title: "Demo AutoPilot enabled",
+        description: "AutoPilot now uses the same markets, trade limits, cadence, and selected strategies as your shared Dashboard setup.",
+      });
     },
   });
   const modes = [
@@ -149,18 +244,27 @@ function ModeControl({ session }: { session: DashboardSession }) {
       <Dialog open={autopilotReview} onOpenChange={setAutopilotReview}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Review AutoPilot authority</DialogTitle>
+            <DialogTitle>Enable AutoPilot with this setup</DialogTitle>
             <DialogDescription>
-              Selecting AutoPilot in the interface never grants execution authority. An existing server-authorized mandate, its immutable strategy set, limits, expiry, and safety state remain decisive.
+              AutoPilot uses the same markets, sizing, protection, confidence, cadence, and strategy selection as Co-Pilot. Review the shared setup once, then enable it.
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-lg border border-live/30 bg-live/10 p-4 text-sm">
-            <strong className="block text-live">Effective authority: {session.context.mode.effectiveAuthority.replaceAll("_", " ")}</strong>
-            <span className="mt-1 block text-muted-foreground">Use the protected authority workflow to inspect or request a change.</span>
+          <div className="space-y-3 text-sm">
+            <div className="rounded-lg border bg-muted/20 p-4">
+              <strong className="block">Current shared trade setup</strong>
+              <span className="mt-1 block text-muted-foreground">Use Trade setup and Strategies on the Dashboard to change what Co-Pilot and AutoPilot use.</span>
+            </div>
+            <div className="rounded-lg border border-warning/30 bg-warning/10 p-4 text-xs leading-5">
+              Enabling creates a bounded 30-day Demo mandate with a 10% maximum drawdown cap. Every entry still requires fresh market data, reconciliation, deterministic risk approval, and the exact authorized strategy version. Live AutoPilot remains unavailable here.
+            </div>
+            {enableAutopilot.error && <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{enableAutopilot.error.message}</p>}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAutopilotReview(false)}>Cancel</Button>
-            <Button asChild><Link href="/autopilot">Open authority review</Link></Button>
+            <Button variant="outline" disabled={enableAutopilot.isPending} onClick={() => setAutopilotReview(false)}>Cancel</Button>
+            <Button disabled={enableAutopilot.isPending || session.autopilot?.effectiveState === "AUTOPILOT_ENABLED"} onClick={() => enableAutopilot.mutate()}>
+              {enableAutopilot.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {session.autopilot?.effectiveState === "AUTOPILOT_ENABLED" ? "AutoPilot is active" : "Enable Demo AutoPilot"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -169,6 +273,119 @@ function ModeControl({ session }: { session: DashboardSession }) {
 }
 
 function RecommendationPanel({ recommendation }: { recommendation: DashboardRecommendation | undefined }) {
+  const { section } = useSection();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [liveWorkspace, setLiveWorkspace] = useState<RecommendationWorkspace | null>(null);
+  const [liveIdempotencyKey, setLiveIdempotencyKey] = useState("");
+
+  async function refreshRecommendationState() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["dashboard-session", section] }),
+      queryClient.invalidateQueries({ queryKey: getGetCopilotInboxQueryKey() }),
+    ]);
+  }
+
+  function approvalBody(workspace: RecommendationWorkspace, confirmation: string, password?: string): ExecuteRecommendationBody {
+    if (
+      !workspace.decisionBundleFingerprint ||
+      !workspace.executionTarget ||
+      !workspace.approvalChallenge
+    ) {
+      throw new Error("This recommendation no longer has complete approval evidence.");
+    }
+    return {
+      expectedPlanFingerprint: workspace.recommendation.planFingerprint,
+      expectedDecisionBundleFingerprint: workspace.decisionBundleFingerprint,
+      executionTarget: workspace.executionTarget,
+      approvalChallenge: workspace.approvalChallenge,
+      idempotencyKey: crypto.randomUUID(),
+      confirmation,
+      ...(password ? { password } : {}),
+    };
+  }
+
+  const approve = useMutation({
+    mutationFn: async () => {
+      if (!recommendation) throw new Error("Recommendation is unavailable.");
+      const workspace = await getRecommendationWorkspace(recommendation.id);
+      if (
+        workspace.approvalState !== "APPROVABLE" ||
+        !workspace.approvalReadiness.approvable
+      ) {
+        throw new Error(workspace.approvalReadiness.reason);
+      }
+      if (workspace.executionTarget === "live") {
+        return { kind: "live" as const, workspace };
+      }
+      if (workspace.executionTarget !== "demo") {
+        throw new Error("The execution target is unavailable; nothing was authorized.");
+      }
+      const phrase = `APPROVE ${workspace.recommendation.symbol} ${workspace.recommendation.side.toUpperCase()} FOR DEMO`;
+      return {
+        kind: "result" as const,
+        result: await executeRecommendation(
+          workspace.recommendation.id,
+          approvalBody(workspace, phrase),
+        ),
+      };
+    },
+    onSuccess: async (outcome) => {
+      if (outcome.kind === "live") {
+        setLiveIdempotencyKey(crypto.randomUUID());
+        setLiveWorkspace(outcome.workspace);
+        return;
+      }
+      await refreshRecommendationState();
+      toast({
+        title: outcome.result.ok ? "Trade executed" : "Approval refused",
+        description: outcome.result.reason,
+        ...(outcome.result.ok ? {} : { variant: "destructive" as const }),
+      });
+    },
+    onError: (error) =>
+      toast({ title: "Approval refused", description: error.message, variant: "destructive" }),
+  });
+  const executeLive = useMutation({
+    mutationFn: async ({ confirmation, password }: { confirmation: string; password?: string }) => {
+      if (!liveWorkspace) throw new Error("Live approval evidence is unavailable.");
+      const body = approvalBody(liveWorkspace, confirmation, password);
+      body.idempotencyKey = liveIdempotencyKey;
+      return executeRecommendation(liveWorkspace.recommendation.id, body);
+    },
+    onSuccess: async (result) => {
+      setLiveWorkspace(null);
+      await refreshRecommendationState();
+      toast({
+        title: result.ok ? "Trade executed" : "Approval refused",
+        description: result.reason,
+        ...(result.ok ? {} : { variant: "destructive" as const }),
+      });
+    },
+    onError: (error) =>
+      toast({ title: "Approval refused", description: error.message, variant: "destructive" }),
+  });
+
+  const deny = useMutation({
+    mutationFn: async () => {
+      if (!recommendation) throw new Error("Recommendation is unavailable.");
+      const workspace = await getRecommendationWorkspace(recommendation.id);
+      if (!workspace.approvalChallenge) {
+        throw new Error("This recommendation is no longer awaiting a decision.");
+      }
+      return rejectRecommendation(recommendation.id, {
+        expectedPlanFingerprint: workspace.recommendation.planFingerprint,
+        approvalChallenge: workspace.approvalChallenge,
+      });
+    },
+    onSuccess: async (result) => {
+      await refreshRecommendationState();
+      toast({ title: "Recommendation denied", description: result.reason });
+    },
+    onError: (error) =>
+      toast({ title: "Deny failed", description: error.message, variant: "destructive" }),
+  });
+
   if (!recommendation) {
     return (
       <div className="grid min-h-64 place-items-center px-6 text-center">
@@ -182,6 +399,7 @@ function RecommendationPanel({ recommendation }: { recommendation: DashboardReco
     );
   }
   const long = recommendation.side === "long";
+  const busy = approve.isPending || deny.isPending || executeLive.isPending;
   return (
     <div className="space-y-4 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -208,15 +426,45 @@ function RecommendationPanel({ recommendation }: { recommendation: DashboardReco
         Approval revalidates price, expiry, risk, portfolio state, and the immutable plan fingerprint on the server.
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <Button asChild size="sm"><Link href={`/dashboard/recommendations/${recommendation.id}?action=approve`}>Approve</Link></Button>
-        <Button asChild size="sm" variant="destructive"><Link href={`/dashboard/recommendations/${recommendation.id}?action=deny`}>Deny</Link></Button>
+        <Button size="sm" disabled={busy} onClick={() => approve.mutate()}>{approve.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}{approve.isPending ? "Approving…" : "Approve"}</Button>
+        <Button size="sm" variant="destructive" disabled={busy} onClick={() => deny.mutate()}>{deny.isPending ? "Denying…" : "Deny"}</Button>
         <Button asChild size="sm" variant="outline"><Link href={`/dashboard/recommendations/${recommendation.id}`}>Review</Link></Button>
       </div>
+      {liveWorkspace?.executionTarget === "live" && (
+        <CopilotApprovalDialog
+          open
+          onOpenChange={(next) => { if (!next && !executeLive.isPending) setLiveWorkspace(null); }}
+          symbol={liveWorkspace.recommendation.symbol}
+          side={liveWorkspace.recommendation.side}
+          target="live"
+          quantity={liveWorkspace.recommendation.qty}
+          entryPrice={liveWorkspace.recommendation.entryPrice}
+          stopPrice={liveWorkspace.recommendation.slPrice}
+          targetPrice={liveWorkspace.recommendation.tpPrice}
+          leverage={liveWorkspace.recommendation.leverage}
+          maximumLoss={Math.abs(liveWorkspace.recommendation.entryPrice - liveWorkspace.recommendation.slPrice) * liveWorkspace.recommendation.qty}
+          approvable={liveWorkspace.approvalReadiness.approvable}
+          readinessReason={liveWorkspace.approvalReadiness.reason}
+          pending={executeLive.isPending}
+          onConfirm={(input) => executeLive.mutate(input)}
+        />
+      )}
     </div>
   );
 }
 
 function IntelligencePanel({ session }: { session: DashboardSession }) {
+  const { section } = useSection();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const pause = useMutation({
+    mutationFn: () => pauseAutopilot({ reason: "Trader paused new AutoPilot entries from the Dashboard" }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["dashboard-session", section] });
+      toast({ title: "AutoPilot paused", description: "New entries are paused. Protective position management and exits continue." });
+    },
+    onError: (error) => toast({ title: "Pause refused", description: error.message, variant: "destructive" }),
+  });
   const mode = session.context.mode.configured;
   if (mode === "copilot") {
     return (
@@ -235,7 +483,7 @@ function IntelligencePanel({ session }: { session: DashboardSession }) {
       <section className="terminal-panel overflow-hidden" aria-labelledby="intelligence-heading">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Intelligence mode</p><h2 id="intelligence-heading" className="mt-1 text-sm font-semibold">AutoPilot control</h2></div>
-          <Badge variant={autopilot?.effectiveState === "ACTIVE" ? "success" : "warning"}>{autopilot?.effectiveState ?? "Not authorized"}</Badge>
+          <Badge variant={autopilot?.effectiveState === "AUTOPILOT_ENABLED" ? "success" : "warning"}>{autopilot?.effectiveState ?? "Not authorized"}</Badge>
         </div>
         <div className="space-y-4 p-4 text-sm">
           <div className="rounded-lg border bg-muted/20 p-3">
@@ -249,8 +497,13 @@ function IntelligencePanel({ session }: { session: DashboardSession }) {
             <div><dt className="text-muted-foreground">Open positions</dt><dd className="mt-1 font-mono">{session.runtime.openPositionCount}</dd></div>
             <div className="col-span-2"><dt className="text-muted-foreground">Safety state</dt><dd className="mt-1">{autopilot?.reason ?? "No active AutoPilot authority was found."}</dd></div>
           </dl>
-          <div className="rounded-lg border border-live/30 bg-live/10 p-3 text-xs">UI state cannot authorize execution. Pause/revoke actions are available only in the existing protected authority workflow.</div>
-          <Button asChild className="w-full"><Link href="/autopilot">Review / pause AutoPilot <ChevronRight className="ml-1 h-4 w-4" /></Link></Button>
+          <div className="rounded-lg border border-live/30 bg-live/10 p-3 text-xs">The server-authorized mandate remains decisive. Pausing new entries never disables protective position management or exits.</div>
+          {autopilot?.effectiveState === "AUTOPILOT_ENABLED" ? (
+            <Button variant="destructive" className="w-full" disabled={pause.isPending} onClick={() => pause.mutate()}>{pause.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Pause new entries</Button>
+          ) : (
+            <p className="rounded-lg border p-3 text-center text-xs text-muted-foreground">Select AutoPilot above to enable it with the current shared trade setup.</p>
+          )}
+          <Button asChild variant="ghost" size="sm" className="w-full"><Link href="/autopilot">Advanced authority evidence <ChevronRight className="ml-1 h-4 w-4" /></Link></Button>
         </div>
       </section>
     );
@@ -431,6 +684,11 @@ export function TraderDashboard() {
           <p className="mt-1 text-sm text-muted-foreground">One authoritative view of trading context, intelligence, risk, and activity.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <DashboardTradeSetup
+            readOnly={capabilitiesQuery.data?.readOnlyDemoAccount === true}
+            autopilotActive={session.autopilot?.effectiveState === "AUTOPILOT_ENABLED"}
+            onSaved={refreshRuntime}
+          />
           <DashboardStrategySelector authorizedAutopilotStrategies={session.autopilot?.authorizedStrategies ?? []} />
           <Button
             size="sm"

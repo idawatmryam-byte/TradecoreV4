@@ -112,6 +112,7 @@ paths:
                   type: string
                   minLength: 3
                   maxLength: 64
+                  pattern: "^[a-zA-Z0-9@_.\\- ]+$"
                 password:
                   type: string
                   minLength: 12
@@ -155,14 +156,18 @@ paths:
                   type: string
       responses:
         "200":
-          description: Logged in — session cookie set
+          description: Logged in — session cookie set; assigned platform operators receive a short-lived Admin step-up and Admin destination
           content:
             application/json:
               schema:
                 type: object
+                required: [ok, destination]
                 properties:
                   ok:
                     type: boolean
+                  destination:
+                    type: string
+                    description: Server-selected post-login surface. Platform roles are still enforced on every Admin API request.
         "401":
           description: Invalid username or password
 

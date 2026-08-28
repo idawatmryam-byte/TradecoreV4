@@ -198,7 +198,12 @@ export function AuthGate({
         },
       );
       if (res.ok) {
+        const data = await res.json().catch(() => null);
         if (mode === "register") onRegistered?.();
+        if (mode === "login" && data?.destination === "/admin") {
+          window.location.assign("/admin");
+          return;
+        }
         setStatus("authenticated");
         return;
       }
