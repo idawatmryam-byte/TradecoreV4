@@ -6317,6 +6317,7 @@ export type RegisterBody = {
   /**
      * @minLength 3
      * @maxLength 64
+     * @pattern ^[a-zA-Z0-9@_.\- ]+$
      */
   username: string;
   /** @minLength 12 */
@@ -6333,7 +6334,9 @@ export type LoginBody = {
 };
 
 export type Login200 = {
-  ok?: boolean;
+  ok: boolean;
+  /** Server-selected post-login surface. Platform roles are still enforced on every Admin API request. */
+  destination: string;
 };
 
 export type Logout200 = {

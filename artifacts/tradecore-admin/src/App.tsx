@@ -396,6 +396,69 @@ function ConfigurationPage() {
   );
 }
 
+function AdminSettingsPage() {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (newPassword.length < 12) throw new Error("New password must be at least 12 characters.");
+      if (newPassword !== confirmation) throw new Error("New password and confirmation must match.");
+      const response = await fetch("/api/me/account/password", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error ?? `Password update failed with HTTP ${response.status}`);
+      try {
+        await adminApi<{ ok: boolean; expiresAt: string }>("/session/step-up", {
+          method: "POST",
+          body: JSON.stringify({ password: newPassword }),
+        });
+        return { adminSessionRenewed: true } as const;
+      } catch {
+        return { adminSessionRenewed: false } as const;
+      }
+    },
+    onSuccess: async (result) => {
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmation("");
+      setMessage(
+        result.adminSessionRenewed
+          ? "Password changed. Other account and Admin Console sessions were revoked."
+          : "Password changed, but this Admin Console session could not be renewed. Sign in again with the new password.",
+      );
+      await queryClient.invalidateQueries({ queryKey: ["admin-session"] });
+    },
+  });
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    setMessage(null);
+    mutation.mutate();
+  }
+  return (
+    <>
+      <PageHeader eyebrow="Account security" title="Admin Settings" description="Change the password for this administrator account. Passwords are hashed server-side and are never displayed after submission." />
+      <section className="admin-panel max-w-2xl p-5 sm:p-6">
+        <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-primary/30 bg-primary/10 text-primary"><KeyRound className="h-5 w-5" /></span><div><h2 className="m-0 text-sm font-semibold">Change administrator password</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Changing it revokes previously issued account and Admin Console sessions.</p></div></div>
+        <form onSubmit={submit} className="mt-6 space-y-4">
+          <label className="block text-sm font-medium" htmlFor="settings-current-password">Current password<input id="settings-current-password" type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} className="mt-2 min-h-11 w-full rounded-lg border bg-background px-3" /></label>
+          <label className="block text-sm font-medium" htmlFor="settings-new-password">New password<input id="settings-new-password" type="password" autoComplete="new-password" minLength={12} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="mt-2 min-h-11 w-full rounded-lg border bg-background px-3" /></label>
+          <label className="block text-sm font-medium" htmlFor="settings-confirm-password">Confirm new password<input id="settings-confirm-password" type="password" autoComplete="new-password" minLength={12} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} className="mt-2 min-h-11 w-full rounded-lg border bg-background px-3" /></label>
+          {mutation.error && <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{mutation.error.message}</p>}
+          {message && <p className="rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm text-primary" role="status">{message}</p>}
+          <button disabled={mutation.isPending || !currentPassword || !newPassword || !confirmation} className="min-h-11 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground disabled:opacity-50">{mutation.isPending ? "Changing password…" : "Change password"}</button>
+        </form>
+      </section>
+    </>
+  );
+}
+
 function NotFound() {
   return <div className="admin-panel grid min-h-64 place-items-center p-6 text-center"><div><strong className="text-2xl">Admin view not found</strong><p className="text-sm text-muted-foreground">Return to the operational overview.</p><Link href="/" className="text-sm font-semibold text-primary">Open Overview</Link></div></div>;
 }
@@ -409,6 +472,7 @@ const NAV = [
   { href: "/users", label: "Users & Access", icon: Users },
   { href: "/audit", label: "Audit", icon: FileClock },
   { href: "/configuration", label: "Platform Configuration", icon: Settings2 },
+  { href: "/settings", label: "Admin Settings", icon: KeyRound },
 ] as const;
 
 function useTheme() {
@@ -484,6 +548,7 @@ function AdminShell({ session }: { session: AdminSessionStatus }) {
             <Route path="/users" component={UsersPage} />
             <Route path="/audit" component={AuditPage} />
             <Route path="/configuration" component={ConfigurationPage} />
+            <Route path="/settings" component={AdminSettingsPage} />
             <Route component={NotFound} />
           </Switch>
         </main>

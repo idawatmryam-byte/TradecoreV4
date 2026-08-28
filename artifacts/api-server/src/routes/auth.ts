@@ -11,6 +11,12 @@ import {
   exchangeGoogleCode, exchangeAppleCode, type OAuthIdentity,
 } from "../lib/oauth";
 import { logger } from "../lib/logger";
+import {
+  clearAdminStepUp,
+  issueAdminStepUpAfterPasswordLogin,
+  recordPlatformAudit,
+  requestId,
+} from "../lib/platformAdmin";
 
 const router: IRouter = Router();
 
@@ -42,8 +48,8 @@ router.post("/auth/register", async (req, res) => {
     res.status(400).json({ error: `Username must be ${MIN_USERNAME_LENGTH}-${MAX_USERNAME_LENGTH} characters` });
     return;
   }
-  if (!/^[a-zA-Z0-9_.\- ]+$/.test(username)) {
-    res.status(400).json({ error: "Username may only contain letters, numbers, spaces, and _ . -" });
+  if (!/^[a-zA-Z0-9@_.\- ]+$/.test(username)) {
+    res.status(400).json({ error: "Username may only contain letters, numbers, spaces, and @ _ . -" });
     return;
   }
   if (password.length < MIN_PASSWORD_LENGTH) {
@@ -92,7 +98,34 @@ router.post("/auth/login", async (req, res) => {
 
   logger.info({ userId: user.id, ip: req.ip }, "AUTH_LOGIN_SUCCESS");
   setSessionCookie(res, user);
-  res.json({ ok: true });
+  let adminDestination = false;
+  try {
+    const adminStepUp = await issueAdminStepUpAfterPasswordLogin({
+      res,
+      userId: user.id,
+      sessionVersion: user.sessionVersion,
+    });
+    if (adminStepUp.ok) {
+      await recordPlatformAudit({
+        actorUserId: user.id,
+        permission: "admin.session.step-up",
+        action: "ADMIN_LOGIN",
+        targetType: "admin_session",
+        targetId: String(user.id),
+        requestId: requestId(req),
+        result: "SUCCEEDED",
+        metadata: { roles: adminStepUp.roles, expiresAt: adminStepUp.expiresAt },
+      });
+      adminDestination = true;
+    }
+  } catch (error) {
+    clearAdminStepUp(res);
+    logger.error({ userId: user.id, err: error }, "ADMIN_LOGIN_PREPARATION_FAILED");
+  }
+  res.json({
+    ok: true,
+    destination: adminDestination ? "/admin" : `${appBasePath()}dashboard`,
+  });
 });
 
 // ---------------------------------------------------------------------------

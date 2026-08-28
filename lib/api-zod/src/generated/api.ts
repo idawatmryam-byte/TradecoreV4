@@ -24,12 +24,14 @@ export const HealthCheckResponse = zod.object({
 export const registerBodyUsernameMin = 3;
 export const registerBodyUsernameMax = 64;
 
+
+export const registerBodyUsernameRegExp = new RegExp('^[a-zA-Z0-9@_.\\- ]+$');
 export const registerBodyPasswordMin = 12;
 
 
 
 export const RegisterBody = zod.object({
-  "username": zod.string().min(registerBodyUsernameMin).max(registerBodyUsernameMax),
+  "username": zod.string().min(registerBodyUsernameMin).max(registerBodyUsernameMax).regex(registerBodyUsernameRegExp),
   "password": zod.string().min(registerBodyPasswordMin)
 })
 
@@ -48,7 +50,8 @@ export const LoginBody = zod.object({
 })
 
 export const LoginResponse = zod.object({
-  "ok": zod.boolean().optional()
+  "ok": zod.boolean(),
+  "destination": zod.string().describe('Server-selected post-login surface. Platform roles are still enforced on every Admin API request.')
 })
 
 
