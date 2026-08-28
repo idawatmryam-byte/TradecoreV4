@@ -28,6 +28,7 @@ Run what CI runs, so review starts from a green branch:
 pnpm run typecheck
 pnpm --filter @workspace/api-server run test          # pure harness
 PORT=8090 BASE_PATH=/ pnpm --filter @workspace/tradecore-pro run build
+PORT=8090 pnpm --filter @workspace/tradecore-admin run build
 pnpm --filter @workspace/api-server run build
 ```
 
