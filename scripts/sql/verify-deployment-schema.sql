@@ -67,6 +67,8 @@ BEGIN
       ('live_execution_states', 'global_drawdown_state'),
       ('live_global_equity_state', 'drawdown_state'),
       ('live_kill_switches', 'scope'),
+      ('live_kill_switches', 'resume_request_id'),
+      ('live_kill_switches', 'resume_request_expires_at'),
       ('live_safety_events', 'reason_code'),
       ('live_safety_events', 'event_key'),
       ('trades', 'autopilot_phase7_actions'),

@@ -24,6 +24,9 @@ import type {
   AccountProfileUpdate,
   ActivateAutopilotRequest,
   ActivePositionMonitor,
+  AdminAutopilotResumeApproval,
+  AdminAutopilotResumeRequest,
+  AdminAutopilotSuspendRequest,
   AdminOperationalReadModel,
   AdminOverview,
   AdminSessionStatus,
@@ -110,6 +113,7 @@ import type {
   OkResponse,
   OptimizeRequest,
   PauseAutopilotRequest,
+  PlatformAutopilotSafetyState,
   PortfolioIntelligenceProjection,
   PositionThesisView,
   RecommendationActionResult,
@@ -260,6 +264,7 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
 export const getRegisterUrl = () => {
 
 
@@ -543,7 +548,6 @@ export function useGetAuthStatus<TData = Awaited<ReturnType<typeof getAuthStatus
 
   return withQueryKey(query, queryOptions.queryKey);
 }
-
 
 export const getGetBotStatusUrl = () => {
 
@@ -9253,6 +9257,217 @@ export function useGetAdminRiskSafety<TData = Awaited<ReturnType<typeof getAdmin
 
 
 
+
+export const getRequestAdminAutopilotResumeUrl = () => {
+
+
+
+
+  return `/api/admin/risk/autopilot/resume-requests`
+}
+
+/**
+ * Requires a second distinct qualified operator before authority is expanded.
+ * @summary Request a time-limited platform Demo AutoPilot resume
+ */
+export const requestAdminAutopilotResume = async (adminAutopilotResumeRequest: AdminAutopilotResumeRequest, options?: RequestInit): Promise<PlatformAutopilotSafetyState> => {
+
+  return customFetch<PlatformAutopilotSafetyState>(getRequestAdminAutopilotResumeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(adminAutopilotResumeRequest)
+  }
+);}
+
+
+
+
+export const getRequestAdminAutopilotResumeMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestAdminAutopilotResume>>, TError,{data: BodyType<AdminAutopilotResumeRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestAdminAutopilotResume>>, TError,{data: BodyType<AdminAutopilotResumeRequest>}, TContext> => {
+
+const mutationKey = ['requestAdminAutopilotResume'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestAdminAutopilotResume>>, {data: BodyType<AdminAutopilotResumeRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestAdminAutopilotResume(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestAdminAutopilotResumeMutationResult = NonNullable<Awaited<ReturnType<typeof requestAdminAutopilotResume>>>
+    export type RequestAdminAutopilotResumeMutationBody = BodyType<AdminAutopilotResumeRequest>
+    export type RequestAdminAutopilotResumeMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Request a time-limited platform Demo AutoPilot resume
+ */
+export const useRequestAdminAutopilotResume = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestAdminAutopilotResume>>, TError,{data: BodyType<AdminAutopilotResumeRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestAdminAutopilotResume>>,
+        TError,
+        {data: BodyType<AdminAutopilotResumeRequest>},
+        TContext
+      > => {
+      return useMutation(getRequestAdminAutopilotResumeMutationOptions(options));
+    }
+
+export const getApproveAdminAutopilotResumeUrl = () => {
+
+
+
+
+  return `/api/admin/risk/autopilot/resume-approvals`
+}
+
+/**
+ * @summary Approve a platform Demo AutoPilot resume as the second operator
+ */
+export const approveAdminAutopilotResume = async (adminAutopilotResumeApproval: AdminAutopilotResumeApproval, options?: RequestInit): Promise<PlatformAutopilotSafetyState> => {
+
+  return customFetch<PlatformAutopilotSafetyState>(getApproveAdminAutopilotResumeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(adminAutopilotResumeApproval)
+  }
+);}
+
+
+
+
+export const getApproveAdminAutopilotResumeMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveAdminAutopilotResume>>, TError,{data: BodyType<AdminAutopilotResumeApproval>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveAdminAutopilotResume>>, TError,{data: BodyType<AdminAutopilotResumeApproval>}, TContext> => {
+
+const mutationKey = ['approveAdminAutopilotResume'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveAdminAutopilotResume>>, {data: BodyType<AdminAutopilotResumeApproval>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  approveAdminAutopilotResume(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveAdminAutopilotResumeMutationResult = NonNullable<Awaited<ReturnType<typeof approveAdminAutopilotResume>>>
+    export type ApproveAdminAutopilotResumeMutationBody = BodyType<AdminAutopilotResumeApproval>
+    export type ApproveAdminAutopilotResumeMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Approve a platform Demo AutoPilot resume as the second operator
+ */
+export const useApproveAdminAutopilotResume = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveAdminAutopilotResume>>, TError,{data: BodyType<AdminAutopilotResumeApproval>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveAdminAutopilotResume>>,
+        TError,
+        {data: BodyType<AdminAutopilotResumeApproval>},
+        TContext
+      > => {
+      return useMutation(getApproveAdminAutopilotResumeMutationOptions(options));
+    }
+
+export const getSuspendAdminAutopilotUrl = () => {
+
+
+
+
+  return `/api/admin/risk/autopilot/suspend`
+}
+
+/**
+ * @summary Immediately suspend new platform AutoPilot entries
+ */
+export const suspendAdminAutopilot = async (adminAutopilotSuspendRequest: AdminAutopilotSuspendRequest, options?: RequestInit): Promise<PlatformAutopilotSafetyState> => {
+
+  return customFetch<PlatformAutopilotSafetyState>(getSuspendAdminAutopilotUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(adminAutopilotSuspendRequest)
+  }
+);}
+
+
+
+
+export const getSuspendAdminAutopilotMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suspendAdminAutopilot>>, TError,{data: BodyType<AdminAutopilotSuspendRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof suspendAdminAutopilot>>, TError,{data: BodyType<AdminAutopilotSuspendRequest>}, TContext> => {
+
+const mutationKey = ['suspendAdminAutopilot'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof suspendAdminAutopilot>>, {data: BodyType<AdminAutopilotSuspendRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  suspendAdminAutopilot(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SuspendAdminAutopilotMutationResult = NonNullable<Awaited<ReturnType<typeof suspendAdminAutopilot>>>
+    export type SuspendAdminAutopilotMutationBody = BodyType<AdminAutopilotSuspendRequest>
+    export type SuspendAdminAutopilotMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Immediately suspend new platform AutoPilot entries
+ */
+export const useSuspendAdminAutopilot = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suspendAdminAutopilot>>, TError,{data: BodyType<AdminAutopilotSuspendRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof suspendAdminAutopilot>>,
+        TError,
+        {data: BodyType<AdminAutopilotSuspendRequest>},
+        TContext
+      > => {
+      return useMutation(getSuspendAdminAutopilotMutationOptions(options));
+    }
 
 export const getGetAdminUsersUrl = (params?: GetAdminUsersParams,) => {
   const normalizedParams = new URLSearchParams();

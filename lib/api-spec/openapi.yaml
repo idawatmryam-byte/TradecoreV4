@@ -2636,6 +2636,54 @@ paths:
         "200": { description: Risk and safety evidence, content: { application/json: { schema: { $ref: "#/components/schemas/AdminOperationalReadModel" } } } }
         "403": { description: Platform permission or step-up required, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
 
+  /admin/risk/autopilot/resume-requests:
+    post:
+      operationId: requestAdminAutopilotResume
+      tags: [admin]
+      summary: Request a time-limited platform Demo AutoPilot resume
+      description: Requires a second distinct qualified operator before authority is expanded.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminAutopilotResumeRequest" }
+      responses:
+        "201": { description: Resume request recorded, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformAutopilotSafetyState" } } } }
+        "400": { description: Invalid request, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        "403": { description: "Platform permission, origin, or step-up required", content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        "409": { description: Resume refused by current safety state, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+
+  /admin/risk/autopilot/resume-approvals:
+    post:
+      operationId: approveAdminAutopilotResume
+      tags: [admin]
+      summary: Approve a platform Demo AutoPilot resume as the second operator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminAutopilotResumeApproval" }
+      responses:
+        "200": { description: Platform Demo AutoPilot resumed, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformAutopilotSafetyState" } } } }
+        "400": { description: Invalid approval, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        "403": { description: "Platform permission, origin, or step-up required", content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        "409": { description: Approval refused by current safety state, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+
+  /admin/risk/autopilot/suspend:
+    post:
+      operationId: suspendAdminAutopilot
+      tags: [admin]
+      summary: Immediately suspend new platform AutoPilot entries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminAutopilotSuspendRequest" }
+      responses:
+        "200": { description: Platform AutoPilot suspended, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformAutopilotSafetyState" } } } }
+        "400": { description: Invalid suspension, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        "403": { description: "Platform permission, origin, or step-up required", content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+
   /admin/users:
     get:
       operationId: getAdminUsers
@@ -4197,7 +4245,7 @@ components:
         roles: { type: array, items: { type: string, enum: [PLATFORM_ADMIN, OPERATIONS_RISK, SUPPORT, AUDITOR] } }
         permissions: { type: array, items: { type: string } }
         stepUp: { type: object, required: [active, expiresAt], properties: { active: { type: boolean }, expiresAt: { type: [string, "null"], format: date-time }, reason: { type: string } } }
-        mutationsSupported: { type: boolean, const: false }
+        mutationsSupported: { type: boolean }
         mutationReason: { type: string }
 
     AdminStepUpResult:
@@ -4223,6 +4271,69 @@ components:
       type: object
       description: Endpoint-specific read-only data; unsupported subsystems report NOT_PROVISIONED.
       additionalProperties: true
+
+    PlatformAutopilotSafetyState:
+      type: object
+      additionalProperties: false
+      required: [effectiveSuspended, source, reason, deploymentHardStop, persisted, pendingResume]
+      properties:
+        effectiveSuspended: { type: boolean }
+        source: { type: string, enum: [DEPLOYMENT_HARD_STOP, PERSISTED_PLATFORM_CONTROL, UNINITIALIZED_FAIL_CLOSED, CONTROL_STATE_UNAVAILABLE] }
+        reason: { type: string }
+        deploymentHardStop:
+          type: object
+          additionalProperties: false
+          required: [active, configured, reason]
+          properties:
+            active: { type: boolean }
+            configured: { type: boolean }
+            reason: { type: [string, "null"] }
+        persisted:
+          type: object
+          additionalProperties: false
+          required: [initialized, suspended, updatedAt]
+          properties:
+            initialized: { type: boolean }
+            suspended: { type: boolean }
+            updatedAt: { type: [string, "null"], format: date-time }
+        pendingResume:
+          oneOf:
+            - type: "null"
+            - type: object
+              additionalProperties: false
+              required: [requestId, requestedByUserId, requestedAt, expiresAt, reason]
+              properties:
+                requestId: { type: string, format: uuid }
+                requestedByUserId: { type: integer, minimum: 1 }
+                requestedAt: { type: string, format: date-time }
+                expiresAt: { type: string, format: date-time }
+                reason: { type: string }
+
+    AdminAutopilotResumeRequest:
+      type: object
+      additionalProperties: false
+      required: [reason, clientRequestId, confirmation]
+      properties:
+        reason: { type: string, minLength: 8, maxLength: 500 }
+        clientRequestId: { type: string, format: uuid }
+        confirmation: { type: string, const: REQUEST_PLATFORM_AUTOPILOT_RESUME }
+
+    AdminAutopilotResumeApproval:
+      type: object
+      additionalProperties: false
+      required: [reason, resumeRequestId, confirmation]
+      properties:
+        reason: { type: string, minLength: 8, maxLength: 500 }
+        resumeRequestId: { type: string, format: uuid }
+        confirmation: { type: string, const: APPROVE_PLATFORM_AUTOPILOT_RESUME }
+
+    AdminAutopilotSuspendRequest:
+      type: object
+      additionalProperties: false
+      required: [reason, confirmation]
+      properties:
+        reason: { type: string, minLength: 8, maxLength: 500 }
+        confirmation: { type: string, const: SUSPEND_PLATFORM_AUTOPILOT }
 
     HealthStatus:
       type: object

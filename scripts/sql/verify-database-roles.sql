@@ -222,7 +222,12 @@ SELECT
               'drawdown_limit_bps', 'updated_at'
             )
           WHEN table_name = 'live_kill_switches'
-            THEN column_name IN ('active', 'deactivated_at', 'updated_at')
+            THEN column_name IN (
+              'active', 'reason', 'activated_by_user_id', 'activated_at',
+              'deactivated_at', 'resume_request_id',
+              'resume_requested_by_user_id', 'resume_requested_at',
+              'resume_request_expires_at', 'resume_request_reason', 'updated_at'
+            )
           ELSE false
         END
   ) AS phase11_privileges_are_bounded,

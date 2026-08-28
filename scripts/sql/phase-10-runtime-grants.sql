@@ -208,7 +208,19 @@ GRANT UPDATE (
   drawdown_limit_bps,
   updated_at
 ) ON TABLE public.live_global_equity_state TO :"app_role";
-GRANT UPDATE (active, deactivated_at, updated_at)
+GRANT UPDATE (
+  active,
+  reason,
+  activated_by_user_id,
+  activated_at,
+  deactivated_at,
+  resume_request_id,
+  resume_requested_by_user_id,
+  resume_requested_at,
+  resume_request_expires_at,
+  resume_request_reason,
+  updated_at
+)
   ON TABLE public.live_kill_switches TO :"app_role";
 
 -- Serial inserts require their backing sequences. Reapplying this after every

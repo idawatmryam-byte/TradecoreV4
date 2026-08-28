@@ -51,13 +51,19 @@ READINESS_TIMEOUT_SECONDS="${READINESS_TIMEOUT_SECONDS:-180}"
 HEALTH_INTERVAL_SECONDS="${HEALTH_INTERVAL_SECONDS:-2}"
 HEALTH_REQUEST_TIMEOUT_SECONDS="${HEALTH_REQUEST_TIMEOUT_SECONDS:-5}"
 
-# Production deployment defaults Demo Autopilot to suspended. An explicit,
-# reviewed false value is accepted, while empty/invalid values cannot fail open.
+# An explicit true remains an emergency deployment hard stop. When the value is
+# absent, the persisted platform control is authoritative and itself starts
+# suspended/fails closed until two qualified operators approve a resume.
 AUTOPILOT_GLOBAL_SUSPENDED="$(normalize_autopilot_global_suspended "${AUTOPILOT_GLOBAL_SUSPENDED:-}")"
-if [[ "$AUTOPILOT_GLOBAL_SUSPENDED" == "false" ]]; then
-  deploy_warn "AUTOPILOT_GLOBAL_SUSPENDED is explicitly disabled; retain the approval record for this deployment"
+if [[ "$AUTOPILOT_GLOBAL_SUSPENDED" == "database" ]]; then
+  unset AUTOPILOT_GLOBAL_SUSPENDED
+  deploy_log "AUTOPILOT_GLOBAL_SUSPENDED is governed by the fail-closed persisted platform control"
+elif [[ "$AUTOPILOT_GLOBAL_SUSPENDED" == "false" ]]; then
+  deploy_log "AUTOPILOT_GLOBAL_SUSPENDED deployment hard stop is disabled; the persisted platform control remains authoritative"
+  export AUTOPILOT_GLOBAL_SUSPENDED
+else
+  export AUTOPILOT_GLOBAL_SUSPENDED
 fi
-export AUTOPILOT_GLOBAL_SUSPENDED
 
 require_positive_integer LIVENESS_TIMEOUT_SECONDS "$LIVENESS_TIMEOUT_SECONDS"
 require_positive_integer READINESS_TIMEOUT_SECONDS "$READINESS_TIMEOUT_SECONDS"

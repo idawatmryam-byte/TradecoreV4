@@ -164,7 +164,8 @@ export function DashboardTradeSetup({
   }
 
   function save() {
-    if (!form) return;
+    const currentConfig = configQuery.data;
+    if (!form || !currentConfig) return;
     setError(null);
     try {
       const pairs = [
@@ -184,7 +185,10 @@ export function DashboardTradeSetup({
           1,
           1_000_000,
         ),
-        riskPercent: finiteNumber(form.riskPercent, "Risk per trade", 0, 10),
+        riskPercent:
+          form.riskModel === "percent"
+            ? finiteNumber(form.riskPercent, "Risk per trade", 0, 10)
+            : currentConfig.riskPercent,
         maxOpenPositions: integer(
           form.maxOpenPositions,
           "Maximum open positions",
@@ -198,30 +202,27 @@ export function DashboardTradeSetup({
           100,
         ),
         riskModel: form.riskModel,
-        stopLossPercent: finiteNumber(
-          form.stopLossPercent,
-          "Stop loss",
-          0.01,
-          20,
-        ),
-        takeProfitPercent: finiteNumber(
-          form.takeProfitPercent,
-          "Take profit",
-          0.3,
-          100,
-        ),
-        maxLossUsdt: finiteNumber(
-          form.maxLossUsdt,
-          "Maximum loss",
-          0.01,
-          1_000_000,
-        ),
-        targetProfitUsdt: finiteNumber(
-          form.targetProfitUsdt,
-          "Target profit",
-          0.01,
-          1_000_000,
-        ),
+        stopLossPercent:
+          form.riskModel === "percent"
+            ? finiteNumber(form.stopLossPercent, "Stop loss", 0.01, 20)
+            : currentConfig.stopLossPercent,
+        takeProfitPercent:
+          form.riskModel === "percent"
+            ? finiteNumber(form.takeProfitPercent, "Take profit", 0.3, 100)
+            : currentConfig.takeProfitPercent,
+        maxLossUsdt:
+          form.riskModel === "dollar"
+            ? finiteNumber(form.maxLossUsdt, "Maximum loss", 0.01, 1_000_000)
+            : currentConfig.maxLossUsdt,
+        targetProfitUsdt:
+          form.riskModel === "dollar"
+            ? finiteNumber(
+                form.targetProfitUsdt,
+                "Target profit",
+                0.01,
+                1_000_000,
+              )
+            : currentConfig.targetProfitUsdt,
         scanIntervalSeconds: integer(
           form.scanIntervalSeconds,
           "Scan interval",
@@ -450,22 +451,26 @@ export function DashboardTradeSetup({
                     className="mt-1.5"
                   />
                 </label>
-                <label className="text-xs font-medium">
-                  Risk per trade (%; 0 = fixed size)
-                  <Input
-                    type="number"
-                    min={0}
-                    max={10}
-                    step="0.1"
-                    value={form.riskPercent}
-                    onChange={(event) =>
-                      field("riskPercent", event.target.value)
-                    }
-                    className="mt-1.5"
-                  />
-                </label>
                 {form.riskModel === "percent" ? (
                   <>
+                    <label className="text-xs font-medium">
+                      Account risk per trade (%)
+                      <Input
+                        type="number"
+                        min={0}
+                        max={10}
+                        step="0.1"
+                        value={form.riskPercent}
+                        onChange={(event) =>
+                          field("riskPercent", event.target.value)
+                        }
+                        className="mt-1.5"
+                      />
+                      <span className="mt-1.5 block font-normal leading-5 text-muted-foreground">
+                        Maximum account balance that may be lost on one trade.
+                        This is not the stop-loss distance.
+                      </span>
+                    </label>
                     <label className="text-xs font-medium">
                       Stop loss distance (%)
                       <Input
@@ -524,6 +529,13 @@ export function DashboardTradeSetup({
                   </>
                 )}
               </div>
+              {form.riskModel === "dollar" && (
+                <p className="m-0 text-xs leading-5 text-muted-foreground">
+                  Dollar Model uses Maximum loss and Target profit for each
+                  trade. Percentage account risk and percentage stop distances
+                  are not used.
+                </p>
+              )}
             </section>
 
             {error && (
