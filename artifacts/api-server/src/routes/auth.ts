@@ -124,7 +124,7 @@ router.post("/auth/login", async (req, res) => {
   }
   res.json({
     ok: true,
-    destination: adminDestination ? "/admin" : `${appBasePath()}dashboard`,
+    destination: adminDestination ? "/admin/" : `${appBasePath()}dashboard`,
   });
 });
 

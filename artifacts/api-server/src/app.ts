@@ -145,6 +145,13 @@ function noCacheHtml(res: express.Response): void {
 // The Admin Console is a separate Vite bundle and business navigation. Its
 // JavaScript is public like any web asset; every datum and permission remains
 // protected by server-side /api/admin middleware and recent step-up auth.
+// Canonicalize the directory root explicitly. Without this route, a bare
+// `/admin` request can miss both express.static's directory index and the
+// `/admin/{*path}` SPA fallback, then fall through to the public landing page.
+app.get("/admin", (_req, res) => {
+  noCacheHtml(res);
+  res.redirect(307, "/admin/");
+});
 app.use("/admin", express.static(adminFrontendDist, staticOptions));
 app.get("/admin/{*path}", (req, res, next) => {
   const accept = req.headers.accept ?? "";
