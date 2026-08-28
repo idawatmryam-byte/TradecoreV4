@@ -81,6 +81,7 @@ DATABASE_URL="$DATABASE_URL" pnpm --filter @workspace/db run push
 
 # 5. Build — frontend FIRST (backend build copies it into dist/public)
 PORT="$PORT" BASE_PATH=/ pnpm --filter @workspace/tradecore-pro run build
+PORT="$PORT" pnpm --filter @workspace/tradecore-admin run build
 pnpm --filter @workspace/api-server run build
 
 # 6. Run (put this under systemd or pm2 for real; foreground to smoke-test)

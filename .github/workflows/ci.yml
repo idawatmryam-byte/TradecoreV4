@@ -181,4 +181,5 @@ jobs:
       - name: Build
         run: |
           PORT=8090 BASE_PATH=/ pnpm --filter @workspace/tradecore-pro run build
+          PORT=8090 pnpm --filter @workspace/tradecore-admin run build
           pnpm --filter @workspace/api-server run build
