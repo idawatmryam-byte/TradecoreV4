@@ -107,6 +107,7 @@ printf 'previous_commit=%s\ntarget_commit=%s\ntarget_stage2_blob=%s\nstarted_at=
   > "$BACKUP_DIR/deployment-metadata"
 if [[ -d artifacts/api-server/dist ]]; then cp -a artifacts/api-server/dist "$BACKUP_DIR/api-dist"; fi
 if [[ -d artifacts/tradecore-pro/dist ]]; then cp -a artifacts/tradecore-pro/dist "$BACKUP_DIR/web-dist"; fi
+if [[ -d artifacts/tradecore-admin/dist ]]; then cp -a artifacts/tradecore-admin/dist "$BACKUP_DIR/admin-dist"; fi
 
 restart_service() {
   if [[ -n "${RESTART_SCRIPT:-}" ]]; then
@@ -128,11 +129,15 @@ restart_service() {
 
 restore_previous_artifacts() {
   if [[ -d "$BACKUP_DIR/api-dist" && -d "$BACKUP_DIR/web-dist" ]]; then
-    rm -rf -- artifacts/api-server/dist artifacts/tradecore-pro/dist
+    rm -rf -- artifacts/api-server/dist artifacts/tradecore-pro/dist artifacts/tradecore-admin/dist
     cp -a "$BACKUP_DIR/api-dist" artifacts/api-server/dist
     cp -a "$BACKUP_DIR/web-dist" artifacts/tradecore-pro/dist
+    if [[ -d "$BACKUP_DIR/admin-dist" ]]; then
+      cp -a "$BACKUP_DIR/admin-dist" artifacts/tradecore-admin/dist
+    fi
   else
     PORT="$BUILD_PORT" BASE_PATH="$BASE_PATH" pnpm --filter @workspace/tradecore-pro run build
+    PORT="$BUILD_PORT" pnpm --filter @workspace/tradecore-admin run build
     pnpm --filter @workspace/api-server run build
   fi
 }
@@ -274,6 +279,7 @@ apply_post_schema_database_security \
 
 deploy_log "building frontend and backend"
 PORT="$BUILD_PORT" BASE_PATH="$BASE_PATH" pnpm --filter @workspace/tradecore-pro run build
+PORT="$BUILD_PORT" pnpm --filter @workspace/tradecore-admin run build
 pnpm --filter @workspace/api-server run build
 
 if [[ "${SEED_DEMO:-}" == "1" ]]; then
