@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import {
   autopilotControlsTable,
   botConfigTable,
@@ -12,7 +12,18 @@ import {
   platformRoleAssignmentsTable,
   usersTable,
 } from "@workspace/db";
-import { and, asc, count, desc, eq, gt, inArray, lt, ne, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  inArray,
+  lt,
+  ne,
+  sql,
+} from "drizzle-orm";
 import { z } from "zod/v4";
 import {
   activePlatformRoles,
@@ -27,6 +38,13 @@ import {
   verifyAdminStepUp,
 } from "../lib/platformAdmin";
 import { getEngineResumeHealth } from "../lib/startupHealth";
+import {
+  approvePlatformAutopilotResume,
+  getPlatformAutopilotSafetyState,
+  requestPlatformAutopilotResume,
+  suspendPlatformAutopilot,
+} from "../lib/platformAutopilotSafety";
+import { verifyFinancialRequestOrigin } from "../middleware/financialRequest";
 import {
   BRAIN_V0_CONTROL_COMMIT,
   BRAIN_V0_VERSION,
@@ -45,27 +63,35 @@ function maskedEmail(value: string | null): string | null {
 
 router.get("/admin/session/status", async (req, res): Promise<void> => {
   const roles = await activePlatformRoles(req.userId!);
+  const permissions = permissionsForRoles(roles);
   const stepUp = await verifyAdminStepUp(req);
   res.json({
     eligible: roles.length > 0,
     roles,
-    permissions: permissionsForRoles(roles),
+    permissions,
     stepUp: stepUp.ok
       ? { active: true, expiresAt: stepUp.expiresAt }
       : { active: false, expiresAt: null, reason: stepUp.reason },
-    mutationsSupported: false,
+    mutationsSupported: permissions.includes("admin.risk.suspend"),
     mutationReason:
-      "Admin v1 is read-only. Authority-changing controls remain unavailable until phishing-resistant step-up and explicit dual-approval workflows are implemented.",
+      "Demo AutoPilot safety controls require recent Admin step-up, explicit confirmation, an audit reason, and two distinct qualified operators for resume.",
   });
 });
 
-const AdminStepUpBody = z.object({ password: z.string().min(1).max(1024) }).strict();
+const AdminStepUpBody = z
+  .object({ password: z.string().min(1).max(1024) })
+  .strict();
 
 router.post("/admin/session/step-up", async (req, res): Promise<void> => {
   const parsed = AdminStepUpBody.safeParse(req.body);
   const id = requestId(req);
   if (!parsed.success) {
-    res.status(400).json({ error: "Current password is required", code: "ADMIN_STEP_UP_INVALID" });
+    res
+      .status(400)
+      .json({
+        error: "Current password is required",
+        code: "ADMIN_STEP_UP_INVALID",
+      });
     return;
   }
   const result = await issueAdminStepUp({
@@ -84,7 +110,9 @@ router.post("/admin/session/step-up", async (req, res): Promise<void> => {
       result: "REFUSED",
       reason: result.reason,
     });
-    res.status(403).json({ error: result.reason, code: "ADMIN_STEP_UP_REFUSED" });
+    res
+      .status(403)
+      .json({ error: result.reason, code: "ADMIN_STEP_UP_REFUSED" });
     return;
   }
   await recordPlatformAudit({
@@ -106,47 +134,71 @@ router.post("/admin/session/logout", (req, res): void => {
 });
 
 router.use("/admin", requireAdminStepUp);
+router.use("/admin", (req, res, next): void => {
+  if (
+    req.method === "GET" ||
+    req.method === "HEAD" ||
+    req.method === "OPTIONS"
+  ) {
+    next();
+    return;
+  }
+  const origin = verifyFinancialRequestOrigin(req);
+  if (!origin.ok) {
+    res.status(403).json({ error: origin.reason, code: "ORIGIN_REJECTED" });
+    return;
+  }
+  next();
+});
 
 router.get(
   "/admin/overview",
   requirePlatformPermission("admin.overview.read"),
   async (_req, res): Promise<void> => {
-    const [users, configuredSections, desiredRuntimes, unresolved, switches, controls] =
-      await Promise.all([
-        db.select({ count: count() }).from(usersTable),
-        db.select({ count: count() }).from(botConfigTable),
-        db
-          .select({ count: count() })
-          .from(botConfigTable)
-          .where(eq(botConfigTable.engineDesiredRunning, true)),
-        db
-          .select({ count: count() })
-          .from(executionIntentsTable)
-          .where(
-            inArray(executionIntentsTable.state, [
-              "ORDER_SUBMITTED",
-              "PARTIALLY_FILLED",
-              "FILLED",
-              "RECORDED",
-              "RECONCILIATION_REQUIRED",
-              "ESCALATED",
-            ]),
-          ),
-        db
-          .select({ count: count() })
-          .from(liveKillSwitchesTable)
-          .where(eq(liveKillSwitchesTable.active, true)),
-        db
-          .select({ state: autopilotControlsTable.state, count: count() })
-          .from(autopilotControlsTable)
-          .groupBy(autopilotControlsTable.state),
-      ]);
+    const [
+      users,
+      configuredSections,
+      desiredRuntimes,
+      unresolved,
+      switches,
+      controls,
+    ] = await Promise.all([
+      db.select({ count: count() }).from(usersTable),
+      db.select({ count: count() }).from(botConfigTable),
+      db
+        .select({ count: count() })
+        .from(botConfigTable)
+        .where(eq(botConfigTable.engineDesiredRunning, true)),
+      db
+        .select({ count: count() })
+        .from(executionIntentsTable)
+        .where(
+          inArray(executionIntentsTable.state, [
+            "ORDER_SUBMITTED",
+            "PARTIALLY_FILLED",
+            "FILLED",
+            "RECORDED",
+            "RECONCILIATION_REQUIRED",
+            "ESCALATED",
+          ]),
+        ),
+      db
+        .select({ count: count() })
+        .from(liveKillSwitchesTable)
+        .where(eq(liveKillSwitchesTable.active, true)),
+      db
+        .select({ state: autopilotControlsTable.state, count: count() })
+        .from(autopilotControlsTable)
+        .groupBy(autopilotControlsTable.state),
+    ]);
     const unresolvedCount = unresolved[0]?.count ?? 0;
     const activeSwitches = switches[0]?.count ?? 0;
     res.json({
       asOf: new Date().toISOString(),
       status:
-        unresolvedCount > 0 || activeSwitches > 0 ? "ATTENTION_REQUIRED" : "OPERATIONAL",
+        unresolvedCount > 0 || activeSwitches > 0
+          ? "ATTENTION_REQUIRED"
+          : "OPERATIONAL",
       counts: {
         users: users[0]?.count ?? 0,
         configuredSections: configuredSections[0]?.count ?? 0,
@@ -154,7 +206,9 @@ router.get(
         unresolvedExecutionIntents: unresolvedCount,
         activeSafetySwitches: activeSwitches,
       },
-      autopilot: Object.fromEntries(controls.map((row) => [row.state, row.count])),
+      autopilot: Object.fromEntries(
+        controls.map((row) => [row.state, row.count]),
+      ),
       authorityBoundary:
         "Platform visibility does not grant tenant financial authority or broker access.",
     });
@@ -164,9 +218,12 @@ router.get(
 router.get(
   "/admin/health",
   requirePlatformPermission("admin.health.read"),
-  async (_req, res): Promise<void> => {
+  async (req, res): Promise<void> => {
     const started = performance.now();
-    let database: { state: "HEALTHY" | "UNREACHABLE"; latencyMs: number | null };
+    let database: {
+      state: "HEALTHY" | "UNREACHABLE";
+      latencyMs: number | null;
+    };
     try {
       await db.execute(sql`select 1`);
       database = {
@@ -320,8 +377,8 @@ router.get(
 router.get(
   "/admin/risk",
   requirePlatformPermission("admin.risk.read"),
-  async (_req, res): Promise<void> => {
-    const [switches, incidents] = await Promise.all([
+  async (req, res): Promise<void> => {
+    const [switches, incidents, platformAutopilot] = await Promise.all([
       db
         .select({
           id: liveKillSwitchesTable.id,
@@ -352,6 +409,7 @@ router.get(
         .from(liveSafetyEventsTable)
         .orderBy(desc(liveSafetyEventsTable.occurredAt))
         .limit(200),
+      getPlatformAutopilotSafetyState(),
     ]);
     res.json({
       asOf: new Date().toISOString(),
@@ -365,10 +423,168 @@ router.get(
         source: row.targetUserId === 0 ? "PLATFORM" : "TENANT",
         occurredAt: row.occurredAt.toISOString(),
       })),
-      controlsSupported: false,
+      platformAutopilot: {
+        ...platformAutopilot,
+        pendingResume: platformAutopilot.pendingResume
+          ? {
+              ...platformAutopilot.pendingResume,
+              canCurrentOperatorApprove:
+                platformAutopilot.pendingResume.requestedByUserId !==
+                req.userId,
+            }
+          : null,
+      },
+      controlsSupported: true,
       controlsReason:
-        "Global resume, limit expansion, and other authority-changing actions require a separately approved dual-operator workflow and phishing-resistant step-up.",
+        "Suspension is immediate. Resume requires a time-limited request and approval by a second distinct qualified operator. These controls apply only to Demo/testnet/practice AutoPilot; Live authority remains unavailable.",
     });
+  },
+);
+
+const AdminSafetyReason = z.string().trim().min(8).max(500);
+const RequestAutopilotResumeBody = z
+  .object({
+    reason: AdminSafetyReason,
+    clientRequestId: z.string().uuid(),
+    confirmation: z.literal("REQUEST_PLATFORM_AUTOPILOT_RESUME"),
+  })
+  .strict();
+const ApproveAutopilotResumeBody = z
+  .object({
+    reason: AdminSafetyReason,
+    resumeRequestId: z.string().uuid(),
+    confirmation: z.literal("APPROVE_PLATFORM_AUTOPILOT_RESUME"),
+  })
+  .strict();
+const SuspendAutopilotBody = z
+  .object({
+    reason: AdminSafetyReason,
+    confirmation: z.literal("SUSPEND_PLATFORM_AUTOPILOT"),
+  })
+  .strict();
+
+function adminSafetyError(
+  req: Request,
+  res: Response,
+  error: unknown,
+  permission: string,
+  action: string,
+): void {
+  const reason =
+    error instanceof Error ? error.message : "Safety action was refused";
+  auditFailureBestEffort({
+    actorUserId: req.userId ?? null,
+    permission,
+    action,
+    targetType: "platform_autopilot_safety",
+    targetId: "global",
+    requestId: requestId(req),
+    result: "REFUSED",
+    reason,
+  });
+  res.status(409).json({ error: reason, code: "ADMIN_SAFETY_ACTION_REFUSED" });
+}
+
+router.post(
+  "/admin/risk/autopilot/resume-requests",
+  requirePlatformPermission("admin.risk.resume.request"),
+  async (req, res): Promise<void> => {
+    const parsed = RequestAutopilotResumeBody.safeParse(req.body);
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({
+          error: "A valid reason, request ID, and confirmation are required",
+          code: "ADMIN_SAFETY_INPUT_INVALID",
+        });
+      return;
+    }
+    try {
+      const state = await requestPlatformAutopilotResume({
+        actorUserId: req.userId!,
+        reason: parsed.data.reason,
+        clientRequestId: parsed.data.clientRequestId,
+        auditRequestId: requestId(req),
+      });
+      res.status(201).json(state);
+    } catch (error) {
+      adminSafetyError(
+        req,
+        res,
+        error,
+        "admin.risk.resume.request",
+        "REQUEST_PLATFORM_AUTOPILOT_RESUME",
+      );
+    }
+  },
+);
+
+router.post(
+  "/admin/risk/autopilot/resume-approvals",
+  requirePlatformPermission("admin.risk.resume.approve"),
+  async (req, res): Promise<void> => {
+    const parsed = ApproveAutopilotResumeBody.safeParse(req.body);
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({
+          error: "A valid request ID, reason, and confirmation are required",
+          code: "ADMIN_SAFETY_INPUT_INVALID",
+        });
+      return;
+    }
+    try {
+      res.json(
+        await approvePlatformAutopilotResume({
+          actorUserId: req.userId!,
+          resumeRequestId: parsed.data.resumeRequestId,
+          reason: parsed.data.reason,
+          auditRequestId: requestId(req),
+        }),
+      );
+    } catch (error) {
+      adminSafetyError(
+        req,
+        res,
+        error,
+        "admin.risk.resume.approve",
+        "APPROVE_PLATFORM_AUTOPILOT_RESUME",
+      );
+    }
+  },
+);
+
+router.post(
+  "/admin/risk/autopilot/suspend",
+  requirePlatformPermission("admin.risk.suspend"),
+  async (req, res): Promise<void> => {
+    const parsed = SuspendAutopilotBody.safeParse(req.body);
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({
+          error: "A valid reason and confirmation are required",
+          code: "ADMIN_SAFETY_INPUT_INVALID",
+        });
+      return;
+    }
+    try {
+      res.json(
+        await suspendPlatformAutopilot({
+          actorUserId: req.userId!,
+          reason: parsed.data.reason,
+          auditRequestId: requestId(req),
+        }),
+      );
+    } catch (error) {
+      adminSafetyError(
+        req,
+        res,
+        error,
+        "admin.risk.suspend",
+        "SUSPEND_PLATFORM_AUTOPILOT",
+      );
+    }
   },
 );
 
@@ -383,7 +599,9 @@ router.get(
   async (req, res): Promise<void> => {
     const parsed = UserQuery.safeParse(req.query);
     if (!parsed.success) {
-      res.status(400).json({ error: "Invalid pagination", code: "ADMIN_QUERY_INVALID" });
+      res
+        .status(400)
+        .json({ error: "Invalid pagination", code: "ADMIN_QUERY_INVALID" });
       return;
     }
     const rows = await db
@@ -397,7 +615,11 @@ router.get(
         createdAt: usersTable.createdAt,
       })
       .from(usersTable)
-      .where(parsed.data.afterId ? gt(usersTable.id, parsed.data.afterId) : undefined)
+      .where(
+        parsed.data.afterId
+          ? gt(usersTable.id, parsed.data.afterId)
+          : undefined,
+      )
       .orderBy(asc(usersTable.id))
       .limit(parsed.data.limit + 1);
     const page = rows.slice(0, parsed.data.limit);
@@ -441,7 +663,7 @@ router.get(
         createdAt: row.createdAt.toISOString(),
       })),
       nextAfterId:
-        rows.length > parsed.data.limit ? page.at(-1)?.id ?? null : null,
+        rows.length > parsed.data.limit ? (page.at(-1)?.id ?? null) : null,
       mutationsSupported: false,
     });
   },
@@ -458,7 +680,9 @@ router.get(
   async (req, res): Promise<void> => {
     const parsed = AuditQuery.safeParse(req.query);
     if (!parsed.success) {
-      res.status(400).json({ error: "Invalid pagination", code: "ADMIN_QUERY_INVALID" });
+      res
+        .status(400)
+        .json({ error: "Invalid pagination", code: "ADMIN_QUERY_INVALID" });
       return;
     }
     const rows = await db
@@ -479,7 +703,10 @@ router.get(
       targetType: "platform_audit",
       requestId: requestId(req),
       result: "SUCCEEDED",
-      metadata: { returned: page.length, beforeId: parsed.data.beforeId ?? null },
+      metadata: {
+        returned: page.length,
+        beforeId: parsed.data.beforeId ?? null,
+      },
     });
     res.json({
       events: page.map((row) => ({
@@ -487,7 +714,7 @@ router.get(
         createdAt: row.createdAt.toISOString(),
       })),
       nextBeforeId:
-        rows.length > parsed.data.limit ? page.at(-1)?.id ?? null : null,
+        rows.length > parsed.data.limit ? (page.at(-1)?.id ?? null) : null,
       appendOnly: true,
     });
   },

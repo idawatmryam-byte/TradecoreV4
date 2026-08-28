@@ -162,6 +162,42 @@ and start on **testnet / practice** first. The two sections are fully independen
 separate configs, positions, trade logs, decisions, and stats, and both engines
 can run at the same time.
 
+### Dashboard trade setup
+
+Co-Pilot and Demo AutoPilot share the trade setup selected on the Dashboard.
+The sizing model determines which protection fields are authoritative:
+
+- **Dollar Model** uses **Maximum loss (USDT)** and **Target profit (USDT)**.
+  Percentage-risk and percentage-distance values are preserved for a later model
+  switch, but are hidden and are not validated when saving the dollar setup.
+- **Percentage Model** uses **Account risk per trade (%)**, stop-loss distance,
+  and take-profit distance. Account risk is the maximum share of account balance
+  allocated to one trade; it is not the stop-loss distance. The existing 10%
+  account-risk safety ceiling remains enforced by the backend. Stop-loss distance
+  has its own independent validation.
+
+Changing the setup does not grant execution authority. Co-Pilot still requires
+an explicit approval for each recommendation, and AutoPilot still requires an
+active immutable mandate and every existing runtime safety check.
+
+### Admin AutoPilot safety control
+
+The Admin Console can immediately suspend new Demo, testnet, and practice
+AutoPilot entries. Resuming is deliberately stronger: one qualified operator
+creates a time-limited resume request and a second, distinct qualified operator
+approves it. Both actions require recent Admin step-up, a reason, permissions,
+and append-only audit evidence. These controls never grant Live AutoPilot
+authority and never stop protective management for an existing position.
+
+The database-backed platform switch is fail-closed. A missing or unreadable
+switch remains suspended. `AUTOPILOT_GLOBAL_SUSPENDED=true` is an emergency
+deployment hard stop and cannot be overridden from the Admin Console. For normal
+database-governed operation, omit the variable or set it explicitly to `false`;
+that only removes the deployment override and does not itself enable AutoPilot.
+Keep deployment environment files owner-only (`chmod 600 .env.deploy`) and apply
+changes only through the reviewed deployment lifecycle. No deployment is
+performed by this repository change.
+
 ## Backtesting
 
 The Backtest page runs the real engine over historical data. Key controls:

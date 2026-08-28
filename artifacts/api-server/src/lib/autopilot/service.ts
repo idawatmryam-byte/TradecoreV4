@@ -8,10 +8,7 @@ import { sha256Fingerprint } from "../intelligence/canonical";
 import type { MarketState } from "../intelligence/market-state/types";
 import { brainDecisionFromV0TradePlan } from "../intelligence/trade-plan-adapter";
 import type { StrategyConfig, TradePlan } from "../strategies";
-import {
-  evaluateAutopilotEntry,
-  type AutopilotEvaluation,
-} from "./contracts";
+import { evaluateAutopilotEntry, type AutopilotEvaluation } from "./contracts";
 import {
   autopilotConfigFingerprint,
   autonomousIdempotencyKey,
@@ -22,11 +19,11 @@ import {
   claimAutonomousDecision,
   completeAutonomousDecision,
   getAutopilotSnapshot,
-  globalAutopilotSuspended,
   recordAutonomousRefusal,
   setAutopilotState,
   updateEquityWatermark,
 } from "./store";
+import { getPlatformAutopilotSafetyState } from "../platformAutopilotSafety";
 
 export interface AuthorizeAutopilotInput {
   userId: number;
@@ -52,8 +49,17 @@ export interface AuthorizeAutopilotInput {
 }
 
 export type AuthorizeAutopilotResult =
-  | { allowed: true; context: AutopilotExecutionContext; evaluation: AutopilotEvaluation }
-  | { allowed: false; reasonCode: string; reason: string; evaluation?: AutopilotEvaluation };
+  | {
+      allowed: true;
+      context: AutopilotExecutionContext;
+      evaluation: AutopilotEvaluation;
+    }
+  | {
+      allowed: false;
+      reasonCode: string;
+      reason: string;
+      evaluation?: AutopilotEvaluation;
+    };
 
 const AUTO_BLOCK_CODES = new Set([
   "MANDATE_MISSING",
@@ -91,24 +97,40 @@ function deterministicUuid(value: unknown): string {
   return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-5${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
 }
 
-export async function authorizeAutopilotEntry(input: AuthorizeAutopilotInput): Promise<AuthorizeAutopilotResult> {
-  const snapshot = await getAutopilotSnapshot(input.userId, input.section);
+export async function authorizeAutopilotEntry(
+  input: AuthorizeAutopilotInput,
+): Promise<AuthorizeAutopilotResult> {
+  const [snapshot, platformSafety] = await Promise.all([
+    getAutopilotSnapshot(input.userId, input.section),
+    getPlatformAutopilotSafetyState(),
+  ]);
+  const globalSuspended = platformSafety.effectiveSuspended;
   const configFingerprint = autopilotConfigFingerprint(input.config);
-  const strategyVersion = strategyConfigVersion(input.plan.strategyId, input.strategyConfig);
-  const dataTimestamp = input.marketState?.dataTimestamp ?? input.now.toISOString();
+  const strategyVersion = strategyConfigVersion(
+    input.plan.strategyId,
+    input.strategyConfig,
+  );
+  const dataTimestamp =
+    input.marketState?.dataTimestamp ?? input.now.toISOString();
   const maximumAgeSeconds = snapshot.mandate?.maximumMarketDataAgeSeconds ?? 1;
-  const expiresAt = new Date(Date.parse(dataTimestamp) + maximumAgeSeconds * 1000).toISOString();
+  const expiresAt = new Date(
+    Date.parse(dataTimestamp) + maximumAgeSeconds * 1000,
+  ).toISOString();
   const decisionIdentity = {
     userId: input.userId,
     section: input.section,
     plan: input.plan,
     marketStateFingerprint: input.marketState?.fingerprint ?? "0".repeat(64),
     dataTimestamp,
-    expiresAt: Date.parse(expiresAt) > Date.parse(dataTimestamp) ? expiresAt : new Date(Date.parse(dataTimestamp) + 1).toISOString(),
+    expiresAt:
+      Date.parse(expiresAt) > Date.parse(dataTimestamp)
+        ? expiresAt
+        : new Date(Date.parse(dataTimestamp) + 1).toISOString(),
     brainVersion: BRAIN_V0_VERSION,
     strategyVersion,
     configVersion: configFingerprint,
-    marketStateVersion: input.marketState?.marketStateVersion ?? "market-state-unavailable",
+    marketStateVersion:
+      input.marketState?.marketStateVersion ?? "market-state-unavailable",
   };
   const decision = brainDecisionFromV0TradePlan(input.plan, {
     marketStateFingerprint: input.marketState?.fingerprint ?? "0".repeat(64),
@@ -117,23 +139,39 @@ export async function authorizeAutopilotEntry(input: AuthorizeAutopilotInput): P
     brainVersion: BRAIN_V0_VERSION,
     strategyVersion,
     configVersion: configFingerprint,
-    marketStateVersion: input.marketState?.marketStateVersion ?? "market-state-unavailable",
-    decisionId: deterministicUuid({ type: "phase10-brain-v0-decision", ...decisionIdentity }),
-    thesisId: deterministicUuid({ type: "phase10-brain-v0-thesis", ...decisionIdentity }),
+    marketStateVersion:
+      input.marketState?.marketStateVersion ?? "market-state-unavailable",
+    decisionId: deterministicUuid({
+      type: "phase10-brain-v0-decision",
+      ...decisionIdentity,
+    }),
+    thesisId: deterministicUuid({
+      type: "phase10-brain-v0-thesis",
+      ...decisionIdentity,
+    }),
   });
   const decisionFingerprint = brainDecisionFingerprint(decision);
 
   if (!snapshot.mandate || !snapshot.brainVersion || !snapshot.mandateState) {
-    const reason = "No immutable Demo Autopilot mandate is active for this configuration";
+    const reason =
+      "No immutable Demo Autopilot mandate is active for this configuration";
     await setAutopilotState({
-      userId: input.userId, section: input.section, state: "AUTOPILOT_BLOCKED",
-      reasonCode: "MANDATE_MISSING", reason, actor: { actorType: "system" },
-      globalSuspended: globalAutopilotSuspended(),
+      userId: input.userId,
+      section: input.section,
+      state: "AUTOPILOT_BLOCKED",
+      reasonCode: "MANDATE_MISSING",
+      reason,
+      actor: { actorType: "system" },
+      globalSuspended,
       configSuspended: true,
     });
     await recordAutonomousRefusal({
-      userId: input.userId, section: input.section, decisionFingerprint,
-      reasonCode: "MANDATE_MISSING", reason, checks: [],
+      userId: input.userId,
+      section: input.section,
+      decisionFingerprint,
+      reasonCode: "MANDATE_MISSING",
+      reason,
+      checks: [],
     });
     return { allowed: false, reasonCode: "MANDATE_MISSING", reason };
   }
@@ -144,15 +182,23 @@ export async function authorizeAutopilotEntry(input: AuthorizeAutopilotInput): P
     now: input.now,
     equityUsdt: input.balanceUsdt,
   });
-  const globalSuspended = globalAutopilotSuspended();
   const evaluation = evaluateAutopilotEntry(snapshot.mandate, {
     now: input.now,
-    state: snapshot.control.state as "AUTOPILOT_ENABLED" | "AUTOPILOT_PAUSED" | "AUTOPILOT_BLOCKED",
+    state: snapshot.control.state as
+      | "AUTOPILOT_ENABLED"
+      | "AUTOPILOT_PAUSED"
+      | "AUTOPILOT_BLOCKED",
     stateReason: snapshot.control.reason,
     globalSuspended,
     configSuspended: snapshot.control.configSuspended,
-    brainVersionState: snapshot.brainVersion.state as import("./contracts").BrainVersionState,
-    mandateState: snapshot.mandateState.state as "INACTIVE" | "ACTIVE" | "SUSPENDED" | "REVOKED" | "EXPIRED",
+    brainVersionState: snapshot.brainVersion
+      .state as import("./contracts").BrainVersionState,
+    mandateState: snapshot.mandateState.state as
+      | "INACTIVE"
+      | "ACTIVE"
+      | "SUSPENDED"
+      | "REVOKED"
+      | "EXPIRED",
     brainVersion: BRAIN_V0_VERSION,
     userId: input.userId,
     section: input.section,
@@ -165,8 +211,12 @@ export async function authorizeAutopilotEntry(input: AuthorizeAutopilotInput): P
     reconciliationState: input.reconciliationState,
     marketState: {
       available: input.marketState !== null,
-      healthy: input.marketState?.freshness.status === "fresh" && input.marketState.dataQuality.status === "healthy",
-      dataTimestamp: input.marketState ? new Date(input.marketState.dataTimestamp) : null,
+      healthy:
+        input.marketState?.freshness.status === "fresh" &&
+        input.marketState.dataQuality.status === "healthy",
+      dataTimestamp: input.marketState
+        ? new Date(input.marketState.dataTimestamp)
+        : null,
       fingerprint: input.marketState?.fingerprint ?? null,
     },
     killSwitchActive: input.killSwitchActive || globalSuspended,
@@ -183,26 +233,43 @@ export async function authorizeAutopilotEntry(input: AuthorizeAutopilotInput): P
     drawdownPercent: watermark.drawdownPercent,
     openPositionCount: input.openPositionCount,
     deterministicRiskPassed: input.riskChecks.every((check) => check.passed),
-    requiredEvidenceAvailable: input.marketState !== null && input.unifiedBrainEvidenceAvailable,
+    requiredEvidenceAvailable:
+      input.marketState !== null && input.unifiedBrainEvidenceAvailable,
   });
 
   if (!evaluation.allowed) {
     await recordAutonomousRefusal({
-      userId: input.userId, section: input.section, mandateId: snapshot.mandate.id,
+      userId: input.userId,
+      section: input.section,
+      mandateId: snapshot.mandate.id,
       mandateFingerprint: snapshot.mandate.fingerprint,
-      decisionFingerprint, reasonCode: evaluation.reasonCode, reason: evaluation.reason,
+      decisionFingerprint,
+      reasonCode: evaluation.reasonCode,
+      reason: evaluation.reason,
       checks: evaluation.checks,
     });
-    if (snapshot.control.state === "AUTOPILOT_ENABLED" && AUTO_BLOCK_CODES.has(evaluation.reasonCode)) {
+    if (
+      snapshot.control.state === "AUTOPILOT_ENABLED" &&
+      AUTO_BLOCK_CODES.has(evaluation.reasonCode)
+    ) {
       await setAutopilotState({
-        userId: input.userId, section: input.section, state: "AUTOPILOT_BLOCKED",
-        reasonCode: evaluation.reasonCode, reason: evaluation.reason,
-        actor: { actorType: "system" }, mandateId: snapshot.mandate.id,
+        userId: input.userId,
+        section: input.section,
+        state: "AUTOPILOT_BLOCKED",
+        reasonCode: evaluation.reasonCode,
+        reason: evaluation.reason,
+        actor: { actorType: "system" },
+        mandateId: snapshot.mandate.id,
         globalSuspended,
         configSuspended: true,
       });
     }
-    return { allowed: false, reasonCode: evaluation.reasonCode, reason: evaluation.reason, evaluation };
+    return {
+      allowed: false,
+      reasonCode: evaluation.reasonCode,
+      reason: evaluation.reason,
+      evaluation,
+    };
   }
 
   const riskFingerprint = riskDecisionFingerprint({
@@ -233,7 +300,8 @@ export async function authorizeAutopilotEntry(input: AuthorizeAutopilotInput): P
     return {
       allowed: false,
       reasonCode: "DUPLICATE_AUTONOMOUS_DECISION",
-      reason: "This exact decision and mandate were already claimed; no second order was submitted",
+      reason:
+        "This exact decision and mandate were already claimed; no second order was submitted",
       evaluation,
     };
   }
@@ -281,10 +349,14 @@ export async function recordAutopilotExecutionOutcome(input: {
     userId: input.userId,
     section: input.section,
     status: input.entered ? "EXECUTED" : "FAILED",
-    reasonCode: input.entered ? "AUTONOMOUS_EXECUTION_SUCCEEDED" : "AUTONOMOUS_EXECUTION_FAILED",
+    reasonCode: input.entered
+      ? "AUTONOMOUS_EXECUTION_SUCCEEDED"
+      : "AUTONOMOUS_EXECUTION_FAILED",
     reason: input.reason,
     ...(input.tradeId != null && { tradeId: input.tradeId }),
-    ...(input.executionIntentId != null && { executionIntentId: input.executionIntentId }),
+    ...(input.executionIntentId != null && {
+      executionIntentId: input.executionIntentId,
+    }),
   });
 }
 
@@ -295,7 +367,8 @@ export async function suspendAutopilotForSafetyViolation(input: {
   reason: string;
 }): Promise<void> {
   const snapshot = await getAutopilotSnapshot(input.userId, input.section);
-  if (!snapshot.mandate || snapshot.control.state !== "AUTOPILOT_ENABLED") return;
+  if (!snapshot.mandate || snapshot.control.state !== "AUTOPILOT_ENABLED")
+    return;
   await setAutopilotState({
     userId: input.userId,
     section: input.section,
