@@ -95,6 +95,19 @@ function createAdminStepUpToken(identity: AdminStepUpIdentity): string {
   return `${payload}.${signature(payload)}`;
 }
 
+function setAdminStepUpCookie(res: Response, identity: AdminStepUpIdentity): string {
+  const token = createAdminStepUpToken(identity);
+  const { nodeEnv } = validateEnv();
+  res.cookie(ADMIN_STEP_UP_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: nodeEnv === "production",
+    sameSite: "strict",
+    path: "/api/admin",
+    maxAge: ADMIN_STEP_UP_DURATION_MS,
+  });
+  return new Date(identity.expiresAt).toISOString();
+}
+
 function parseAdminStepUpToken(token: unknown): AdminStepUpIdentity | null {
   if (typeof token !== "string") return null;
   const parts = token.split(".");
@@ -228,21 +241,46 @@ export async function issueAdminStepUp(input: {
     return { ok: false, reason: "Admin Console step-up failed" };
   }
   const expiresAt = Date.now() + ADMIN_STEP_UP_DURATION_MS;
-  const token = createAdminStepUpToken({
+  const expiresAtIso = setAdminStepUpCookie(res, {
     userId: req.userId,
     sessionVersion: user.sessionVersion,
     accessVersion,
     expiresAt,
   });
-  const { nodeEnv } = validateEnv();
-  res.cookie(ADMIN_STEP_UP_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: nodeEnv === "production",
-    sameSite: "strict",
-    path: "/api/admin",
-    maxAge: ADMIN_STEP_UP_DURATION_MS,
+  return { ok: true, expiresAt: expiresAtIso, roles };
+}
+
+/**
+ * A successful password login is already recent password authentication. This
+ * helper lets an assigned platform operator continue straight to /admin
+ * without entering the same password twice. It never assigns a role and it
+ * still pins the short-lived cookie to both session and platform-access
+ * versions, so password or role changes revoke it immediately.
+ */
+export async function issueAdminStepUpAfterPasswordLogin(input: {
+  res: Response;
+  userId: number;
+  sessionVersion: number;
+}): Promise<
+  | { ok: true; expiresAt: string; roles: PlatformRole[] }
+  | { ok: false; reason: string }
+> {
+  const [roles, accessVersion] = await Promise.all([
+    activePlatformRoles(input.userId),
+    currentAccessVersion(input.userId),
+  ]);
+  if (roles.length === 0) return { ok: false, reason: "Platform access is not assigned" };
+  if (accessVersion === null) {
+    return { ok: false, reason: "Platform access version is unavailable" };
+  }
+  const expiresAt = Date.now() + ADMIN_STEP_UP_DURATION_MS;
+  const expiresAtIso = setAdminStepUpCookie(input.res, {
+    userId: input.userId,
+    sessionVersion: input.sessionVersion,
+    accessVersion,
+    expiresAt,
   });
-  return { ok: true, expiresAt: new Date(expiresAt).toISOString(), roles };
+  return { ok: true, expiresAt: expiresAtIso, roles };
 }
 
 export function clearAdminStepUp(res: Response): void {
