@@ -21,9 +21,26 @@ assert.equal(
   "operations and risk cannot read user access records",
 );
 assert.equal(
+  permissionsForRoles(["OPERATIONS_RISK"]).includes("admin.risk.suspend"),
+  true,
+  "operations and risk may immediately reduce AutoPilot authority",
+);
+assert.equal(
+  permissionsForRoles(["OPERATIONS_RISK"]).includes(
+    "admin.risk.resume.approve",
+  ),
+  true,
+  "operations and risk may participate in dual-operator Demo AutoPilot resume",
+);
+assert.equal(
   permissionsForRoles(["AUDITOR"]).includes("admin.users.read"),
   false,
   "auditors cannot read user access records",
+);
+assert.equal(
+  permissionsForRoles(["AUDITOR"]).includes("admin.risk.suspend"),
+  false,
+  "auditors cannot mutate platform AutoPilot safety state",
 );
 
 const redacted = redactPlatformAuditMetadata({
@@ -47,4 +64,6 @@ assert.deepEqual(redacted, {
   tokenCount: "[REDACTED_SECRET]",
 });
 
-console.log("PASS: platform Admin Console permissions and audit redaction are fail-closed");
+console.log(
+  "PASS: platform Admin Console permissions and audit redaction are fail-closed",
+);

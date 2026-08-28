@@ -204,8 +204,9 @@ apply_database_schema() {
 }
 
 normalize_autopilot_global_suspended() {
-  local configured="${1:-true}"
+  local configured="${1:-}"
   case "${configured,,}" in
+    '') printf 'database' ;;
     1|true|yes) printf 'true' ;;
     0|false|no) printf 'false' ;;
     *)

@@ -6,6 +6,7 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 let failures = 0;
 let sessionState = "stepup";
 let passwordChangeBody = null;
+let resumeRequestBody = null;
 
 function expect(name, condition) {
   if (condition) console.log(`  PASS  ${name}`);
@@ -17,13 +18,13 @@ function expect(name, condition) {
 
 const session = () => ({
   eligible: sessionState !== "ineligible",
-  roles: sessionState === "ineligible" ? [] : ["AUDITOR"],
-  permissions: sessionState === "ineligible" ? [] : ["admin.overview.read", "admin.health.read", "admin.ai.read", "admin.execution.read", "admin.risk.read", "admin.audit.read", "admin.configuration.read"],
+  roles: sessionState === "ineligible" ? [] : ["PLATFORM_ADMIN"],
+  permissions: sessionState === "ineligible" ? [] : ["admin.overview.read", "admin.health.read", "admin.ai.read", "admin.execution.read", "admin.risk.read", "admin.risk.suspend", "admin.risk.resume.request", "admin.risk.resume.approve", "admin.audit.read", "admin.configuration.read"],
   stepUp: sessionState === "active"
     ? { active: true, expiresAt: new Date(Date.now() + 600_000).toISOString() }
     : { active: false, expiresAt: null, reason: "Recent Admin Console step-up is required" },
-  mutationsSupported: false,
-  mutationReason: "Admin v1 is read-only.",
+  mutationsSupported: true,
+  mutationReason: "Demo AutoPilot safety changes are guarded and audited.",
 });
 
 await page.route("**/api/**", async (route) => {
@@ -36,6 +37,26 @@ await page.route("**/api/**", async (route) => {
     return json({ ok: true });
   }
   if (url.pathname === "/api/admin/overview") return json({ asOf: new Date().toISOString(), status: "ATTENTION_REQUIRED", counts: { users: 4, configuredSections: 3, desiredRuntimes: 1, unresolvedExecutionIntents: 1, activeSafetySwitches: 1 }, autopilot: { PAUSED: 1 }, authorityBoundary: "Platform visibility does not grant tenant financial authority or broker access." });
+  if (url.pathname === "/api/admin/risk/autopilot/resume-requests") {
+    resumeRequestBody = route.request().postDataJSON();
+    return json({ effectiveSuspended: true });
+  }
+  if (url.pathname === "/api/admin/risk") return json({
+    asOf: new Date().toISOString(),
+    activeSwitches: [],
+    incidents: [],
+    controlsSupported: true,
+    controlReason: "Demo AutoPilot resume requires two distinct qualified operators.",
+    platformAutopilot: {
+      effectiveSuspended: true,
+      source: "database",
+      reason: "Platform Demo AutoPilot is suspended",
+      databaseSuspended: true,
+      deploymentHardStop: { active: false, configured: false, malformed: false },
+      pendingResume: null,
+      asOf: new Date().toISOString(),
+    },
+  });
   if (url.pathname.startsWith("/api/admin/")) return json({ asOf: new Date().toISOString() });
   return json({ authenticated: true });
 });
@@ -53,9 +74,14 @@ expect("URL discovery is explicitly not authority", await page.getByText("guessi
 sessionState = "active";
 await page.reload({ waitUntil: "networkidle" });
 expect("active Admin session opens the operational overview", await page.getByRole("heading", { name: "Overview" }).isVisible());
-expect("Admin Console shows its read-only boundary", await page.getByText("Read-only operations", { exact: true }).isVisible());
+expect("Admin Console labels mutations as guarded", await page.getByText("Guarded operations", { exact: true }).isVisible());
 expect("Admin navigation is separate from trader areas", (await page.locator("nav[aria-label='Admin Console'] a").allTextContents()).every((text) => !["Dashboard", "Strategies", "Backtest Lab", "Settings"].includes(text.trim())));
 expect("platform overview repeats financial-authority separation", await page.getByText("does not grant tenant financial authority", { exact: false }).isVisible());
+
+await page.getByRole("link", { name: "Risk & Safety" }).click();
+await page.getByLabel("Operator reason").fill("Reviewed Demo AutoPilot recovery after incident resolution");
+await page.getByRole("button", { name: "Request Demo AutoPilot resume" }).click();
+expect("resume request uses the guarded two-operator endpoint", resumeRequestBody?.confirmation === "REQUEST_PLATFORM_AUTOPILOT_RESUME");
 
 await page.getByRole("link", { name: "Admin Settings" }).click();
 expect("assigned administrators can open password settings", await page.getByRole("heading", { name: "Admin Settings" }).isVisible());
@@ -75,4 +101,4 @@ if (failures > 0) {
   console.error(`FAIL: ${failures} Admin Console browser assertion(s) failed`);
   process.exit(1);
 }
-console.log("PASS: separate Admin Console access and read-only boundaries verified");
+console.log("PASS: separate Admin Console access and guarded safety boundaries verified");

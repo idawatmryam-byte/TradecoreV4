@@ -50,8 +50,8 @@ expect "readiness failure has an explicit classification" "$([[ "$(classify_read
 expect "API unavailability has an explicit classification" "$([[ "$(classify_readiness_response 000 '')" == "api_unavailable" ]] && echo 1 || echo 0)"
 database_body='{"ready":false,"reason":"database_unhealthy","checks":{"database":"unreachable"}}'
 expect "database failure has an explicit classification" "$([[ "$(classify_readiness_response 503 "$database_body")" == "database_unhealthy" ]] && echo 1 || echo 0)"
-expect "production deployment defaults global Demo Autopilot suspension fail-closed" \
-  "$([[ "$(normalize_autopilot_global_suspended '')" == "true" ]] && echo 1 || echo 0)"
+expect "an absent deployment hard stop delegates to the fail-closed database control" \
+  "$([[ "$(normalize_autopilot_global_suspended '')" == "database" ]] && echo 1 || echo 0)"
 expect "an explicit reviewed false suspension value is preserved" \
   "$([[ "$(normalize_autopilot_global_suspended false)" == "false" ]] && echo 1 || echo 0)"
 invalid_suspension_refused=0

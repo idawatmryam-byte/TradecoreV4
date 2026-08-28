@@ -1802,7 +1802,7 @@ export interface AdminSessionStatus {
   roles: AdminSessionStatusRolesItem[];
   permissions: string[];
   stepUp: AdminSessionStatusStepUp;
-  mutationsSupported: false;
+  mutationsSupported: boolean;
   mutationReason: string;
 }
 
@@ -1846,6 +1846,77 @@ export interface AdminOverview {
  * Endpoint-specific read-only data; unsupported subsystems report NOT_PROVISIONED.
  */
 export interface AdminOperationalReadModel { [key: string]: unknown }
+
+export type PlatformAutopilotSafetyStateSource = typeof PlatformAutopilotSafetyStateSource[keyof typeof PlatformAutopilotSafetyStateSource];
+
+
+export const PlatformAutopilotSafetyStateSource = {
+  DEPLOYMENT_HARD_STOP: 'DEPLOYMENT_HARD_STOP',
+  PERSISTED_PLATFORM_CONTROL: 'PERSISTED_PLATFORM_CONTROL',
+  UNINITIALIZED_FAIL_CLOSED: 'UNINITIALIZED_FAIL_CLOSED',
+  CONTROL_STATE_UNAVAILABLE: 'CONTROL_STATE_UNAVAILABLE',
+} as const;
+
+export type PlatformAutopilotSafetyStateDeploymentHardStop = {
+  active: boolean;
+  configured: boolean;
+  /** @nullable */
+  reason: string | null;
+};
+
+export type PlatformAutopilotSafetyStatePersisted = {
+  initialized: boolean;
+  suspended: boolean;
+  /** @nullable */
+  updatedAt: string | null;
+};
+
+export type PlatformAutopilotSafetyStatePendingResume = {
+  requestId: string;
+  /** @minimum 1 */
+  requestedByUserId: number;
+  requestedAt: string;
+  expiresAt: string;
+  reason: string;
+} | null;
+
+export interface PlatformAutopilotSafetyState {
+  effectiveSuspended: boolean;
+  source: PlatformAutopilotSafetyStateSource;
+  reason: string;
+  deploymentHardStop: PlatformAutopilotSafetyStateDeploymentHardStop;
+  persisted: PlatformAutopilotSafetyStatePersisted;
+  pendingResume: PlatformAutopilotSafetyStatePendingResume;
+}
+
+export interface AdminAutopilotResumeRequest {
+  /**
+     * @minLength 8
+     * @maxLength 500
+     */
+  reason: string;
+  clientRequestId: string;
+  confirmation: 'REQUEST_PLATFORM_AUTOPILOT_RESUME';
+}
+
+export interface AdminAutopilotResumeApproval {
+  /**
+     * @minLength 8
+     * @maxLength 500
+     */
+  reason: string;
+  resumeRequestId: string;
+  confirmation: 'APPROVE_PLATFORM_AUTOPILOT_RESUME';
+}
+
+export interface AdminAutopilotSuspendRequest {
+  /**
+     * @minLength 8
+     * @maxLength 500
+     */
+  reason: string;
+  confirmation: 'SUSPEND_PLATFORM_AUTOPILOT';
+}
 
 export interface HealthStatus {
   status: string;

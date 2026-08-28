@@ -146,6 +146,13 @@ export const liveKillSwitchesTable = pgTable(
       .notNull()
       .defaultNow(),
     deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
+    resumeRequestId: text("resume_request_id"),
+    resumeRequestedByUserId: integer("resume_requested_by_user_id"),
+    resumeRequestedAt: timestamp("resume_requested_at", { withTimezone: true }),
+    resumeRequestExpiresAt: timestamp("resume_request_expires_at", {
+      withTimezone: true,
+    }),
+    resumeRequestReason: text("resume_request_reason"),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()
@@ -158,6 +165,7 @@ export const liveKillSwitchesTable = pgTable(
       t.scope,
       t.scopeKey,
     ),
+    unique("live_kill_switches_resume_request_unique").on(t.resumeRequestId),
     index("live_kill_switches_active_idx").on(
       t.active,
       t.ownerUserId,
@@ -166,6 +174,22 @@ export const liveKillSwitchesTable = pgTable(
     check(
       "live_kill_switches_scope_check",
       sql`${t.scope} IN ('GLOBAL','EXCHANGE','MARKET','SYMBOL','STRATEGY_MODEL','USER','SECTION','AUTOPILOT')`,
+    ),
+    check(
+      "live_kill_switches_resume_request_complete_check",
+      sql`(
+        ${t.resumeRequestId} IS NULL
+        AND ${t.resumeRequestedByUserId} IS NULL
+        AND ${t.resumeRequestedAt} IS NULL
+        AND ${t.resumeRequestExpiresAt} IS NULL
+        AND ${t.resumeRequestReason} IS NULL
+      ) OR (
+        ${t.resumeRequestId} IS NOT NULL
+        AND ${t.resumeRequestedByUserId} IS NOT NULL
+        AND ${t.resumeRequestedAt} IS NOT NULL
+        AND ${t.resumeRequestExpiresAt} IS NOT NULL
+        AND char_length(${t.resumeRequestReason}) BETWEEN 8 AND 500
+      )`,
     ),
   ],
 );

@@ -16,10 +16,8 @@ import { buildDemoStatus } from "../lib/demoStatus";
 import { forexDemoAvailable } from "../lib/execution/demoMarketData";
 import { getFinancialAuthorizationIdentity } from "../middleware/auth";
 import { getLiveExecutionHealth } from "../lib/execution/liveSafetyStore";
-import {
-  getAutopilotSnapshot,
-  globalAutopilotSuspended,
-} from "../lib/autopilot/store";
+import { getAutopilotSnapshot } from "../lib/autopilot/store";
+import { getPlatformAutopilotSafetyState } from "../lib/platformAutopilotSafety";
 
 const router: IRouter = Router();
 
@@ -119,7 +117,8 @@ router.get("/capabilities", async (req, res): Promise<void> => {
         ),
     ]);
 
-  const brokerConfigured = section === "forex" ? oanda !== null : binance !== null;
+  const brokerConfigured =
+    section === "forex" ? oanda !== null : binance !== null;
   res.json({
     schemaVersion: "cactus-trader-capabilities-v1",
     section,
@@ -189,104 +188,109 @@ router.get("/dashboard/session", async (req, res): Promise<void> => {
     : engine.getState();
   const environment = environmentFor(config);
 
-  const [openPositions, recentTrades, recommendations, notifications, performance] =
-    await Promise.all([
-      db
-        .select({
-          id: tradesTable.id,
-          symbol: tradesTable.symbol,
-          side: tradesTable.side,
-          quantity: tradesTable.remainingQuantity,
-          entryPrice: tradesTable.entryPrice,
-          stopLoss: tradesTable.stopLoss,
-          takeProfit: tradesTable.takeProfit,
-          strategyId: tradesTable.strategyId,
-          strategyName: tradesTable.strategyName,
-          executionTarget: tradesTable.executionTarget,
-          executionAuthority: tradesTable.executionAuthority,
-          managementAuthority: tradesTable.managementAuthority,
-          entryTime: tradesTable.entryTime,
-        })
-        .from(tradesTable)
-        .where(
-          and(
-            eq(tradesTable.userId, userId),
-            eq(tradesTable.section, section),
-            eq(tradesTable.status, "open"),
-            eq(tradesTable.isBacktest, false),
-          ),
-        )
-        .orderBy(desc(tradesTable.entryTime)),
-      db
-        .select({
-          id: tradesTable.id,
-          symbol: tradesTable.symbol,
-          side: tradesTable.side,
-          pnl: tradesTable.pnl,
-          status: tradesTable.status,
-          strategyName: tradesTable.strategyName,
-          executionTarget: tradesTable.executionTarget,
-          exitReason: tradesTable.exitReason,
-          entryTime: tradesTable.entryTime,
-          exitTime: tradesTable.exitTime,
-        })
-        .from(tradesTable)
-        .where(
-          and(
-            eq(tradesTable.userId, userId),
-            eq(tradesTable.section, section),
-            ne(tradesTable.status, "open"),
-            eq(tradesTable.isBacktest, false),
-          ),
-        )
-        .orderBy(desc(tradesTable.exitTime))
-        .limit(8),
-      db
-        .select({
-          id: recommendationsTable.id,
-          symbol: recommendationsTable.symbol,
-          side: recommendationsTable.side,
-          confidence: recommendationsTable.confidence,
-          entryPrice: recommendationsTable.entryPrice,
-          stopLoss: recommendationsTable.slPrice,
-          takeProfit: recommendationsTable.tpPrice,
-          quantity: recommendationsTable.qty,
-          strategyId: recommendationsTable.strategyId,
-          strategyName: recommendationsTable.strategyName,
-          executionTarget: recommendationsTable.executionTarget,
-          status: recommendationsTable.status,
-          expiresAt: recommendationsTable.expiresAt,
-          createdAt: recommendationsTable.createdAt,
-        })
-        .from(recommendationsTable)
-        .where(
-          and(
-            eq(recommendationsTable.userId, userId),
-            eq(recommendationsTable.section, section),
-            eq(recommendationsTable.status, "created"),
-          ),
-        )
-        .orderBy(desc(recommendationsTable.createdAt))
-        .limit(5),
-      db
-        .select({
-          id: notificationsTable.id,
-          severity: notificationsTable.severity,
-          type: notificationsTable.type,
-          message: notificationsTable.message,
-          createdAt: notificationsTable.createdAt,
-          readAt: notificationsTable.readAt,
-        })
-        .from(notificationsTable)
-        .where(
-          and(
-            eq(notificationsTable.userId, userId),
-            eq(notificationsTable.section, section),
-          ),
-        )
-        .orderBy(desc(notificationsTable.createdAt))
-        .limit(10),
-      db.execute(sql`
+  const [
+    openPositions,
+    recentTrades,
+    recommendations,
+    notifications,
+    performance,
+  ] = await Promise.all([
+    db
+      .select({
+        id: tradesTable.id,
+        symbol: tradesTable.symbol,
+        side: tradesTable.side,
+        quantity: tradesTable.remainingQuantity,
+        entryPrice: tradesTable.entryPrice,
+        stopLoss: tradesTable.stopLoss,
+        takeProfit: tradesTable.takeProfit,
+        strategyId: tradesTable.strategyId,
+        strategyName: tradesTable.strategyName,
+        executionTarget: tradesTable.executionTarget,
+        executionAuthority: tradesTable.executionAuthority,
+        managementAuthority: tradesTable.managementAuthority,
+        entryTime: tradesTable.entryTime,
+      })
+      .from(tradesTable)
+      .where(
+        and(
+          eq(tradesTable.userId, userId),
+          eq(tradesTable.section, section),
+          eq(tradesTable.status, "open"),
+          eq(tradesTable.isBacktest, false),
+        ),
+      )
+      .orderBy(desc(tradesTable.entryTime)),
+    db
+      .select({
+        id: tradesTable.id,
+        symbol: tradesTable.symbol,
+        side: tradesTable.side,
+        pnl: tradesTable.pnl,
+        status: tradesTable.status,
+        strategyName: tradesTable.strategyName,
+        executionTarget: tradesTable.executionTarget,
+        exitReason: tradesTable.exitReason,
+        entryTime: tradesTable.entryTime,
+        exitTime: tradesTable.exitTime,
+      })
+      .from(tradesTable)
+      .where(
+        and(
+          eq(tradesTable.userId, userId),
+          eq(tradesTable.section, section),
+          ne(tradesTable.status, "open"),
+          eq(tradesTable.isBacktest, false),
+        ),
+      )
+      .orderBy(desc(tradesTable.exitTime))
+      .limit(8),
+    db
+      .select({
+        id: recommendationsTable.id,
+        symbol: recommendationsTable.symbol,
+        side: recommendationsTable.side,
+        confidence: recommendationsTable.confidence,
+        entryPrice: recommendationsTable.entryPrice,
+        stopLoss: recommendationsTable.slPrice,
+        takeProfit: recommendationsTable.tpPrice,
+        quantity: recommendationsTable.qty,
+        strategyId: recommendationsTable.strategyId,
+        strategyName: recommendationsTable.strategyName,
+        executionTarget: recommendationsTable.executionTarget,
+        status: recommendationsTable.status,
+        expiresAt: recommendationsTable.expiresAt,
+        createdAt: recommendationsTable.createdAt,
+      })
+      .from(recommendationsTable)
+      .where(
+        and(
+          eq(recommendationsTable.userId, userId),
+          eq(recommendationsTable.section, section),
+          eq(recommendationsTable.status, "created"),
+        ),
+      )
+      .orderBy(desc(recommendationsTable.createdAt))
+      .limit(5),
+    db
+      .select({
+        id: notificationsTable.id,
+        severity: notificationsTable.severity,
+        type: notificationsTable.type,
+        message: notificationsTable.message,
+        createdAt: notificationsTable.createdAt,
+        readAt: notificationsTable.readAt,
+      })
+      .from(notificationsTable)
+      .where(
+        and(
+          eq(notificationsTable.userId, userId),
+          eq(notificationsTable.section, section),
+        ),
+      )
+      .orderBy(desc(notificationsTable.createdAt))
+      .limit(10),
+    db.execute(sql`
         SELECT execution_target,
                COUNT(*)::int AS sample_size,
                COALESCE(SUM(pnl), 0)::float AS total_pnl,
@@ -299,9 +303,10 @@ router.get("/dashboard/session", async (req, res): Promise<void> => {
           AND pnl IS NOT NULL
         GROUP BY execution_target
       `),
-    ]);
+  ]);
 
-  let liveHealth: Awaited<ReturnType<typeof getLiveExecutionHealth>> | null = null;
+  let liveHealth: Awaited<ReturnType<typeof getLiveExecutionHealth>> | null =
+    null;
   let liveHealthFailure: string | null = null;
   if (config.executionTarget === "live") {
     try {
@@ -337,12 +342,15 @@ router.get("/dashboard/session", async (req, res): Promise<void> => {
     expiresAt: string | null;
   } = null;
   if (config.mode === "autopilot") {
-    const snapshot = await getAutopilotSnapshot(userId, section);
+    const [snapshot, platformSafety] = await Promise.all([
+      getAutopilotSnapshot(userId, section),
+      getPlatformAutopilotSafetyState(),
+    ]);
     autopilot = {
       configured: true,
       effectiveState: snapshot.control.state,
       reason: snapshot.control.reason,
-      globalSuspended: globalAutopilotSuspended(),
+      globalSuspended: platformSafety.effectiveSuspended,
       mandateId: snapshot.mandate?.id ?? null,
       mandateFingerprint: snapshot.mandate?.fingerprint ?? null,
       authorizedStrategies: snapshot.mandate
@@ -412,7 +420,8 @@ router.get("/dashboard/session", async (req, res): Promise<void> => {
       id: "runtime:market-data-stale",
       severity: "warning",
       source: "market-data",
-      message: "Market data is stale. Do not treat displayed prices or signals as current.",
+      message:
+        "Market data is stale. Do not treat displayed prices or signals as current.",
       occurredAt: runtime.lastScanAt ?? now.toISOString(),
       persistent: true,
     });
@@ -428,10 +437,9 @@ router.get("/dashboard/session", async (req, res): Promise<void> => {
     });
   }
 
-  const performanceRows = (
-    (performance as unknown as { rows?: Array<Record<string, unknown>> }).rows ??
-    (performance as unknown as Array<Record<string, unknown>>)
-  );
+  const performanceRows =
+    (performance as unknown as { rows?: Array<Record<string, unknown>> })
+      .rows ?? (performance as unknown as Array<Record<string, unknown>>);
   const performanceByTarget = Object.fromEntries(
     performanceRows.map((row) => {
       const sampleSize = Number(row.sample_size ?? 0);
@@ -478,41 +486,46 @@ router.get("/dashboard/session", async (req, res): Promise<void> => {
       },
     },
     metrics: {
-      availableFunds: runtime.balanceUsdt !== null
-        ? metric("available", runtime.balanceUsdt, {
-            unit: "currency",
-            source:
-              config.executionTarget === "demo"
-                ? "cactus-demo-ledger"
-                : "broker-free-balance",
-            observedAt: runtime.lastScanAt,
-          })
-        : metric("unavailable", null, {
-            unit: "currency",
-            source: null,
-            observedAt: null,
-            reason: "The engine has no current account free-balance observation.",
-          }),
-      equity: equityValue !== null
-        ? metric("available", equityValue, {
-            unit: "currency",
-            source: liveHealth?.state.equitySource ?? null,
-            observedAt: liveHealth?.state.equityObservedAt?.toISOString() ?? null,
-          })
-        : metric("unavailable", null, {
-            unit: "currency",
-            source: null,
-            observedAt: null,
-            reason:
-              config.executionTarget === "demo"
-                ? "Cactus Demo does not yet expose an authoritative marked-equity projection; available funds are shown separately."
-                : "Authoritative broker equity is missing or stale.",
-          }),
+      availableFunds:
+        runtime.balanceUsdt !== null
+          ? metric("available", runtime.balanceUsdt, {
+              unit: "currency",
+              source:
+                config.executionTarget === "demo"
+                  ? "cactus-demo-ledger"
+                  : "broker-free-balance",
+              observedAt: runtime.lastScanAt,
+            })
+          : metric("unavailable", null, {
+              unit: "currency",
+              source: null,
+              observedAt: null,
+              reason:
+                "The engine has no current account free-balance observation.",
+            }),
+      equity:
+        equityValue !== null
+          ? metric("available", equityValue, {
+              unit: "currency",
+              source: liveHealth?.state.equitySource ?? null,
+              observedAt:
+                liveHealth?.state.equityObservedAt?.toISOString() ?? null,
+            })
+          : metric("unavailable", null, {
+              unit: "currency",
+              source: null,
+              observedAt: null,
+              reason:
+                config.executionTarget === "demo"
+                  ? "Cactus Demo does not yet expose an authoritative marked-equity projection; available funds are shown separately."
+                  : "Authoritative broker equity is missing or stale.",
+            }),
       marginUsed: metric("unavailable", null, {
         unit: "currency",
         source: null,
         observedAt: null,
-        reason: "Authoritative account margin usage is not provisioned in this baseline.",
+        reason:
+          "Authoritative account margin usage is not provisioned in this baseline.",
       }),
       realizedDayPnl: metric("available", runtime.dailyPnl, {
         unit: "currency",
@@ -526,18 +539,21 @@ router.get("/dashboard/session", async (req, res): Promise<void> => {
         reason:
           "Open positions are available, but an authoritative marked account exposure total is not provisioned.",
       }),
-      drawdown: drawdownValue !== null
-        ? metric("available", drawdownValue, {
-            unit: "percent",
-            source: liveHealth?.state.equitySource ?? null,
-            observedAt: liveHealth?.state.equityObservedAt?.toISOString() ?? null,
-          })
-        : metric("unavailable", null, {
-            unit: "percent",
-            source: null,
-            observedAt: null,
-            reason: "A fresh authoritative peak and current equity are required.",
-          }),
+      drawdown:
+        drawdownValue !== null
+          ? metric("available", drawdownValue, {
+              unit: "percent",
+              source: liveHealth?.state.equitySource ?? null,
+              observedAt:
+                liveHealth?.state.equityObservedAt?.toISOString() ?? null,
+            })
+          : metric("unavailable", null, {
+              unit: "percent",
+              source: null,
+              observedAt: null,
+              reason:
+                "A fresh authoritative peak and current equity are required.",
+            }),
       risk: {
         state: runtime.riskPaused
           ? "SUSPENDED"
@@ -563,7 +579,9 @@ router.get("/dashboard/session", async (req, res): Promise<void> => {
       broker: {
         state: runtime.running ? "available" : "unavailable",
         label: runtime.running ? "Runtime connected" : "Runtime stopped",
-        reason: runtime.running ? null : "Broker connectivity is not asserted while the engine is stopped.",
+        reason: runtime.running
+          ? null
+          : "Broker connectivity is not asserted while the engine is stopped.",
       },
       marketData: {
         state: marketDataState,
@@ -582,13 +600,14 @@ router.get("/dashboard/session", async (req, res): Promise<void> => {
             ? "available"
             : liveHealthFailure
               ? "unavailable"
-              : liveHealth?.state.operatingMode === "NORMAL" && runtime.newEntriesAllowed
+              : liveHealth?.state.operatingMode === "NORMAL" &&
+                  runtime.newEntriesAllowed
                 ? "available"
                 : "partial",
         label:
           config.executionTarget === "demo"
             ? "Simulated execution"
-            : liveHealth?.state.operatingMode ?? "Unknown",
+            : (liveHealth?.state.operatingMode ?? "Unknown"),
         reason: liveHealthFailure ?? runtime.entryBlockReason,
       },
     },
