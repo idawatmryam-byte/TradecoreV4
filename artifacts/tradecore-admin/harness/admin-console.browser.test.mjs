@@ -5,6 +5,7 @@ const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 let failures = 0;
 let sessionState = "stepup";
+let passwordChangeBody = null;
 
 function expect(name, condition) {
   if (condition) console.log(`  PASS  ${name}`);
@@ -29,6 +30,11 @@ await page.route("**/api/**", async (route) => {
   const url = new URL(route.request().url());
   const json = (body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
   if (url.pathname === "/api/admin/session/status") return json(session());
+  if (url.pathname === "/api/admin/session/step-up") return json({ ok: true, expiresAt: new Date(Date.now() + 600_000).toISOString() });
+  if (url.pathname === "/api/me/account/password") {
+    passwordChangeBody = route.request().postDataJSON();
+    return json({ ok: true });
+  }
   if (url.pathname === "/api/admin/overview") return json({ asOf: new Date().toISOString(), status: "ATTENTION_REQUIRED", counts: { users: 4, configuredSections: 3, desiredRuntimes: 1, unresolvedExecutionIntents: 1, activeSafetySwitches: 1 }, autopilot: { PAUSED: 1 }, authorityBoundary: "Platform visibility does not grant tenant financial authority or broker access." });
   if (url.pathname.startsWith("/api/admin/")) return json({ asOf: new Date().toISOString() });
   return json({ authenticated: true });
@@ -50,6 +56,16 @@ expect("active Admin session opens the operational overview", await page.getByRo
 expect("Admin Console shows its read-only boundary", await page.getByText("Read-only operations", { exact: true }).isVisible());
 expect("Admin navigation is separate from trader areas", (await page.locator("nav[aria-label='Admin Console'] a").allTextContents()).every((text) => !["Dashboard", "Strategies", "Backtest Lab", "Settings"].includes(text.trim())));
 expect("platform overview repeats financial-authority separation", await page.getByText("does not grant tenant financial authority", { exact: false }).isVisible());
+
+await page.getByRole("link", { name: "Admin Settings" }).click();
+expect("assigned administrators can open password settings", await page.getByRole("heading", { name: "Admin Settings" }).isVisible());
+await page.getByLabel("Current password").fill("current-password-value");
+await page.getByLabel("New password", { exact: true }).fill("new-password-value-123");
+await page.getByLabel("Confirm new password", { exact: true }).fill("new-password-value-123");
+await page.getByRole("button", { name: "Change password" }).click();
+await page.getByText("Password changed.", { exact: false }).waitFor();
+expect("Admin password changes use the authenticated account endpoint", passwordChangeBody?.newPassword === "new-password-value-123");
+expect("stored passwords are never rendered back into the Admin Console", !(await page.locator("body").innerText()).includes("new-password-value-123"));
 
 await page.setViewportSize({ width: 390, height: 844 });
 expect("Admin monitoring view has no document-level horizontal overflow", await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
