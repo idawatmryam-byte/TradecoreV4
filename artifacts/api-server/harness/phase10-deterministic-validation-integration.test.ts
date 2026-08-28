@@ -36,6 +36,10 @@ const {
 } = await import("../src/lib/autopilot/validationRunner");
 const { authorizePhase10Validation, PHASE10_VALIDATION_CONFIRMATION } =
   await import("../src/lib/autopilot/validation");
+const {
+  approvePlatformAutopilotResume,
+  requestPlatformAutopilotResume,
+} = await import("../src/lib/platformAutopilotSafety");
 
 const USER = 990012;
 const TOKEN = "phase10-integration-operator-token-0000000000000000";
@@ -74,6 +78,22 @@ async function main() {
   process.env.AUTOPILOT_GLOBAL_SUSPENDED = "false";
   await cleanup();
   try {
+    const platformResumeRequestId = randomUUID();
+    await requestPlatformAutopilotResume({
+      actorUserId: USER,
+      reason:
+        "Phase 10 validation requests the explicit persisted Demo AutoPilot authority required by the runtime path",
+      clientRequestId: platformResumeRequestId,
+      auditRequestId: `phase10-platform-resume-request-${randomUUID()}`,
+    });
+    await approvePlatformAutopilotResume({
+      actorUserId: USER + 1,
+      resumeRequestId: platformResumeRequestId,
+      reason:
+        "A distinct validation operator approves the persisted Demo AutoPilot authority for this deterministic run",
+      auditRequestId: `phase10-platform-resume-approval-${randomUUID()}`,
+    });
+
     const [config] = await db
       .insert(botConfigTable)
       .values({

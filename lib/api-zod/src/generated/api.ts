@@ -8190,6 +8190,129 @@ export const GetAdminRiskSafetyResponse = zod.record(zod.string(), zod.unknown()
 
 
 /**
+ * Requires a second distinct qualified operator before authority is expanded.
+ * @summary Request a time-limited platform Demo AutoPilot resume
+ */
+export const requestAdminAutopilotResumeBodyReasonMin = 8;
+export const requestAdminAutopilotResumeBodyReasonMax = 500;
+
+
+
+export const RequestAdminAutopilotResumeBody = zod.object({
+  "reason": zod.string().min(requestAdminAutopilotResumeBodyReasonMin).max(requestAdminAutopilotResumeBodyReasonMax),
+  "clientRequestId": zod.string().uuid(),
+  "confirmation": zod.literal("REQUEST_PLATFORM_AUTOPILOT_RESUME")
+})
+
+
+
+
+export const RequestAdminAutopilotResumeResponse = zod.object({
+  "effectiveSuspended": zod.boolean(),
+  "source": zod.enum(['DEPLOYMENT_HARD_STOP', 'PERSISTED_PLATFORM_CONTROL', 'UNINITIALIZED_FAIL_CLOSED', 'CONTROL_STATE_UNAVAILABLE']),
+  "reason": zod.string(),
+  "deploymentHardStop": zod.object({
+  "active": zod.boolean(),
+  "configured": zod.boolean(),
+  "reason": zod.string().nullable()
+}),
+  "persisted": zod.object({
+  "initialized": zod.boolean(),
+  "suspended": zod.boolean(),
+  "updatedAt": zod.coerce.date().nullable()
+}),
+  "pendingResume": zod.union([zod.null(),zod.object({
+  "requestId": zod.string().uuid(),
+  "requestedByUserId": zod.number().min(1),
+  "requestedAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date(),
+  "reason": zod.string()
+})])
+})
+
+
+/**
+ * @summary Approve a platform Demo AutoPilot resume as the second operator
+ */
+export const approveAdminAutopilotResumeBodyReasonMin = 8;
+export const approveAdminAutopilotResumeBodyReasonMax = 500;
+
+
+
+export const ApproveAdminAutopilotResumeBody = zod.object({
+  "reason": zod.string().min(approveAdminAutopilotResumeBodyReasonMin).max(approveAdminAutopilotResumeBodyReasonMax),
+  "resumeRequestId": zod.string().uuid(),
+  "confirmation": zod.literal("APPROVE_PLATFORM_AUTOPILOT_RESUME")
+})
+
+
+
+
+export const ApproveAdminAutopilotResumeResponse = zod.object({
+  "effectiveSuspended": zod.boolean(),
+  "source": zod.enum(['DEPLOYMENT_HARD_STOP', 'PERSISTED_PLATFORM_CONTROL', 'UNINITIALIZED_FAIL_CLOSED', 'CONTROL_STATE_UNAVAILABLE']),
+  "reason": zod.string(),
+  "deploymentHardStop": zod.object({
+  "active": zod.boolean(),
+  "configured": zod.boolean(),
+  "reason": zod.string().nullable()
+}),
+  "persisted": zod.object({
+  "initialized": zod.boolean(),
+  "suspended": zod.boolean(),
+  "updatedAt": zod.coerce.date().nullable()
+}),
+  "pendingResume": zod.union([zod.null(),zod.object({
+  "requestId": zod.string().uuid(),
+  "requestedByUserId": zod.number().min(1),
+  "requestedAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date(),
+  "reason": zod.string()
+})])
+})
+
+
+/**
+ * @summary Immediately suspend new platform AutoPilot entries
+ */
+export const suspendAdminAutopilotBodyReasonMin = 8;
+export const suspendAdminAutopilotBodyReasonMax = 500;
+
+
+
+export const SuspendAdminAutopilotBody = zod.object({
+  "reason": zod.string().min(suspendAdminAutopilotBodyReasonMin).max(suspendAdminAutopilotBodyReasonMax),
+  "confirmation": zod.literal("SUSPEND_PLATFORM_AUTOPILOT")
+})
+
+
+
+
+export const SuspendAdminAutopilotResponse = zod.object({
+  "effectiveSuspended": zod.boolean(),
+  "source": zod.enum(['DEPLOYMENT_HARD_STOP', 'PERSISTED_PLATFORM_CONTROL', 'UNINITIALIZED_FAIL_CLOSED', 'CONTROL_STATE_UNAVAILABLE']),
+  "reason": zod.string(),
+  "deploymentHardStop": zod.object({
+  "active": zod.boolean(),
+  "configured": zod.boolean(),
+  "reason": zod.string().nullable()
+}),
+  "persisted": zod.object({
+  "initialized": zod.boolean(),
+  "suspended": zod.boolean(),
+  "updatedAt": zod.coerce.date().nullable()
+}),
+  "pendingResume": zod.union([zod.null(),zod.object({
+  "requestId": zod.string().uuid(),
+  "requestedByUserId": zod.number().min(1),
+  "requestedAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date(),
+  "reason": zod.string()
+})])
+})
+
+
+/**
  * @summary Get paginated, minimized user-access metadata
  */
 export const getAdminUsersQueryLimitDefault = 50;

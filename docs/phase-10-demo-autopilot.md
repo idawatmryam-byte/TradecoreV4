@@ -86,15 +86,20 @@ The mandate action list is stored with each autonomous trade. Phase 7 still
 validates every adaptive action and cannot exceed that list; protective
 `HOLD`, `FREEZE`, and `EXIT` are mandatory.
 
-The environment variable `AUTOPILOT_GLOBAL_SUSPENDED=true` is the deployment
-global entry suspension. It is explicit in both environment templates, the
-deployment process defaults it to `true`, and a production process with the
-variable absent or malformed also fails closed to suspended. Setting it to
-`false` requires an operator-reviewed configuration change; that override only
-lifts this global gate and does not bypass mandate, control, risk, authority, or
-reconciliation checks. The Control Center exposes both global and per-config
-state. Resume requires an explicit human reason and exact mandate/config
-revalidation; the next entry still passes all runtime gates.
+The database-backed platform switch is the normal global entry suspension. A
+missing or unreadable switch fails closed to suspended. One qualified platform
+operator may suspend new entries immediately. Resume requires a time-limited
+request from one qualified operator and approval by a second, distinct qualified
+operator; both actions require recent Admin step-up, a reason, permissions, and
+append-only audit evidence.
+
+`AUTOPILOT_GLOBAL_SUSPENDED=true` is a deployment emergency hard stop. It
+overrides the database switch and cannot be cleared in the Admin Console. An
+absent value or explicit `false` delegates to the database-backed control;
+`false` does not grant authority or bypass mandate, control, risk, reconciliation,
+or execution checks. A malformed value fails closed as a deployment hard stop.
+These controls apply only to Demo, testnet, and practice AutoPilot; Live AutoPilot
+remains unavailable.
 
 ## Audit and forward soak
 
@@ -123,11 +128,11 @@ Then, with explicit operator authorization and no real-Live orders:
    claim identity are runtime-immutable; prove lifecycle projections expose
    only their reviewed update columns; and prove account purge removes Phase 10
    rows.
-3. Confirm `AUTOPILOT_GLOBAL_SUSPENDED=true` is explicitly configured before
-   restart. Any later `false` override requires a separate operator review.
-   Exercise
-   global and per-config pause/resume and verify new entries halt immediately
-   while an existing Demo position continues protective management.
+3. Confirm the database-backed platform switch is suspended before restart.
+   Exercise the two-operator Admin resume and immediate suspension workflow.
+   Separately verify `AUTOPILOT_GLOBAL_SUSPENDED=true` overrides a resumed
+   database switch and cannot be cleared in Admin. Verify new entries halt
+   immediately while an existing Demo position continues protective management.
 4. For simulated Crypto Demo, create/approve/activate an expiring mandate,
    observe one autonomous entry through intent/trade/reconciliation/Phase 7,
    prove no broker credential or provider order is used, and close safely.
@@ -203,11 +208,10 @@ variable to its reviewed value. Do not store or print the token.
 2. In the Brain Control Center, use a dedicated crypto Spot simulated Demo
    config, stop its normal engine, approve exact Brain V0, and create a
    short-lived mandate with the intended risk/portfolio/Phase 7 limits. After
-   the separate temporary activation approval, export
-   `AUTOPILOT_GLOBAL_SUSPENDED=false` into the managed API environment, restart
-   with `pm2 restart tradecore-api --update-env`, verify readiness, and only
-   then activate that exact mandate. Confirm `engineDesiredRunning=false`
-   before continuing.
+   the separate temporary activation approval, ensure the deployment emergency
+   hard stop is absent or explicitly `false`, complete the two-operator Admin
+   resume, verify readiness, and only then activate that exact mandate. Confirm
+   `engineDesiredRunning=false` before continuing.
 
 3. In an access-controlled operator shell, arm only the CLI process and run the
    pre-restart stage once:
@@ -251,8 +255,9 @@ variable to its reviewed value. Do not store or print the token.
    management projection fingerprint, reconciles/manages once more, closes via
    the normal simulated Demo fill/accounting path, and pauses the config.
 
-5. Immediately restore the managed API environment to
-   `AUTOPILOT_GLOBAL_SUSPENDED=true`, restart with `--update-env`, verify
+5. Immediately suspend the database-backed platform switch in Admin. For this
+   deterministic emergency-override check, also set the managed API environment
+   to `AUTOPILOT_GLOBAL_SUSPENDED=true`, restart with `--update-env`, verify
    readiness, and durably confirm the restored suspension:
 
    ```bash
