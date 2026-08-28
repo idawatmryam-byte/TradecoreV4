@@ -123,7 +123,7 @@ function Sidebar({ location, adminEnabled, onLogout }: { location: string; admin
         <ThemeControl />
         <div className="rounded-lg border bg-muted/15 p-2">
           <Link href="/settings?view=profile" className="flex min-h-10 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground"><UserCircle2 className="h-4 w-4" /> Profile &amp; security</Link>
-          {adminEnabled && <a href="/admin" className="flex min-h-10 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground"><ShieldCheck className="h-4 w-4" /> Open Admin Console</a>}
+          {adminEnabled && <a href="/admin/" className="flex min-h-10 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground"><ShieldCheck className="h-4 w-4" /> Open Admin Console</a>}
           <button type="button" onClick={onLogout} className="flex min-h-10 w-full items-center gap-2 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground"><LogOut className="h-4 w-4" /> Log out</button>
         </div>
       </div>
