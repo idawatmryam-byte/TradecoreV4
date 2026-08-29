@@ -148,7 +148,7 @@ function noCacheHtml(res: express.Response): void {
 // Canonicalize the directory root explicitly. Without this route, a bare
 // `/admin` request can miss both express.static's directory index and the
 // `/admin/{*path}` SPA fallback, then fall through to the public landing page.
-app.get("/admin", (_req, res) => {
+app.get(/^\/admin$/, (_req, res) => {
   noCacheHtml(res);
   res.redirect(307, "/admin/");
 });
