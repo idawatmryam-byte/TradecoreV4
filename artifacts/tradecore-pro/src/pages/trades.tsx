@@ -1,7 +1,7 @@
-import { useGetTrades, getGetTradesQueryKey, type GetTradesStatus } from "@workspace/api-client-react";
+import { useGetTrades, getGetTradesQueryKey, type GetTradesStatus, type Trade } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge, Button } from "@/components/ui";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
-import { History, ArrowUpRight, ArrowDownRight, Filter, WifiOff, Download, BrainCircuit } from "lucide-react";
+import { History, ArrowUpRight, ArrowDownRight, Filter, WifiOff, Download, BrainCircuit, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { PageHeader, PageTabs, EmptyState, LoadingRows } from "@/components/patterns";
@@ -10,6 +10,70 @@ import { PositionThesisCard } from "@/components/position-thesis-card";
 // Fetch the API's maximum so the CSV export covers as much history as one
 // request allows (the on-screen table simply scrolls).
 const FETCH_LIMIT = 500;
+
+function symbolUnits(symbol: string): { base: string | null; quote: string | null } {
+  const normalized = symbol.toUpperCase();
+  const separated = normalized.match(/^([A-Z0-9]+)[_\/]([A-Z0-9]+)$/);
+  if (separated) return { base: separated[1] ?? null, quote: separated[2] ?? null };
+
+  for (const quote of ["USDT", "USDC", "USD", "EUR", "GBP", "JPY", "BTC", "ETH"]) {
+    if (normalized.endsWith(quote) && normalized.length > quote.length) {
+      return { base: normalized.slice(0, -quote.length), quote };
+    }
+  }
+  return { base: null, quote: null };
+}
+
+function TradeField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded border border-border/60 bg-muted/20 p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 font-mono text-sm">{value}</p>
+    </div>
+  );
+}
+
+function TradeDetailsCard({ trade, onClose }: { trade: Trade; onClose: () => void }) {
+  const units = symbolUnits(trade.symbol);
+  const quantity = `${formatNumber(trade.quantity, 4)} ${units.base ?? "units"}`;
+  const entryNotional = trade.entryPrice * trade.quantity;
+  const notional = units.quote
+    ? `${formatNumber(entryNotional, 2)} ${units.quote}`
+    : "Unavailable";
+
+  return (
+    <Card data-testid="trade-details-card">
+      <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
+        <div>
+          <CardTitle role="heading" aria-level={2}>Trade #{trade.id} details</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {trade.symbol} · {trade.side === "buy" ? "LONG" : "SHORT"} · {trade.status.toUpperCase()}
+          </p>
+        </div>
+        <Button variant="ghost" size="sm" aria-label="Close trade details" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </Button>
+      </CardHeader>
+      <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <TradeField label="Strategy" value={trade.strategyName ?? trade.strategyId ?? "Unavailable"} />
+        <TradeField label="Quantity" value={quantity} />
+        <TradeField label="Entry notional" value={notional} />
+        <TradeField label="Market" value={trade.marketType === "futures" ? "Futures" : trade.marketType === "forex" ? "Forex" : "Spot"} />
+        <TradeField label="Entry price" value={formatNumber(trade.entryPrice, 4)} />
+        <TradeField label="Exit price" value={trade.exitPrice != null ? formatNumber(trade.exitPrice, 4) : "Unavailable"} />
+        <TradeField label="Stop loss" value={formatNumber(trade.stopLoss, 4)} />
+        <TradeField label="Take profit" value={formatNumber(trade.takeProfit, 4)} />
+        <TradeField label="Leverage" value={trade.leverage != null ? `${trade.leverage}×` : "Unavailable"} />
+        <TradeField label="Margin mode" value={trade.marginMode ? trade.marginMode.toUpperCase() : "Unavailable"} />
+        <TradeField label="Realized P&L" value={trade.pnl != null ? formatCurrency(trade.pnl, "always") : "Unavailable"} />
+        <TradeField label="Fees" value={trade.feesUsdt != null ? formatCurrency(trade.feesUsdt, "always") : "Unavailable"} />
+        <TradeField label="Opened" value={formatDate(trade.entryTime)} />
+        <TradeField label="Closed" value={trade.exitTime ? formatDate(trade.exitTime) : "Unavailable"} />
+        <TradeField label="Exit reason" value={trade.exitReason?.replaceAll("_", " ") ?? "Unavailable"} />
+      </CardContent>
+    </Card>
+  );
+}
 
 /** Portfolio's two views. Separate routes, one destination. */
 export const PORTFOLIO_TABS = [
@@ -26,13 +90,13 @@ const STATUS_FILTERS: { label: string; value: GetTradesStatus | undefined }[] = 
 
 export function Trades() {
   const [filter, setFilter] = useState<GetTradesStatus | undefined>(undefined);
-  const [selectedThesisTradeId, setSelectedThesisTradeId] = useState<number | null>(null);
+  const [selectedTradeId, setSelectedTradeId] = useState<number | null>(null);
 
   const { data: trades, isLoading, isError } = useGetTrades(
     { status: filter, limit: FETCH_LIMIT },
     { query: { refetchInterval: 10000, queryKey: getGetTradesQueryKey({ status: filter, limit: FETCH_LIMIT }) } }
   );
-  const selectedTrade = trades?.find((trade) => trade.id === selectedThesisTradeId);
+  const selectedTrade = trades?.find((trade) => trade.id === selectedTradeId);
 
   // Everything the Trade type exposes, one row per trade — analysis-ready.
   function downloadCsv() {
@@ -113,7 +177,21 @@ export function Trades() {
                 const isProfit = (trade.pnl ?? 0) >= 0;
 
                 return (
-                  <TableRow key={trade.id}>
+                  <TableRow
+                    key={trade.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`View ${trade.symbol} trade details`}
+                    aria-pressed={selectedTradeId === trade.id}
+                    className="cursor-pointer"
+                    onClick={() => setSelectedTradeId((current) => current === trade.id ? null : trade.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedTradeId((current) => current === trade.id ? null : trade.id);
+                      }
+                    }}
+                  >
                     <TableCell className="font-mono text-[13px] text-muted-foreground whitespace-nowrap">
                       {formatDate(trade.entryTime)}
                     </TableCell>
@@ -134,7 +212,9 @@ export function Trades() {
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="font-mono text-[13px]">{formatNumber(trade.quantity, 4)}</TableCell>
+                    <TableCell className="font-mono text-[13px]">
+                      {formatNumber(trade.quantity, 4)} {symbolUnits(trade.symbol).base ?? "units"}
+                    </TableCell>
                     <TableCell className="text-right">
                       {(trade.pnl !== null && trade.pnl !== undefined) ? (
                         <div className={cn("font-mono font-bold flex items-center justify-end gap-1", isProfit ? "text-success" : "text-destructive")}>
@@ -161,16 +241,7 @@ export function Trades() {
                         <Badge variant={trade.managementAuthority === "phase7" ? "success" : trade.managementMode === "phase7_shadow" ? "outline" : "secondary"}>
                           {trade.managementMode === "phase7_active" ? "Phase 7 active" : trade.managementMode === "phase7_shadow" ? "Phase 7 shadow" : "Fixed"}
                         </Badge>
-                        {trade.thesisId && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            aria-label={`View thesis for trade ${trade.id}`}
-                            onClick={() => setSelectedThesisTradeId((current) => current === trade.id ? null : trade.id)}
-                          >
-                            <BrainCircuit className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
+                        {trade.thesisId && <BrainCircuit className="h-3.5 w-3.5 text-primary" aria-label="Position thesis available" />}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -216,11 +287,16 @@ export function Trades() {
         </div>
       </Card>
       {selectedTrade && (
-        <PositionThesisCard
-          tradeId={selectedTrade.id}
-          currentStopLoss={selectedTrade.stopLoss}
-          remainingQuantity={selectedTrade.remainingQuantity ?? selectedTrade.quantity}
-        />
+        <>
+          <TradeDetailsCard trade={selectedTrade} onClose={() => setSelectedTradeId(null)} />
+          {selectedTrade.thesisId && (
+            <PositionThesisCard
+              tradeId={selectedTrade.id}
+              currentStopLoss={selectedTrade.stopLoss}
+              remainingQuantity={selectedTrade.remainingQuantity ?? selectedTrade.quantity}
+            />
+          )}
+        </>
       )}
     </div>
   );
