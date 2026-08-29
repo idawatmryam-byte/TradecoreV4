@@ -28,6 +28,14 @@ function mapTrade(t: typeof tradesTable.$inferSelect) {
     entryPrice: Number(t.entryPrice),
     exitPrice: t.exitPrice !== null ? Number(t.exitPrice) : null,
     quantity: Number(t.quantity),
+    strategyId: t.strategyId ?? null,
+    strategyName: t.strategyName ?? null,
+    marketType: t.marketType as "spot" | "futures" | "forex",
+    leverage: t.leverage ?? null,
+    marginMode:
+      t.marginMode === "isolated" || t.marginMode === "cross"
+        ? t.marginMode
+        : null,
     pnl: t.pnl !== null ? Number(t.pnl) : null,
     status: t.status,
     confidence: Number(t.confidence),
@@ -227,6 +235,10 @@ router.get("/trades/monitor/active", async (req, res): Promise<void> => {
       strategyName: t.strategyName,
       marketType: t.marketType,
       leverage: t.leverage,
+      marginMode:
+        t.marginMode === "isolated" || t.marginMode === "cross"
+          ? t.marginMode
+          : null,
       entryPrice, currentPrice,
       stopLossPrice: sl,
       takeProfitPrice: tp,

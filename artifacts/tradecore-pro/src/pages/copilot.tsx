@@ -9,8 +9,10 @@ import { PageHeader, EmptyState, LoadingRows } from "@/components/patterns";
 import { cn } from "@/lib/utils";
 import {
   ArrowUpRight, ArrowDownRight, CheckCircle2, XCircle, Ban, Clock,
-  Inbox, Pencil, ShieldAlert, ChevronDown, ChevronUp, Maximize2,
+  Inbox, Pencil, ShieldAlert, ChevronDown, ChevronUp, Maximize2, X,
 } from "lucide-react";
+
+const DISMISSED_RECOMMENDATIONS_KEY = "tradecore:copilot:dismissed-recommendations";
 
 /**
  * Co-Pilot inbox — TradePlans the engine produced and handed to you instead of
@@ -79,7 +81,7 @@ function timeLeft(expiresAt: string): { text: string; urgent: boolean; gone: boo
   };
 }
 
-function RecommendationCard({ rec }: { rec: Recommendation }) {
+function RecommendationCard({ rec, onDismiss }: { rec: Recommendation; onDismiss: (id: number) => void }) {
   const isLong = rec.side === "long";
   const meta = STATUS_META[rec.status] ?? STATUS_META["created"]!;
   const StatusIcon = meta.icon;
@@ -139,6 +141,17 @@ function RecommendationCard({ rec }: { rec: Recommendation }) {
               Workspace
             </Button>
           </Link>
+          {!actionable && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="px-2 text-[13px] text-muted-foreground"
+              aria-label={`Dismiss ${rec.symbol} message`}
+              onClick={() => onDismiss(rec.id)}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-sm">
@@ -212,6 +225,14 @@ function RecommendationCard({ rec }: { rec: Recommendation }) {
 export default function CoPilot() {
   const [filter, setFilter] = useState<string>(FILTERS[0].key);
   const [showHelp, setShowHelp] = useState(false);
+  const [dismissedIds, setDismissedIds] = useState<Set<number>>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(DISMISSED_RECOMMENDATIONS_KEY) ?? "[]");
+      return new Set(Array.isArray(stored) ? stored.filter(Number.isInteger) : []);
+    } catch {
+      return new Set();
+    }
+  });
   // Recommendations expire on their own clock, so poll rather than waiting for
   // a user action to reveal that the inbox has gone stale.
   const { data, isLoading } = useGetCopilotInbox(
@@ -221,6 +242,18 @@ export default function CoPilot() {
     },
   );
   const recommendations = data?.recommendations ?? [];
+  const visibleRecommendations = recommendations.filter((rec) => !dismissedIds.has(rec.id));
+  const dismiss = (id: number) => {
+    setDismissedIds((current) => {
+      const next = new Set(current).add(id);
+      try {
+        localStorage.setItem(DISMISSED_RECOMMENDATIONS_KEY, JSON.stringify([...next]));
+      } catch {
+        // Private browsing may refuse persistence; the current UI still dismisses it.
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
@@ -272,7 +305,7 @@ export default function CoPilot() {
 
       {isLoading ? (
         <Card><CardContent className="p-0"><LoadingRows rows={3} /></CardContent></Card>
-      ) : recommendations.length === 0 ? (
+      ) : visibleRecommendations.length === 0 ? (
         <Card>
           <CardContent className="p-0">
             {filter === "created" ? (
@@ -293,8 +326,8 @@ export default function CoPilot() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {recommendations.map((rec) => (
-            <RecommendationCard key={rec.id} rec={rec} />))}
+          {visibleRecommendations.map((rec) => (
+            <RecommendationCard key={rec.id} rec={rec} onDismiss={dismiss} />))}
         </div>
       )}
     </div>

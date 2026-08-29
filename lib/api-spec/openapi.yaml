@@ -4037,6 +4037,9 @@ components:
         strategyName: { type: [string, "null"] }
         marketType: { type: string, enum: [spot, futures, forex] }
         leverage: { type: [number, "null"] }
+        marginMode:
+          type: [string, "null"]
+          enum: [isolated, cross, null]
         entryPrice: { type: number }
         currentPrice: { type: number }
         stopLossPrice: { type: number }
@@ -6515,6 +6518,7 @@ components:
           stopLoss,
           takeProfit,
           entryTime,
+          marketType,
           managementAuthority,
           managementMode,
           managementPolicyVersion,
@@ -6535,6 +6539,18 @@ components:
           type: ["number", "null"]
         quantity:
           type: number
+        strategyId:
+          type: [string, "null"]
+        strategyName:
+          type: [string, "null"]
+        marketType:
+          type: string
+          enum: [spot, futures, forex]
+        leverage:
+          type: [integer, "null"]
+        marginMode:
+          type: [string, "null"]
+          enum: [isolated, cross, null]
         pnl:
           type: ["number", "null"]
         status:

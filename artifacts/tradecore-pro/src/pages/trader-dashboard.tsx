@@ -121,6 +121,7 @@ function ModeControl({ session }: { session: DashboardSession }) {
   const queryClient = useQueryClient();
   const { section } = useSection();
   const { toast } = useToast();
+  const startRuntime = useStartBot();
   const [autopilotReview, setAutopilotReview] = useState(false);
   const mutation = useMutation({
     mutationFn: (mode: "research" | "copilot") =>
@@ -188,23 +189,35 @@ function ModeControl({ session }: { session: DashboardSession }) {
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1_000).toISOString(),
         confirmation: "CREATE_IMMUTABLE_DEMO_MANDATE",
       });
-      return activateAutopilot({
+      const control = await activateAutopilot({
         mandateId: mandate.id,
         reason: "Trader enabled Demo AutoPilot from the Dashboard using the reviewed shared setup",
         confirmation: "ENABLE_DEMO_AUTOPILOT",
       });
+      try {
+        await startRuntime.mutateAsync(undefined);
+      } catch (error) {
+        const detail =
+          error instanceof Error ? error.message : "The runtime refused to start.";
+        throw new Error(
+          `AutoPilot authority was enabled, but the runtime did not start. ${detail}`,
+        );
+      }
+      return control;
     },
     onSuccess: async () => {
       setAutopilotReview(false);
+      toast({
+        title: "Demo AutoPilot enabled",
+        description: "AutoPilot is running with the same markets, trade limits, cadence, and selected strategies as your shared Dashboard setup.",
+      });
+    },
+    onSettled: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["dashboard-session", section] }),
         queryClient.invalidateQueries({ queryKey: getGetBotStatusQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getGetConfigQueryKey() }),
       ]);
-      toast({
-        title: "Demo AutoPilot enabled",
-        description: "AutoPilot now uses the same markets, trade limits, cadence, and selected strategies as your shared Dashboard setup.",
-      });
     },
   });
   const modes = [

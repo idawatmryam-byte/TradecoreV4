@@ -27,6 +27,7 @@ interface ActivePosition {
   strategyName: string | null;
   marketType: string;
   leverage: number | null;
+  marginMode: "isolated" | "cross" | null;
   entryPrice: number;
   currentPrice: number;
   stopLossPrice: number;
@@ -45,6 +46,18 @@ function formatHeld(seconds: number): string {
   if (seconds < 90) return `${Math.max(0, Math.round(seconds))}s`;
   if (seconds < 5400) return `${Math.round(seconds / 60)}m`;
   return `${(seconds / 3600).toFixed(1)}h`;
+}
+
+function positionUnits(symbol: string): { base: string | null; quote: string | null } {
+  const normalized = symbol.toUpperCase();
+  const separated = normalized.match(/^([A-Z0-9]+)[_\/]([A-Z0-9]+)$/);
+  if (separated) return { base: separated[1] ?? null, quote: separated[2] ?? null };
+  for (const quote of ["USDT", "USDC", "USD", "EUR", "GBP", "JPY", "BTC", "ETH"]) {
+    if (normalized.endsWith(quote) && normalized.length > quote.length) {
+      return { base: normalized.slice(0, -quote.length), quote };
+    }
+  }
+  return { base: null, quote: null };
 }
 
 /**
@@ -91,6 +104,8 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
             const isClosing = closingId === p.tradeId;
             const isConfirming = confirmingClose === p.tradeId;
             const chartOpen = chartTradeId === p.tradeId;
+            const units = positionUnits(p.symbol);
+            const entryNotional = p.entryPrice * p.remainingQuantity;
             return (
               <div
                 key={p.tradeId}
@@ -109,6 +124,11 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
                     <Badge variant={p.side === "long" ? "success" : "destructive"} className="h-5 px-1.5 text-[10px]">
                       {p.side}{p.marketType === "futures" && p.leverage ? ` ${p.leverage}×` : ""}
                     </Badge>
+                    {p.marketType === "futures" && p.marginMode && (
+                      <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                        {p.marginMode.toUpperCase()}
+                      </Badge>
+                    )}
                     {p.breakEvenActive && <Badge variant="outline" className="h-5 px-1.5 text-[10px]">BE</Badge>}
                     {p.trailingStopActive && <Badge variant="outline" className="h-5 px-1.5 text-[10px]">TRAIL</Badge>}
                     {p.tp1Filled && <Badge variant="outline" className="h-5 px-1.5 text-[10px] text-success">TP1 ✓</Badge>}
@@ -136,8 +156,10 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
                     </span>
                   </div>
                   <div className="text-right">
-                    <span className="block opacity-50 mb-0.5">Size</span>
-                    <span className="text-foreground">{formatNumber(p.remainingQuantity, 4)}</span>
+                    <span className="block opacity-50 mb-0.5">Quantity</span>
+                    <span className="text-foreground">
+                      {formatNumber(p.remainingQuantity, 4)} {units.base ?? "units"}
+                    </span>
                   </div>
                   <div>
                     <span className="block opacity-50 mb-0.5">Stop Loss</span>
@@ -149,6 +171,12 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
                       {p.tp1Price != null && !p.tp1Filled
                         ? `${formatNumber(p.tp1Price, 4)} / ${formatNumber(p.takeProfitPrice, 4)}`
                         : formatNumber(p.takeProfitPrice, 4)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block opacity-50 mb-0.5">Entry notional</span>
+                    <span className="text-foreground">
+                      {units.quote ? `${formatNumber(entryNotional, 2)} ${units.quote}` : "Unavailable"}
                     </span>
                   </div>
                 </div>
