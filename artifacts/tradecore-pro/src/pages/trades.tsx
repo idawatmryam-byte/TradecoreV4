@@ -177,21 +177,7 @@ export function Trades() {
                 const isProfit = (trade.pnl ?? 0) >= 0;
 
                 return (
-                  <TableRow
-                    key={trade.id}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`View ${trade.symbol} trade details`}
-                    aria-pressed={selectedTradeId === trade.id}
-                    className="cursor-pointer"
-                    onClick={() => setSelectedTradeId((current) => current === trade.id ? null : trade.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        setSelectedTradeId((current) => current === trade.id ? null : trade.id);
-                      }
-                    }}
-                  >
+                  <TableRow key={trade.id}>
                     <TableCell className="font-mono text-[13px] text-muted-foreground whitespace-nowrap">
                       {formatDate(trade.entryTime)}
                     </TableCell>
@@ -241,7 +227,25 @@ export function Trades() {
                         <Badge variant={trade.managementAuthority === "phase7" ? "success" : trade.managementMode === "phase7_shadow" ? "outline" : "secondary"}>
                           {trade.managementMode === "phase7_active" ? "Phase 7 active" : trade.managementMode === "phase7_shadow" ? "Phase 7 shadow" : "Fixed"}
                         </Badge>
-                        {trade.thesisId && <BrainCircuit className="h-3.5 w-3.5 text-primary" aria-label="Position thesis available" />}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`View ${trade.symbol} trade details`}
+                          aria-pressed={selectedTradeId === trade.id}
+                          onClick={() => setSelectedTradeId((current) => current === trade.id ? null : trade.id)}
+                        >
+                          Details
+                        </Button>
+                        {trade.thesisId && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`View thesis for trade ${trade.id}`}
+                            onClick={() => setSelectedTradeId((current) => current === trade.id ? null : trade.id)}
+                          >
+                            <BrainCircuit className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
