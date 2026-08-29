@@ -49,6 +49,24 @@ try {
     response.headers.get("cache-control")?.includes("no-store") === true,
     `received ${response.headers.get("cache-control")}`,
   );
+
+  const canonicalResponse = await fetch(
+    `http://127.0.0.1:${address.port}/admin/`,
+    {
+      headers: { Accept: "text/html" },
+      redirect: "manual",
+    },
+  );
+  expect(
+    "canonical /admin/ does not re-enter the bare-path redirect",
+    canonicalResponse.status !== 307,
+    `received ${canonicalResponse.status} -> ${canonicalResponse.headers.get("location")}`,
+  );
+  expect(
+    "canonical /admin/ does not emit another redirect location",
+    canonicalResponse.headers.get("location") === null,
+    `received ${canonicalResponse.headers.get("location")}`,
+  );
 } finally {
   await new Promise<void>((resolve, reject) =>
     server.close((error) => (error ? reject(error) : resolve())),
