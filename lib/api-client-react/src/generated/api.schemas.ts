@@ -1320,6 +1320,17 @@ export const ActivePositionMonitorMarketType = {
   forex: 'forex',
 } as const;
 
+/**
+ * @nullable
+ */
+export type ActivePositionMonitorMarginMode = typeof ActivePositionMonitorMarginMode[keyof typeof ActivePositionMonitorMarginMode] | null;
+
+
+export const ActivePositionMonitorMarginMode = {
+  isolated: 'isolated',
+  cross: 'cross',
+} as const;
+
 export interface ActivePositionMonitor {
   tradeId: number;
   symbol: string;
@@ -1329,6 +1340,8 @@ export interface ActivePositionMonitor {
   marketType: ActivePositionMonitorMarketType;
   /** @nullable */
   leverage?: number | null;
+  /** @nullable */
+  marginMode?: ActivePositionMonitorMarginMode;
   entryPrice: number;
   currentPrice: number;
   stopLossPrice: number;
@@ -4742,6 +4755,26 @@ export const TradeSide = {
   sell: 'sell',
 } as const;
 
+export type TradeMarketType = typeof TradeMarketType[keyof typeof TradeMarketType];
+
+
+export const TradeMarketType = {
+  spot: 'spot',
+  futures: 'futures',
+  forex: 'forex',
+} as const;
+
+/**
+ * @nullable
+ */
+export type TradeMarginMode = typeof TradeMarginMode[keyof typeof TradeMarginMode] | null;
+
+
+export const TradeMarginMode = {
+  isolated: 'isolated',
+  cross: 'cross',
+} as const;
+
 export type TradeStatus = typeof TradeStatus[keyof typeof TradeStatus];
 
 
@@ -4795,6 +4828,15 @@ export interface Trade {
   /** @nullable */
   exitPrice?: number | null;
   quantity: number;
+  /** @nullable */
+  strategyId?: string | null;
+  /** @nullable */
+  strategyName?: string | null;
+  marketType: TradeMarketType;
+  /** @nullable */
+  leverage?: number | null;
+  /** @nullable */
+  marginMode?: TradeMarginMode;
   /** @nullable */
   pnl?: number | null;
   status: TradeStatus;

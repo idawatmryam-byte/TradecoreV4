@@ -268,6 +268,20 @@ async function installRoutes(page, options = {}) {
         entryBlockReason: "Live reconciliation is unknown",
         mode: "copilot",
       });
+    if (
+      url.pathname === "/api/bot/start" &&
+      route.request().method() === "POST"
+    ) {
+      options.onStart?.();
+      return json({
+        running: true,
+        startedAt: new Date(now).toISOString(),
+        lastScanAt: new Date(now).toISOString(),
+        circuitBreakerActive: false,
+        openPositionCount: 0,
+        tradesToday: 0,
+      });
+    }
     if (url.pathname === "/api/execution-health")
       return json({ status: "BLOCKED", operatingMode: "PROTECTION_DEGRADED" });
     if (url.pathname === "/api/capabilities")
@@ -321,6 +335,8 @@ async function installRoutes(page, options = {}) {
       return json(options.session ?? session);
     if (url.pathname === "/api/copilot/recommendations/501")
       return json(options.workspace ?? {});
+    if (url.pathname === "/api/copilot/inbox")
+      return json(options.copilotInbox ?? { recommendations: [] });
     if (url.pathname === "/api/copilot/recommendations/501/execute") {
       options.onExecute?.(route.request().postDataJSON());
       return json({
@@ -361,6 +377,8 @@ async function installRoutes(page, options = {}) {
     }
     if (url.pathname === "/api/notifications")
       return json({ notifications: [], unreadCount: 0 });
+    if (url.pathname === "/api/trades")
+      return json(options.trades ?? []);
     if (url.pathname === "/api/market/candles")
       return json({
         candles: [
@@ -530,6 +548,7 @@ demoSession.alerts = [];
 let executedApproval = null;
 let createdMandate = null;
 let activationRequest = null;
+let runtimeStartRequests = 0;
 const workspace = {
   recommendation: {
     id: 501,
@@ -612,6 +631,9 @@ await installRoutes(demo, {
   onActivate: (body) => {
     activationRequest = body;
   },
+  onStart: () => {
+    runtimeStartRequests += 1;
+  },
 });
 await demo.goto(`${baseUrl}/dashboard`, { waitUntil: "networkidle" });
 await demo.getByRole("button", { name: "Approve", exact: true }).click();
@@ -659,6 +681,107 @@ expect(
   "simple AutoPilot enable still requires an immutable mandate id",
   activationRequest?.mandateId === 77,
 );
+expect(
+  "simple AutoPilot enable starts the existing runtime",
+  runtimeStartRequests === 1,
+);
+
+const tradePage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+await installRoutes(tradePage, {
+  trades: [
+    {
+      id: 991,
+      symbol: "BTCUSDT",
+      side: "buy",
+      entryPrice: 62000,
+      exitPrice: 63000,
+      quantity: 0.25,
+      pnl: 242.5,
+      status: "closed",
+      confidence: 82,
+      stopLoss: 61000,
+      takeProfit: 64000,
+      entryTime: new Date(now - 3600000).toISOString(),
+      exitTime: new Date(now).toISOString(),
+      exitReason: "take_profit",
+      feesUsdt: 7.5,
+      slippageUsdt: 0,
+      grossPnl: 250,
+      remainingQuantity: 0,
+      managementAuthority: "fixed",
+      managementMode: "fixed",
+      managementPolicyVersion: "brain-v0-fixed-sltp",
+      thesisId: null,
+      phase7ReductionApplied: false,
+      strategyId: "trend_pullback",
+      strategyName: "Trend Pullback",
+      marketType: "futures",
+      leverage: 10,
+      marginMode: "isolated",
+    },
+  ],
+});
+await tradePage.goto(`${baseUrl}/trades`, { waitUntil: "networkidle" });
+expect(
+  "trade quantity identifies its asset unit",
+  await tradePage.getByText("0.2500 BTC", { exact: true }).isVisible(),
+);
+expect(
+  "a recent trade exposes a details control",
+  (await tradePage.getByRole("button", { name: "View BTCUSDT trade details" }).count()) === 1,
+);
+await tradePage.getByRole("button", { name: "View BTCUSDT trade details" }).click();
+expect(
+  "recent-trade drill-down shows execution and strategy details",
+  await tradePage.getByRole("heading", { name: "Trade #991 details" }).isVisible() &&
+    await tradePage.getByText("15,500.00 USDT", { exact: true }).isVisible() &&
+    await tradePage.getByText("Trend Pullback", { exact: true }).isVisible() &&
+    await tradePage.getByText("10×", { exact: true }).isVisible(),
+);
+
+const copilotCleanupPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+await installRoutes(copilotCleanupPage, {
+  copilotInbox: {
+    recommendations: [
+      {
+        id: 700,
+        status: "executed",
+        authoredBy: "engine",
+        derivedFromId: null,
+        symbol: "ETHUSDT",
+        strategyId: "mean_reversion",
+        strategyName: "Mean Reversion",
+        side: "short",
+        confidence: 82,
+        entryPrice: 3400,
+        slPrice: 3500,
+        tpPrice: 3200,
+        qty: 0.2,
+        leverage: 10,
+        planFingerprint: "d".repeat(64),
+        entryReason: "Completed proposal",
+        expiresAt: new Date(now - 60000).toISOString(),
+        createdAt: new Date(now - 3600000).toISOString(),
+        actedAt: new Date(now - 3000000).toISOString(),
+        tradeId: 991,
+        resolutionReason: "Position opened",
+        executionTarget: "demo",
+        decisionBundleFingerprint: "e".repeat(64),
+        approvalState: "APPROVED",
+      },
+    ],
+  },
+});
+await copilotCleanupPage.goto(`${baseUrl}/copilot`, { waitUntil: "networkidle" });
+expect(
+  "a completed Co-Pilot card has a UI-only dismiss action",
+  (await copilotCleanupPage.getByRole("button", { name: "Dismiss ETHUSDT message" }).count()) === 1,
+);
+await copilotCleanupPage.getByRole("button", { name: "Dismiss ETHUSDT message" }).click();
+expect(
+  "dismissing a completed Co-Pilot card removes only its UI projection",
+  (await copilotCleanupPage.getByText("Position opened", { exact: true }).count()) === 0,
+);
 
 const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
 await installRoutes(mobile);
@@ -683,6 +806,8 @@ expect(
 
 await desktop.close();
 await demo.close();
+await tradePage.close();
+await copilotCleanupPage.close();
 await mobile.close();
 await browser.close();
 
