@@ -3859,7 +3859,9 @@ class BotEngine {
         let mandateFallback:
           | { reasonCode: string; reason: string; mandateId: number | null }
           | undefined;
-        if (requiresAutopilotControlPlane(config)) {
+        // The explicit Phase 10 validation fixture still exercises the legacy
+        // mandate/claim evidence path. Normal internal Demo scans bypass it.
+        if (requiresAutopilotControlPlane(config) || validationFixture) {
           let unifiedBrainEvidenceAvailable = false;
           if (sameScanSpecialists && sameScanCouncil) {
             try {
