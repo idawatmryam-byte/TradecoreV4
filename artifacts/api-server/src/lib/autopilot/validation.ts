@@ -90,8 +90,8 @@ export function authorizePhase10Validation(input: {
   if (requiresGlobalSuspension === "inactive" ? suspended : !suspended) {
     throw new Error(
       requiresGlobalSuspension === "inactive"
-        ? "Global Demo Autopilot suspension must be explicitly false during the controlled validation stages"
-        : "Global Demo Autopilot suspension must be restored before validation completion can be confirmed",
+        ? "Broker sandbox AutoPilot suspension must be explicitly false during the controlled validation stages"
+        : "Broker sandbox AutoPilot suspension must be restored before validation completion can be confirmed",
     );
   }
   const authorization: Phase10ValidationAuthorization = Object.freeze({

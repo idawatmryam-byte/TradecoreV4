@@ -3,6 +3,23 @@ interface AutopilotEnvironment {
   AUTOPILOT_GLOBAL_SUSPENDED?: string;
 }
 
+interface AutopilotAccessConfig {
+  mode: string;
+  executionTarget: string;
+}
+
+/**
+ * Internal Demo execution has the same access boundary as Co-Pilot: it uses no
+ * broker, credentials, or real funds, so it does not need the separate
+ * mandate/activation control plane. Broker-backed execution keeps that control
+ * plane even when the broker itself is a testnet or practice environment.
+ */
+export function requiresAutopilotControlPlane(
+  config: AutopilotAccessConfig,
+): boolean {
+  return config.mode === "autopilot" && config.executionTarget !== "demo";
+}
+
 export interface AutopilotDeploymentHardStop {
   active: boolean;
   configured: boolean;
@@ -41,7 +58,7 @@ export function autopilotDeploymentHardStop(
 /**
  * Production fails closed when the global suspension is absent or malformed.
  * An explicit false value is the only way a reviewed production deployment can
- * permit the remaining mandate and runtime gates to consider new Demo entries.
+ * permit the broker-backed mandate and runtime gates to consider new entries.
  */
 export function globalAutopilotSuspended(
   environment: AutopilotEnvironment = process.env,

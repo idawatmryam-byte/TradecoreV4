@@ -45,11 +45,9 @@ export const botConfigTable = pgTable("bot_config", {
    * The intelligence pipeline is identical in all three; only the executor
    * differs.
    *
-   * The COLUMN default stays "autopilot" so existing rows backfill to the
-   * behaviour they already had — an account that was auto-trading keeps
-   * auto-trading. NEW sections are created in "copilot" (see
-   * BotEngine.loadConfig): a fresh account should show its reasoning and let
-   * the human decide before it is trusted to act alone.
+   * The column and new-section creation path both default to "autopilot".
+   * Internal Demo is immediately available because it has no broker or real
+   * funds. Live remains a separate credential- and authority-gated transition.
    */
   mode: text("mode").notNull().default("autopilot"), // research | copilot | autopilot
   /**

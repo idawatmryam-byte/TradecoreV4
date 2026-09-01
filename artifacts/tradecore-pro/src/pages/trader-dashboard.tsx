@@ -122,9 +122,10 @@ function ModeControl({ session }: { session: DashboardSession }) {
   const { section } = useSection();
   const { toast } = useToast();
   const startRuntime = useStartBot();
+  const internalDemo = session.context.environment.id === "CACTUS_DEMO";
   const [autopilotReview, setAutopilotReview] = useState(false);
   const mutation = useMutation({
-    mutationFn: (mode: "research" | "copilot") =>
+    mutationFn: (mode: "research" | "copilot" | "autopilot") =>
       traderApi("/config", { method: "PUT", body: JSON.stringify({ mode }) }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["dashboard-session", section] });
@@ -141,7 +142,7 @@ function ModeControl({ session }: { session: DashboardSession }) {
       ]);
       if (controlCenter.globalSuspended) {
         throw new Error(
-          "AutoPilot is paused for the whole platform. Your shared setup is saved, but an administrator must clear the platform pause before activation.",
+          "Broker sandbox AutoPilot is paused for the whole platform. Your shared setup is saved, but an administrator must clear the platform pause before activation.",
         );
       }
       let approvedBrain = controlCenter.versions.find((version) => version.state === "DEMO_APPROVED");
@@ -164,7 +165,7 @@ function ModeControl({ session }: { session: DashboardSession }) {
         (strategy) => strategy.config.enabled && strategy.assignment.autopilot,
       );
       if (enabledStrategies.length === 0) {
-        throw new Error("Select at least one active AutoPilot strategy before enabling AutoPilot.");
+        throw new Error("Select at least one active AutoPilot strategy before enabling broker sandbox AutoPilot.");
       }
       if (config.dailyLossLimitUsdt <= 0) {
         throw new Error("Set a positive daily loss limit before enabling AutoPilot.");
@@ -208,7 +209,7 @@ function ModeControl({ session }: { session: DashboardSession }) {
     onSuccess: async () => {
       setAutopilotReview(false);
       toast({
-        title: "Demo AutoPilot enabled",
+        title: "Broker sandbox AutoPilot enabled",
         description: "AutoPilot is running with the same markets, trade limits, cadence, and selected strategies as your shared Dashboard setup.",
       });
     },
@@ -223,7 +224,7 @@ function ModeControl({ session }: { session: DashboardSession }) {
   const modes = [
     { id: "brain", backend: "research" as const, label: "Brain", sub: "Analysis only" },
     { id: "copilot", backend: "copilot" as const, label: "Co-Pilot", sub: "Approval required" },
-    { id: "autopilot", backend: null, label: "AutoPilot", sub: "Mandate controlled" },
+    { id: "autopilot", backend: "autopilot" as const, label: "AutoPilot", sub: internalDemo ? "Available now" : "Mandate controlled" },
   ] as const;
 
   return (
@@ -238,7 +239,7 @@ function ModeControl({ session }: { session: DashboardSession }) {
               aria-pressed={selected}
               disabled={mutation.isPending}
               onClick={() => {
-                if (mode.id === "autopilot") setAutopilotReview(true);
+                if (mode.id === "autopilot" && !internalDemo) setAutopilotReview(true);
                 else if (!selected && mode.backend) mutation.mutate(mode.backend);
               }}
               className={cn(
@@ -257,9 +258,9 @@ function ModeControl({ session }: { session: DashboardSession }) {
       <Dialog open={autopilotReview} onOpenChange={setAutopilotReview}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Enable AutoPilot with this setup</DialogTitle>
+            <DialogTitle>Enable broker sandbox AutoPilot</DialogTitle>
             <DialogDescription>
-              AutoPilot uses the same markets, sizing, protection, confidence, cadence, and strategy selection as Co-Pilot. Review the shared setup once, then enable it.
+              Broker-backed AutoPilot uses the same markets, sizing, protection, confidence, cadence, and strategy selection as Co-Pilot. Review the shared setup once, then enable it.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 text-sm">
@@ -268,7 +269,7 @@ function ModeControl({ session }: { session: DashboardSession }) {
               <span className="mt-1 block text-muted-foreground">Use Trade setup and Strategies on the Dashboard to change what Co-Pilot and AutoPilot use.</span>
             </div>
             <div className="rounded-lg border border-warning/30 bg-warning/10 p-4 text-xs leading-5">
-              Enabling creates a bounded 30-day Demo mandate with a 10% maximum drawdown cap. Every entry still requires fresh market data, reconciliation, deterministic risk approval, and the exact authorized strategy version. Live AutoPilot remains unavailable here.
+              Enabling creates a bounded 30-day sandbox mandate with a 10% maximum drawdown cap. Every entry still requires fresh market data, reconciliation, deterministic risk approval, and the exact authorized strategy version. Real-money AutoPilot remains unavailable here.
             </div>
             {enableAutopilot.error && <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{enableAutopilot.error.message}</p>}
           </div>
@@ -276,7 +277,7 @@ function ModeControl({ session }: { session: DashboardSession }) {
             <Button variant="outline" disabled={enableAutopilot.isPending} onClick={() => setAutopilotReview(false)}>Cancel</Button>
             <Button disabled={enableAutopilot.isPending || session.autopilot?.effectiveState === "AUTOPILOT_ENABLED"} onClick={() => enableAutopilot.mutate()}>
               {enableAutopilot.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {session.autopilot?.effectiveState === "AUTOPILOT_ENABLED" ? "AutoPilot is active" : "Enable Demo AutoPilot"}
+              {session.autopilot?.effectiveState === "AUTOPILOT_ENABLED" ? "AutoPilot is active" : "Enable sandbox AutoPilot"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -491,6 +492,28 @@ function IntelligencePanel({ session }: { session: DashboardSession }) {
     );
   }
   if (mode === "autopilot") {
+    if (session.context.environment.id === "CACTUS_DEMO") {
+      return (
+        <section className="terminal-panel overflow-hidden" aria-labelledby="intelligence-heading">
+          <div className="flex items-center justify-between border-b px-4 py-3">
+            <div><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Intelligence mode</p><h2 id="intelligence-heading" className="mt-1 text-sm font-semibold">Demo AutoPilot</h2></div>
+            <Badge variant="success">Available</Badge>
+          </div>
+          <div className="space-y-4 p-4 text-sm">
+            <div className="rounded-lg border border-demo/30 bg-demo/10 p-3">
+              <strong>Automatic simulated execution</strong>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">No administrator, broker credentials, mandate, or activation step is required. Start the runtime and AutoPilot can execute simulated trades immediately.</p>
+            </div>
+            <dl className="grid grid-cols-2 gap-3 text-xs">
+              <div><dt className="text-muted-foreground">Open positions</dt><dd className="mt-1 font-mono">{session.runtime.openPositionCount}</dd></div>
+              <div><dt className="text-muted-foreground">Funds at risk</dt><dd className="mt-1 font-mono">Simulated only</dd></div>
+              <div className="col-span-2"><dt className="text-muted-foreground">Risk controls</dt><dd className="mt-1">Sizing, exposure, loss, drawdown, stop-loss, and market-data checks remain active.</dd></div>
+            </dl>
+            <p className="rounded-lg border p-3 text-center text-xs text-muted-foreground">Switch to Co-Pilot or Brain above whenever you want to stop automatic simulated entries.</p>
+          </div>
+        </section>
+      );
+    }
     const autopilot = session.autopilot;
     return (
       <section className="terminal-panel overflow-hidden" aria-labelledby="intelligence-heading">
