@@ -24,7 +24,7 @@ const session = () => ({
     ? { active: true, expiresAt: new Date(Date.now() + 600_000).toISOString() }
     : { active: false, expiresAt: null, reason: "Recent Admin Console step-up is required" },
   mutationsSupported: true,
-  mutationReason: "Demo AutoPilot safety changes are guarded and audited.",
+  mutationReason: "Broker sandbox AutoPilot safety changes are guarded and audited.",
 });
 
 await page.route("**/api/**", async (route) => {
@@ -50,7 +50,7 @@ await page.route("**/api/**", async (route) => {
     platformAutopilot: {
       effectiveSuspended: true,
       source: "database",
-      reason: "Platform Demo AutoPilot is suspended",
+      reason: "Broker sandbox AutoPilot is suspended",
       databaseSuspended: true,
       deploymentHardStop: { active: false, configured: false, malformed: false },
       pendingResume: null,
@@ -80,7 +80,7 @@ expect("platform overview repeats financial-authority separation", await page.ge
 
 await page.getByRole("link", { name: "Risk & Safety" }).click();
 await page.getByLabel("Operator reason").fill("Reviewed Demo AutoPilot recovery after incident resolution");
-await page.getByRole("button", { name: "Request Demo AutoPilot resume" }).click();
+await page.getByRole("button", { name: "Request sandbox AutoPilot resume" }).click();
 expect("resume request uses the guarded two-operator endpoint", resumeRequestBody?.confirmation === "REQUEST_PLATFORM_AUTOPILOT_RESUME");
 
 await page.getByRole("link", { name: "Admin Settings" }).click();

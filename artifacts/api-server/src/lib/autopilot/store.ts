@@ -371,7 +371,7 @@ export async function refuseAutopilotActivationWhileGloballySuspended(input: {
 }): Promise<void> {
   await ensureControl(input.userId, input.section);
   const reasonCode = "GLOBAL_SUSPENSION_ACTIVE";
-  const reason = "Global Demo Autopilot suspension is active; activation is refused";
+  const reason = "Broker sandbox AutoPilot suspension is active; activation is refused";
   await db.transaction(async (tx) => {
     const [current] = await tx.select().from(autopilotControlsTable).where(and(
       eq(autopilotControlsTable.userId, input.userId),

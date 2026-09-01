@@ -2640,7 +2640,7 @@ paths:
     post:
       operationId: requestAdminAutopilotResume
       tags: [admin]
-      summary: Request a time-limited platform Demo AutoPilot resume
+      summary: Request a time-limited broker sandbox AutoPilot resume
       description: Requires a second distinct qualified operator before authority is expanded.
       requestBody:
         required: true
@@ -2657,14 +2657,14 @@ paths:
     post:
       operationId: approveAdminAutopilotResume
       tags: [admin]
-      summary: Approve a platform Demo AutoPilot resume as the second operator
+      summary: Approve a broker sandbox AutoPilot resume as the second operator
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: "#/components/schemas/AdminAutopilotResumeApproval" }
       responses:
-        "200": { description: Platform Demo AutoPilot resumed, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformAutopilotSafetyState" } } } }
+        "200": { description: Broker sandbox AutoPilot resumed, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformAutopilotSafetyState" } } } }
         "400": { description: Invalid approval, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
         "403": { description: "Platform permission, origin, or step-up required", content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
         "409": { description: Approval refused by current safety state, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }

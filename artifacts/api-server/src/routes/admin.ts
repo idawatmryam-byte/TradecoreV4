@@ -74,7 +74,7 @@ router.get("/admin/session/status", async (req, res): Promise<void> => {
       : { active: false, expiresAt: null, reason: stepUp.reason },
     mutationsSupported: permissions.includes("admin.risk.suspend"),
     mutationReason:
-      "Demo AutoPilot safety controls require recent Admin step-up, explicit confirmation, an audit reason, and two distinct qualified operators for resume.",
+      "Broker sandbox AutoPilot safety controls require recent Admin step-up, explicit confirmation, an audit reason, and two distinct qualified operators for resume.",
   });
 });
 
@@ -436,7 +436,7 @@ router.get(
       },
       controlsSupported: true,
       controlsReason:
-        "Suspension is immediate. Resume requires a time-limited request and approval by a second distinct qualified operator. These controls apply only to Demo/testnet/practice AutoPilot; Live authority remains unavailable.",
+        "Suspension is immediate. Resume requires a time-limited request and approval by a second distinct qualified operator. These controls apply only to broker-backed testnet/practice AutoPilot; internal Demo is independent and Live authority remains unavailable.",
     });
   },
 );

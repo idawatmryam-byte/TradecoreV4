@@ -673,12 +673,12 @@ function RiskPage({ session }: { session: AdminSessionStatus }) {
       <PageHeader
         eyebrow="Safety boundaries"
         title="Risk & Safety"
-        description="Immediately suspend Demo AutoPilot or use a two-operator review to resume it. Live trading authority is not granted here."
+        description="Immediately suspend broker sandbox AutoPilot or use a two-operator review to resume it. Internal Demo is independent and Live authority is not granted here."
       />
       <section className="admin-panel mb-5 p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="admin-kicker m-0">Platform Demo AutoPilot</p>
+            <p className="admin-kicker m-0">Broker Sandbox AutoPilot</p>
             <div className="mt-2 flex items-center gap-2">
               <StateBadge
                 state={safety.effectiveSuspended ? "SUSPENDED" : "ENABLED"}
@@ -740,7 +740,7 @@ function RiskPage({ session }: { session: AdminSessionStatus }) {
                   onClick={() => action.mutate("request-resume")}
                   className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50"
                 >
-                  <PlayCircle className="h-4 w-4" /> Request Demo AutoPilot
+                  <PlayCircle className="h-4 w-4" /> Request sandbox AutoPilot
                   resume
                 </button>
               )}
