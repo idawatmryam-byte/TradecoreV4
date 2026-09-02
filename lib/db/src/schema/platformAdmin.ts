@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   check,
   integer,
+  index,
   jsonb,
   pgTable,
   serial,
@@ -83,7 +84,10 @@ export const platformAuditEventsTable = pgTable(
     reason: text("reason"),
     beforeFingerprint: text("before_fingerprint"),
     afterFingerprint: text("after_fingerprint"),
-    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    metadata: jsonb("metadata")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -96,6 +100,62 @@ export const platformAuditEventsTable = pgTable(
   ],
 );
 
+/**
+ * Append-only evidence for the bounded platform AutoPilot clearance workflow.
+ * The deployment suspension remains a separate, non-overridable hard stop.
+ * Effective state is derived from these events so the runtime never needs an
+ * UPDATE or DELETE grant on authority-increasing records.
+ */
+export const platformAutopilotClearanceEventsTable = pgTable(
+  "platform_autopilot_clearance_events",
+  {
+    id: serial("id").primaryKey(),
+    clearanceId: text("clearance_id").notNull(),
+    eventType: text("event_type").notNull(),
+    actorUserId: integer("actor_user_id").notNull(),
+    reason: text("reason").notNull(),
+    durationMinutes: integer("duration_minutes"),
+    requestId: text("request_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("platform_autopilot_clearance_event_unique").on(
+      table.clearanceId,
+      table.eventType,
+    ),
+    unique("platform_autopilot_clearance_request_unique").on(table.requestId),
+    index("platform_autopilot_clearance_time_idx").on(table.createdAt),
+    check(
+      "platform_autopilot_clearance_id_check",
+      sql`${table.clearanceId} ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'`,
+    ),
+    check(
+      "platform_autopilot_clearance_actor_check",
+      sql`${table.actorUserId} > 0`,
+    ),
+    check(
+      "platform_autopilot_clearance_request_id_check",
+      sql`char_length(${table.requestId}) BETWEEN 1 AND 200`,
+    ),
+    check(
+      "platform_autopilot_clearance_event_type_check",
+      sql`${table.eventType} IN ('REQUESTED','APPROVED','REVOKED')`,
+    ),
+    check(
+      "platform_autopilot_clearance_reason_length_check",
+      sql`char_length(${table.reason}) BETWEEN 8 AND 500`,
+    ),
+    check(
+      "platform_autopilot_clearance_duration_check",
+      sql`(${table.eventType} = 'REQUESTED' AND ${table.durationMinutes} BETWEEN 15 AND 1440) OR (${table.eventType} IN ('APPROVED','REVOKED') AND ${table.durationMinutes} IS NULL)`,
+    ),
+  ],
+);
+
 export type PlatformRoleAssignment =
   typeof platformRoleAssignmentsTable.$inferSelect;
 export type PlatformAuditEvent = typeof platformAuditEventsTable.$inferSelect;
+export type PlatformAutopilotClearanceEvent =
+  typeof platformAutopilotClearanceEventsTable.$inferSelect;

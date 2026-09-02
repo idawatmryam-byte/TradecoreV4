@@ -19,6 +19,7 @@ import { getLiveExecutionHealth } from "../lib/execution/liveSafetyStore";
 import { getAutopilotSnapshot } from "../lib/autopilot/store";
 import { getPlatformAutopilotSafetyState } from "../lib/platformAutopilotSafety";
 import { requiresAutopilotControlPlane } from "../lib/autopilot/config";
+import { getPlatformAutopilotGate } from "../lib/autopilot/platformClearance";
 
 const router: IRouter = Router();
 
@@ -347,7 +348,8 @@ router.get("/dashboard/session", async (req, res): Promise<void> => {
       autopilot = {
         configured: true,
         effectiveState: "AUTOPILOT_ENABLED",
-        reason: "Internal Demo AutoPilot is available without administrator approval or mandate activation.",
+        reason:
+          "Internal Demo AutoPilot is available without administrator approval or mandate activation.",
         globalSuspended: false,
         mandateId: null,
         mandateFingerprint: null,
@@ -355,15 +357,17 @@ router.get("/dashboard/session", async (req, res): Promise<void> => {
         expiresAt: null,
       };
     } else {
-      const [snapshot, platformSafety] = await Promise.all([
+      const [snapshot, platformSafety, platformGate] = await Promise.all([
         getAutopilotSnapshot(userId, section),
         getPlatformAutopilotSafetyState(),
+        getPlatformAutopilotGate(),
       ]);
       autopilot = {
         configured: true,
         effectiveState: snapshot.control.state,
         reason: snapshot.control.reason,
-        globalSuspended: platformSafety.effectiveSuspended,
+        globalSuspended:
+          platformSafety.effectiveSuspended || platformGate.effectiveSuspended,
         mandateId: snapshot.mandate?.id ?? null,
         mandateFingerprint: snapshot.mandate?.fingerprint ?? null,
         authorizedStrategies: snapshot.mandate

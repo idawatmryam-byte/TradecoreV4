@@ -552,6 +552,64 @@ export type AutopilotControlCenterSnapshot = { [key: string]: unknown };
 
 export type AutopilotControlCenterEventsItem = { [key: string]: unknown };
 
+export type PlatformAutopilotGateReasonCode = typeof PlatformAutopilotGateReasonCode[keyof typeof PlatformAutopilotGateReasonCode];
+
+
+export const PlatformAutopilotGateReasonCode = {
+  DEPLOYMENT_SUSPENSION_ACTIVE: 'DEPLOYMENT_SUSPENSION_ACTIVE',
+  ADMIN_CLEARANCE_REQUIRED: 'ADMIN_CLEARANCE_REQUIRED',
+  ADMIN_CLEARANCE_UNAVAILABLE: 'ADMIN_CLEARANCE_UNAVAILABLE',
+  PLATFORM_GATE_CLEAR: 'PLATFORM_GATE_CLEAR',
+} as const;
+
+export type PlatformAutopilotClearanceState = typeof PlatformAutopilotClearanceState[keyof typeof PlatformAutopilotClearanceState];
+
+
+export const PlatformAutopilotClearanceState = {
+  PENDING: 'PENDING',
+  ACTIVE: 'ACTIVE',
+  EXPIRED: 'EXPIRED',
+  REVOKED: 'REVOKED',
+} as const;
+
+export interface PlatformAutopilotClearance {
+  clearanceId: string;
+  state: PlatformAutopilotClearanceState;
+  /** @minimum 1 */
+  requestedByUserId: number;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  approvedByUserId: number | null;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  revokedByUserId: number | null;
+  reason: string;
+  /**
+     * @minimum 15
+     * @maximum 1440
+     */
+  durationMinutes: number;
+  requestedAt: string;
+  /** @nullable */
+  approvedAt: string | null;
+  /** @nullable */
+  expiresAt: string | null;
+  /** @nullable */
+  revokedAt: string | null;
+}
+
+export interface PlatformAutopilotGate {
+  effectiveSuspended: boolean;
+  deploymentSuspended: boolean;
+  clearanceRequired: boolean;
+  reasonCode: PlatformAutopilotGateReasonCode;
+  clearance: PlatformAutopilotClearance | null;
+}
+
 export type AutopilotBrainVersionSection = typeof AutopilotBrainVersionSection[keyof typeof AutopilotBrainVersionSection];
 
 
@@ -707,6 +765,8 @@ export interface AutopilotMandate {
 
 export interface AutopilotControlCenter {
   globalSuspended: boolean;
+  globalSuspensionReason: string;
+  platformGate: PlatformAutopilotGate | null;
   liveAuthorityEnabled: false;
   authorityBoundary: AutopilotControlCenterAuthorityBoundaryItem[];
   snapshot: AutopilotControlCenterSnapshot;
@@ -1811,6 +1871,8 @@ export type AdminSessionStatusStepUp = {
 };
 
 export interface AdminSessionStatus {
+  /** @minimum 1 */
+  actorUserId: number;
   eligible: boolean;
   roles: AdminSessionStatusRolesItem[];
   permissions: string[];
@@ -1853,6 +1915,40 @@ export interface AdminOverview {
   counts: AdminOverviewCounts;
   autopilot: AdminOverviewAutopilot;
   authorityBoundary: string;
+}
+
+export interface AdminAutopilotGateResponse {
+  asOf: string;
+  gate: PlatformAutopilotGate;
+  safetyBoundary: string;
+}
+
+export interface AdminAutopilotClearanceRequest {
+  /**
+     * @minLength 8
+     * @maxLength 500
+     */
+  reason: string;
+  /**
+     * @minimum 15
+     * @maximum 1440
+     */
+  durationMinutes: number;
+  confirmation: 'REQUEST_BOUNDED_PLATFORM_AUTOPILOT_CLEARANCE';
+}
+
+export interface AdminAutopilotClearanceDecision {
+  /**
+     * @minLength 8
+     * @maxLength 500
+     */
+  reason: string;
+  confirmation: string;
+}
+
+export interface AdminAutopilotClearanceMutationResponse {
+  clearance: PlatformAutopilotClearance;
+  gate: PlatformAutopilotGate;
 }
 
 /**

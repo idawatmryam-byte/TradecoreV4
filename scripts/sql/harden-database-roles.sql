@@ -104,6 +104,7 @@ REVOKE UPDATE, DELETE, TRUNCATE ON TABLE public.live_safety_events FROM :"app_ro
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.platform_role_assignments FROM :"app_role";
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.platform_access_versions FROM :"app_role";
 REVOKE UPDATE, DELETE, TRUNCATE ON TABLE public.platform_audit_events FROM :"app_role";
+REVOKE UPDATE, DELETE, TRUNCATE ON TABLE public.platform_autopilot_clearance_events FROM :"app_role";
 \ir phase-10-runtime-grants.sql
 
 REVOKE ALL ON ALL TABLES IN SCHEMA capture FROM :"app_role";

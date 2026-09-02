@@ -94,12 +94,20 @@ operator; both actions require recent Admin step-up, a reason, permissions, and
 append-only audit evidence.
 
 `AUTOPILOT_GLOBAL_SUSPENDED=true` is a deployment emergency hard stop. It
-overrides the database switch and cannot be cleared in the Admin Console. An
-absent value or explicit `false` delegates to the database-backed control;
-`false` does not grant authority or bypass mandate, control, risk, reconciliation,
-or execution checks. A malformed value fails closed as a deployment hard stop.
-These controls apply only to Demo, testnet, and practice AutoPilot; Live AutoPilot
-remains unavailable.
+overrides every database-backed control and cannot be cleared in the Admin
+Console. In production, an absent, malformed, or explicit `true` value keeps the
+bounded-clearance gate suspended; an explicit `false` only delegates to the
+database-backed controls.
+
+Broker-backed testnet and practice AutoPilot therefore require two independent
+platform gates to be clear: the persisted safety switch must receive its
+time-limited, two-operator resume, and an unexpired bounded clearance must be
+requested by one `PLATFORM_ADMIN` and approved by a different
+`PLATFORM_ADMIN`. Clearance lasts from 15 minutes to 24 hours, is append-only,
+and may be revoked immediately by `PLATFORM_ADMIN` or `OPERATIONS_RISK`.
+Internal simulated Demo does not use this broker control plane, and Live
+AutoPilot remains unavailable. No platform action bypasses mandate, control,
+risk, reconciliation, kill-switch, or execution checks.
 
 ## Audit and forward soak
 
@@ -210,7 +218,8 @@ variable to its reviewed value. Do not store or print the token.
    short-lived mandate with the intended risk/portfolio/Phase 7 limits. After
    the separate temporary activation approval, ensure the deployment emergency
    hard stop is absent or explicitly `false`, complete the two-operator Admin
-   resume, verify readiness, and only then activate that exact mandate. Confirm
+   resume, request and obtain bounded dual-operator clearance in Admin Console,
+   verify readiness, and only then activate that exact mandate. Confirm
    `engineDesiredRunning=false` before continuing.
 
 3. In an access-controlled operator shell, arm only the CLI process and run the

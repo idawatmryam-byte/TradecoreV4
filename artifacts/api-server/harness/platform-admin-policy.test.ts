@@ -33,6 +33,27 @@ assert.equal(
   "operations and risk may participate in dual-operator Demo AutoPilot resume",
 );
 assert.equal(
+  permissionsForRoles(["OPERATIONS_RISK"]).includes(
+    "admin.autopilot.clearance.approve",
+  ),
+  false,
+  "operations and risk may revoke but cannot increase platform AutoPilot authority",
+);
+assert.equal(
+  permissionsForRoles(["OPERATIONS_RISK"]).includes(
+    "admin.autopilot.clearance.revoke",
+  ),
+  true,
+  "operations and risk may immediately reduce platform AutoPilot authority",
+);
+assert.equal(
+  permissionsForRoles(["AUDITOR"]).includes(
+    "admin.autopilot.clearance.request",
+  ),
+  false,
+  "auditors cannot mutate platform AutoPilot clearance",
+);
+assert.equal(
   permissionsForRoles(["AUDITOR"]).includes("admin.users.read"),
   false,
   "auditors cannot read user access records",
