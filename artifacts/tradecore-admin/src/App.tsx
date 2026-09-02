@@ -224,6 +224,334 @@ interface OverviewData {
   authorityBoundary: string;
 }
 
+interface PlatformAutopilotClearance {
+  clearanceId: string;
+  state: "PENDING" | "ACTIVE" | "EXPIRED" | "REVOKED";
+  requestedByUserId: number;
+  approvedByUserId: number | null;
+  revokedByUserId: number | null;
+  reason: string;
+  durationMinutes: number;
+  requestedAt: string;
+  approvedAt: string | null;
+  expiresAt: string | null;
+  revokedAt: string | null;
+}
+
+interface PlatformAutopilotData {
+  asOf: string;
+  gate: {
+    effectiveSuspended: boolean;
+    deploymentSuspended: boolean;
+    clearanceRequired: boolean;
+    reasonCode: string;
+    clearance: PlatformAutopilotClearance | null;
+  };
+  safetyBoundary: string;
+}
+
+function PlatformAutopilotPage() {
+  const queryClient = useQueryClient();
+  const query = useAdminData<PlatformAutopilotData>(
+    "autopilot",
+    "/autopilot",
+    10_000,
+  );
+  const session = useQuery({
+    queryKey: ["admin-session"],
+    queryFn: () => adminApi<AdminSessionStatus>("/session/status"),
+  });
+  const [reason, setReason] = useState("");
+  const [durationMinutes, setDurationMinutes] = useState(60);
+  const [confirmed, setConfirmed] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const permissions = session.data?.permissions ?? [];
+  const clearance = query.data?.gate.clearance ?? null;
+
+  const mutation = useMutation({
+    mutationFn: async (action: "request" | "approve" | "revoke") => {
+      if (action === "request") {
+        return adminApi("/autopilot/clearances", {
+          method: "POST",
+          body: JSON.stringify({
+            reason,
+            durationMinutes,
+            confirmation: "REQUEST_BOUNDED_PLATFORM_AUTOPILOT_CLEARANCE",
+          }),
+        });
+      }
+      if (!clearance) throw new Error("No platform clearance is available");
+      return adminApi(
+        `/autopilot/clearances/${clearance.clearanceId}/${action}`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            reason,
+            confirmation:
+              action === "approve"
+                ? "APPROVE_BOUNDED_PLATFORM_AUTOPILOT_CLEARANCE"
+                : "REVOKE_PLATFORM_AUTOPILOT_CLEARANCE",
+          }),
+        },
+      );
+    },
+    onSuccess: async (_result, action) => {
+      setReason("");
+      setConfirmed(false);
+      setMessage(
+        action === "request"
+          ? "Clearance requested. A different platform administrator must approve it."
+          : action === "approve"
+            ? "Bounded platform clearance approved. The deployment stop and all tenant safety gates remain authoritative."
+            : "Platform clearance revoked; new AutoPilot entries are paused.",
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin", "autopilot"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "audit"] }),
+      ]);
+    },
+  });
+
+  if (query.isLoading || session.isLoading)
+    return <Spinner label="Loading platform AutoPilot gate" />;
+  if (query.error || !query.data) return <ErrorPanel error={query.error} />;
+  const data = query.data;
+  const canRequest = permissions.includes("admin.autopilot.clearance.request");
+  const canApprove = permissions.includes("admin.autopilot.clearance.approve");
+  const canRevoke = permissions.includes("admin.autopilot.clearance.revoke");
+  const selfRequested =
+    clearance?.requestedByUserId === session.data?.actorUserId;
+  const outstanding =
+    clearance?.state === "PENDING" || clearance?.state === "ACTIVE";
+
+  return (
+    <>
+      <PageHeader
+        eyebrow="Bounded platform authority"
+        title="AutoPilot Clearance"
+        description="Authorize the platform gate without bypassing the deployment stop or any tenant trading and risk safeguard."
+      />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Metric
+          label="Effective platform gate"
+          value={
+            <StateBadge
+              state={data.gate.effectiveSuspended ? "PAUSED" : "CLEAR"}
+            />
+          }
+        />
+        <Metric
+          label="Deployment hard stop"
+          value={
+            <StateBadge
+              state={data.gate.deploymentSuspended ? "ACTIVE" : "CLEAR"}
+            />
+          }
+          detail="Cannot be overridden from this console"
+        />
+        <Metric
+          label="Admin clearance"
+          value={
+            <StateBadge
+              state={
+                clearance?.state ??
+                (data.gate.clearanceRequired ? "MISSING" : "NOT REQUIRED")
+              }
+            />
+          }
+        />
+        <Metric
+          label="Gate evidence"
+          value={
+            <span className="text-sm">
+              {data.gate.reasonCode.replaceAll("_", " ")}
+            </span>
+          }
+          detail={`As of ${formatValue(data.asOf)}`}
+        />
+      </div>
+
+      <section className="admin-panel mt-5 border-warning/30 bg-warning/5 p-5">
+        <div className="flex items-start gap-3">
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
+          <div>
+            <h2 className="m-0 text-sm font-semibold">Safety boundary</h2>
+            <p className="mb-0 mt-2 text-sm leading-6 text-muted-foreground">
+              {data.safetyBoundary}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {clearance && (
+        <section className="admin-panel mt-5 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="m-0 text-sm font-semibold">
+              Current clearance evidence
+            </h2>
+            <StateBadge state={clearance.state} />
+          </div>
+          <dl className="mt-4 grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <dt className="text-muted-foreground">Requested by</dt>
+              <dd className="m-0 mt-1 font-mono">
+                User {clearance.requestedByUserId}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Approved by</dt>
+              <dd className="m-0 mt-1 font-mono">
+                {clearance.approvedByUserId
+                  ? `User ${clearance.approvedByUserId}`
+                  : "Awaiting second admin"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Duration</dt>
+              <dd className="m-0 mt-1 font-mono">
+                {clearance.durationMinutes} minutes
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Expires</dt>
+              <dd className="m-0 mt-1 font-mono">
+                {formatValue(clearance.expiresAt)}
+              </dd>
+            </div>
+          </dl>
+          <p className="mb-0 mt-4 rounded-lg border bg-background/40 p-3 text-sm">
+            {clearance.reason}
+          </p>
+        </section>
+      )}
+
+      {(canRequest || canApprove || canRevoke) && (
+        <section className="admin-panel mt-5 max-w-3xl p-5 sm:p-6">
+          <h2 className="m-0 text-sm font-semibold">Operator action</h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Requests and approvals are append-only. Approval must come from a
+            different platform administrator and expires automatically after at
+            most 24 hours. Revocation is immediate.
+          </p>
+          <div className="mt-5 space-y-4">
+            {!outstanding && canRequest && (
+              <label
+                className="block text-sm font-medium"
+                htmlFor="clearance-duration"
+              >
+                Clearance duration
+                <select
+                  id="clearance-duration"
+                  value={durationMinutes}
+                  onChange={(event) =>
+                    setDurationMinutes(Number(event.target.value))
+                  }
+                  className="mt-2 min-h-11 w-full rounded-lg border bg-background px-3"
+                >
+                  <option value={15}>15 minutes</option>
+                  <option value={60}>1 hour</option>
+                  <option value={240}>4 hours</option>
+                  <option value={480}>8 hours</option>
+                  <option value={1440}>24 hours</option>
+                </select>
+              </label>
+            )}
+            <label
+              className="block text-sm font-medium"
+              htmlFor="clearance-reason"
+            >
+              Operator reason
+              <textarea
+                id="clearance-reason"
+                minLength={8}
+                maxLength={500}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                className="mt-2 min-h-24 w-full rounded-lg border bg-background p-3"
+              />
+            </label>
+            <label className="flex items-start gap-3 rounded-lg border p-3 text-sm">
+              <input
+                type="checkbox"
+                checked={confirmed}
+                onChange={(event) => setConfirmed(event.target.checked)}
+                className="mt-1"
+              />
+              <span>
+                I confirm this action does not bypass the deployment suspension
+                or grant tenant, broker, mandate, or Live trading authority.
+              </span>
+            </label>
+            {mutation.error && (
+              <p
+                className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+                role="alert"
+              >
+                {mutation.error.message}
+              </p>
+            )}
+            {message && (
+              <p
+                className="rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm text-primary"
+                role="status"
+              >
+                {message}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-3">
+              {!outstanding && canRequest && (
+                <button
+                  type="button"
+                  disabled={
+                    mutation.isPending || reason.trim().length < 8 || !confirmed
+                  }
+                  onClick={() => mutation.mutate("request")}
+                  className="min-h-11 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                >
+                  Request clearance
+                </button>
+              )}
+              {clearance?.state === "PENDING" && canApprove && (
+                <button
+                  type="button"
+                  disabled={
+                    mutation.isPending ||
+                    selfRequested ||
+                    reason.trim().length < 8 ||
+                    !confirmed
+                  }
+                  onClick={() => mutation.mutate("approve")}
+                  className="min-h-11 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                >
+                  Approve as second admin
+                </button>
+              )}
+              {outstanding && canRevoke && (
+                <button
+                  type="button"
+                  disabled={
+                    mutation.isPending || reason.trim().length < 8 || !confirmed
+                  }
+                  onClick={() => mutation.mutate("revoke")}
+                  className="min-h-11 rounded-lg border border-destructive/40 px-5 text-sm font-semibold text-destructive disabled:opacity-50"
+                >
+                  Revoke clearance
+                </button>
+              )}
+            </div>
+            {clearance?.state === "PENDING" && selfRequested && (
+              <p className="text-xs text-muted-foreground">
+                You requested this clearance. A different platform administrator
+                must sign in and approve it.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+    </>
+  );
+}
+
 function OverviewPage() {
   const query = useAdminData<OverviewData>("overview", "/overview", 15_000);
   if (query.isLoading) return <Spinner label="Loading platform overview" />;
@@ -1275,6 +1603,7 @@ function NotFound() {
 
 const NAV = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
+  { href: "/autopilot", label: "AutoPilot Clearance", icon: Bot },
   { href: "/health", label: "System Health", icon: Activity },
   { href: "/ai", label: "AI / Brain", icon: BrainCircuit },
   { href: "/execution", label: "Execution", icon: ServerCog },
@@ -1419,7 +1748,7 @@ function AdminShell({ session }: { session: AdminSessionStatus }) {
               <Menu className="h-5 w-5" />
             </button>
             <div>
-              <span className="admin-kicker block">Guarded operations</span>
+              <span className="admin-kicker block">Platform operations</span>
               <strong className="mt-1 block text-sm">{title}</strong>
             </div>
           </div>
@@ -1448,6 +1777,7 @@ function AdminShell({ session }: { session: AdminSessionStatus }) {
         >
           <Switch>
             <Route path="/" component={OverviewPage} />
+            <Route path="/autopilot" component={PlatformAutopilotPage} />
             <Route path="/health" component={HealthPage} />
             <Route path="/ai" component={AiPage} />
             <Route path="/execution" component={ExecutionPage} />

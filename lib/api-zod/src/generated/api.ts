@@ -7248,6 +7248,12 @@ export const CancelResearchExperimentResponse = zod.object({
 /**
  * @summary Read the Phase 10 control center
  */
+
+
+
+export const getAutopilotControlResponsePlatformGateOneClearanceOneDurationMinutesMin = 15;
+export const getAutopilotControlResponsePlatformGateOneClearanceOneDurationMinutesMax = 1440;
+
 export const getAutopilotControlResponseVersionsItemFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
 export const getAutopilotControlResponseMandatesItemConfigFingerprintRegExp = new RegExp('^[a-fA-F0-9]{64}$');
 
@@ -7286,6 +7292,26 @@ export const getAutopilotControlResponseMandatesItemFingerprintRegExp = new RegE
 
 export const GetAutopilotControlResponse = zod.object({
   "globalSuspended": zod.boolean(),
+  "globalSuspensionReason": zod.string(),
+  "platformGate": zod.union([zod.object({
+  "effectiveSuspended": zod.boolean(),
+  "deploymentSuspended": zod.boolean(),
+  "clearanceRequired": zod.boolean(),
+  "reasonCode": zod.enum(['DEPLOYMENT_SUSPENSION_ACTIVE', 'ADMIN_CLEARANCE_REQUIRED', 'ADMIN_CLEARANCE_UNAVAILABLE', 'PLATFORM_GATE_CLEAR']),
+  "clearance": zod.union([zod.object({
+  "clearanceId": zod.string().uuid(),
+  "state": zod.enum(['PENDING', 'ACTIVE', 'EXPIRED', 'REVOKED']),
+  "requestedByUserId": zod.number().min(1),
+  "approvedByUserId": zod.number().min(1).nullable(),
+  "revokedByUserId": zod.number().min(1).nullable(),
+  "reason": zod.string(),
+  "durationMinutes": zod.number().min(getAutopilotControlResponsePlatformGateOneClearanceOneDurationMinutesMin).max(getAutopilotControlResponsePlatformGateOneClearanceOneDurationMinutesMax),
+  "requestedAt": zod.coerce.date(),
+  "approvedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "revokedAt": zod.coerce.date().nullable()
+}),zod.null()])
+}),zod.null()]),
   "liveAuthorityEnabled": zod.boolean(),
   "authorityBoundary": zod.array(zod.enum(['simulated_demo', 'binance_spot_testnet', 'binance_futures_demo', 'oanda_practice'])),
   "snapshot": zod.record(zod.string(), zod.unknown()),
@@ -8123,7 +8149,11 @@ export const ExportAccountTradesCsvResponse = zod.unknown()
 /**
  * @summary Get platform eligibility and recent step-up state
  */
+
+
+
 export const GetAdminSessionStatusResponse = zod.object({
+  "actorUserId": zod.number().min(1),
   "eligible": zod.boolean(),
   "roles": zod.array(zod.enum(['PLATFORM_ADMIN', 'OPERATIONS_RISK', 'SUPPORT', 'AUDITOR'])),
   "permissions": zod.array(zod.string()),
@@ -8176,6 +8206,244 @@ export const GetAdminOverviewResponse = zod.object({
 
 
 /**
+ * @summary Get the effective platform AutoPilot gate and clearance evidence
+ */
+
+
+
+export const getAdminAutopilotGateResponseGateClearanceOneDurationMinutesMin = 15;
+export const getAdminAutopilotGateResponseGateClearanceOneDurationMinutesMax = 1440;
+
+
+
+export const GetAdminAutopilotGateResponse = zod.object({
+  "asOf": zod.coerce.date(),
+  "gate": zod.object({
+  "effectiveSuspended": zod.boolean(),
+  "deploymentSuspended": zod.boolean(),
+  "clearanceRequired": zod.boolean(),
+  "reasonCode": zod.enum(['DEPLOYMENT_SUSPENSION_ACTIVE', 'ADMIN_CLEARANCE_REQUIRED', 'ADMIN_CLEARANCE_UNAVAILABLE', 'PLATFORM_GATE_CLEAR']),
+  "clearance": zod.union([zod.object({
+  "clearanceId": zod.string().uuid(),
+  "state": zod.enum(['PENDING', 'ACTIVE', 'EXPIRED', 'REVOKED']),
+  "requestedByUserId": zod.number().min(1),
+  "approvedByUserId": zod.number().min(1).nullable(),
+  "revokedByUserId": zod.number().min(1).nullable(),
+  "reason": zod.string(),
+  "durationMinutes": zod.number().min(getAdminAutopilotGateResponseGateClearanceOneDurationMinutesMin).max(getAdminAutopilotGateResponseGateClearanceOneDurationMinutesMax),
+  "requestedAt": zod.coerce.date(),
+  "approvedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "revokedAt": zod.coerce.date().nullable()
+}),zod.null()])
+}),
+  "safetyBoundary": zod.string()
+})
+
+
+/**
+ * Creates append-only pending evidence. A different platform administrator must approve it.
+ * @summary Request a bounded platform AutoPilot clearance
+ */
+export const requestAdminAutopilotClearanceBodyReasonMin = 8;
+export const requestAdminAutopilotClearanceBodyReasonMax = 500;
+
+export const requestAdminAutopilotClearanceBodyDurationMinutesMin = 15;
+export const requestAdminAutopilotClearanceBodyDurationMinutesMax = 1440;
+
+
+
+export const RequestAdminAutopilotClearanceBody = zod.object({
+  "reason": zod.string().min(requestAdminAutopilotClearanceBodyReasonMin).max(requestAdminAutopilotClearanceBodyReasonMax),
+  "durationMinutes": zod.number().min(requestAdminAutopilotClearanceBodyDurationMinutesMin).max(requestAdminAutopilotClearanceBodyDurationMinutesMax),
+  "confirmation": zod.literal("REQUEST_BOUNDED_PLATFORM_AUTOPILOT_CLEARANCE")
+})
+
+
+
+
+export const requestAdminAutopilotClearanceResponseClearanceDurationMinutesMin = 15;
+export const requestAdminAutopilotClearanceResponseClearanceDurationMinutesMax = 1440;
+
+
+
+
+export const requestAdminAutopilotClearanceResponseGateClearanceOneDurationMinutesMin = 15;
+export const requestAdminAutopilotClearanceResponseGateClearanceOneDurationMinutesMax = 1440;
+
+
+
+export const RequestAdminAutopilotClearanceResponse = zod.object({
+  "clearance": zod.object({
+  "clearanceId": zod.string().uuid(),
+  "state": zod.enum(['PENDING', 'ACTIVE', 'EXPIRED', 'REVOKED']),
+  "requestedByUserId": zod.number().min(1),
+  "approvedByUserId": zod.number().min(1).nullable(),
+  "revokedByUserId": zod.number().min(1).nullable(),
+  "reason": zod.string(),
+  "durationMinutes": zod.number().min(requestAdminAutopilotClearanceResponseClearanceDurationMinutesMin).max(requestAdminAutopilotClearanceResponseClearanceDurationMinutesMax),
+  "requestedAt": zod.coerce.date(),
+  "approvedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "revokedAt": zod.coerce.date().nullable()
+}),
+  "gate": zod.object({
+  "effectiveSuspended": zod.boolean(),
+  "deploymentSuspended": zod.boolean(),
+  "clearanceRequired": zod.boolean(),
+  "reasonCode": zod.enum(['DEPLOYMENT_SUSPENSION_ACTIVE', 'ADMIN_CLEARANCE_REQUIRED', 'ADMIN_CLEARANCE_UNAVAILABLE', 'PLATFORM_GATE_CLEAR']),
+  "clearance": zod.union([zod.object({
+  "clearanceId": zod.string().uuid(),
+  "state": zod.enum(['PENDING', 'ACTIVE', 'EXPIRED', 'REVOKED']),
+  "requestedByUserId": zod.number().min(1),
+  "approvedByUserId": zod.number().min(1).nullable(),
+  "revokedByUserId": zod.number().min(1).nullable(),
+  "reason": zod.string(),
+  "durationMinutes": zod.number().min(requestAdminAutopilotClearanceResponseGateClearanceOneDurationMinutesMin).max(requestAdminAutopilotClearanceResponseGateClearanceOneDurationMinutesMax),
+  "requestedAt": zod.coerce.date(),
+  "approvedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "revokedAt": zod.coerce.date().nullable()
+}),zod.null()])
+})
+})
+
+
+/**
+ * @summary Approve a pending clearance as a different platform administrator
+ */
+export const ApproveAdminAutopilotClearanceParams = zod.object({
+  "clearanceId": zod.coerce.string().uuid()
+})
+
+export const approveAdminAutopilotClearanceBodyReasonMin = 8;
+export const approveAdminAutopilotClearanceBodyReasonMax = 500;
+
+
+
+export const ApproveAdminAutopilotClearanceBody = zod.object({
+  "reason": zod.string().min(approveAdminAutopilotClearanceBodyReasonMin).max(approveAdminAutopilotClearanceBodyReasonMax),
+  "confirmation": zod.string()
+})
+
+
+
+
+export const approveAdminAutopilotClearanceResponseClearanceDurationMinutesMin = 15;
+export const approveAdminAutopilotClearanceResponseClearanceDurationMinutesMax = 1440;
+
+
+
+
+export const approveAdminAutopilotClearanceResponseGateClearanceOneDurationMinutesMin = 15;
+export const approveAdminAutopilotClearanceResponseGateClearanceOneDurationMinutesMax = 1440;
+
+
+
+export const ApproveAdminAutopilotClearanceResponse = zod.object({
+  "clearance": zod.object({
+  "clearanceId": zod.string().uuid(),
+  "state": zod.enum(['PENDING', 'ACTIVE', 'EXPIRED', 'REVOKED']),
+  "requestedByUserId": zod.number().min(1),
+  "approvedByUserId": zod.number().min(1).nullable(),
+  "revokedByUserId": zod.number().min(1).nullable(),
+  "reason": zod.string(),
+  "durationMinutes": zod.number().min(approveAdminAutopilotClearanceResponseClearanceDurationMinutesMin).max(approveAdminAutopilotClearanceResponseClearanceDurationMinutesMax),
+  "requestedAt": zod.coerce.date(),
+  "approvedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "revokedAt": zod.coerce.date().nullable()
+}),
+  "gate": zod.object({
+  "effectiveSuspended": zod.boolean(),
+  "deploymentSuspended": zod.boolean(),
+  "clearanceRequired": zod.boolean(),
+  "reasonCode": zod.enum(['DEPLOYMENT_SUSPENSION_ACTIVE', 'ADMIN_CLEARANCE_REQUIRED', 'ADMIN_CLEARANCE_UNAVAILABLE', 'PLATFORM_GATE_CLEAR']),
+  "clearance": zod.union([zod.object({
+  "clearanceId": zod.string().uuid(),
+  "state": zod.enum(['PENDING', 'ACTIVE', 'EXPIRED', 'REVOKED']),
+  "requestedByUserId": zod.number().min(1),
+  "approvedByUserId": zod.number().min(1).nullable(),
+  "revokedByUserId": zod.number().min(1).nullable(),
+  "reason": zod.string(),
+  "durationMinutes": zod.number().min(approveAdminAutopilotClearanceResponseGateClearanceOneDurationMinutesMin).max(approveAdminAutopilotClearanceResponseGateClearanceOneDurationMinutesMax),
+  "requestedAt": zod.coerce.date(),
+  "approvedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "revokedAt": zod.coerce.date().nullable()
+}),zod.null()])
+})
+})
+
+
+/**
+ * @summary Immediately revoke an active or pending platform clearance
+ */
+export const RevokeAdminAutopilotClearanceParams = zod.object({
+  "clearanceId": zod.coerce.string().uuid()
+})
+
+export const revokeAdminAutopilotClearanceBodyReasonMin = 8;
+export const revokeAdminAutopilotClearanceBodyReasonMax = 500;
+
+
+
+export const RevokeAdminAutopilotClearanceBody = zod.object({
+  "reason": zod.string().min(revokeAdminAutopilotClearanceBodyReasonMin).max(revokeAdminAutopilotClearanceBodyReasonMax),
+  "confirmation": zod.string()
+})
+
+
+
+
+export const revokeAdminAutopilotClearanceResponseClearanceDurationMinutesMin = 15;
+export const revokeAdminAutopilotClearanceResponseClearanceDurationMinutesMax = 1440;
+
+
+
+
+export const revokeAdminAutopilotClearanceResponseGateClearanceOneDurationMinutesMin = 15;
+export const revokeAdminAutopilotClearanceResponseGateClearanceOneDurationMinutesMax = 1440;
+
+
+
+export const RevokeAdminAutopilotClearanceResponse = zod.object({
+  "clearance": zod.object({
+  "clearanceId": zod.string().uuid(),
+  "state": zod.enum(['PENDING', 'ACTIVE', 'EXPIRED', 'REVOKED']),
+  "requestedByUserId": zod.number().min(1),
+  "approvedByUserId": zod.number().min(1).nullable(),
+  "revokedByUserId": zod.number().min(1).nullable(),
+  "reason": zod.string(),
+  "durationMinutes": zod.number().min(revokeAdminAutopilotClearanceResponseClearanceDurationMinutesMin).max(revokeAdminAutopilotClearanceResponseClearanceDurationMinutesMax),
+  "requestedAt": zod.coerce.date(),
+  "approvedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "revokedAt": zod.coerce.date().nullable()
+}),
+  "gate": zod.object({
+  "effectiveSuspended": zod.boolean(),
+  "deploymentSuspended": zod.boolean(),
+  "clearanceRequired": zod.boolean(),
+  "reasonCode": zod.enum(['DEPLOYMENT_SUSPENSION_ACTIVE', 'ADMIN_CLEARANCE_REQUIRED', 'ADMIN_CLEARANCE_UNAVAILABLE', 'PLATFORM_GATE_CLEAR']),
+  "clearance": zod.union([zod.object({
+  "clearanceId": zod.string().uuid(),
+  "state": zod.enum(['PENDING', 'ACTIVE', 'EXPIRED', 'REVOKED']),
+  "requestedByUserId": zod.number().min(1),
+  "approvedByUserId": zod.number().min(1).nullable(),
+  "revokedByUserId": zod.number().min(1).nullable(),
+  "reason": zod.string(),
+  "durationMinutes": zod.number().min(revokeAdminAutopilotClearanceResponseGateClearanceOneDurationMinutesMin).max(revokeAdminAutopilotClearanceResponseGateClearanceOneDurationMinutesMax),
+  "requestedAt": zod.coerce.date(),
+  "approvedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "revokedAt": zod.coerce.date().nullable()
+}),zod.null()])
+})
+})
+
+
+/**
  * @summary Get authoritative and not-provisioned service health
  */
 export const GetAdminSystemHealthResponse = zod.record(zod.string(), zod.unknown()).describe('Endpoint-specific read-only data; unsupported subsystems report NOT_PROVISIONED.')
@@ -8202,7 +8470,7 @@ export const GetAdminRiskSafetyResponse = zod.record(zod.string(), zod.unknown()
 
 /**
  * Requires a second distinct qualified operator before authority is expanded.
- * @summary Request a time-limited platform Demo AutoPilot resume
+ * @summary Request a time-limited broker sandbox AutoPilot resume
  */
 export const requestAdminAutopilotResumeBodyReasonMin = 8;
 export const requestAdminAutopilotResumeBodyReasonMax = 500;
@@ -8243,7 +8511,7 @@ export const RequestAdminAutopilotResumeResponse = zod.object({
 
 
 /**
- * @summary Approve a platform Demo AutoPilot resume as the second operator
+ * @summary Approve a broker sandbox AutoPilot resume as the second operator
  */
 export const approveAdminAutopilotResumeBodyReasonMin = 8;
 export const approveAdminAutopilotResumeBodyReasonMax = 500;

@@ -42,7 +42,8 @@ WHERE table_schema = 'public'
     'live_safety_events',
     'platform_role_assignments',
     'platform_access_versions',
-    'platform_audit_events'
+    'platform_audit_events',
+    'platform_autopilot_clearance_events'
   )
 GROUP BY table_schema, table_name
 \gexec
@@ -66,7 +67,8 @@ REVOKE ALL ON TABLE
   public.live_safety_events,
   public.platform_role_assignments,
   public.platform_access_versions,
-  public.platform_audit_events
+  public.platform_audit_events,
+  public.platform_autopilot_clearance_events
 FROM :"app_role";
 
 -- Every Phase 10 table is readable and insertable by the runtime. Immutable
@@ -101,7 +103,8 @@ GRANT SELECT ON TABLE
   public.platform_access_versions
 TO :"app_role";
 GRANT SELECT, INSERT ON TABLE
-  public.platform_audit_events
+  public.platform_audit_events,
+  public.platform_autopilot_clearance_events
 TO :"app_role";
 
 -- Mutable projections receive only the columns their existing state machines
