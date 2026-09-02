@@ -216,7 +216,7 @@ export function Settings() {
     scanIntervalSeconds: 15,
     pairs: "BTCUSDT,ETHUSDT",
     executionTarget: "demo" as "demo" | "live",
-    mode: "copilot" as "research" | "copilot" | "autopilot",
+    mode: "autopilot" as "research" | "copilot" | "autopilot",
     positionManagementMode: "fixed" as "fixed" | "phase7_shadow" | "phase7_active",
     testnet: true,
     backtestMode: false,
@@ -391,17 +391,8 @@ export function Settings() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-        {/* WHO DECIDES.
-            Every new section starts in Co-Pilot, and until now there was
-            no way out of it from the UI — the column and PUT /config
-            supported all three modes, but nothing rendered a control, so
-            an account could never reach AutoPilot. Three named choices
-            rather than a toggle: they are not two ends of one axis, and
-            "off/on" would leave Research unreachable.
-
-            The pipeline is identical in all three. Only the executor at
-            the end differs, which is why this is a setting and not a
-            different product. */}
+        {/* The intelligence pipeline is shared; the selected mode changes only
+            what happens after a TradePlan passes the existing checks. */}
         <div className="p-3 border rounded-md bg-muted/30 space-y-3">
           <div className="space-y-0.5">
             <Label className="text-sm font-bold flex items-center gap-2">

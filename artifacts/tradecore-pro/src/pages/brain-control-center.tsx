@@ -75,7 +75,7 @@ export function BrainControlCenter() {
   const approvedBrain = controlQuery.data?.versions.find((item) => item.state === "DEMO_APPROVED");
   const enabledStrategies = strategiesQuery.data?.filter((item) => item.config.enabled) ?? [];
   const config = configQuery.data;
-  const [reason, setReason] = useState("Operator reviewed the exact Demo Autopilot safety state");
+  const [reason, setReason] = useState("Operator reviewed the exact broker sandbox AutoPilot safety state");
   const [expiresAt, setExpiresAt] = useState("");
   const [positionSize, setPositionSize] = useState("");
   const [dailyLoss, setDailyLoss] = useState("");
@@ -102,7 +102,7 @@ export function BrainControlCenter() {
     mutationFn: async (run: () => Promise<unknown>) => run(),
     onSuccess: async () => {
       await refresh();
-      toast({ title: "Demo Autopilot control updated", description: "The durable state and audit history were refreshed." });
+      toast({ title: "Broker sandbox AutoPilot updated", description: "The durable state and audit history were refreshed." });
     },
     onError: (error) => toast({ title: "Safety action refused", description: errorMessage(error), variant: "destructive" }),
   });
@@ -134,21 +134,63 @@ export function BrainControlCenter() {
   const metrics = (soakQuery.data?.metrics ?? {}) as Record<string, unknown>;
   const events = (controlQuery.data?.events ?? []) as AuditEvent[];
 
+  if (config?.executionTarget === "demo") {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          icon={BrainCircuit}
+          title="Demo AutoPilot"
+          description="Automatic simulated execution is available as soon as the account is created."
+        />
+
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <CardTitle>Ready without administrator approval</CardTitle>
+                <CardDescription>
+                  Internal Demo uses simulated funds and does not require broker credentials, a mandate, or an activation workflow.
+                </CardDescription>
+              </div>
+              <Badge variant="success">Available</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4">
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+                <div>
+                  <p className="font-semibold">SIMULATED EXECUTION ONLY</p>
+                  <p className="mt-1 text-muted-foreground">
+                    Start the runtime to let AutoPilot execute Demo trades automatically. Position sizing, exposure, loss, drawdown, stop-loss, and market-data checks remain active.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <p className="text-muted-foreground">
+              Switch to Co-Pilot whenever you want to review each simulated trade before execution. Real-money execution remains a separate, unavailable authority path.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         icon={BrainCircuit}
         title="Brain Control Center"
-        description="Human-controlled authority, immutable mandates, safety state, and forward evidence for Phase 10."
+        description="Broker sandbox authority, immutable mandates, safety state, and forward evidence."
       />
 
       <div className="rounded-xl border-2 border-emerald-500/60 bg-emerald-500/10 p-4" role="status">
         <div className="flex items-start gap-3">
           <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
           <div>
-            <p className="font-semibold">DEMO AUTOPILOT · NO LIVE AUTHORITY</p>
+            <p className="font-semibold">BROKER SANDBOX AUTOPILOT · NO REAL-MONEY AUTHORITY</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Autonomous entries are restricted to simulated Demo, Binance Spot testnet, Binance Futures Demo, and OANDA practice. Pausing entries does not disable protective position management or exits.
+              This control plane applies to Binance Spot testnet, Binance Futures Demo, and OANDA practice. Pausing entries does not disable protective position management or exits.
             </p>
           </div>
         </div>
@@ -168,7 +210,7 @@ export function BrainControlCenter() {
           <CardContent className="space-y-4">
             <div className="rounded-lg border bg-muted/30 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{control?.reasonCode ?? "MANDATE_MISSING"}</p>
-              <p className="mt-1 text-sm">{control?.reason ?? "No Demo Autopilot mandate is active."}</p>
+              <p className="mt-1 text-sm">{control?.reason ?? "No broker sandbox AutoPilot mandate is active."}</p>
             </div>
             <div className="grid gap-3 text-sm sm:grid-cols-2">
               <div><span className="text-muted-foreground">Authority</span><p className="font-mono">{mandate?.executionAuthority ?? "none"}</p></div>

@@ -213,7 +213,7 @@ export function evaluateAutopilotEntry(
     : Number.POSITIVE_INFINITY;
   const checks: AutopilotCheck[] = [
     { name: "Autopilot state", passed: evidence.state === "AUTOPILOT_ENABLED", reasonCode: "AUTOPILOT_NOT_ENABLED", detail: evidence.state === "AUTOPILOT_ENABLED" ? "Autopilot is enabled" : evidence.stateReason },
-    { name: "Global suspension", passed: !evidence.globalSuspended, reasonCode: "GLOBAL_SUSPENSION_ACTIVE", detail: evidence.globalSuspended ? "Global Demo Autopilot suspension is active" : "No global suspension" },
+    { name: "Global suspension", passed: !evidence.globalSuspended, reasonCode: "GLOBAL_SUSPENSION_ACTIVE", detail: evidence.globalSuspended ? "Broker sandbox AutoPilot suspension is active" : "No global suspension" },
     { name: "Configuration suspension", passed: !evidence.configSuspended, reasonCode: "CONFIG_SUSPENSION_ACTIVE", detail: evidence.configSuspended ? "This configuration is suspended" : "Configuration is not suspended" },
     { name: "Mode", passed: evidence.configuredMode === "autopilot", reasonCode: "MODE_NOT_AUTOPILOT", detail: evidence.configuredMode === "autopilot" ? "Configuration requests Autopilot" : `Configured mode is ${evidence.configuredMode}` },
     { name: "Brain version state", passed: evidence.brainVersionState === "DEMO_APPROVED", reasonCode: "BRAIN_VERSION_NOT_DEMO_APPROVED", detail: `Brain version state is ${evidence.brainVersionState}` },

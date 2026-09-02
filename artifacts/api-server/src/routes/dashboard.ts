@@ -18,6 +18,7 @@ import { getFinancialAuthorizationIdentity } from "../middleware/auth";
 import { getLiveExecutionHealth } from "../lib/execution/liveSafetyStore";
 import { getAutopilotSnapshot } from "../lib/autopilot/store";
 import { getPlatformAutopilotSafetyState } from "../lib/platformAutopilotSafety";
+import { requiresAutopilotControlPlane } from "../lib/autopilot/config";
 
 const router: IRouter = Router();
 
@@ -342,22 +343,35 @@ router.get("/dashboard/session", async (req, res): Promise<void> => {
     expiresAt: string | null;
   } = null;
   if (config.mode === "autopilot") {
-    const [snapshot, platformSafety] = await Promise.all([
-      getAutopilotSnapshot(userId, section),
-      getPlatformAutopilotSafetyState(),
-    ]);
-    autopilot = {
-      configured: true,
-      effectiveState: snapshot.control.state,
-      reason: snapshot.control.reason,
-      globalSuspended: platformSafety.effectiveSuspended,
-      mandateId: snapshot.mandate?.id ?? null,
-      mandateFingerprint: snapshot.mandate?.fingerprint ?? null,
-      authorizedStrategies: snapshot.mandate
-        ? Object.keys(snapshot.mandate.strategyVersions)
-        : [],
-      expiresAt: snapshot.mandate?.expiresAt ?? null,
-    };
+    if (!requiresAutopilotControlPlane(config)) {
+      autopilot = {
+        configured: true,
+        effectiveState: "AUTOPILOT_ENABLED",
+        reason: "Internal Demo AutoPilot is available without administrator approval or mandate activation.",
+        globalSuspended: false,
+        mandateId: null,
+        mandateFingerprint: null,
+        authorizedStrategies: [],
+        expiresAt: null,
+      };
+    } else {
+      const [snapshot, platformSafety] = await Promise.all([
+        getAutopilotSnapshot(userId, section),
+        getPlatformAutopilotSafetyState(),
+      ]);
+      autopilot = {
+        configured: true,
+        effectiveState: snapshot.control.state,
+        reason: snapshot.control.reason,
+        globalSuspended: platformSafety.effectiveSuspended,
+        mandateId: snapshot.mandate?.id ?? null,
+        mandateFingerprint: snapshot.mandate?.fingerprint ?? null,
+        authorizedStrategies: snapshot.mandate
+          ? Object.keys(snapshot.mandate.strategyVersions)
+          : [],
+        expiresAt: snapshot.mandate?.expiresAt ?? null,
+      };
+    }
   }
 
   const scanTime = runtime.lastScanAt ? Date.parse(runtime.lastScanAt) : NaN;

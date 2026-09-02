@@ -236,6 +236,7 @@ import {
   recordAutopilotExecutionOutcome,
   suspendAutopilotForSafetyViolation,
 } from "./autopilot/service";
+import { requiresAutopilotControlPlane } from "./autopilot/config";
 import { autopilotMandatePermitsManagementAction } from "./autopilot/contracts";
 import { isAutonomousLiveAuthority } from "./autopilot/contracts";
 import { autopilotConfigFingerprint, strategyConfigVersion } from "./autopilot/fingerprints";
@@ -3858,7 +3859,9 @@ class BotEngine {
         let mandateFallback:
           | { reasonCode: string; reason: string; mandateId: number | null }
           | undefined;
-        if (config.mode === "autopilot") {
+        // The explicit Phase 10 validation fixture still exercises the legacy
+        // mandate/claim evidence path. Normal internal Demo scans bypass it.
+        if (requiresAutopilotControlPlane(config) || validationFixture) {
           let unifiedBrainEvidenceAvailable = false;
           if (sameScanSpecialists && sameScanCouncil) {
             try {
@@ -7175,11 +7178,10 @@ class BotEngine {
         // purpose — that governs backfill of pre-existing rows, and nobody who
         // was already trading for real gets silently moved to paper.
         executionTarget: "demo",
-        // And in Co-Pilot: a new account sees the engine's reasoning and
-        // decides for itself before the engine is trusted to act alone. The
-        // COLUMN default stays "autopilot" so existing rows keep the behaviour
-        // they already had.
-        mode: "copilot",
+        // Internal Demo AutoPilot has no broker, credentials, or real funds and
+        // is available immediately. Live remains a separate credential- and
+        // authority-gated transition.
+        mode: "autopilot",
         // Forex practice accounts are conventionally much larger than crypto
         // ones; mirrors the balances the read-only showroom demo displays.
         demoStartingBalanceUsdt: this.section === "forex" ? "100000" : "10000",

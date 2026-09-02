@@ -29,6 +29,7 @@ import {
 import { buildForwardSoakReport } from "../lib/autopilot/forwardSoak";
 import { verifyFinancialRequestOrigin } from "../middleware/auth";
 import { getPlatformAutopilotSafetyState } from "../lib/platformAutopilotSafety";
+import { requiresAutopilotControlPlane } from "../lib/autopilot/config";
 
 const router: IRouter = Router();
 
@@ -138,17 +139,23 @@ function badRequest(res: Response, error: unknown): void {
 
 router.get("/autopilot/control", async (req, res): Promise<void> => {
   await ensureBrainV0Version(req.userId!, req.section!);
+  const config = await getOrCreateEngine(req.userId!, req.section!, {
+    resumeIdleDemo: false,
+  }).loadConfig();
+  const usesControlPlane = requiresAutopilotControlPlane(config);
   const [snapshot, versions, mandates, events, platformSafety] =
     await Promise.all([
       getAutopilotSnapshot(req.userId!, req.section!),
       listBrainVersions(req.userId!, req.section!),
       listMandates(req.userId!, req.section!),
       listAutopilotEvents(req.userId!, req.section!, 150),
-      getPlatformAutopilotSafetyState(),
+      usesControlPlane ? getPlatformAutopilotSafetyState() : Promise.resolve(null),
     ]);
   res.json({
-    globalSuspended: platformSafety.effectiveSuspended,
-    globalSuspensionReason: platformSafety.reason,
+    globalSuspended: platformSafety?.effectiveSuspended ?? false,
+    globalSuspensionReason:
+      platformSafety?.reason ??
+      "Internal Demo AutoPilot does not use the platform control plane",
     snapshot,
     versions,
     mandates,
@@ -418,8 +425,13 @@ router.post("/autopilot/activate", async (req, res): Promise<void> => {
     return;
   }
   try {
-    const platformSafety = await getPlatformAutopilotSafetyState();
-    if (platformSafety.effectiveSuspended) {
+    const config = await getOrCreateEngine(req.userId!, req.section!, {
+      resumeIdleDemo: false,
+    }).loadConfig();
+    const platformSafety = requiresAutopilotControlPlane(config)
+      ? await getPlatformAutopilotSafetyState()
+      : null;
+    if (platformSafety?.effectiveSuspended) {
       await refuseAutopilotActivationWhileGloballySuspended({
         userId: req.userId!,
         section: req.section!,
@@ -427,12 +439,9 @@ router.post("/autopilot/activate", async (req, res): Promise<void> => {
         actorUserId: req.userId!,
       });
       throw new Error(
-        "Global Demo Autopilot suspension is active; activation is refused",
+        "Broker sandbox AutoPilot suspension is active; activation is refused",
       );
     }
-    const config = await getOrCreateEngine(req.userId!, req.section!, {
-      resumeIdleDemo: false,
-    }).loadConfig();
     const mandate = (await listMandates(req.userId!, req.section!)).find(
       (item) => item.id === parsed.data.mandateId,
     );
@@ -507,14 +516,16 @@ router.post("/autopilot/resume", async (req, res): Promise<void> => {
   try {
     const snapshot = await getAutopilotSnapshot(req.userId!, req.section!);
     if (!snapshot.mandate) throw new Error("No mandate is available to resume");
-    const platformSafety = await getPlatformAutopilotSafetyState();
-    if (platformSafety.effectiveSuspended)
-      throw new Error(
-        "Global Demo Autopilot suspension is active; resume is refused",
-      );
     const config = await getOrCreateEngine(req.userId!, req.section!, {
       resumeIdleDemo: false,
     }).loadConfig();
+    const platformSafety = requiresAutopilotControlPlane(config)
+      ? await getPlatformAutopilotSafetyState()
+      : null;
+    if (platformSafety?.effectiveSuspended)
+      throw new Error(
+        "Broker sandbox AutoPilot suspension is active; resume is refused",
+      );
     if (
       autopilotConfigFingerprint(config) !== snapshot.mandate.configFingerprint
     )
