@@ -4,7 +4,7 @@ const fingerprint = "a".repeat(64);
 const mandate = {
   id: 41, schemaVersion: "phase10-demo-autopilot-v1", userId: 7, section: "crypto", version: 1,
   botConfigId: 9, configFingerprint: "b".repeat(64), brainVersionId: 3, brainVersion: "brain-v0",
-  executionAuthority: "simulated_demo", marketType: "spot", instruments: ["BTCUSDT"],
+  executionAuthority: "binance_spot_testnet", marketType: "spot", instruments: ["BTCUSDT"],
   strategyVersions: { trend_pullback: "strategy-config:test" }, maximumPositionSizeUsdt: 100,
   maximumLeverage: 1, maximumPortfolioRiskPercent: 5, maximumSymbolExposurePercent: 50,
   maximumNetExposurePercent: 100, maximumCorrelatedExposurePercent: 100, dailyLossLimitUsdt: 50,
@@ -19,7 +19,7 @@ const brain = {
   evidenceReferences: ["BRAIN_V0_BASELINE"], createdAt: "2026-08-12T00:00:00.000Z", updatedAt: "2026-08-12T00:00:00.000Z",
 };
 
-async function mockApi(page: Page) {
+async function mockApi(page: Page, executionTarget: "demo" | "live" = "live") {
   let paused = false;
   await page.route("**/api/**", async (route: Route) => {
     const path = new URL(route.request().url()).pathname;
@@ -38,8 +38,8 @@ async function mockApi(page: Page) {
       maxCorrelatedExposurePercent: 100, correlationThreshold: 0.7, correlationUnknownPolicy: "block",
       confidenceThreshold: 65, riskModel: "percent", stopLossPercent: 2, takeProfitPercent: 4,
       maxLossUsdt: 10, targetProfitUsdt: 20, cooldownMinutes: 15, scanIntervalSeconds: 30,
-      pairs: ["BTCUSDT"], executionTarget: "demo", mode: "autopilot", positionManagementMode: "phase7_active",
-      demoStartingBalanceUsdt: 10000, testnet: false, backtestMode: false, highFrequencyTestMode: false,
+      pairs: ["BTCUSDT"], executionTarget, mode: "autopilot", positionManagementMode: "phase7_active",
+      demoStartingBalanceUsdt: 10000, testnet: executionTarget !== "demo", backtestMode: false, highFrequencyTestMode: false,
     };
     else if (path === "/api/strategies") json = [{
       strategyId: "trend_pullback", strategyName: "Trend Pullback", supportedRegimes: ["strong_trend"],
@@ -52,18 +52,18 @@ async function mockApi(page: Page) {
     } else if (path === "/api/autopilot/control") {
       const control = { id: 1, userId: 7, section: "crypto", mandateId: 41, state: paused ? "AUTOPILOT_PAUSED" : "AUTOPILOT_ENABLED", reasonCode: paused ? "HUMAN_PAUSE" : "HUMAN_ACTIVATION_APPROVED", reason: paused ? "Operator requested entry halt" : "Exact Demo mandate and safety checks passed", globalSuspended: false, configSuspended: paused, updatedAt: "2026-08-12T12:00:00.000Z" };
       json = { globalSuspended: false, liveAuthorityEnabled: false, authorityBoundary: ["simulated_demo", "binance_spot_testnet", "binance_futures_demo", "oanda_practice"], snapshot: { control, mandate, brainVersion: brain, mandateState: { state: paused ? "SUSPENDED" : "ACTIVE" } }, versions: [brain], mandates: [mandate], events: [{ id: 1, eventType: "MANDATE_CREATED", reasonCode: "MANDATE_CREATED", reason: "Immutable Demo mandate created", fingerprint, occurredAt: "2026-08-12T00:00:00.000Z" }] };
-    } else if (path === "/api/autopilot/forward-soak") json = { status: "AVAILABLE", generatedAt: "2026-08-12T12:00:00.000Z", reportFingerprint: "d".repeat(64), authority: "simulated_demo", metrics: { autonomousDecisions: 12, executed: 4, refused: 8, failed: 0, protectionCoveragePercent: 100, realizedPnlUsdt: 7.5 } };
+    } else if (path === "/api/autopilot/forward-soak") json = { status: "AVAILABLE", generatedAt: "2026-08-12T12:00:00.000Z", reportFingerprint: "d".repeat(64), authority: "binance_spot_testnet", metrics: { autonomousDecisions: 12, executed: 4, refused: 8, failed: 0, protectionCoveragePercent: 100, realizedPnlUsdt: 7.5 } };
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(json) });
   });
 }
 
-test("Control Center makes Demo-only authority, mandate, evidence, and audit visible", async ({ page }) => {
+test("Control Center makes broker sandbox authority, mandate, evidence, and audit visible", async ({ page }) => {
   await mockApi(page);
   await page.goto("/autopilot");
   await expect(page.getByRole("heading", { name: "Brain Control Center" })).toBeVisible();
-  await expect(page.getByText("DEMO AUTOPILOT · NO LIVE AUTHORITY")).toBeVisible();
+  await expect(page.getByText("BROKER SANDBOX AUTOPILOT · NO REAL-MONEY AUTHORITY")).toBeVisible();
   await expect(page.getByText("AUTOPILOT_ENABLED")).toBeVisible();
-  await expect(page.getByText("simulated_demo")).toBeVisible();
+  await expect(page.getByText("binance_spot_testnet")).toBeVisible();
   await expect(page.getByText("MANDATE_CREATED", { exact: true })).toBeVisible();
   await expect(page.getByText("Brain confidence remains uncalibrated")).toBeVisible();
   await expect(page.getByText("100.0%")).toBeVisible();
@@ -76,4 +76,12 @@ test("entry halt becomes visible without removing protective-management messagin
   await expect(page.getByText("AUTOPILOT_PAUSED")).toBeVisible();
   await expect(page.getByText("Operator requested entry halt")).toBeVisible();
   await expect(page.getByText(/Pausing entries does not disable protective position management or exits/)).toBeVisible();
+});
+
+test("internal Demo shows immediate AutoPilot access without an authority workflow", async ({ page }) => {
+  await mockApi(page, "demo");
+  await page.goto("/autopilot");
+  await expect(page.getByRole("heading", { name: "Demo AutoPilot" })).toBeVisible();
+  await expect(page.getByText("Ready without administrator approval")).toBeVisible();
+  await expect(page.getByText(/does not require broker credentials, a mandate, or an activation workflow/)).toBeVisible();
 });

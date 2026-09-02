@@ -145,10 +145,17 @@ async function main() {
   const engine = new BotEngine(USER, "crypto");
   const e = engine as any;
   const baseConfig = await engine.loadConfig();
-  expect("a new section starts in Co-Pilot", baseConfig.mode === "copilot", String(baseConfig.mode),
+  expect("a new section starts in Demo AutoPilot", baseConfig.mode === "autopilot", String(baseConfig.mode),
   );
   expect("a new section starts in demo", baseConfig.executionTarget === "demo", String(baseConfig.executionTarget),
   );
+
+  // The remainder of this harness exercises Co-Pilot approval semantics, so it
+  // must opt in explicitly now that new accounts begin in Demo AutoPilot.
+  await db.update(botConfigTable).set({ mode: "copilot" }).where(and(
+    eq(botConfigTable.userId, USER),
+    eq(botConfigTable.section, "crypto"),
+  ));
 
   const configs = await loadStrategyConfigs(USER, "crypto");
   const pure: StrategyConfig = {

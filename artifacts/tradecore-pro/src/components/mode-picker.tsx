@@ -30,7 +30,7 @@ export const MODE_LABELS: Record<string, string> = {
 export function ModePicker({
   value,
   onChange,
-  /** Marks Co-Pilot as the suggested starting point. Onboarding only. */
+  /** Marks Demo AutoPilot as the suggested starting point. Onboarding only. */
   showRecommended = false,
 }: {
   value: TradingMode;
@@ -41,7 +41,7 @@ export function ModePicker({
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
       {MODE_OPTIONS.map((m) => {
         const active = value === m.value;
-        const recommended = showRecommended && m.value === "copilot";
+        const recommended = showRecommended && m.value === "autopilot";
         return (
           <button
             key={m.value}

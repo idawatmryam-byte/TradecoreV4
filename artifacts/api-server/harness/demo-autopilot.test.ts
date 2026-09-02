@@ -21,6 +21,7 @@ import {
 import {
   autopilotDeploymentHardStop,
   globalAutopilotSuspended,
+  requiresAutopilotControlPlane,
 } from "../src/lib/autopilot/config";
 
 let failures = 0;
@@ -54,6 +55,18 @@ expect(
 expect(
   "development remains opt-in compatible when suspension is absent",
   !globalAutopilotSuspended({ NODE_ENV: "development" }),
+);
+expect(
+  "internal Demo AutoPilot needs no separate control plane",
+  !requiresAutopilotControlPlane({ mode: "autopilot", executionTarget: "demo" }),
+);
+expect(
+  "broker-backed AutoPilot retains its control plane",
+  requiresAutopilotControlPlane({ mode: "autopilot", executionTarget: "live" }),
+);
+expect(
+  "Co-Pilot never enters the AutoPilot control plane",
+  !requiresAutopilotControlPlane({ mode: "copilot", executionTarget: "demo" }),
 );
 expect(
   "an absent deployment override delegates to persisted fail-closed control",

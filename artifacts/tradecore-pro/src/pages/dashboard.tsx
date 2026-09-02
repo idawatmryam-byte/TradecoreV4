@@ -266,11 +266,11 @@ function PositionsPanel({ positions, error, loading, confirmingClose, closingId,
  *
  * The path depends on where the section actually executes, which a new
  * account resolves to DEMO — the engine creates every new section with
- * executionTarget "demo" and mode "copilot" (botEngine.loadConfig). So:
+ * executionTarget "demo" and mode "autopilot" (botEngine.loadConfig). So:
  *
- *   DEMO  no keys, no exchange, no funds. Start the engine and, in Co-Pilot,
- *         approve the first recommendation. Connecting a broker is offered as
- *         a later, deliberate step rather than the price of entry.
+ *   DEMO  no keys, no exchange, no funds. Start the engine and AutoPilot can
+ *         execute simulated trades without per-trade approval. Connecting a
+ *         broker is offered later rather than being the price of entry.
  *   LIVE  the original path: connect the section's broker keys → review the
  *         risk plan → press Start.
  *

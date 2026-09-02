@@ -74,7 +74,7 @@ export function OnboardingWizard({
   const [stepIndex, setStepIndex] = useState(0);
   const [target, setTarget] = useState<"demo" | "live">("demo");
   const [market, setMarket] = useState<Section>(presetMarket ?? section);
-  const [mode, setMode] = useState<TradingMode>("copilot");
+  const [mode, setMode] = useState<TradingMode>("autopilot");
 
   // Everything the wizard writes is section-scoped through the X-Section
   // header, so the chosen market must BE the active section before any config
