@@ -24,6 +24,10 @@ import type {
   AccountProfileUpdate,
   ActivateAutopilotRequest,
   ActivePositionMonitor,
+  AdminAutopilotClearanceDecision,
+  AdminAutopilotClearanceMutationResponse,
+  AdminAutopilotClearanceRequest,
+  AdminAutopilotGateResponse,
   AdminAutopilotResumeApproval,
   AdminAutopilotResumeRequest,
   AdminAutopilotSuspendRequest,
@@ -264,6 +268,12 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+
+
+
+
+
 
 export const getRegisterUrl = () => {
 
@@ -548,6 +558,12 @@ export function useGetAuthStatus<TData = Awaited<ReturnType<typeof getAuthStatus
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+
+
+
+
+
 
 export const getGetBotStatusUrl = () => {
 
@@ -8949,6 +8965,296 @@ export function useGetAdminOverview<TData = Awaited<ReturnType<typeof getAdminOv
 
 
 
+export const getGetAdminAutopilotGateUrl = () => {
+
+
+
+
+  return `/api/admin/autopilot`
+}
+
+/**
+ * @summary Get the effective platform AutoPilot gate and clearance evidence
+ */
+export const getAdminAutopilotGate = async ( options?: RequestInit): Promise<AdminAutopilotGateResponse> => {
+
+  return customFetch<AdminAutopilotGateResponse>(getGetAdminAutopilotGateUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminAutopilotGateQueryKey = () => {
+    return [
+    `/api/admin/autopilot`
+    ] as const;
+    }
+
+
+export const getGetAdminAutopilotGateQueryOptions = <TData = Awaited<ReturnType<typeof getAdminAutopilotGate>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminAutopilotGate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminAutopilotGateQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminAutopilotGate>>> = ({ signal }) => getAdminAutopilotGate({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminAutopilotGate>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminAutopilotGateQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminAutopilotGate>>>
+export type GetAdminAutopilotGateQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get the effective platform AutoPilot gate and clearance evidence
+ */
+
+export function useGetAdminAutopilotGate<TData = Awaited<ReturnType<typeof getAdminAutopilotGate>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminAutopilotGate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminAutopilotGateQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRequestAdminAutopilotClearanceUrl = () => {
+
+
+
+
+  return `/api/admin/autopilot/clearances`
+}
+
+/**
+ * Creates append-only pending evidence. A different platform administrator must approve it.
+ * @summary Request a bounded platform AutoPilot clearance
+ */
+export const requestAdminAutopilotClearance = async (adminAutopilotClearanceRequest: AdminAutopilotClearanceRequest, options?: RequestInit): Promise<AdminAutopilotClearanceMutationResponse> => {
+
+  return customFetch<AdminAutopilotClearanceMutationResponse>(getRequestAdminAutopilotClearanceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(adminAutopilotClearanceRequest)
+  }
+);}
+
+
+
+
+export const getRequestAdminAutopilotClearanceMutationOptions = <TError = ErrorType<BadRequestResponse | ErrorResponse | ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestAdminAutopilotClearance>>, TError,{data: BodyType<AdminAutopilotClearanceRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestAdminAutopilotClearance>>, TError,{data: BodyType<AdminAutopilotClearanceRequest>}, TContext> => {
+
+const mutationKey = ['requestAdminAutopilotClearance'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestAdminAutopilotClearance>>, {data: BodyType<AdminAutopilotClearanceRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestAdminAutopilotClearance(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestAdminAutopilotClearanceMutationResult = NonNullable<Awaited<ReturnType<typeof requestAdminAutopilotClearance>>>
+    export type RequestAdminAutopilotClearanceMutationBody = BodyType<AdminAutopilotClearanceRequest>
+    export type RequestAdminAutopilotClearanceMutationError = ErrorType<BadRequestResponse | ErrorResponse | ConflictResponse>
+
+    /**
+ * @summary Request a bounded platform AutoPilot clearance
+ */
+export const useRequestAdminAutopilotClearance = <TError = ErrorType<BadRequestResponse | ErrorResponse | ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestAdminAutopilotClearance>>, TError,{data: BodyType<AdminAutopilotClearanceRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestAdminAutopilotClearance>>,
+        TError,
+        {data: BodyType<AdminAutopilotClearanceRequest>},
+        TContext
+      > => {
+      return useMutation(getRequestAdminAutopilotClearanceMutationOptions(options));
+    }
+
+export const getApproveAdminAutopilotClearanceUrl = (clearanceId: string,) => {
+
+
+
+
+  return `/api/admin/autopilot/clearances/${clearanceId}/approve`
+}
+
+/**
+ * @summary Approve a pending clearance as a different platform administrator
+ */
+export const approveAdminAutopilotClearance = async (clearanceId: string,
+    adminAutopilotClearanceDecision: AdminAutopilotClearanceDecision, options?: RequestInit): Promise<AdminAutopilotClearanceMutationResponse> => {
+
+  return customFetch<AdminAutopilotClearanceMutationResponse>(getApproveAdminAutopilotClearanceUrl(clearanceId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(adminAutopilotClearanceDecision)
+  }
+);}
+
+
+
+
+export const getApproveAdminAutopilotClearanceMutationOptions = <TError = ErrorType<BadRequestResponse | ErrorResponse | ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveAdminAutopilotClearance>>, TError,{clearanceId: string;data: BodyType<AdminAutopilotClearanceDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveAdminAutopilotClearance>>, TError,{clearanceId: string;data: BodyType<AdminAutopilotClearanceDecision>}, TContext> => {
+
+const mutationKey = ['approveAdminAutopilotClearance'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveAdminAutopilotClearance>>, {clearanceId: string;data: BodyType<AdminAutopilotClearanceDecision>}> = (props) => {
+          const {clearanceId,data} = props ?? {};
+
+          return  approveAdminAutopilotClearance(clearanceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveAdminAutopilotClearanceMutationResult = NonNullable<Awaited<ReturnType<typeof approveAdminAutopilotClearance>>>
+    export type ApproveAdminAutopilotClearanceMutationBody = BodyType<AdminAutopilotClearanceDecision>
+    export type ApproveAdminAutopilotClearanceMutationError = ErrorType<BadRequestResponse | ErrorResponse | ConflictResponse>
+
+    /**
+ * @summary Approve a pending clearance as a different platform administrator
+ */
+export const useApproveAdminAutopilotClearance = <TError = ErrorType<BadRequestResponse | ErrorResponse | ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveAdminAutopilotClearance>>, TError,{clearanceId: string;data: BodyType<AdminAutopilotClearanceDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveAdminAutopilotClearance>>,
+        TError,
+        {clearanceId: string;data: BodyType<AdminAutopilotClearanceDecision>},
+        TContext
+      > => {
+      return useMutation(getApproveAdminAutopilotClearanceMutationOptions(options));
+    }
+
+export const getRevokeAdminAutopilotClearanceUrl = (clearanceId: string,) => {
+
+
+
+
+  return `/api/admin/autopilot/clearances/${clearanceId}/revoke`
+}
+
+/**
+ * @summary Immediately revoke an active or pending platform clearance
+ */
+export const revokeAdminAutopilotClearance = async (clearanceId: string,
+    adminAutopilotClearanceDecision: AdminAutopilotClearanceDecision, options?: RequestInit): Promise<AdminAutopilotClearanceMutationResponse> => {
+
+  return customFetch<AdminAutopilotClearanceMutationResponse>(getRevokeAdminAutopilotClearanceUrl(clearanceId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(adminAutopilotClearanceDecision)
+  }
+);}
+
+
+
+
+export const getRevokeAdminAutopilotClearanceMutationOptions = <TError = ErrorType<BadRequestResponse | ErrorResponse | ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeAdminAutopilotClearance>>, TError,{clearanceId: string;data: BodyType<AdminAutopilotClearanceDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeAdminAutopilotClearance>>, TError,{clearanceId: string;data: BodyType<AdminAutopilotClearanceDecision>}, TContext> => {
+
+const mutationKey = ['revokeAdminAutopilotClearance'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeAdminAutopilotClearance>>, {clearanceId: string;data: BodyType<AdminAutopilotClearanceDecision>}> = (props) => {
+          const {clearanceId,data} = props ?? {};
+
+          return  revokeAdminAutopilotClearance(clearanceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeAdminAutopilotClearanceMutationResult = NonNullable<Awaited<ReturnType<typeof revokeAdminAutopilotClearance>>>
+    export type RevokeAdminAutopilotClearanceMutationBody = BodyType<AdminAutopilotClearanceDecision>
+    export type RevokeAdminAutopilotClearanceMutationError = ErrorType<BadRequestResponse | ErrorResponse | ConflictResponse>
+
+    /**
+ * @summary Immediately revoke an active or pending platform clearance
+ */
+export const useRevokeAdminAutopilotClearance = <TError = ErrorType<BadRequestResponse | ErrorResponse | ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeAdminAutopilotClearance>>, TError,{clearanceId: string;data: BodyType<AdminAutopilotClearanceDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revokeAdminAutopilotClearance>>,
+        TError,
+        {clearanceId: string;data: BodyType<AdminAutopilotClearanceDecision>},
+        TContext
+      > => {
+      return useMutation(getRevokeAdminAutopilotClearanceMutationOptions(options));
+    }
+
 export const getGetAdminSystemHealthUrl = () => {
 
 
@@ -9268,7 +9574,7 @@ export const getRequestAdminAutopilotResumeUrl = () => {
 
 /**
  * Requires a second distinct qualified operator before authority is expanded.
- * @summary Request a time-limited platform Demo AutoPilot resume
+ * @summary Request a time-limited broker sandbox AutoPilot resume
  */
 export const requestAdminAutopilotResume = async (adminAutopilotResumeRequest: AdminAutopilotResumeRequest, options?: RequestInit): Promise<PlatformAutopilotSafetyState> => {
 
@@ -9316,7 +9622,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type RequestAdminAutopilotResumeMutationError = ErrorType<ErrorResponse>
 
     /**
- * @summary Request a time-limited platform Demo AutoPilot resume
+ * @summary Request a time-limited broker sandbox AutoPilot resume
  */
 export const useRequestAdminAutopilotResume = <TError = ErrorType<ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestAdminAutopilotResume>>, TError,{data: BodyType<AdminAutopilotResumeRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -9338,7 +9644,7 @@ export const getApproveAdminAutopilotResumeUrl = () => {
 }
 
 /**
- * @summary Approve a platform Demo AutoPilot resume as the second operator
+ * @summary Approve a broker sandbox AutoPilot resume as the second operator
  */
 export const approveAdminAutopilotResume = async (adminAutopilotResumeApproval: AdminAutopilotResumeApproval, options?: RequestInit): Promise<PlatformAutopilotSafetyState> => {
 
@@ -9386,7 +9692,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type ApproveAdminAutopilotResumeMutationError = ErrorType<ErrorResponse>
 
     /**
- * @summary Approve a platform Demo AutoPilot resume as the second operator
+ * @summary Approve a broker sandbox AutoPilot resume as the second operator
  */
 export const useApproveAdminAutopilotResume = <TError = ErrorType<ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveAdminAutopilotResume>>, TError,{data: BodyType<AdminAutopilotResumeApproval>}, TContext>, request?: SecondParameter<typeof customFetch>}

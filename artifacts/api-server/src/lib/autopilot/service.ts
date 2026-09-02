@@ -24,6 +24,7 @@ import {
   updateEquityWatermark,
 } from "./store";
 import { getPlatformAutopilotSafetyState } from "../platformAutopilotSafety";
+import { getPlatformAutopilotGate } from "./platformClearance";
 
 export interface AuthorizeAutopilotInput {
   userId: number;
@@ -100,11 +101,13 @@ function deterministicUuid(value: unknown): string {
 export async function authorizeAutopilotEntry(
   input: AuthorizeAutopilotInput,
 ): Promise<AuthorizeAutopilotResult> {
-  const [snapshot, platformSafety] = await Promise.all([
+  const [snapshot, platformSafety, platformGate] = await Promise.all([
     getAutopilotSnapshot(input.userId, input.section),
     getPlatformAutopilotSafetyState(),
+    getPlatformAutopilotGate(),
   ]);
-  const globalSuspended = platformSafety.effectiveSuspended;
+  const globalSuspended =
+    platformSafety.effectiveSuspended || platformGate.effectiveSuspended;
   const configFingerprint = autopilotConfigFingerprint(input.config);
   const strategyVersion = strategyConfigVersion(
     input.plan.strategyId,

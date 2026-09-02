@@ -18,6 +18,10 @@ export const PLATFORM_PERMISSIONS = [
   "admin.users.read",
   "admin.audit.read",
   "admin.configuration.read",
+  "admin.autopilot.read",
+  "admin.autopilot.clearance.request",
+  "admin.autopilot.clearance.approve",
+  "admin.autopilot.clearance.revoke",
 ] as const;
 export type PlatformPermission = (typeof PLATFORM_PERMISSIONS)[number];
 
@@ -33,6 +37,8 @@ const ROLE_PERMISSIONS: Record<PlatformRole, readonly PlatformPermission[]> = {
     "admin.risk.resume.request",
     "admin.risk.resume.approve",
     "admin.audit.read",
+    "admin.autopilot.read",
+    "admin.autopilot.clearance.revoke",
   ],
   SUPPORT: ["admin.overview.read", "admin.users.read"],
   AUDITOR: [
@@ -43,6 +49,7 @@ const ROLE_PERMISSIONS: Record<PlatformRole, readonly PlatformPermission[]> = {
     "admin.risk.read",
     "admin.audit.read",
     "admin.configuration.read",
+    "admin.autopilot.read",
   ],
 };
 
@@ -65,7 +72,9 @@ export function redactPlatformAuditMetadata(value: unknown): unknown {
       .slice(0, 100)
       .map(([key, child]) => [
         key,
-        /(password|secret|token|credential|cookie|authorization|api.?key)/i.test(key)
+        /(password|secret|token|credential|cookie|authorization|api.?key)/i.test(
+          key,
+        )
           ? "[REDACTED_SECRET]"
           : redactPlatformAuditMetadata(child),
       ]),

@@ -7,6 +7,10 @@ let failures = 0;
 let sessionState = "stepup";
 let passwordChangeBody = null;
 let resumeRequestBody = null;
+let clearanceRequestBody = null;
+let clearanceApprovalBody = null;
+let clearance = null;
+let adminUserId = 7;
 
 function expect(name, condition) {
   if (condition) console.log(`  PASS  ${name}`);
@@ -17,9 +21,10 @@ function expect(name, condition) {
 }
 
 const session = () => ({
+  actorUserId: adminUserId,
   eligible: sessionState !== "ineligible",
   roles: sessionState === "ineligible" ? [] : ["PLATFORM_ADMIN"],
-  permissions: sessionState === "ineligible" ? [] : ["admin.overview.read", "admin.health.read", "admin.ai.read", "admin.execution.read", "admin.risk.read", "admin.risk.suspend", "admin.risk.resume.request", "admin.risk.resume.approve", "admin.audit.read", "admin.configuration.read"],
+  permissions: sessionState === "ineligible" ? [] : ["admin.overview.read", "admin.health.read", "admin.ai.read", "admin.execution.read", "admin.risk.read", "admin.risk.suspend", "admin.risk.resume.request", "admin.risk.resume.approve", "admin.audit.read", "admin.configuration.read", "admin.autopilot.read", "admin.autopilot.clearance.request", "admin.autopilot.clearance.approve", "admin.autopilot.clearance.revoke"],
   stepUp: sessionState === "active"
     ? { active: true, expiresAt: new Date(Date.now() + 600_000).toISOString() }
     : { active: false, expiresAt: null, reason: "Recent Admin Console step-up is required" },
@@ -37,6 +42,17 @@ await page.route("**/api/**", async (route) => {
     return json({ ok: true });
   }
   if (url.pathname === "/api/admin/overview") return json({ asOf: new Date().toISOString(), status: "ATTENTION_REQUIRED", counts: { users: 4, configuredSections: 3, desiredRuntimes: 1, unresolvedExecutionIntents: 1, activeSafetySwitches: 1 }, autopilot: { PAUSED: 1 }, authorityBoundary: "Platform visibility does not grant tenant financial authority or broker access." });
+  if (url.pathname === "/api/admin/autopilot" && route.request().method() === "GET") return json({ asOf: new Date().toISOString(), gate: { effectiveSuspended: !clearance || clearance.state !== "ACTIVE", deploymentSuspended: false, clearanceRequired: true, reasonCode: clearance?.state === "ACTIVE" ? "PLATFORM_GATE_CLEAR" : "ADMIN_CLEARANCE_REQUIRED", clearance }, safetyBoundary: "The deployment stop and tenant safety gates remain authoritative." });
+  if (url.pathname === "/api/admin/autopilot/clearances" && route.request().method() === "POST") {
+    clearanceRequestBody = route.request().postDataJSON();
+    clearance = { clearanceId: "11111111-1111-4111-8111-111111111111", state: "PENDING", requestedByUserId: 7, approvedByUserId: null, revokedByUserId: null, reason: clearanceRequestBody.reason, durationMinutes: clearanceRequestBody.durationMinutes, requestedAt: new Date().toISOString(), approvedAt: null, expiresAt: null, revokedAt: null };
+    return json({ clearance, gate: { effectiveSuspended: true, deploymentSuspended: false, clearanceRequired: true, reasonCode: "ADMIN_CLEARANCE_REQUIRED", clearance } }, 201);
+  }
+  if (url.pathname === "/api/admin/autopilot/clearances/11111111-1111-4111-8111-111111111111/approve" && route.request().method() === "POST") {
+    clearanceApprovalBody = route.request().postDataJSON();
+    clearance = { ...clearance, state: "ACTIVE", approvedByUserId: adminUserId, approvedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 60 * 60_000).toISOString() };
+    return json({ clearance, gate: { effectiveSuspended: false, deploymentSuspended: false, clearanceRequired: true, reasonCode: "PLATFORM_GATE_CLEAR", clearance } });
+  }
   if (url.pathname === "/api/admin/risk/autopilot/resume-requests") {
     resumeRequestBody = route.request().postDataJSON();
     return json({ effectiveSuspended: true });
@@ -74,7 +90,7 @@ expect("URL discovery is explicitly not authority", await page.getByText("guessi
 sessionState = "active";
 await page.reload({ waitUntil: "networkidle" });
 expect("active Admin session opens the operational overview", await page.getByRole("heading", { name: "Overview" }).isVisible());
-expect("Admin Console labels mutations as guarded", await page.getByText("Guarded operations", { exact: true }).isVisible());
+expect("Admin Console identifies the platform-operations boundary", await page.getByRole("banner").getByText("Platform operations", { exact: true }).isVisible());
 expect("Admin navigation is separate from trader areas", (await page.locator("nav[aria-label='Admin Console'] a").allTextContents()).every((text) => !["Dashboard", "Strategies", "Backtest Lab", "Settings"].includes(text.trim())));
 expect("platform overview repeats financial-authority separation", await page.getByText("does not grant tenant financial authority", { exact: false }).isVisible());
 
@@ -82,6 +98,25 @@ await page.getByRole("link", { name: "Risk & Safety" }).click();
 await page.getByLabel("Operator reason").fill("Reviewed Demo AutoPilot recovery after incident resolution");
 await page.getByRole("button", { name: "Request sandbox AutoPilot resume" }).click();
 expect("resume request uses the guarded two-operator endpoint", resumeRequestBody?.confirmation === "REQUEST_PLATFORM_AUTOPILOT_RESUME");
+
+await page.getByRole("link", { name: "AutoPilot Clearance" }).click();
+await page.locator("#admin-main h1").waitFor();
+expect("platform operators can open the bounded AutoPilot clearance control", (await page.locator("#admin-main h1").textContent())?.trim() === "AutoPilot Clearance");
+expect("deployment hard stop is explicitly non-overridable", await page.getByText("Cannot be overridden from this console", { exact: true }).isVisible());
+await page.getByLabel("Operator reason").fill("Approved maintenance window for Demo AutoPilot validation");
+await page.getByText("I confirm this action does not bypass", { exact: false }).click();
+await page.getByRole("button", { name: "Request clearance" }).click();
+expect("clearance request carries the explicit bounded confirmation", clearanceRequestBody?.confirmation === "REQUEST_BOUNDED_PLATFORM_AUTOPILOT_CLEARANCE");
+expect("requesting administrator cannot self-approve", await page.getByRole("button", { name: "Approve as second admin" }).isDisabled());
+
+adminUserId = 8;
+await page.reload({ waitUntil: "networkidle" });
+await page.getByLabel("Operator reason").fill("Second administrator confirms the bounded Demo operations window");
+await page.getByText("I confirm this action does not bypass", { exact: false }).click();
+await page.getByRole("button", { name: "Approve as second admin" }).click();
+await page.getByText("Bounded platform clearance approved", { exact: false }).waitFor();
+expect("a different administrator can approve the pending clearance", clearanceApprovalBody?.confirmation === "APPROVE_BOUNDED_PLATFORM_AUTOPILOT_CLEARANCE");
+expect("approved clearance clears only the bounded gate", await page.getByText("PLATFORM GATE CLEAR", { exact: true }).isVisible());
 
 await page.getByRole("link", { name: "Admin Settings" }).click();
 expect("assigned administrators can open password settings", await page.getByRole("heading", { name: "Admin Settings" }).isVisible());
@@ -101,4 +136,4 @@ if (failures > 0) {
   console.error(`FAIL: ${failures} Admin Console browser assertion(s) failed`);
   process.exit(1);
 }
-console.log("PASS: separate Admin Console access and guarded safety boundaries verified");
+console.log("PASS: separate Admin Console access and layered safety controls verified");

@@ -62,7 +62,8 @@ tags:
   - name: admin
     description: >-
       Separate platform-operator console. Platform roles never inherit tenant
-      financial authority; protected reads require a recent admin step-up.
+      financial authority; protected reads and the bounded dual-operator
+      AutoPilot clearance workflow require a recent admin step-up.
 
 # Every operation requires ONE of these by default (either is sufficient —
 # see components.securitySchemes below). /healthz and /auth/* override this
@@ -2599,6 +2600,68 @@ paths:
         "200": { description: Overview, content: { application/json: { schema: { $ref: "#/components/schemas/AdminOverview" } } } }
         "403": { description: Platform permission or step-up required, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
 
+  /admin/autopilot:
+    get:
+      operationId: getAdminAutopilotGate
+      tags: [admin]
+      summary: Get the effective platform AutoPilot gate and clearance evidence
+      responses:
+        "200": { description: Platform gate status, content: { application/json: { schema: { $ref: "#/components/schemas/AdminAutopilotGateResponse" } } } }
+        "403": { description: Platform permission or step-up required, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+
+  /admin/autopilot/clearances:
+    post:
+      operationId: requestAdminAutopilotClearance
+      tags: [admin]
+      summary: Request a bounded platform AutoPilot clearance
+      description: Creates append-only pending evidence. A different platform administrator must approve it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminAutopilotClearanceRequest" }
+      responses:
+        "201": { description: Clearance requested, content: { application/json: { schema: { $ref: "#/components/schemas/AdminAutopilotClearanceMutationResponse" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { description: "Platform permission, origin, or step-up required", content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /admin/autopilot/clearances/{clearanceId}/approve:
+    post:
+      operationId: approveAdminAutopilotClearance
+      tags: [admin]
+      summary: Approve a pending clearance as a different platform administrator
+      parameters:
+        - $ref: "#/components/parameters/PlatformAutopilotClearanceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminAutopilotClearanceDecision" }
+      responses:
+        "200": { description: Bounded clearance active, content: { application/json: { schema: { $ref: "#/components/schemas/AdminAutopilotClearanceMutationResponse" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { description: "Platform permission, origin, or step-up required", content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /admin/autopilot/clearances/{clearanceId}/revoke:
+    post:
+      operationId: revokeAdminAutopilotClearance
+      tags: [admin]
+      summary: Immediately revoke an active or pending platform clearance
+      parameters:
+        - $ref: "#/components/parameters/PlatformAutopilotClearanceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminAutopilotClearanceDecision" }
+      responses:
+        "200": { description: Platform clearance revoked, content: { application/json: { schema: { $ref: "#/components/schemas/AdminAutopilotClearanceMutationResponse" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { description: "Platform permission, origin, or step-up required", content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /admin/health:
     get:
       operationId: getAdminSystemHealth
@@ -2719,6 +2782,11 @@ paths:
 
 components:
   parameters:
+    PlatformAutopilotClearanceId:
+      in: path
+      name: clearanceId
+      required: true
+      schema: { type: string, format: uuid }
     TradingMandateId:
       in: path
       name: mandateId
@@ -3274,6 +3342,8 @@ components:
       required:
         [
           globalSuspended,
+          globalSuspensionReason,
+          platformGate,
           snapshot,
           versions,
           mandates,
@@ -3283,6 +3353,8 @@ components:
         ]
       properties:
         globalSuspended: { type: boolean }
+        globalSuspensionReason: { type: string }
+        platformGate: { oneOf: [{ $ref: "#/components/schemas/PlatformAutopilotGate" }, { type: "null" }] }
         liveAuthorityEnabled: { type: boolean, const: false }
         authorityBoundary:
           type: array
@@ -4242,8 +4314,9 @@ components:
 
     AdminSessionStatus:
       type: object
-      required: [eligible, roles, permissions, stepUp, mutationsSupported, mutationReason]
+      required: [actorUserId, eligible, roles, permissions, stepUp, mutationsSupported, mutationReason]
       properties:
+        actorUserId: { type: integer, minimum: 1 }
         eligible: { type: boolean }
         roles: { type: array, items: { type: string, enum: [PLATFORM_ADMIN, OPERATIONS_RISK, SUPPORT, AUDITOR] } }
         permissions: { type: array, items: { type: string } }
@@ -4269,6 +4342,68 @@ components:
         counts: { type: object, additionalProperties: { type: integer } }
         autopilot: { type: object, additionalProperties: { type: integer } }
         authorityBoundary: { type: string }
+
+    PlatformAutopilotClearance:
+      type: object
+      additionalProperties: false
+      required: [clearanceId, state, requestedByUserId, approvedByUserId, revokedByUserId, reason, durationMinutes, requestedAt, approvedAt, expiresAt, revokedAt]
+      properties:
+        clearanceId: { type: string, format: uuid }
+        state: { type: string, enum: [PENDING, ACTIVE, EXPIRED, REVOKED] }
+        requestedByUserId: { type: integer, minimum: 1 }
+        approvedByUserId: { type: [integer, "null"], minimum: 1 }
+        revokedByUserId: { type: [integer, "null"], minimum: 1 }
+        reason: { type: string }
+        durationMinutes: { type: integer, minimum: 15, maximum: 1440 }
+        requestedAt: { type: string, format: date-time }
+        approvedAt: { type: [string, "null"], format: date-time }
+        expiresAt: { type: [string, "null"], format: date-time }
+        revokedAt: { type: [string, "null"], format: date-time }
+
+    PlatformAutopilotGate:
+      type: object
+      additionalProperties: false
+      required: [effectiveSuspended, deploymentSuspended, clearanceRequired, reasonCode, clearance]
+      properties:
+        effectiveSuspended: { type: boolean }
+        deploymentSuspended: { type: boolean }
+        clearanceRequired: { type: boolean }
+        reasonCode: { type: string, enum: [DEPLOYMENT_SUSPENSION_ACTIVE, ADMIN_CLEARANCE_REQUIRED, ADMIN_CLEARANCE_UNAVAILABLE, PLATFORM_GATE_CLEAR] }
+        clearance: { oneOf: [{ $ref: "#/components/schemas/PlatformAutopilotClearance" }, { type: "null" }] }
+
+    AdminAutopilotGateResponse:
+      type: object
+      additionalProperties: false
+      required: [asOf, gate, safetyBoundary]
+      properties:
+        asOf: { type: string, format: date-time }
+        gate: { $ref: "#/components/schemas/PlatformAutopilotGate" }
+        safetyBoundary: { type: string }
+
+    AdminAutopilotClearanceRequest:
+      type: object
+      additionalProperties: false
+      required: [reason, durationMinutes, confirmation]
+      properties:
+        reason: { type: string, minLength: 8, maxLength: 500 }
+        durationMinutes: { type: integer, minimum: 15, maximum: 1440 }
+        confirmation: { type: string, const: REQUEST_BOUNDED_PLATFORM_AUTOPILOT_CLEARANCE }
+
+    AdminAutopilotClearanceDecision:
+      type: object
+      additionalProperties: false
+      required: [reason, confirmation]
+      properties:
+        reason: { type: string, minLength: 8, maxLength: 500 }
+        confirmation: { type: string }
+
+    AdminAutopilotClearanceMutationResponse:
+      type: object
+      additionalProperties: false
+      required: [clearance, gate]
+      properties:
+        clearance: { $ref: "#/components/schemas/PlatformAutopilotClearance" }
+        gate: { $ref: "#/components/schemas/PlatformAutopilotGate" }
 
     AdminOperationalReadModel:
       type: object

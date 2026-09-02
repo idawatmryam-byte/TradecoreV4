@@ -60,16 +60,16 @@ Built-in identities bind the engine version and strategy ID. Custom identities b
 
 Platform roles are a separate model from tenant financial roles:
 
-- `PLATFORM_ADMIN`: all currently defined read permissions;
-- `OPERATIONS_RISK`: operational, AI, execution, risk, and audit visibility;
+- `PLATFORM_ADMIN`: all platform reads plus bounded AutoPilot clearance request, second-admin approval, and revocation;
+- `OPERATIONS_RISK`: operational, AI, execution, risk, audit, AutoPilot gate visibility, and authority-reducing clearance revocation;
 - `SUPPORT`: overview and minimized user/access visibility;
 - `AUDITOR`: read-only operational and configuration evidence without user-access visibility.
 
 All `/api/admin/*` data routes require an authenticated user, an active platform assignment, a 15-minute same-origin password step-up cookie, an unchanged user session version, an unchanged platform access version, and the endpoint's explicit permission. Platform assignment never grants a tenant financial role, broker credential access, mandate approval, or execution authority.
 
-Admin v1 is read-only. There are no HTTP role-management, impersonation, safety-control, provider-secret, or platform-configuration mutation endpoints. The initial `PLATFORM_ADMIN` is created with `bootstrap:platform-admin`, which requires the owner-only `DATABASE_MIGRATION_URL`, an existing non-demo username, a reason, an advisory transaction lock, an empty active-role set, and an append-only audit event.
+The Admin Console has one deliberately narrow mutation boundary: bounded production AutoPilot platform clearance. One `PLATFORM_ADMIN` requests it, a different `PLATFORM_ADMIN` approves it, it expires within 24 hours, and either `PLATFORM_ADMIN` or `OPERATIONS_RISK` may revoke it immediately. It cannot override `AUTOPILOT_GLOBAL_SUSPENDED`, grant tenant or Live authority, alter a mandate, or bypass runtime risk checks. There are no HTTP role-management, impersonation, provider-secret, or general platform-configuration mutation endpoints. The initial `PLATFORM_ADMIN` is created with `bootstrap:platform-admin`, which requires the owner-only `DATABASE_MIGRATION_URL`, an existing non-demo username, a reason, an advisory transaction lock, an empty active-role set, and an append-only audit event.
 
-Future authority-changing Admin controls remain gated on a separately reviewed contract with phishing-resistant step-up, reason, idempotency, origin/CSRF checks, append-only audit, and dual control for authority expansion. A platform operator must never inherit financial authority.
+Any broader authority-changing Admin controls remain gated on a separately reviewed contract with phishing-resistant step-up, reason, idempotency, origin/CSRF checks, append-only audit, and dual control for authority expansion. A platform operator must never inherit financial authority.
 
 Admin operational reads expose only real projections. Missing general queues, platform-wide broker/market-data telemetry, and external AI-provider infrastructure return `NOT_PROVISIONED`, never healthy. Audit metadata recursively redacts secret-like fields and stores no secret values.
 
@@ -80,9 +80,10 @@ The new tables are:
 - `strategy_mode_assignments`;
 - `platform_role_assignments`;
 - `platform_access_versions`;
-- `platform_audit_events`.
+- `platform_audit_events`;
+- `platform_autopilot_clearance_events`.
 
-Use the existing deployment order: schema push, runtime grant capture/application, deployment-schema verification, and database-role verification. Platform role and access-version rows are owner-managed and runtime read-only. Platform audit is runtime selectable and append-only. Strategy assignment rows use the normal tenant preference write boundary. Do not use the runtime database URL for initial role bootstrap.
+Use the existing deployment order: schema push, runtime grant capture/application, deployment-schema verification, and database-role verification. Platform role and access-version rows are owner-managed and runtime read-only. Platform audit and AutoPilot clearance evidence are runtime selectable and append-only. Strategy assignment rows use the normal tenant preference write boundary. Do not use the runtime database URL for initial role bootstrap.
 
 Rollback is additive: keep the tables and route aliases, disable the capability/route release flag at deployment level, and return the legacy trader shell. Do not drop evidence or role tables as a rollback mechanism.
 
