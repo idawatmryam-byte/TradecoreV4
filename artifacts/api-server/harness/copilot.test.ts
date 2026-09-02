@@ -150,6 +150,13 @@ async function main() {
   expect("a new section starts in demo", baseConfig.executionTarget === "demo", String(baseConfig.executionTarget),
   );
 
+  // The remainder of this harness exercises Co-Pilot approval semantics, so it
+  // must opt in explicitly now that new accounts begin in Demo AutoPilot.
+  await db.update(botConfigTable).set({ mode: "copilot" }).where(and(
+    eq(botConfigTable.userId, USER),
+    eq(botConfigTable.section, "crypto"),
+  ));
+
   const configs = await loadStrategyConfigs(USER, "crypto");
   const pure: StrategyConfig = {
     ...configs.get("trend_pullback")!,
