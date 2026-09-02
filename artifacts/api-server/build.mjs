@@ -131,16 +131,19 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
 async function copyAdminFrontend(distDir) {
   const artifactDir = path.dirname(fileURLToPath(import.meta.url));
   const adminPublic = path.resolve(artifactDir, "../tradecore-admin/dist/public");
+  const adminIndex = path.resolve(adminPublic, "index.html");
   const targetAdmin = path.resolve(distDir, "public/admin");
 
   try {
-    await access(adminPublic);
+    await access(adminIndex);
   } catch (err) {
     if (err.code === "ENOENT") {
-      console.log("[build] No Admin Console build found at ../tradecore-admin/dist/public — skipping copy.");
-      return;
+      throw new Error(
+        "[build] Admin Console entry point is missing at ../tradecore-admin/dist/public/index.html. " +
+          "Refusing to produce an API bundle that redirects /admin to the landing page.",
+      );
     }
-    throw new Error(`[build] Cannot access Admin Console source at ${adminPublic}: ${err.message}`);
+    throw new Error(`[build] Cannot access Admin Console entry point at ${adminIndex}: ${err.message}`);
   }
 
   await cp(adminPublic, targetAdmin, { recursive: true });

@@ -77,7 +77,8 @@ BEGIN
       ('strategy_mode_assignments', 'revision'),
       ('platform_role_assignments', 'status'),
       ('platform_access_versions', 'version'),
-      ('platform_audit_events', 'request_id')
+      ('platform_audit_events', 'request_id'),
+      ('platform_autopilot_clearance_events', 'clearance_id')
   )
   SELECT array_agg(format('%I.%I', required.object_name, required.column_name)
                    ORDER BY required.object_name, required.column_name)

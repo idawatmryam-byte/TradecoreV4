@@ -42,6 +42,7 @@ export async function adminApi<T>(
 }
 
 export interface AdminSessionStatus {
+  actorUserId: number;
   eligible: boolean;
   roles: string[];
   permissions: string[];

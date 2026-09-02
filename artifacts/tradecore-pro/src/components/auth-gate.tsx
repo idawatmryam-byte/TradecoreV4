@@ -200,7 +200,10 @@ export function AuthGate({
       if (res.ok) {
         const data = await res.json().catch(() => null);
         if (mode === "register") onRegistered?.();
-        if (mode === "login" && data?.destination === "/admin/") {
+        if (
+          mode === "login" &&
+          ["/admin", "/admin/"].includes(data?.destination)
+        ) {
           window.location.assign("/admin/");
           return;
         }

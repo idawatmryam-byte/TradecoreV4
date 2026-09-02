@@ -49,6 +49,12 @@ import {
   BRAIN_V0_CONTROL_COMMIT,
   BRAIN_V0_VERSION,
 } from "../lib/intelligence/baseline";
+import {
+  approvePlatformAutopilotClearance,
+  getPlatformAutopilotGate,
+  requestPlatformAutopilotClearance,
+  revokePlatformAutopilotClearance,
+} from "../lib/autopilot/platformClearance";
 
 const router: IRouter = Router();
 
@@ -66,15 +72,20 @@ router.get("/admin/session/status", async (req, res): Promise<void> => {
   const permissions = permissionsForRoles(roles);
   const stepUp = await verifyAdminStepUp(req);
   res.json({
+    actorUserId: req.userId!,
     eligible: roles.length > 0,
     roles,
     permissions,
     stepUp: stepUp.ok
       ? { active: true, expiresAt: stepUp.expiresAt }
       : { active: false, expiresAt: null, reason: stepUp.reason },
-    mutationsSupported: permissions.includes("admin.risk.suspend"),
+    mutationsSupported: permissions.some(
+      (permission) =>
+        permission.startsWith("admin.risk.") ||
+        permission.startsWith("admin.autopilot.clearance."),
+    ),
     mutationReason:
-      "Broker sandbox AutoPilot safety controls require recent Admin step-up, explicit confirmation, an audit reason, and two distinct qualified operators for resume.",
+      "Broker-sandbox AutoPilot safety and bounded clearance controls require recent Admin step-up, explicit confirmation, an audit reason, and distinct qualified operators. They cannot override deployment or tenant safety gates.",
   });
 });
 
@@ -86,12 +97,10 @@ router.post("/admin/session/step-up", async (req, res): Promise<void> => {
   const parsed = AdminStepUpBody.safeParse(req.body);
   const id = requestId(req);
   if (!parsed.success) {
-    res
-      .status(400)
-      .json({
-        error: "Current password is required",
-        code: "ADMIN_STEP_UP_INVALID",
-      });
+    res.status(400).json({
+      error: "Current password is required",
+      code: "ADMIN_STEP_UP_INVALID",
+    });
     return;
   }
   const result = await issueAdminStepUp({
@@ -150,6 +159,188 @@ router.use("/admin", (req, res, next): void => {
   }
   next();
 });
+
+const AutopilotClearanceRequestBody = z
+  .object({
+    reason: z.string().trim().min(8).max(500),
+    durationMinutes: z.number().int().min(15).max(1440),
+    confirmation: z.literal("REQUEST_BOUNDED_PLATFORM_AUTOPILOT_CLEARANCE"),
+  })
+  .strict();
+
+const AutopilotClearanceDecisionBody = z
+  .object({
+    reason: z.string().trim().min(8).max(500),
+    confirmation: z.string(),
+  })
+  .strict();
+
+function requireAdminMutationOrigin(req: Request, res: Response): boolean {
+  const origin = verifyFinancialRequestOrigin(req);
+  if (origin.ok) return true;
+  res.status(403).json({ error: origin.reason, code: "ORIGIN_REJECTED" });
+  return false;
+}
+
+function clearanceMutationError(
+  req: Request,
+  res: Response,
+  permission: string,
+  action: string,
+  error: unknown,
+): void {
+  const reason =
+    error instanceof Error
+      ? error.message
+      : "Platform AutoPilot clearance was refused";
+  auditFailureBestEffort({
+    actorUserId: req.userId ?? null,
+    permission,
+    action,
+    targetType: "platform_autopilot_clearance",
+    targetId:
+      typeof req.params.clearanceId === "string"
+        ? req.params.clearanceId
+        : null,
+    requestId: requestId(req),
+    result: "REFUSED",
+    reason,
+  });
+  res.status(/not found/i.test(reason) ? 404 : 409).json({
+    error: reason,
+    code: "PLATFORM_AUTOPILOT_CLEARANCE_REFUSED",
+  });
+}
+
+router.get(
+  "/admin/autopilot",
+  requirePlatformPermission("admin.autopilot.read"),
+  async (_req, res): Promise<void> => {
+    res.json({
+      asOf: new Date().toISOString(),
+      gate: await getPlatformAutopilotGate(),
+      safetyBoundary:
+        "Clearance is bounded platform permission to consider new Demo/testnet/practice entries. The deployment stop, tenant mandate, configuration identity, reconciliation, kill switches, and deterministic risk checks remain authoritative.",
+    });
+  },
+);
+
+router.post(
+  "/admin/autopilot/clearances",
+  requirePlatformPermission("admin.autopilot.clearance.request"),
+  async (req, res): Promise<void> => {
+    if (!requireAdminMutationOrigin(req, res)) return;
+    const parsed = AutopilotClearanceRequestBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Invalid bounded clearance request",
+        code: "ADMIN_REQUEST_INVALID",
+      });
+      return;
+    }
+    const id = requestId(req);
+    try {
+      const clearance = await requestPlatformAutopilotClearance({
+        actorUserId: req.userId!,
+        reason: parsed.data.reason,
+        durationMinutes: parsed.data.durationMinutes,
+        requestId: id,
+      });
+      res
+        .status(201)
+        .json({ clearance, gate: await getPlatformAutopilotGate() });
+    } catch (error) {
+      clearanceMutationError(
+        req,
+        res,
+        "admin.autopilot.clearance.request",
+        "REQUEST_PLATFORM_AUTOPILOT_CLEARANCE",
+        error,
+      );
+    }
+  },
+);
+
+router.post(
+  "/admin/autopilot/clearances/:clearanceId/approve",
+  requirePlatformPermission("admin.autopilot.clearance.approve"),
+  async (req, res): Promise<void> => {
+    if (!requireAdminMutationOrigin(req, res)) return;
+    const parsed = AutopilotClearanceDecisionBody.safeParse(req.body);
+    const clearanceId = Array.isArray(req.params.clearanceId)
+      ? ""
+      : (req.params.clearanceId ?? "");
+    if (
+      !parsed.success ||
+      parsed.data.confirmation !==
+        "APPROVE_BOUNDED_PLATFORM_AUTOPILOT_CLEARANCE" ||
+      !z.string().uuid().safeParse(clearanceId).success
+    ) {
+      res.status(400).json({
+        error: "Invalid platform clearance approval",
+        code: "ADMIN_REQUEST_INVALID",
+      });
+      return;
+    }
+    try {
+      const clearance = await approvePlatformAutopilotClearance({
+        clearanceId,
+        actorUserId: req.userId!,
+        reason: parsed.data.reason,
+        requestId: requestId(req),
+      });
+      res.json({ clearance, gate: await getPlatformAutopilotGate() });
+    } catch (error) {
+      clearanceMutationError(
+        req,
+        res,
+        "admin.autopilot.clearance.approve",
+        "APPROVE_PLATFORM_AUTOPILOT_CLEARANCE",
+        error,
+      );
+    }
+  },
+);
+
+router.post(
+  "/admin/autopilot/clearances/:clearanceId/revoke",
+  requirePlatformPermission("admin.autopilot.clearance.revoke"),
+  async (req, res): Promise<void> => {
+    if (!requireAdminMutationOrigin(req, res)) return;
+    const parsed = AutopilotClearanceDecisionBody.safeParse(req.body);
+    const clearanceId = Array.isArray(req.params.clearanceId)
+      ? ""
+      : (req.params.clearanceId ?? "");
+    if (
+      !parsed.success ||
+      parsed.data.confirmation !== "REVOKE_PLATFORM_AUTOPILOT_CLEARANCE" ||
+      !z.string().uuid().safeParse(clearanceId).success
+    ) {
+      res.status(400).json({
+        error: "Invalid platform clearance revocation",
+        code: "ADMIN_REQUEST_INVALID",
+      });
+      return;
+    }
+    try {
+      const clearance = await revokePlatformAutopilotClearance({
+        clearanceId,
+        actorUserId: req.userId!,
+        reason: parsed.data.reason,
+        requestId: requestId(req),
+      });
+      res.json({ clearance, gate: await getPlatformAutopilotGate() });
+    } catch (error) {
+      clearanceMutationError(
+        req,
+        res,
+        "admin.autopilot.clearance.revoke",
+        "REVOKE_PLATFORM_AUTOPILOT_CLEARANCE",
+        error,
+      );
+    }
+  },
+);
 
 router.get(
   "/admin/overview",
@@ -491,12 +682,10 @@ router.post(
   async (req, res): Promise<void> => {
     const parsed = RequestAutopilotResumeBody.safeParse(req.body);
     if (!parsed.success) {
-      res
-        .status(400)
-        .json({
-          error: "A valid reason, request ID, and confirmation are required",
-          code: "ADMIN_SAFETY_INPUT_INVALID",
-        });
+      res.status(400).json({
+        error: "A valid reason, request ID, and confirmation are required",
+        code: "ADMIN_SAFETY_INPUT_INVALID",
+      });
       return;
     }
     try {
@@ -525,12 +714,10 @@ router.post(
   async (req, res): Promise<void> => {
     const parsed = ApproveAutopilotResumeBody.safeParse(req.body);
     if (!parsed.success) {
-      res
-        .status(400)
-        .json({
-          error: "A valid request ID, reason, and confirmation are required",
-          code: "ADMIN_SAFETY_INPUT_INVALID",
-        });
+      res.status(400).json({
+        error: "A valid request ID, reason, and confirmation are required",
+        code: "ADMIN_SAFETY_INPUT_INVALID",
+      });
       return;
     }
     try {
@@ -560,12 +747,10 @@ router.post(
   async (req, res): Promise<void> => {
     const parsed = SuspendAutopilotBody.safeParse(req.body);
     if (!parsed.success) {
-      res
-        .status(400)
-        .json({
-          error: "A valid reason and confirmation are required",
-          code: "ADMIN_SAFETY_INPUT_INVALID",
-        });
+      res.status(400).json({
+        error: "A valid reason and confirmation are required",
+        code: "ADMIN_SAFETY_INPUT_INVALID",
+      });
       return;
     }
     try {

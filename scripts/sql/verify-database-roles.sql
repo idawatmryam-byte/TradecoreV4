@@ -68,6 +68,12 @@ SELECT
     AND NOT has_table_privilege(:'app_role', 'public.platform_audit_events', 'DELETE')
     AND NOT has_table_privilege(:'app_role', 'public.platform_audit_events', 'TRUNCATE')
     AS platform_audit_is_append_only,
+  has_table_privilege(:'app_role', 'public.platform_autopilot_clearance_events', 'SELECT')
+    AND has_table_privilege(:'app_role', 'public.platform_autopilot_clearance_events', 'INSERT')
+    AND NOT has_table_privilege(:'app_role', 'public.platform_autopilot_clearance_events', 'UPDATE')
+    AND NOT has_table_privilege(:'app_role', 'public.platform_autopilot_clearance_events', 'DELETE')
+    AND NOT has_table_privilege(:'app_role', 'public.platform_autopilot_clearance_events', 'TRUNCATE')
+    AS platform_autopilot_clearance_is_append_only,
   (
     SELECT count(*) = 6
     FROM information_schema.tables
