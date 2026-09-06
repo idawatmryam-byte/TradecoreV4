@@ -143,9 +143,9 @@ export function updateExcursion(pos: SimulatedPosition, high: number, low: numbe
  * Trade management for one bar: TP1 → TP2 → break-even → trailing.
  *
  * Mirrors TradeManager.manage()'s control flow exactly — same order, same
- * conditions. Runs BEFORE the exit check so a partial fill, break-even move,
- * or trailing tighten on this same bar is reflected in that check, exactly as
- * it would be live (TradeManager runs before ExitManager each tick).
+ * conditions. A pre-existing stop or liquidation touch defers to settlement
+ * before management can book partial profits or overwrite that protection.
+ * OHLC cannot establish a favourable intrabar ordering.
  *
  * Mutates `pos`.
  */
@@ -160,6 +160,11 @@ export function manageBar(
   const isShort = pos.side === "short";
   const [, , high, low] = ctx.candle;
   const { slippageRate, makerFeeRate } = costs;
+
+  const stopTouched = isShort ? high >= pos.slPrice : low <= pos.slPrice;
+  const liquidationTouched = pos.liquidationPrice !== undefined &&
+    (isShort ? high >= pos.liquidationPrice : low <= pos.liquidationPrice);
+  if (stopTouched || liquidationTouched) return;
 
   // TP1: partial close + move stop to break-even. Long TP1 sits above entry
   // (triggered by a high); short TP1 sits below (triggered by a low).
@@ -181,7 +186,8 @@ export function manageBar(
       pos.tp1Filled = true;
       pos.tp1FillPrice = fillP;
       pos.tp1FillTime = ctx.now;
-      pos.slPrice = pos.entryPrice; // break-even move
+      // Earlier trailing may already protect more than break-even.
+      pos.slPrice = isShort ? Math.min(pos.slPrice, pos.entryPrice) : Math.max(pos.slPrice, pos.entryPrice);
       pos.breakEvenActive = true;
     }
   }

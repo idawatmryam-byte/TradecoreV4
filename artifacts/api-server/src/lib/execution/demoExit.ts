@@ -38,7 +38,7 @@ type Trade = typeof tradesTable.$inferSelect;
  * so an engine restart resumes a demo position exactly where it left off —
  * there is no in-process state to lose.
  */
-function positionFromTrade(trade: Trade): SimulatedPosition {
+function positionFromTrade(trade: Trade, costs: FillCosts): SimulatedPosition {
   const isShort = trade.side === "sell";
   return {
     symbol: trade.symbol,
@@ -51,9 +51,10 @@ function positionFromTrade(trade: Trade): SimulatedPosition {
     remainingQty: Number(trade.remainingQuantity ?? trade.quantity),
     entryTime: new Date(trade.entryTime),
     confidence: Number(trade.confidence),
-    // Entry fees are recomputed by ExitManager at close from the taker rate,
-    // exactly as they are for a live trade — see closeSimulated.
-    fees: 0,
+    // The fill model allocates this across TP1/TP2. ExitManager charges only
+    // the remainder's entry share at final close; zero here loses the partials'
+    // entry costs. Use the same taker entry model as final settlement.
+    fees: Number(trade.entryPrice) * Number(trade.quantity) * costs.feeRate,
     slippage: 0,
     ...(trade.liquidationPrice != null && { liquidationPrice: Number(trade.liquidationPrice) }),
     ...(trade.strategyId && { strategyId: trade.strategyId }),
@@ -143,7 +144,7 @@ export async function simulateDemoExit(args: DemoExitArgs): Promise<boolean> {
 
   const candle = candles1m[candles1m.length - 1]!;
   const [, , high, low] = candle;
-  const pos = positionFromTrade(trade);
+  const pos = positionFromTrade(trade, costs);
   const ctx: BarContext = { candle, history: candles1m, now };
 
   const slBefore = pos.slPrice;

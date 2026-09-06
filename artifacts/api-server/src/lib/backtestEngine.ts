@@ -52,6 +52,7 @@ import { estimateLiquidationPrice, stopTooCloseToLiquidation } from "./futuresMa
 import { type RiskModel } from "./dollarRisk";
 import { type DollarRiskContext } from "./strategies/selector";
 import { supportsShortEntries } from "./marketSymbols";
+import { closedCandleWindow } from "./candleWindows";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -271,23 +272,17 @@ function aggregateCandles(candles: Candle[], targetMs: number): Candle[] {
 
 /**
  * Binary-search the aggregated candle array for the window of `windowSize`
- * bars whose last bar has timestamp ≤ primaryTs.
+ * bars that have CLOSED by the decision's market-data cutoff.
  * Returns null when there is insufficient warmup data.
  */
 function getAggregatedWindow(
   aggCandles: Candle[],
-  primaryTs: number,
+  availableAtMs: number,
+  intervalMs: number,
   windowSize = 51
 ): Candle[] | null {
-  if (aggCandles.length < windowSize) return null;
-  let lo = 0, hi = aggCandles.length - 1, idx = -1;
-  while (lo <= hi) {
-    const mid = (lo + hi) >> 1;
-    if (aggCandles[mid]![0] <= primaryTs) { idx = mid; lo = mid + 1; }
-    else hi = mid - 1;
-  }
-  if (idx < windowSize - 1) return null;
-  return aggCandles.slice(idx - windowSize + 1, idx + 1);
+  const window = closedCandleWindow(aggCandles, availableAtMs, intervalMs, windowSize);
+  return window.length < windowSize ? null : window;
 }
 
 // ---------------------------------------------------------------------------
@@ -504,8 +499,8 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     const WARMUP = 100; // candle windows are 100 bars, matching live
     const warmupMs = WARMUP * tfMs;
     // Preroll must give the coarsest aggregated series (1h) ≥ WARMUP bars before
-    // the first real candle, or getAggregatedWindow null-falls-back to the 1m
-    // window early in the run. WARMUP=100 hourly bars ≈ 100h; a 6-day floor
+    // the first real candle, or entry evaluation must abstain while the
+    // higher-timeframe history warms up. WARMUP=100 hourly bars ≈ 100h; a 6-day floor
     // (144h) leaves comfortable margin.
     const downloadStart = startMs - Math.max(warmupMs * 3, 6 * DAY_MS);
 
@@ -800,13 +795,18 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
 
       if (circuitBreakerActive || atMaxPositions || alreadyInSymbol || onCooldown || hasPendingEntry) continue;
 
-      // Build 51-candle windows for each timeframe at this timestamp
+      // The current primary close is known at ts + tfMs. A preaggregated bar
+      // that opened earlier can still contain future prices until it closes.
       const primaryWindow = candles.slice(idx - WARMUP, idx + 1);
-
-      const window3m  = getAggregatedWindow(sym3m.get(symbol)!,  ts, WARMUP) ?? primaryWindow;
-      const window5m  = getAggregatedWindow(sym5m.get(symbol)!,  ts, WARMUP) ?? primaryWindow;
-      const window15m = getAggregatedWindow(sym15m.get(symbol)!, ts, WARMUP) ?? primaryWindow;
-      const window1h  = getAggregatedWindow(sym1h.get(symbol)!,  ts, WARMUP) ?? primaryWindow;
+      const availableAtMs = ts + tfMs;
+      // Coarse replay retains its documented timeframe approximation; a slot
+      // containing primary bars must use their actual duration for availability.
+      const window3m  = getAggregatedWindow(sym3m.get(symbol)!, availableAtMs, Math.max(tfMs, 3 * 60_000), WARMUP);
+      const window5m  = getAggregatedWindow(sym5m.get(symbol)!, availableAtMs, Math.max(tfMs, 5 * 60_000), WARMUP);
+      const window15m = getAggregatedWindow(sym15m.get(symbol)!, availableAtMs, Math.max(tfMs, 15 * 60_000), WARMUP);
+      const window1h  = getAggregatedWindow(sym1h.get(symbol)!, availableAtMs, Math.max(tfMs, HOUR_MS), WARMUP);
+      // A minute series is not a valid substitute for missing hourly history.
+      if (!window3m || !window5m || !window15m || !window1h) continue;
 
       const mtf: MultiTimeframeCandles = {
         tf1m:  primaryWindow,
