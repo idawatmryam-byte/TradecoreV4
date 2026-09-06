@@ -387,7 +387,10 @@ export class TradeManager {
       fees: fees.toFixed(8), pnl: pnl.toFixed(8), time: now,
     });
 
-    const newSl = reason === "tp1" ? entryPrice : currentSl; // move to break-even only on tp1
+    // TP1 may follow an earlier trailing tighten; never give that protection back.
+    const newSl = reason === "tp1"
+      ? (isShort ? Math.min(currentSl, entryPrice) : Math.max(currentSl, entryPrice))
+      : currentSl;
     const updates: Record<string, unknown> = { remainingQuantity: newRemaining.toFixed(8), stopLoss: newSl.toFixed(8) };
     if (reason === "tp1") {
       updates.tp1Filled = true;
