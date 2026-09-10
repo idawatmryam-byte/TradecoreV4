@@ -50,20 +50,20 @@ export class MicroScalpingStrategy implements Strategy {
     if (row.volumeRatio < 2.0) return null;
 
     // ── RSI scalp zone ────────────────────────────────────────────────────
-    let side: PositionSide;
-    if (row.rsi >= 45 && row.rsi <= 65) side = "long";
-    else if (row.rsi >= 35 && row.rsi <= 55) side = "short";
-    else return null;
+    const longZone = row.rsi >= 45 && row.rsi <= 65;
+    const shortZone = row.rsi >= 35 && row.rsi <= 55;
+    if (!longZone && !shortZone) return null;
 
     // ── MACD histogram confirming direction and rising in magnitude on 3m ──
     const closes3m = tf3m.map((c) => c[4]);
     const curr = calcMacd(closes3m);
     const prev = closes3m.length > 3 ? calcMacd(closes3m.slice(0, -1)) : curr;
-    if (side === "long") {
-      if (curr.histogram <= 0 || curr.histogram <= prev.histogram) return null;
-    } else {
-      if (curr.histogram >= 0 || curr.histogram >= prev.histogram) return null;
-    }
+    // RSI 45-55 belongs to both zones. Let confirmed momentum select the
+    // direction instead of always choosing long before checking momentum.
+    let side: PositionSide;
+    if (longZone && curr.histogram > 0 && curr.histogram > prev.histogram) side = "long";
+    else if (shortZone && curr.histogram < 0 && curr.histogram < prev.histogram) side = "short";
+    else return null;
 
     // ── Trend alignment: 5m and 15m EMA20 vs EMA50 ───────────────────────
     const closes5m = tf5m.map((c) => c[4]);

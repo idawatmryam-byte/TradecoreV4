@@ -89,6 +89,7 @@ import {
   stopTooCloseToLiquidation,
 } from "../../futuresMath";
 import { supportsShortEntries } from "../../marketSymbols";
+import { closedCandleWindow } from "../../candleWindows";
 import { logger } from "../../logger";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -217,13 +218,6 @@ function aggregateCandles(candles: readonly Candle[], targetMs: number): Candle[
     rows.at(-1)![4],
     rows.reduce((sum, row) => sum + row[5], 0),
   ] as Candle);
-}
-
-function windowAt(candles: readonly Candle[], timestamp: number, limit = 101): Candle[] {
-  let high = candles.length - 1;
-  while (high >= 0 && candles[high]![0] > timestamp) high--;
-  if (high < 0) return [];
-  return candles.slice(Math.max(0, high - limit + 1), high + 1).map((candle) => [...candle] as Candle);
 }
 
 function deterministicUuid(value: unknown): string {
@@ -760,12 +754,15 @@ function buildContexts(
     if (idx === undefined) continue;
     const aggregated = prepared.aggregatedCandles.get(symbol)!;
     const history = candles.slice(Math.max(0, idx - 100), idx + 1).map((candle) => [...candle] as Candle);
+    // Latency changes execution time, not which future candles the decision
+    // may read. Sanitize the same inputs used by BOTH MarketState and selector.
+    const availableAtMs = timestamp + MINUTE_MS;
     const mtf: MultiTimeframeCandles = {
       tf1m: history,
-      tf3m: windowAt(aggregated.tf3m, timestamp),
-      tf5m: windowAt(aggregated.tf5m, timestamp),
-      tf15m: windowAt(aggregated.tf15m, timestamp),
-      tf1h: windowAt(aggregated.tf1h, timestamp),
+      tf3m: closedCandleWindow(aggregated.tf3m, availableAtMs, 3 * MINUTE_MS, 101),
+      tf5m: closedCandleWindow(aggregated.tf5m, availableAtMs, 5 * MINUTE_MS, 101),
+      tf15m: closedCandleWindow(aggregated.tf15m, availableAtMs, 15 * MINUTE_MS, 101),
+      tf1h: closedCandleWindow(aggregated.tf1h, availableAtMs, 60 * MINUTE_MS, 101),
     };
     try {
       const marketState = buildMarketState({

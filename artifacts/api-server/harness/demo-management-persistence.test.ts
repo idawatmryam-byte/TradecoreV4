@@ -194,6 +194,11 @@ try {
     "remaining quantity reflects the TP1 reduction",
     Number(persistedTrade.remainingQuantity) === 0.5,
   );
+  expect(
+    "TP1 includes its share of the entry fee",
+    Math.abs(Number(partialExits[0]?.fees) - (100.05 + 105.05) * 0.5 * costs.feeRate) < 1e-8,
+    String(partialExits[0]?.fees),
+  );
   expect("TP1 state is persisted", persistedTrade.tp1Filled === true);
   expect(
     "TP1 fill price is persisted",
@@ -292,6 +297,9 @@ try {
     persistedTrade.quantity === "1.00000000" &&
       persistedTrade.plannedQuantity === "1.00000000",
   );
+  const expectedFees = 100.05 * costs.feeRate + (105.05 + 104.94) * 0.5 * costs.feeRate;
+  expect("reloaded Demo charges the full entry fee exactly once", Math.abs(Number(persistedTrade.feesUsdt) - expectedFees) < 1e-8, String(persistedTrade.feesUsdt));
+  expect("reloaded Demo net profit includes all slice costs", Math.abs(Number(persistedTrade.pnl) - (4.945 - expectedFees)) < 1e-8, String(persistedTrade.pnl));
 } finally {
   mutableDb.insert = originalDb.insert;
   mutableDb.update = originalDb.update;

@@ -596,7 +596,8 @@ export function buildSignalRow(
     macroBearish,
     shortConfidence,
     volumeRatio: Math.round(volumeRatio * 100) / 100,
-    lastPrice: Math.round(lastPrice * 10000) / 10000,
+    // Execution plans consume this price; formatting belongs in the UI.
+    lastPrice,
     regime,
     adx: Math.round(adxVal * 10) / 10,
     macdHistogram: Math.round(macdHist * 1e8) / 1e8,

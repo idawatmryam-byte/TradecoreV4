@@ -198,6 +198,7 @@ import type {
   BlockingSummary,
 } from "./decisionTrace";
 import { buildMarketStateResult } from "./intelligence/market-state/builder";
+import { closedSignalCandles } from "./candleWindows";
 import type { MarketStateResult } from "./intelligence/market-state/types";
 import {
   buildSpecialistCouncilSnapshot,
@@ -2744,11 +2745,11 @@ class BotEngine {
           const market = this.toMarket(symbol);
           try {
             const [tf1m, tf3m, tf5m, tf15m, tf1h] = await Promise.all([
-              ex.fetchOHLCV(market, "1m", undefined, 100) as Promise<Candle[]>,
-              ex.fetchOHLCV(market, "3m", undefined, 100) as Promise<Candle[]>,
-              ex.fetchOHLCV(market, "5m", undefined, 100) as Promise<Candle[]>,
-              ex.fetchOHLCV(market, "15m", undefined, 100) as Promise<Candle[]>,
-              ex.fetchOHLCV(market, "1h", undefined, 100) as Promise<Candle[]>,
+              ex.fetchOHLCV(market, "1m", undefined, 101) as Promise<Candle[]>,
+              ex.fetchOHLCV(market, "3m", undefined, 101) as Promise<Candle[]>,
+              ex.fetchOHLCV(market, "5m", undefined, 101) as Promise<Candle[]>,
+              ex.fetchOHLCV(market, "15m", undefined, 101) as Promise<Candle[]>,
+              ex.fetchOHLCV(market, "1h", undefined, 101) as Promise<Candle[]>,
             ]);
             return { symbol, ok: true, tf1m, tf3m, tf5m, tf15m, tf1h };
           } catch (err) {
@@ -2914,7 +2915,9 @@ class BotEngine {
           continue;
         }
 
-        const { tf1m, tf3m, tf5m, tf15m, tf1h } = result;
+        // Fetch one extra bar so discarding the forming candle still leaves
+        // 100 closed bars. Retain raw data separately for current-price exits.
+        const { tf1m, tf3m, tf5m, tf15m, tf1h } = closedSignalCandles(result, now.getTime());
         marketStage.data = {
           candles: {
             "1m": tf1m.length,
@@ -2958,7 +2961,7 @@ class BotEngine {
           symbol,
           venue: this.activeMarketType,
           provider: validationFixture ? "fixture" : this.activeMarketType === "forex" ? "oanda" : "binance",
-          candles: mtf,
+          candles: result,
           observedAt: now,
           maximumAgeMs: 3 * 60_000,
           previousRegime,
@@ -2971,7 +2974,7 @@ class BotEngine {
         scanSnapshots.set(symbol, {
           row,
           dataTimestampMs:
-            tf1m.length > 0 ? tf1m[tf1m.length - 1]![0]! : now.getTime(),
+            tf1m.length > 0 ? tf1m[tf1m.length - 1]![0]! + 60_000 : now.getTime(),
         });
         marketStage.status = "pass";
         marketStage.detail = `Fetched 5 timeframes · last price ${row.lastPrice}`;
@@ -3021,7 +3024,7 @@ class BotEngine {
             openStratConfig?.cooldownMinutes ?? Number(config.cooldownMinutes);
           await this.checkExitCondition(
             openForSymbol,
-            tf1m,
+            result.tf1m,
             now,
             cooldownMinutes,
             stratMaxHold,

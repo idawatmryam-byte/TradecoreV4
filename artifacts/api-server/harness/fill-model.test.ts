@@ -188,5 +188,30 @@ const ctxAt = (candle: ReturnType<typeof bar>, now = T0): BarContext =>
   expect("liquidation fires when it is the sole trigger", out2?.exitReason === "liquidation", String(out2?.exitReason));
 }
 
+// Management must not book a partial profit before a pre-existing stop that
+// the same OHLC bar also touched. Exercise the actual manage -> settle chain.
+for (const side of ["long", "short"] as const) {
+  const short = side === "short";
+  const management = cfg({ tp1RMultiple: 1 });
+  const pos = longPos({
+    side, slPrice: short ? 105 : 95, plannedSlPrice: short ? 105 : 95,
+    tpPrice: short ? 90 : 110, tp1Price: short ? 95 : 105, tp1Qty: 0.5,
+  });
+  const ctx = ctxAt(short ? bar(100, 106, 94, 96) : bar(100, 106, 94, 104));
+  manageBar(pos, ctx, management, NO_COSTS);
+  const out = settleBar(pos, ctx, management, NO_COSTS);
+  expect(`${side}: pre-existing stop prevents ambiguous TP1 profit`, !pos.tp1Filled && pos.partialExits.length === 0);
+  expect(`${side}: full original stop loss is recorded`, out?.exitReason === "stop_loss" && near(out.pnl, -5), String(out?.pnl));
+
+  const protectedPos = longPos({
+    side, slPrice: short ? 98 : 102, plannedSlPrice: short ? 105 : 95,
+    tpPrice: short ? 90 : 110, tp1Price: short ? 95 : 105, tp1Qty: 0.5,
+    trailingStopActive: true,
+  });
+  const protectedCtx = ctxAt(short ? bar(97, 97, 94, 95) : bar(103, 106, 103, 105));
+  manageBar(protectedPos, protectedCtx, management, NO_COSTS);
+  expect(`${side}: TP1 preserves a tighter existing stop`, protectedPos.tp1Filled && near(protectedPos.slPrice, short ? 98 : 102));
+}
+
 console.log(failures === 0 ? "\nAll fill-model checks passed." : `\n${failures} FAILED`);
 process.exit(failures === 0 ? 0 : 1);
