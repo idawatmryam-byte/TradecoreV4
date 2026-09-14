@@ -53,3 +53,15 @@ Thumbs.db
 .env.*
 !.env.example
 !.env.deploy.example
+
+# Private keys, certificates, credentials
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+*.crt
+*.cer
+id_rsa*
+*.credentials
+*.token

@@ -2,7 +2,7 @@
 
 Status: source of truth for the next Codex workspace  
 Prepared: 2026-08-09  
-Repository: `idawatmryam-byte/TradecoreV4`  
+Repository: `<your-org>/TradecoreV4`  
 Default and development branch: `main`  
 Scope: original Phase 0–6 baseline plus the owner-approved Phase 7 authority amendment and implementation record
 
@@ -27,7 +27,7 @@ assumptions. Use this document and the current root `README.md`, `AGENTS.md`,
 
 ### 2.1 Remote baseline before this handoff document
 
-- GitHub repository: `https://github.com/idawatmryam-byte/TradecoreV4`
+- GitHub repository: `https://github.com/<your-org>/TradecoreV4`
 - Visibility: private.
 - Default branch: `main`.
 - Remote Phase 0–6 audit head: `2df933485816f115d57de6387a37bad7acf3df2a`
@@ -40,7 +40,7 @@ assumptions. Use this document and the current root `README.md`, `AGENTS.md`,
   authentication was unavailable. The file tree was explicitly verified as
   identical. A fresh clone of remote `main` is the clean migration path.
 - Linux/PostgreSQL CI run:
-  `https://github.com/idawatmryam-byte/TradecoreV4/actions/runs/31326905219`.
+  `https://github.com/<your-org>/TradecoreV4/actions/runs/31326905219`.
   Its `verify` job completed successfully: install, production dependency audit,
   full typecheck, pure harness, PostgreSQL schema application, capture grants and
   purge-function verification, database integration harness, frontend build, and
@@ -57,7 +57,7 @@ Use a new directory and clone `main`; do not copy the old `.git` directory or
 untracked build artifacts:
 
 ```bash
-git clone https://github.com/idawatmryam-byte/TradecoreV4.git
+git clone https://github.com/<your-org>/TradecoreV4.git
 cd TradecoreV4
 git switch main
 git status --short --branch

@@ -6,7 +6,7 @@ TradeCore has concrete defects in decision inputs, simulation and exit accountin
 
 The active entry brain is principally a deterministic strategy selector with hand-designed indicator scores. The LLM/council path runs beside it in Shadow; it is not an independently validated professional trader controlling the entry selector. Good engineering safeguards do not demonstrate positive trading expectancy.
 
-This audit inspected `D:\Awat\TradecoreV4`, local HEAD `a8259a9ab6f434c772574d7f6689eced21d44b3b` plus the owner's existing edits. The deployed revision and account configuration were not verified. No actual account trade history, broker fills or historical database were available to this run. Consequently, these are verified source defects and reproduced mechanisms, not a quantified attribution of the owner's actual losses.
+This audit inspected `<REPO_ROOT>`, local HEAD `a8259a9ab6f434c772574d7f6689eced21d44b3b` plus the owner's existing edits. The deployed revision and account configuration were not verified. No actual account trade history, broker fills or historical database were available to this run. Consequently, these are verified source defects and reproduced mechanisms, not a quantified attribution of the owner's actual losses.
 
 ## Corrections implemented locally
 

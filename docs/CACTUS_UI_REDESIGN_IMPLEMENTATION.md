@@ -2,7 +2,7 @@
 
 ## Status and boundary
 
-This change is the first implementation milestone of the approved Cactus AI UI/UX redesign. It was created from `origin/main` at `e1945af8b0a5eab27647d00d62a93f9cd09de257` in the dedicated `codex/cactus-ui-redesign` branch and `D:\Awat\TradecoreV4-ui-redesign` worktree.
+This change is the first implementation milestone of the approved Cactus AI UI/UX redesign. It was created from `origin/main` at `e1945af8b0a5eab27647d00d62a93f9cd09de257` in the dedicated `codex/cactus-ui-redesign` branch and `<REPO_ROOT>-ui-redesign` worktree.
 
 It does not change trading algorithms, broker commands, order semantics, deterministic risk, financial roles, mandate semantics, or Phase 13. It does not deploy, contact a provider, change credentials, or authorize Live trading.
 

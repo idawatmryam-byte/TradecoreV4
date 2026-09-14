@@ -18,7 +18,7 @@ account system.
 
 ## 2. Where the code is
 
-- Repo: `idawatmryam-byte/TradecoreV3`
+- Repo: `<your-org>/TradecoreV3`
 - Working branch: **`claude/project-setup-29b81c`** (PR #1)
 - Everything below is already committed there. `git pull` and you have it.
 - **Rule: keep pushing to this branch.** Git is the single source of truth
@@ -58,7 +58,7 @@ Prerequisites: Node 20+, `pnpm`, PostgreSQL.
 
 ```bash
 # 1. Get the code
-git clone -b claude/project-setup-29b81c https://github.com/idawatmryam-byte/TradecoreV3.git
+git clone -b claude/project-setup-29b81c https://github.com/<your-org>/TradecoreV3.git
 cd TradecoreV3
 pnpm install
 
