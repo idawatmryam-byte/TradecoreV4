@@ -1,0 +1,33 @@
+soak_start_utc=2026-08-22T19:57:04Z
+monitored_pid=1653180 (verified listener on 4173)
+sample=1 ts=2026-08-22T19:57:12Z healthz=200 readyz=200 rss_kb=239368 cpu_pct=19.6 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=4 duplicate_provider_ids=0
+sample=2 ts=2026-08-22T19:57:43Z healthz=200 readyz=200 rss_kb=239632 cpu_pct=4.5 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=3 ts=2026-08-22T19:58:14Z healthz=200 readyz=200 rss_kb=239896 cpu_pct=2.6 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=4 ts=2026-08-22T19:58:45Z healthz=200 readyz=200 rss_kb=240424 cpu_pct=1.8 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=5 ts=2026-08-22T19:59:15Z healthz=200 readyz=200 rss_kb=173412 cpu_pct=1.5 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=6 ts=2026-08-22T19:59:46Z healthz=200 readyz=200 rss_kb=173412 cpu_pct=1.2 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=7 ts=2026-08-22T20:00:17Z healthz=200 readyz=200 rss_kb=173676 cpu_pct=1.0 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=8 ts=2026-08-22T20:00:48Z healthz=200 readyz=200 rss_kb=173304 cpu_pct=0.9 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=9 ts=2026-08-22T20:01:18Z healthz=200 readyz=200 rss_kb=173568 cpu_pct=0.8 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=10 ts=2026-08-22T20:01:49Z healthz=200 readyz=200 rss_kb=173568 cpu_pct=0.7 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=11 ts=2026-08-22T20:02:20Z healthz=200 readyz=200 rss_kb=174356 cpu_pct=0.7 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=12 ts=2026-08-22T20:02:51Z healthz=200 readyz=200 rss_kb=174620 cpu_pct=0.6 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=13 ts=2026-08-22T20:03:21Z healthz=200 readyz=200 rss_kb=174620 cpu_pct=0.6 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=14 ts=2026-08-22T20:03:52Z healthz=200 readyz=200 rss_kb=174884 cpu_pct=0.5 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=15 ts=2026-08-22T20:04:23Z healthz=200 readyz=200 rss_kb=175148 cpu_pct=0.5 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=16 ts=2026-08-22T20:04:54Z healthz=200 readyz=200 rss_kb=175412 cpu_pct=0.5 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=17 ts=2026-08-22T20:05:24Z healthz=200 readyz=200 rss_kb=175412 cpu_pct=0.4 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=18 ts=2026-08-22T20:05:55Z healthz=200 readyz=200 rss_kb=175412 cpu_pct=0.4 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=19 ts=2026-08-22T20:06:26Z healthz=200 readyz=200 rss_kb=175676 cpu_pct=0.4 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=20 ts=2026-08-22T20:06:57Z healthz=200 readyz=200 rss_kb=175676 cpu_pct=0.4 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=21 ts=2026-08-22T20:07:27Z healthz=200 readyz=200 rss_kb=175676 cpu_pct=0.3 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=22 ts=2026-08-22T20:07:58Z healthz=200 readyz=200 rss_kb=175676 cpu_pct=0.3 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=23 ts=2026-08-22T20:08:29Z healthz=200 readyz=200 rss_kb=175940 cpu_pct=0.3 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=24 ts=2026-08-22T20:09:00Z healthz=200 readyz=200 rss_kb=175940 cpu_pct=0.3 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=25 ts=2026-08-22T20:09:30Z healthz=200 readyz=200 rss_kb=175940 cpu_pct=0.3 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=26 ts=2026-08-22T20:10:01Z healthz=200 readyz=200 rss_kb=175940 cpu_pct=0.3 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=27 ts=2026-08-22T20:10:32Z healthz=200 readyz=200 rss_kb=175940 cpu_pct=0.3 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=28 ts=2026-08-22T20:11:03Z healthz=200 readyz=200 rss_kb=175940 cpu_pct=0.3 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=29 ts=2026-08-22T20:11:34Z healthz=200 readyz=200 rss_kb=175940 cpu_pct=0.3 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=30 ts=2026-08-22T20:12:04Z healthz=200 readyz=200 rss_kb=175940 cpu_pct=0.2 err_lines=0 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+soak_end_utc=2026-08-22T20:12:38Z

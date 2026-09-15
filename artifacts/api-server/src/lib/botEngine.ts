@@ -25,6 +25,7 @@ import {
   tradeAnalysesTable,
   notificationsTable,
   positionThesesTable,
+  autopilotControlsTable,
   type ExecutionIntent,
 } from "@workspace/db";
 import { analyzeTrade } from "./tradeAnalysis";
@@ -198,7 +199,7 @@ import type {
   BlockingSummary,
 } from "./decisionTrace";
 import { buildMarketStateResult } from "./intelligence/market-state/builder";
-import { closedSignalCandles } from "./candleWindows";
+import { closedTimeframes } from "./candleTiming";
 import type { MarketStateResult } from "./intelligence/market-state/types";
 import {
   buildSpecialistCouncilSnapshot,
@@ -451,8 +452,8 @@ class BotEngine {
    */
   private highFreqActive = false;
   // Test-mode caps — deliberately aggressive so the engine actually churns.
-  private readonly HF_MAX_HOLD_SECONDS = 600;      // force fast position cycling
-  private readonly HF_MAX_OPEN_POSITIONS = 30;     // allow every pair open at once
+  private readonly HF_MAX_HOLD_SECONDS = 600; // force fast position cycling
+  private readonly HF_MAX_OPEN_POSITIONS = 30; // allow every pair open at once
   private readonly HF_MAX_CONCURRENT_PER_STRAT = 10;
   /** Last resolved market regime per symbol — feeds regime hysteresis so the
    *  regime (and thus which strategies are eligible) can't flip every 15s
@@ -508,15 +509,19 @@ class BotEngine {
    *  hardcoded to the spot rate, which overstated fees ~2× on every futures
    *  trade and disagreed with the backtest's futures fee. */
   private get activeTakerFee(): number {
-    return this.activeMarketType === "futures" ? FUTURES_FEE_RATE
-      : this.activeMarketType === "forex" ? FOREX_COST_RATE
-      : DEFAULT_FEE_RATE;
+    return this.activeMarketType === "futures"
+      ? FUTURES_FEE_RATE
+      : this.activeMarketType === "forex"
+        ? FOREX_COST_RATE
+        : DEFAULT_FEE_RATE;
   }
   /** Slippage per leg for the ACTIVE market — forex is ~10× tighter than
    *  crypto. Feeds the reward:risk gate; using the crypto default there
    *  rejected every FX plan (costs exceeded FX-scale targets). */
   private get activeSlippageRate(): number {
-    return this.activeMarketType === "forex" ? FOREX_SLIPPAGE_RATE : DEFAULT_SLIPPAGE_RATE;
+    return this.activeMarketType === "forex"
+      ? FOREX_SLIPPAGE_RATE
+      : DEFAULT_SLIPPAGE_RATE;
   }
   /** How many consecutive risk violations before trading is paused */
   private readonly MAX_RISK_VIOLATIONS = 3;
@@ -596,14 +601,19 @@ class BotEngine {
    * Pick the executor for this scan. The intelligence pipeline above the fork
    * point is identical in every case; only this differs.
    */
-  private resolveExecutor(config: { mode?: string | null; executionTarget?: string | null }): TradeExecutor {
+  private resolveExecutor(config: {
+    mode?: string | null;
+    executionTarget?: string | null;
+  }): TradeExecutor {
     if (this.executorOverride) return this.executorOverride;
     if (config.mode === "research") return this.researchExecutor;
     // Co-Pilot forks BEFORE the demo/live choice: the plan is not executed at
     // all, it is handed to the user. Which target it eventually runs against
     // is decided at approval time, from the config as it stands then.
     if (config.mode === "copilot") return this.copilotExecutor;
-    return config.executionTarget === "demo" ? this.demoExecutor : this.liveExecutor;
+    return config.executionTarget === "demo"
+      ? this.demoExecutor
+      : this.liveExecutor;
   }
 
   private resolvePositionManagementContext(
@@ -615,13 +625,26 @@ class BotEngine {
       requestedMode,
       executionTarget: config.executionTarget === "demo" ? "demo" : "live",
       testnet: config.testnet,
-      tradingMode: config.mode === "research" ? "research" : config.mode === "copilot" ? "copilot" : "autopilot",
+      tradingMode:
+        config.mode === "research"
+          ? "research"
+          : config.mode === "copilot"
+            ? "copilot"
+            : "autopilot",
     });
     if (!assignment.phase7Observes) return {};
     const result = this.marketStates.get(plan.symbol);
-    if (!result || result.status !== "available" || result.state.freshness.status !== "fresh" || result.state.dataQuality.status !== "healthy") {
+    if (
+      !result ||
+      result.status !== "available" ||
+      result.state.freshness.status !== "fresh" ||
+      result.state.dataQuality.status !== "healthy"
+    ) {
       if (assignment.phase7MayMutate) {
-        return { blockingReason: "Phase 7 active management requires a fresh, healthy MarketState before entry" };
+        return {
+          blockingReason:
+            "Phase 7 active management requires a fresh, healthy MarketState before entry",
+        };
       }
       logger.warn({ symbol: plan.symbol }, "Phase 7 Shadow thesis unavailable — position will retain fixed management");
       return {};
@@ -635,9 +658,20 @@ class BotEngine {
    */
   private fillCosts(marketType: MarketType = this.activeMarketType): FillCosts {
     return {
-      feeRate: marketType === "forex" ? FOREX_COST_RATE : marketType === "futures" ? FUTURES_FEE_RATE : DEFAULT_FEE_RATE,
-      makerFeeRate: marketType === "forex" ? FOREX_COST_RATE : marketType === "futures" ? FUTURES_FEE_RATE : DEFAULT_FEE_RATE,
-      slippageRate: marketType === "forex" ? FOREX_SLIPPAGE_RATE : DEFAULT_SLIPPAGE_RATE,
+      feeRate:
+        marketType === "forex"
+          ? FOREX_COST_RATE
+          : marketType === "futures"
+            ? FUTURES_FEE_RATE
+            : DEFAULT_FEE_RATE,
+      makerFeeRate:
+        marketType === "forex"
+          ? FOREX_COST_RATE
+          : marketType === "futures"
+            ? FUTURES_FEE_RATE
+            : DEFAULT_FEE_RATE,
+      slippageRate:
+        marketType === "forex" ? FOREX_SLIPPAGE_RATE : DEFAULT_SLIPPAGE_RATE,
     };
   }
 
@@ -657,9 +691,15 @@ class BotEngine {
         section: this.section,
       });
     },
-    setCooldown: (symbol: string, minutes: number) => this.setCooldown(symbol, minutes),
-    recordHourlyStat: (now: Date, pnl: number, win: boolean) => this.recordHourlyStat(now, pnl, win),
-    recordRiskViolation: async (tradeId: number, symbol: string, detail: string) => {
+    setCooldown: (symbol: string, minutes: number) =>
+      this.setCooldown(symbol, minutes),
+    recordHourlyStat: (now: Date, pnl: number, win: boolean) =>
+      this.recordHourlyStat(now, pnl, win),
+    recordRiskViolation: async (
+      tradeId: number,
+      symbol: string,
+      detail: string,
+    ) => {
       this.riskViolationCount++;
       try {
         await suspendAutopilotForSafetyViolation({
@@ -675,7 +715,10 @@ class BotEngine {
         { symbol, tradeId, consecutiveCount: this.riskViolationCount, detail },
         `RISK VIOLATION #${this.riskViolationCount} (consecutive): actual loss exceeded expected maximum`,
       );
-      if (this.riskViolationCount >= this.MAX_RISK_VIOLATIONS && !this.riskPaused) {
+      if (
+        this.riskViolationCount >= this.MAX_RISK_VIOLATIONS &&
+        !this.riskPaused
+      ) {
         this.riskPaused = true;
         const alertMsg =
           `🚨 Risk management violation detected. Trading paused. ` +
@@ -719,7 +762,15 @@ class BotEngine {
         if (orderIds.slOrderId) await ex.cancelOrder(orderIds.slOrderId, market).catch(() => {});
       }
     },
-    replaceStopOrder: async (ex, trade, market, newStopPrice, tp, qty, oldOrderIds) => {
+    replaceStopOrder: async (
+      ex,
+      trade,
+      market,
+      newStopPrice,
+      tp,
+      qty,
+      oldOrderIds,
+    ) => {
       // Cancel whatever was resting before (redundant-but-harmless if the
       // caller already called cancelProtection — cancelling an already-
       // cancelled order/list just no-ops via the catches below).
@@ -747,7 +798,11 @@ class BotEngine {
         }
         try {
           const ids = await ex.replaceTradeProtection(oandaTradeId, market, newStopPrice, tp);
-          return { slOrderId: ids.slOrderId, tpOrderId: ids.tpOrderId, oandaTradeId };
+          return {
+            slOrderId: ids.slOrderId,
+            tpOrderId: ids.tpOrderId,
+            oandaTradeId,
+          };
         } catch (err) {
           logger.error({ err, tradeId: trade.id, symbol: trade.symbol, newStopPrice },
             "Forex stop replace failed — position may be running without exchange-side protection until the next tick retries");
@@ -760,13 +815,19 @@ class BotEngine {
       if (trade.marketType === "futures") {
         const positionSide = trade.side === "sell" ? "sell" : "buy";
         const result = await placeFuturesStopAndTakeProfit(ex, market, positionSide, preciseQty, newStopPrice, tp);
-        return result ? { slOrderId: result.slOrderId, tpOrderId: result.tpOrderId } : null;
+        return result
+          ? { slOrderId: result.slOrderId, tpOrderId: result.tpOrderId }
+          : null;
       }
 
       const stopLimitPrice = parseFloat(ex.priceToPrecision(market, newStopPrice * 0.999));
       const ocoResult = await placeSellOco(ex, market, preciseQty, tp, newStopPrice, stopLimitPrice);
       if (ocoResult) {
-        return { slOrderId: ocoResult.slOrderId, tpOrderId: ocoResult.tpOrderId, ocoOrderListId: ocoResult.orderListId };
+        return {
+          slOrderId: ocoResult.slOrderId,
+          tpOrderId: ocoResult.tpOrderId,
+          ocoOrderListId: ocoResult.orderListId,
+        };
       }
 
       // Fallback: independent SL-only replacement (carries the known
@@ -904,7 +965,11 @@ class BotEngine {
           "No OANDA credentials configured for this account — add your API token and account ID on the Settings page before starting the forex engine.",
         );
       }
-      return new OandaAdapter({ token: oanda.token, accountId: oanda.accountId, practice: testnet });
+      return new OandaAdapter({
+        token: oanda.token,
+        accountId: oanda.accountId,
+        practice: testnet,
+      });
     }
 
     const credentials = await getBinanceCredentials(this.userId);
@@ -933,13 +998,17 @@ class BotEngine {
    * format caused in futures mode); format-rule fallback before markets load.
    */
   private toMarket(symbol: string): string {
-    return this.symbolMaps?.toUnified.get(symbol)
-      ?? unifiedFromPlainFallback(symbol, this.activeMarketType);
+    return (
+      this.symbolMaps?.toUnified.get(symbol) ??
+      unifiedFromPlainFallback(symbol, this.activeMarketType)
+    );
   }
 
   /** Convert a ccxt unified symbol back to the DB/API symbol ("BTCUSDT"). */
   private fromMarket(market: string): string {
-    return this.symbolMaps?.toPlain.get(market) ?? plainFromUnifiedFallback(market);
+    return (
+      this.symbolMaps?.toPlain.get(market) ?? plainFromUnifiedFallback(market)
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -964,14 +1033,18 @@ class BotEngine {
     const starting = Number(cfg?.start ?? 10_000);
 
     const [realised] = await db
-      .select({ total: sql<number>`coalesce(sum(${tradesTable.pnl}), 0)::float8` })
+      .select({
+        total: sql<number>`coalesce(sum(${tradesTable.pnl}), 0)::float8`,
+      })
       .from(tradesTable)
-      .where(and(
-        eq(tradesTable.userId, this.userId),
-        eq(tradesTable.section, this.section),
-        eq(tradesTable.executionTarget, "demo"),
-        eq(tradesTable.status, "closed"),
-      ));
+      .where(
+        and(
+          eq(tradesTable.userId, this.userId),
+          eq(tradesTable.section, this.section),
+          eq(tradesTable.executionTarget, "demo"),
+          eq(tradesTable.status, "closed"),
+        ),
+      );
 
     const balance = starting + Number(realised?.total ?? 0);
     this.state.balanceUsdt = balance;
@@ -985,7 +1058,10 @@ class BotEngine {
     if (this.executionTarget === "demo") return this.getDemoBalance();
 
     const now = Date.now();
-    if (now - this.lastBalanceFetch < this.BALANCE_CACHE_MS && this.cachedBalance > 0) {
+    if (
+      now - this.lastBalanceFetch < this.BALANCE_CACHE_MS &&
+      this.cachedBalance > 0
+    ) {
       return this.cachedBalance;
     }
     try {
@@ -1038,8 +1114,13 @@ class BotEngine {
    * trade nor a live exchange position — protection for anything real is
    * never touched.
    */
-  private async sweepOrphanedProtectiveOrders(ex: any): Promise<OrphanSweepResult> {
-    if (this.activeMarketType !== "futures" || !isBrokerAuthority(this.activeExecutionAuthority)) {
+  private async sweepOrphanedProtectiveOrders(
+    ex: any,
+  ): Promise<OrphanSweepResult> {
+    if (
+      this.activeMarketType !== "futures" ||
+      !isBrokerAuthority(this.activeExecutionAuthority)
+    ) {
       return {
         state: "unverified",
         cancelled: 0,
@@ -1048,16 +1129,27 @@ class BotEngine {
       };
     }
     const open = await db
-      .select({ symbol: tradesTable.symbol, executionAuthority: tradesTable.executionAuthority })
+      .select({
+        symbol: tradesTable.symbol,
+        executionAuthority: tradesTable.executionAuthority,
+      })
       .from(tradesTable)
-      .where(and(
-        eq(tradesTable.userId, this.userId),
-        eq(tradesTable.section, this.section),
-        eq(tradesTable.status, "open"),
-        eq(tradesTable.executionTarget, "live"),
-        eq(tradesTable.marketType, "futures"),
-      ));
-    const unverified = open.filter((trade) => authorityFromTrade({ executionTarget: "live", executionAuthority: trade.executionAuthority }) === "legacy_unverified");
+      .where(
+        and(
+          eq(tradesTable.userId, this.userId),
+          eq(tradesTable.section, this.section),
+          eq(tradesTable.status, "open"),
+          eq(tradesTable.executionTarget, "live"),
+          eq(tradesTable.marketType, "futures"),
+        ),
+      );
+    const unverified = open.filter(
+      (trade) =>
+        authorityFromTrade({
+          executionTarget: "live",
+          executionAuthority: trade.executionAuthority,
+        }) === "legacy_unverified",
+    );
     if (unverified.length > 0) {
       return {
         state: "unverified",
@@ -1085,7 +1177,10 @@ class BotEngine {
       });
     } else if (result.cancelled > 0) {
       logger.warn(
-        { cancelled: result.cancelled, inspectedSymbols: result.inspectedSymbols },
+        {
+          cancelled: result.cancelled,
+          inspectedSymbols: result.inspectedSymbols,
+        },
         "Swept orphaned protective orders — freed Binance stop-order slots (-4045 guard)",
       );
     }
@@ -1108,7 +1203,10 @@ class BotEngine {
 
   private async getStrategyConfigs(): Promise<Map<string, StrategyConfig>> {
     const now = Date.now();
-    if (now - this.lastStrategyConfigLoad < this.STRATEGY_CONFIG_CACHE_MS && this.strategyConfigs.size > 0) {
+    if (
+      now - this.lastStrategyConfigLoad < this.STRATEGY_CONFIG_CACHE_MS &&
+      this.strategyConfigs.size > 0
+    ) {
       return this.strategyConfigs;
     }
     // Keep the PERSISTED configs for authorization identity (BUG-004): the
@@ -1216,11 +1314,7 @@ class BotEngine {
     const openTrades = await db
       .select()
       .from(tradesTable)
-      .where(and(
-        eq(tradesTable.userId, this.userId),
-        eq(tradesTable.section, this.section),
-        eq(tradesTable.status, "open"),
-      ));
+      .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.section, this.section), eq(tradesTable.status, "open")));
 
     const positions: PortfolioPositionInput[] = [];
     let invalidPositions = 0;
@@ -1229,9 +1323,12 @@ class BotEngine {
       const stopPrice = Number(trade.stopLoss);
       const quantity = Number(trade.remainingQuantity ?? trade.quantity);
       if (
-        !Number.isFinite(entryPrice) || entryPrice <= 0
-        || !Number.isFinite(stopPrice) || stopPrice <= 0
-        || !Number.isFinite(quantity) || quantity < 0
+        !Number.isFinite(entryPrice) ||
+        entryPrice <= 0 ||
+        !Number.isFinite(stopPrice) ||
+        stopPrice <= 0 ||
+        !Number.isFinite(quantity) ||
+        quantity < 0
       ) {
         invalidPositions++;
         continue;
@@ -1256,7 +1353,8 @@ class BotEngine {
         correlation: cell.correlation,
       }));
     } catch (err) {
-      correlationIssue = "Correlation history could not be refreshed; pair relationships remain unknown.";
+      correlationIssue =
+        "Correlation history could not be refreshed; pair relationships remain unknown.";
       logger.warn({ err, userId: this.userId, section: this.section }, "Phase 6 correlation context unavailable");
     }
 
@@ -1427,7 +1525,8 @@ class BotEngine {
   getMarketMonitor(): MarketMonitor {
     return {
       connection: {
-        connected: this.state.running && !!this.exchange && this.lastConnError === null,
+        connected:
+          this.state.running && !!this.exchange && this.lastConnError === null,
         mode: this.state.mode,
         // Label must reflect the ACTIVE market type — this used to say "Binance
         // Spot Testnet" even when connected to futures Demo Trading, which
@@ -1436,21 +1535,29 @@ class BotEngine {
           this.activeMarketType === "forex"
             ? this.executionTarget === "demo"
               ? "OANDA Practice Market Data (Demo execution)"
-              : this.state.mode === "testnet" ? "OANDA Practice" : "OANDA Live"
+              : this.state.mode === "testnet"
+                ? "OANDA Practice"
+                : "OANDA Live"
             : this.executionTarget === "demo"
               ? this.activeMarketType === "futures"
                 ? "Binance Public Futures Market Data (Demo execution)"
                 : "Binance Public Spot Market Data (Demo execution)"
-            : this.activeMarketType === "futures"
-              ? this.state.mode === "testnet" ? "Binance Futures Demo (demo-fapi)" : "Binance USDⓈ-M Futures"
-              : this.state.mode === "testnet" ? "Binance Spot Testnet" : "Binance Spot",
+              : this.activeMarketType === "futures"
+                ? this.state.mode === "testnet"
+                  ? "Binance Futures Demo (demo-fapi)"
+                  : "Binance USDⓈ-M Futures"
+                : this.state.mode === "testnet"
+                  ? "Binance Spot Testnet"
+                  : "Binance Spot",
         marketsLoaded: this.marketsLoaded,
         credentialsVerified: this.credentialsVerified,
         lastTickerFetchAt: this.lastTickerFetchAt,
         lastTickerLatencyMs: this.lastTickerLatencyMs,
         lastError: this.lastConnError,
       },
-      tickers: Array.from(this.liveTickers.values()).sort((a, b) => b.quoteVolume - a.quoteVolume),
+      tickers: Array.from(this.liveTickers.values()).sort(
+        (a, b) => b.quoteVolume - a.quoteVolume,
+      ),
     };
   }
 
@@ -1488,11 +1595,14 @@ class BotEngine {
     if (!this.state.running) {
       globalBlock = "Engine is stopped — press START to begin scanning";
     } else if (this.state.circuitBreakerActive) {
-      globalBlock = "Circuit breaker active — daily loss limit reached, no new entries today";
+      globalBlock =
+        "Circuit breaker active — daily loss limit reached, no new entries today";
     } else if (this.riskPaused) {
       globalBlock = `Trading paused after ${this.MAX_RISK_VIOLATIONS} consecutive risk violations — reset required`;
     } else if (!this.state.newEntriesAllowed) {
-      globalBlock = this.state.entryBlockReason ?? "New entries are blocked until reconciliation succeeds";
+      globalBlock =
+        this.state.entryBlockReason ??
+        "New entries are blocked until reconciliation succeeds";
     } else if (decisions.length > 0 && entered === 0 && reasons.length === 1) {
       // Every evaluated symbol blocked for the same single reason.
       globalBlock = `All ${decisions.length} pairs blocked: ${reasons[0]!.reason}`;
@@ -1546,12 +1656,13 @@ class BotEngine {
       // weight to the number of pairs (9, not 400). Spot's fetchTickers DOES
       // filter server-side (it forwards a symbols= array), so keep the single
       // call there — it's already minimal.
-      const tickers = await fetchTickersForMarket({
+      const tickers = (await fetchTickersForMarket({
         exchange: ex,
         marketType: this.activeMarketType,
         symbols: this.monitoredMarkets,
-        onSymbolError: (market, err) => logger.warn({ err, market }, "Per-symbol ticker fetch failed"),
-      }) as Record<string, any>;
+        onSymbolError: (market, err) =>
+          logger.warn({ err, market }, "Per-symbol ticker fetch failed"),
+      })) as Record<string, any>;
       this.lastTickerLatencyMs = Date.now() - start;
       for (const [market, t] of Object.entries(tickers)) {
         const symbol = this.fromMarket(market);
@@ -1607,7 +1718,8 @@ class BotEngine {
   failClosedOnResumeTimeout(): void {
     this.startupResumeTimedOut = true;
     this.state.newEntriesAllowed = false;
-    this.state.entryBlockReason = "Exit-only: engine startup exceeded its bounded resume deadline";
+    this.state.entryBlockReason =
+      "Exit-only: engine startup exceeded its bounded resume deadline";
   }
 
   private async startInternal(): Promise<void> {
@@ -1686,7 +1798,11 @@ class BotEngine {
         // result was discarded, so the user couldn't see their balance until
         // the first sizing-time fetch. Surface it in state immediately.
         const startupBal = await ex.fetchBalance();
-        const freeUsdt = Number((startupBal as any)?.["USDT"]?.free ?? (startupBal as any)?.total?.["USDT"] ?? 0);
+        const freeUsdt = Number(
+          (startupBal as any)?.["USDT"]?.free ??
+            (startupBal as any)?.total?.["USDT"] ??
+            0,
+        );
         if (freeUsdt > 0) {
           this.cachedBalance = freeUsdt;
           this.lastBalanceFetch = Date.now();
@@ -1700,10 +1816,11 @@ class BotEngine {
         logger.info(
           {
             balanceUsdt: freeUsdt,
-            ...(balInfo?.homeCurrency && balInfo.homeCurrency !== "USD" && {
-              homeCurrency: balInfo.homeCurrency,
-              homeToUsdRate: balInfo.homeToUsdRate,
-            }),
+            ...(balInfo?.homeCurrency &&
+              balInfo.homeCurrency !== "USD" && {
+                homeCurrency: balInfo.homeCurrency,
+                homeToUsdRate: balInfo.homeToUsdRate,
+              }),
           },
           "Exchange credentials verified",
         );
@@ -1750,7 +1867,8 @@ class BotEngine {
     const authorityIssues = await this.openTradeAuthorityIssues();
     if (authorityIssues.length > 0) {
       this.state.newEntriesAllowed = false;
-      this.state.entryBlockReason = "Exit-only: one or more open trades have ambiguous or mismatched execution authority";
+      this.state.entryBlockReason =
+        "Exit-only: one or more open trades have ambiguous or mismatched execution authority";
       logger.error({ authorityIssues }, "OPEN TRADE AUTHORITY UNVERIFIED — no mismatched broker adapter will be called");
       void emitCriticalOperatorAlert({
         code: "EXECUTION_AUTHORITY_AMBIGUOUS",
@@ -1773,7 +1891,8 @@ class BotEngine {
 
     if (this.startupResumeTimedOut) {
       this.state.newEntriesAllowed = false;
-      this.state.entryBlockReason = "Exit-only: engine startup exceeded its bounded resume deadline";
+      this.state.entryBlockReason =
+        "Exit-only: engine startup exceeded its bounded resume deadline";
       logger.error("AUTO-RESUME: startup deadline exceeded; engine remains exit-only for this process");
     }
 
@@ -1790,9 +1909,11 @@ class BotEngine {
     // survives the availability filter, alert and say exactly why.
     if (configuredPairs.length > 0 && this.monitoredMarkets.length === 0) {
       const envLabel =
-        this.activeMarketType === "futures" ? "Binance USDⓈ-M futures"
-        : this.activeMarketType === "forex" ? "OANDA"
-        : "Binance spot";
+        this.activeMarketType === "futures"
+          ? "Binance USDⓈ-M futures"
+          : this.activeMarketType === "forex"
+            ? "OANDA"
+            : "Binance spot";
       const msg =
         `⚠️ None of your ${configuredPairs.length} configured pairs (${configuredPairs.join(", ")}) ` +
         `exist on ${envLabel} (${this.state.mode}). The bot is running but cannot scan or trade ` +
@@ -1862,7 +1983,12 @@ class BotEngine {
     if (this.section !== "crypto") {
       throw new Error("Deterministic Phase 10 validation is restricted to the crypto simulated Demo section");
     }
-    if (this.state.running || this.scanning || this.scanTimer || this.tickerTimer) {
+    if (
+      this.state.running ||
+      this.scanning ||
+      this.scanTimer ||
+      this.tickerTimer
+    ) {
       throw new Error("Stop the normal engine before running the isolated deterministic Phase 10 validation scan");
     }
     if (this.executorOverride) {
@@ -1878,11 +2004,11 @@ class BotEngine {
     }
     const snapshot = await getAutopilotSnapshot(this.userId, this.section);
     if (
-      !snapshot.mandate
-      || snapshot.mandate.id !== input.mandateId
-      || snapshot.mandateState?.state !== "ACTIVE"
-      || snapshot.control.state !== "AUTOPILOT_ENABLED"
-      || snapshot.control.mandateId !== input.mandateId
+      !snapshot.mandate ||
+      snapshot.mandate.id !== input.mandateId ||
+      snapshot.mandateState?.state !== "ACTIVE" ||
+      snapshot.control.state !== "AUTOPILOT_ENABLED" ||
+      snapshot.control.mandateId !== input.mandateId
     ) {
       throw new Error("The exact active Demo mandate must be enabled before deterministic validation");
     }
@@ -1892,23 +2018,33 @@ class BotEngine {
       executionTarget: config.executionTarget === "demo" ? "demo" : "live",
       testnet: config.testnet,
     });
-    assertSimulatedDemoValidationBoundary({ authority, config, mandate: snapshot.mandate });
+    assertSimulatedDemoValidationBoundary({
+      authority,
+      config,
+      mandate: snapshot.mandate,
+    });
     const validationStartedAt = Date.now();
     const mandateStartsAt = Date.parse(snapshot.mandate.validFrom);
     const mandateExpiresAt = Date.parse(snapshot.mandate.expiresAt);
     if (
-      !Number.isFinite(mandateStartsAt)
-      || !Number.isFinite(mandateExpiresAt)
-      || mandateStartsAt > validationStartedAt
-      || mandateExpiresAt <= validationStartedAt
-      || mandateExpiresAt - validationStartedAt > 30 * 60_000
+      !Number.isFinite(mandateStartsAt) ||
+      !Number.isFinite(mandateExpiresAt) ||
+      mandateStartsAt > validationStartedAt ||
+      mandateExpiresAt <= validationStartedAt ||
+      mandateExpiresAt - validationStartedAt > 30 * 60_000
     ) {
       throw new Error("Deterministic Phase 10 validation requires an already-valid mandate expiring within 30 minutes");
     }
     if (autopilotConfigFingerprint(config) !== snapshot.mandate.configFingerprint) {
       throw new Error("The bot configuration changed after the validation mandate was created");
     }
-    if (!snapshot.mandate.instruments.includes(input.symbol) || !config.pairs.split(",").map((item) => item.trim()).includes(input.symbol)) {
+    if (
+      !snapshot.mandate.instruments.includes(input.symbol) ||
+      !config.pairs
+        .split(",")
+        .map((item) => item.trim())
+        .includes(input.symbol)
+    ) {
       throw new Error("The validation symbol is not pinned by both the configuration and immutable mandate");
     }
 
@@ -1917,15 +2053,17 @@ class BotEngine {
     if (!strategyConfig || !strategyConfig.enabled) {
       throw new Error("The validation strategy must be enabled in the exact stored configuration");
     }
-    if (snapshot.mandate.strategyVersions[input.strategyId] !== strategyConfigVersion(input.strategyId, strategyConfig)) {
+    if (
+      snapshot.mandate.strategyVersions[input.strategyId] !==
+      strategyConfigVersion(input.strategyId, strategyConfig)
+    ) {
       throw new Error("The validation strategy version does not match the immutable mandate");
     }
 
-    const openTrades = await db.select().from(tradesTable).where(and(
-      eq(tradesTable.userId, this.userId),
-      eq(tradesTable.section, this.section),
-      eq(tradesTable.status, "open"),
-    ));
+    const openTrades = await db
+      .select()
+      .from(tradesTable)
+      .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.section, this.section), eq(tradesTable.status, "open")));
     let validationTrade: typeof tradesTable.$inferSelect | undefined;
     if (input.stage === "entry") {
       if (openTrades.length !== 0) {
@@ -1934,22 +2072,27 @@ class BotEngine {
     } else {
       if (!input.tradeId) throw new Error("Management/close validation requires the exact persisted validation trade id");
       validationTrade = openTrades.find((trade) => trade.id === input.tradeId);
-      const validationRunId = (validationTrade?.tradePlan as any)?.report?.data?.phase10ValidationRunId;
+      const validationRunId = (validationTrade?.tradePlan as any)?.report?.data
+        ?.phase10ValidationRunId;
       if (
-        !validationTrade
-        || validationRunId !== input.authorization.runId
-        || validationTrade.executionAuthority !== "simulated_demo"
-        || validationTrade.executionTarget !== "demo"
-        || validationTrade.autopilotMandateId !== input.mandateId
+        !validationTrade ||
+        validationRunId !== input.authorization.runId ||
+        validationTrade.executionAuthority !== "simulated_demo" ||
+        validationTrade.executionTarget !== "demo" ||
+        validationTrade.autopilotMandateId !== input.mandateId
       ) {
         throw new Error("The requested position is not the open simulated_demo trade created by this validation run");
       }
     }
 
     const observedAt = new Date();
-    const entryPrice = validationTrade ? Number(validationTrade.entryPrice) : 100;
+    const entryPrice = validationTrade
+      ? Number(validationTrade.entryPrice)
+      : 100;
     const stopPrice = validationTrade ? Number(validationTrade.stopLoss) : 99;
-    const targetPrice = validationTrade ? Number(validationTrade.takeProfit) : 104;
+    const targetPrice = validationTrade
+      ? Number(validationTrade.takeProfit)
+      : 104;
     const riskDistance = Math.max(entryPrice - stopPrice, entryPrice * 0.001);
     const finalPrice = input.stage === "close"
       ? targetPrice
@@ -1959,9 +2102,16 @@ class BotEngine {
     const candles = buildPhase10ValidationCandles({
       observedAt,
       finalPrice,
-      ...(input.stage === "close" && { terminalHigh: targetPrice + riskDistance * 0.25 }),
-      ...(input.stage !== "close" && { terminalHigh: finalPrice + riskDistance * 0.05 }),
-      terminalLow: input.stage === "close" ? Math.max(stopPrice + riskDistance * 0.25, entryPrice) : stopPrice + riskDistance * 0.5,
+      ...(input.stage === "close" && {
+        terminalHigh: targetPrice + riskDistance * 0.25,
+      }),
+      ...(input.stage !== "close" && {
+        terminalHigh: finalPrice + riskDistance * 0.05,
+      }),
+      terminalLow:
+        input.stage === "close"
+          ? Math.max(stopPrice + riskDistance * 0.25, entryPrice)
+          : stopPrice + riskDistance * 0.5,
     });
     const balanceUsdt = await this.getDemoBalance();
     const plan = input.stage === "entry"
@@ -2002,7 +2152,16 @@ class BotEngine {
       this.exchangeIdentity = null;
       this.symbolMaps = null;
       this.availableMarkets = new Set([market]);
-      this.exchange = { markets: { [market]: { id: input.symbol, symbol: market, spot: true, info: { type: "spot" } } } };
+      this.exchange = {
+        markets: {
+          [market]: {
+            id: input.symbol,
+            symbol: market,
+            spot: true,
+            info: { type: "spot" },
+          },
+        },
+      };
       this.credentialsVerified = true;
       this.marketsLoaded = 1;
       this.cachedBalance = balanceUsdt;
@@ -2061,10 +2220,18 @@ class BotEngine {
    *
    * Reads current state only; the verdict is `revalidate()`'s (pure, testable).
    */
-  async gatherRevalidationState(plan: {
-    symbol: string; strategyId: string; side: "long" | "short";
-    entryPrice: number; slPrice: number; tpPrice: number; qty: number;
-  }, now = new Date()): Promise<{
+  async gatherRevalidationState(
+    plan: {
+      symbol: string;
+      strategyId: string;
+      side: "long" | "short";
+      entryPrice: number;
+      slPrice: number;
+      tpPrice: number;
+      qty: number;
+    },
+    now = new Date(),
+  ): Promise<{
     engineRunning: boolean;
     circuitBreakerActive: boolean;
     riskPaused: boolean;
@@ -2151,7 +2318,12 @@ class BotEngine {
           marketDataTimestamp = new Date(Number(ticker?.timestamp ?? Date.now()));
           const bid = Number(ticker?.bid);
           const ask = Number(ticker?.ask);
-          if (Number.isFinite(bid) && Number.isFinite(ask) && ask > 0 && ask >= bid) {
+          if (
+            Number.isFinite(bid) &&
+            Number.isFinite(ask) &&
+            ask > 0 &&
+            ask >= bid
+          ) {
             currentSpreadFraction = (ask - bid) / ask;
           }
         }
@@ -2163,9 +2335,17 @@ class BotEngine {
     const candidateNotional = plan.entryPrice * plan.qty;
     const existingSymbolNotional = openTrades
       .filter((trade) => trade.symbol === plan.symbol)
-      .reduce((sum, trade) => sum + Number(trade.entryPrice) * Number(trade.remainingQuantity ?? trade.quantity), 0);
+      .reduce(
+        (sum, trade) =>
+          sum +
+          Number(trade.entryPrice) *
+            Number(trade.remainingQuantity ?? trade.quantity),
+        0,
+      );
     const existingNet = openTrades.reduce((sum, trade) => {
-      const notional = Number(trade.entryPrice) * Number(trade.remainingQuantity ?? trade.quantity);
+      const notional =
+        Number(trade.entryPrice) *
+        Number(trade.remainingQuantity ?? trade.quantity);
       return sum + (trade.side === "sell" ? -notional : notional);
     }, 0);
     const maxSymbolExposureUsdt = balance * (Number(config.maxSymbolConcentrationPercent) / 100);
@@ -2173,50 +2353,83 @@ class BotEngine {
     const openExposure = openTrades.map((trade) => ({
       symbol: trade.symbol,
       side: (trade.side === "sell" ? "short" : "long") as "long" | "short",
-      notionalUsdt: Number(trade.entryPrice) * Number(trade.remainingQuantity ?? trade.quantity),
+      notionalUsdt:
+        Number(trade.entryPrice) *
+        Number(trade.remainingQuantity ?? trade.quantity),
     }));
     const maxCorrelatedExposureUsdt = balance * (Number(config.maxCorrelatedExposurePercent) / 100);
     let correlatedExposureAfterUsdt = candidateNotional;
-    let correlationKnownOrAllowed = financialStateAvailable
-      && (openExposure.length === 0 || config.correlationUnknownPolicy !== "block");
+    let correlationKnownOrAllowed =
+      financialStateAvailable &&
+      (openExposure.length === 0 ||
+        config.correlationUnknownPolicy !== "block");
     if (financialStateAvailable && openExposure.length > 0) {
       try {
         const correlations = await this.correlationsAgainst(
           plan.symbol, openExposure.map((position) => position.symbol), this.activeMarketType, MIN_CORRELATION_OBSERVATIONS,
         );
         const verdict = evaluateCorrelation({
-          candidate: { symbol: plan.symbol, side: plan.side, notionalUsdt: candidateNotional },
+          candidate: {
+            symbol: plan.symbol,
+            side: plan.side,
+            notionalUsdt: candidateNotional,
+          },
           open: openExposure,
           correlations,
           balance,
-          maxCorrelatedExposurePercent: Number(config.maxCorrelatedExposurePercent),
+          maxCorrelatedExposurePercent: Number(
+            config.maxCorrelatedExposurePercent,
+          ),
           threshold: Number(config.correlationThreshold),
-          unknownPolicy: config.correlationUnknownPolicy === "block" ? "block" : "allow",
+          unknownPolicy:
+            config.correlationUnknownPolicy === "block" ? "block" : "allow",
         });
         correlatedExposureAfterUsdt = verdict.clusterNotionalUsdt;
-        correlationKnownOrAllowed = verdict.ok
-          || (verdict.clusterNotionalUsdt > verdict.maxClusterNotionalUsdt && verdict.unmeasured.length === 0);
+        correlationKnownOrAllowed =
+          verdict.ok ||
+          (verdict.clusterNotionalUsdt > verdict.maxClusterNotionalUsdt &&
+            verdict.unmeasured.length === 0);
       } catch {
         correlationKnownOrAllowed = config.correlationUnknownPolicy !== "block";
       }
     }
     const sizing = financialStateAvailable
-      ? validateSizing({ balance, entryPrice: plan.entryPrice, slPrice: plan.slPrice, qty: plan.qty, side: plan.side })
+      ? validateSizing({
+          balance,
+          entryPrice: plan.entryPrice,
+          slPrice: plan.slPrice,
+          qty: plan.qty,
+          side: plan.side,
+        })
       : { ok: false as const, reason: "Current account equity is unavailable" };
     const expectedMoveFraction = Math.abs(plan.tpPrice - plan.entryPrice) / plan.entryPrice;
-    const currentRoundTripCost = currentSpreadFraction === undefined
-      ? Number.POSITIVE_INFINITY
-      : 2 * (this.activeTakerFee + this.activeSlippageRate) + currentSpreadFraction;
-    const executionCostViable = Number.isFinite(currentRoundTripCost)
-      && expectedMoveFraction > currentRoundTripCost;
+    const currentRoundTripCost =
+      currentSpreadFraction === undefined
+        ? Number.POSITIVE_INFINITY
+        : 2 * (this.activeTakerFee + this.activeSlippageRate) +
+          currentSpreadFraction;
+    const executionCostViable =
+      Number.isFinite(currentRoundTripCost) &&
+      expectedMoveFraction > currentRoundTripCost;
     const marketStateResult = this.marketStates.get(plan.symbol);
-    const currentMarketState = marketStateResult?.status === "available" ? marketStateResult.state : undefined;
-    const thesisValid = currentPrice !== undefined
-      && (plan.side === "long" ? currentPrice > plan.slPrice : currentPrice < plan.slPrice);
+    const currentMarketState =
+      marketStateResult?.status === "available"
+        ? marketStateResult.state
+        : undefined;
+    const thesisValid =
+      currentPrice !== undefined &&
+      (plan.side === "long"
+        ? currentPrice > plan.slPrice
+        : currentPrice < plan.slPrice);
     const currentExecutionTarget = config.executionTarget === "demo" ? "demo" : "live";
     const reconciliationHealthy = currentExecutionTarget === "demo" || this.state.newEntriesAllowed;
-    const executionEligible = financialStateAvailable && this.state.running && !this.connectionSuspended
-      && config.mode === "copilot" && reconciliationHealthy && strategyEligible;
+    const executionEligible =
+      financialStateAvailable &&
+      this.state.running &&
+      !this.connectionSuspended &&
+      config.mode === "copilot" &&
+      reconciliationHealthy &&
+      strategyEligible;
 
     return {
       engineRunning: this.state.running,
@@ -2224,10 +2437,13 @@ class BotEngine {
       riskPaused: this.riskPaused,
       openPositions: openTrades.length,
       maxOpenPositions: config.maxOpenPositions,
-      strategyOpenCount: openTrades.filter((t) => t.strategyId === plan.strategyId).length,
+      strategyOpenCount: openTrades.filter(
+        (t) => t.strategyId === plan.strategyId,
+      ).length,
       maxConcurrentPerStrategy: stratCfg?.maxConcurrentPositions ?? 1,
       openRiskUsdt,
-      maxPortfolioRiskUsdt: balance * (Number(config.maxPortfolioRiskPercent) / 100),
+      maxPortfolioRiskUsdt:
+        balance * (Number(config.maxPortfolioRiskPercent) / 100),
       onCooldown: this.isOnCooldown(plan.symbol),
       blacklisted: blacklist.has(plan.symbol),
       symbolAlreadyOpen: openTrades.some((t) => t.symbol === plan.symbol),
@@ -2247,14 +2463,19 @@ class BotEngine {
           : "Current account equity is unavailable; execution eligibility cannot be established",
       marketStateFresh: marketStateFreshAt(currentMarketState, now),
       marketStateHealthy: currentMarketState?.dataQuality.status === "healthy",
-      ...(currentMarketState && { currentRegime: currentMarketState.inferences.regime }),
+      ...(currentMarketState && {
+        currentRegime: currentMarketState.inferences.regime,
+      }),
       thesisValid,
       thesisDetail: thesisValid
         ? "Current price has not crossed the proposal's protective invalidation level"
         : "Current price is unavailable or has crossed the proposal's protective invalidation level",
       symbolExposureAfterUsdt: existingSymbolNotional + candidateNotional,
       maxSymbolExposureUsdt,
-      netExposureAfterUsdt: Math.abs(existingNet + (plan.side === "short" ? -candidateNotional : candidateNotional)),
+      netExposureAfterUsdt: Math.abs(
+        existingNet +
+          (plan.side === "short" ? -candidateNotional : candidateNotional),
+      ),
       maxNetExposureUsdt,
       correlatedExposureAfterUsdt,
       maxCorrelatedExposureUsdt,
@@ -2288,7 +2509,11 @@ class BotEngine {
     approvedCommand?: Omit<LiveCommandIdentity, "ownershipGeneration">,
   ): Promise<ExecutionResult> {
     if (this.connectionSuspended || !this.state.running) {
-      return { entered: false, reason: "Engine stopped or reconnecting before the approved plan could execute" };
+      return {
+        entered: false,
+        reason:
+          "Engine stopped or reconnecting before the approved plan could execute",
+      };
     }
     const config = this.applyHighFreqOverrides(await this.loadConfig());
     const currentTarget = config.executionTarget === "demo" ? "demo" : "live";
@@ -2302,7 +2527,9 @@ class BotEngine {
     if (approvedTarget === "live" && !this.state.newEntriesAllowed) {
       return {
         entered: false,
-        reason: this.state.entryBlockReason ?? "Live entries are blocked until reconciliation succeeds",
+        reason:
+          this.state.entryBlockReason ??
+          "Live entries are blocked until reconciliation succeeds",
       };
     }
     const strategyConfigs = await configsForAssignedMode(
@@ -2323,7 +2550,10 @@ class BotEngine {
     const executor = approvedTarget === "demo" ? this.demoExecutor : this.liveExecutor;
     const positionManagementResolution = this.resolvePositionManagementContext(plan, config);
     if (positionManagementResolution.blockingReason) {
-      return { entered: false, reason: positionManagementResolution.blockingReason };
+      return {
+        entered: false,
+        reason: positionManagementResolution.blockingReason,
+      };
     }
     return executor.execute({
       symbol: plan.symbol,
@@ -2362,7 +2592,11 @@ class BotEngine {
     this.connectionSuspended = true;
     const pendingStart = this.startPromise;
     if (pendingStart) {
-      try { await pendingStart; } catch { /* start failure still ends stopped */ }
+      try {
+        await pendingStart;
+      } catch {
+        /* start failure still ends stopped */
+      }
     }
     // Clear the persisted desired state before teardown completes — an
     // explicit Stop must never be undone by auto-resume on the next restart.
@@ -2414,9 +2648,51 @@ class BotEngine {
    * the moment the user returns — and clearing the flag would strand it off
    * until they noticed and pressed Start.
    */
-  async pauseForIdle(): Promise<void> {
-    if (!this.state.running) return;
+  async pauseForIdle(): Promise<boolean> {
+    if (!this.state.running || !this.isDemoTarget() || this.scanning)
+      return false;
+    try {
+      // The simulator has no resting broker orders to protect an unattended
+      // position. Read durable exposure; the dashboard count can be stale.
+      const [open] = await db
+        .select({ id: tradesTable.id })
+        .from(tradesTable)
+        .where(
+          and(
+            eq(tradesTable.userId, this.userId),
+            eq(tradesTable.section, this.section),
+            eq(tradesTable.status, "open"),
+          ),
+        )
+        .limit(1);
+      if (open) return false;
+      const config = await this.loadConfig();
+      if (config.mode === "autopilot" && config.engineDesiredRunning) {
+        const [control] = await db
+          .select({ state: autopilotControlsTable.state })
+          .from(autopilotControlsTable)
+          .where(
+            and(
+              eq(autopilotControlsTable.userId, this.userId),
+              eq(autopilotControlsTable.section, this.section),
+            ),
+          )
+          .limit(1);
+        // Keeping a loop alive grants no entry authority. The normal scan
+        // still enforces mandate expiry, suspension, and every risk gate.
+        if (control?.state === "AUTOPILOT_ENABLED") return false;
+      }
+    } catch (err) {
+      logger.warn(
+        { err, userId: this.userId, section: this.section },
+        "Demo idle pause refused — exposure or authority could not be checked",
+      );
+      return false;
+    }
+    // A scan may have started while the database reads were in flight.
+    if (this.scanning || this.state.openPositions > 0) return false;
     await this.quiesceAndTeardown("Demo engine paused — idle, will resume on next activity");
+    return true;
   }
 
   /** Stop new work, then wait until the current provider calls release their
@@ -2508,7 +2784,7 @@ class BotEngine {
     reason: string;
   }): Promise<void> {
     const operation = this.connectionMutation.then(async () => {
-      const desired = this.state.running || await this.isDesiredRunning();
+      const desired = this.state.running || (await this.isDesiredRunning());
       await this.quiesceAndTeardown(options.reason);
 
       if (!options.restartIfDesired) {
@@ -2542,7 +2818,9 @@ class BotEngine {
   // Core scan loop
   // ---------------------------------------------------------------------------
 
-  private async runScan(validationFixture?: Phase10ValidationScanFixture): Promise<Phase10ValidationScanResult | null> {
+  private async runScan(
+    validationFixture?: Phase10ValidationScanFixture,
+  ): Promise<Phase10ValidationScanResult | null> {
     if (this.connectionSuspended || !this.state.running) return null;
     // Single-flight guard — skip this tick if previous scan is still in progress
     if (this.scanning) {
@@ -2559,8 +2837,14 @@ class BotEngine {
       const config = this.applyHighFreqOverrides(rawConfig);
       // Re-resolved each scan so a mid-session switch takes effect on the next
       // tick rather than requiring a restart.
-      this.executionTarget = config.executionTarget === "demo" ? "demo" : "live";
-      const ex = validationFixture ? this.exchange : await this.initExchange(config.testnet, toMarketType(config.marketType));
+      this.executionTarget =
+        config.executionTarget === "demo" ? "demo" : "live";
+      const ex = validationFixture
+        ? this.exchange
+        : await this.initExchange(
+            config.testnet,
+            toMarketType(config.marketType),
+          );
       const fixtureTimestamp = validationFixture?.candles.tf1m.at(-1)?.[0];
       const now = fixtureTimestamp != null ? new Date(fixtureTimestamp) : new Date();
       this.state.lastScanAt = now.toISOString();
@@ -2657,8 +2941,14 @@ class BotEngine {
       let pairs = validationFixture
         ? [validationFixture.symbol]
         : this.state.circuitBreakerActive
-          ? this.getPairs(config).filter((s) => openSymbols.has(s) && this.availableMarkets.has(this.toMarket(s)))
-          : this.getPairs(config).filter((s) => this.availableMarkets.has(this.toMarket(s)));
+          ? this.getPairs(config).filter(
+              (s) =>
+                openSymbols.has(s) &&
+                this.availableMarkets.has(this.toMarket(s)),
+            )
+          : this.getPairs(config).filter((s) =>
+              this.availableMarkets.has(this.toMarket(s)),
+            );
 
       // ── Forex market-hours gate (see lib/marketHours.ts) ─────────────────
       // Closed instruments are skipped entirely: no candle fetches, no entry
@@ -2739,28 +3029,44 @@ class BotEngine {
           }
         | { symbol: string; ok: false; error: string };
       const candleResults: CandleResult[] = validationFixture
-        ? [{ symbol: validationFixture.symbol, ok: true, ...validationFixture.candles }]
+        ? [
+            {
+              symbol: validationFixture.symbol,
+              ok: true,
+              ...validationFixture.candles,
+            },
+          ]
         : await Promise.all(
-          pairs.map(async (symbol): Promise<CandleResult> => {
-          const market = this.toMarket(symbol);
-          try {
-            const [tf1m, tf3m, tf5m, tf15m, tf1h] = await Promise.all([
-              ex.fetchOHLCV(market, "1m", undefined, 101) as Promise<Candle[]>,
-              ex.fetchOHLCV(market, "3m", undefined, 101) as Promise<Candle[]>,
-              ex.fetchOHLCV(market, "5m", undefined, 101) as Promise<Candle[]>,
-              ex.fetchOHLCV(market, "15m", undefined, 101) as Promise<Candle[]>,
-              ex.fetchOHLCV(market, "1h", undefined, 101) as Promise<Candle[]>,
-            ]);
-            return { symbol, ok: true, tf1m, tf3m, tf5m, tf15m, tf1h };
-          } catch (err) {
-            return {
-              symbol,
-              ok: false,
-              error: String((err as Error)?.message ?? err),
-            };
-          }
-          })
-        );
+            pairs.map(async (symbol): Promise<CandleResult> => {
+              const market = this.toMarket(symbol);
+              try {
+                const [tf1m, tf3m, tf5m, tf15m, tf1h] = await Promise.all([
+                  ex.fetchOHLCV(market, "1m", undefined, 101) as Promise<
+                    Candle[]
+                  >,
+                  ex.fetchOHLCV(market, "3m", undefined, 101) as Promise<
+                    Candle[]
+                  >,
+                  ex.fetchOHLCV(market, "5m", undefined, 101) as Promise<
+                    Candle[]
+                  >,
+                  ex.fetchOHLCV(market, "15m", undefined, 101) as Promise<
+                    Candle[]
+                  >,
+                  ex.fetchOHLCV(market, "1h", undefined, 101) as Promise<
+                    Candle[]
+                  >,
+                ]);
+                return { symbol, ok: true, tf1m, tf3m, tf5m, tf15m, tf1h };
+              } catch (err) {
+                return {
+                  symbol,
+                  ok: false,
+                  error: String((err as Error)?.message ?? err),
+                };
+              }
+            }),
+          );
 
       // Rebuild observational projections fresh every scan so stopped,
       // removed, or data-blocked symbols never retain an actionable-looking
@@ -2915,84 +3221,22 @@ class BotEngine {
           continue;
         }
 
-        // Fetch one extra bar so discarding the forming candle still leaves
-        // 100 closed bars. Retain raw data separately for current-price exits.
-        const { tf1m, tf3m, tf5m, tf15m, tf1h } = closedSignalCandles(result, now.getTime());
-        marketStage.data = {
-          candles: {
-            "1m": tf1m.length,
-            "3m": tf3m.length,
-            "5m": tf5m.length,
-            "15m": tf15m.length,
-            "1h": tf1h.length,
-          },
-        };
-
-        // Minimum candle counts required for all indicators
-        if (
-          tf1m.length < 30 ||
-          tf3m.length < 35 ||
-          tf5m.length < 30 ||
-          tf15m.length < 22 ||
-          tf1h.length < 51
-        ) {
-          marketStage.status = "fail";
-          marketStage.detail =
-            "Insufficient candle history for indicator computation";
-          record(
-            "BLOCKED",
-            "Market Data",
-            "Insufficient candle history (warming up)",
-          );
-          continue;
-        }
-
-        const mtf: MultiTimeframeCandles = { tf1m, tf3m, tf5m, tf15m, tf1h };
-        // Deferred-work #2: feed the last regime we saw for THIS symbol so
-        // detectMarketRegime can apply hysteresis and stop whipsawing at the
-        // 15s scan cadence. Store the resolved regime back for the next tick.
+        const mtf = closedTimeframes(result, now.getTime());
         const previousRegime = this.lastRegime.get(symbol);
-        const row = buildSignalRow(symbol, mtf, previousRegime);
-        this.lastRegime.set(symbol, row.regime);
-        // Phase 2 is observational only. State construction uses validated
-        // CLOSED candles and its result is exposed read-only; no strategy,
-        // risk gate, or executor consumes it in this phase.
         const marketStateResult = buildMarketStateResult({
           symbol,
           venue: this.activeMarketType,
-          provider: validationFixture ? "fixture" : this.activeMarketType === "forex" ? "oanda" : "binance",
-          candles: result,
+          provider: validationFixture
+            ? "fixture"
+            : this.activeMarketType === "forex"
+              ? "oanda"
+              : "binance",
+          candles: mtf,
           observedAt: now,
           maximumAgeMs: 3 * 60_000,
           previousRegime,
         });
         this.marketStates.set(symbol, marketStateResult);
-        regimeCounts[row.regime] = (regimeCounts[row.regime] ?? 0) + 1;
-        // Inputs for the capture log. dataTimestampMs is MARKET time (the
-        // newest candle's close), never now() — an as-of-T query is only
-        // honest against the moment the data was true.
-        scanSnapshots.set(symbol, {
-          row,
-          dataTimestampMs:
-            tf1m.length > 0 ? tf1m[tf1m.length - 1]![0]! + 60_000 : now.getTime(),
-        });
-        marketStage.status = "pass";
-        marketStage.detail = `Fetched 5 timeframes · last price ${row.lastPrice}`;
-
-        // ── Stage 2: Indicators ──────────────────────────────────────────────
-        indicatorStage.status = "pass";
-        indicatorStage.detail =
-          `Confidence ${row.confidence.toFixed(0)}% · regime ${row.regime} · ADX ${row.adx.toFixed(1)}` +
-          ` · macro ${row.macroBullish ? "bullish" : "bearish"}`;
-        indicatorStage.data = {
-          confidence: row.confidence,
-          regime: row.regime,
-          adx: row.adx,
-          rsi: row.rsi,
-          macdHistogram: row.macdHistogram,
-          macroBullish: row.macroBullish,
-          confidenceThreshold: confThreshold,
-        };
 
         // ── Handle open position for this symbol ─────────────────────────────
         const openForSymbol = openTrades.find((t) => t.symbol === symbol);
@@ -3031,7 +3275,11 @@ class BotEngine {
             openStratConfig,
           );
           if (validationFixture && validationFixture.stage !== "entry") {
-            const [persistedTrade] = await db.select().from(tradesTable).where(eq(tradesTable.id, openForSymbol.id)).limit(1);
+            const [persistedTrade] = await db
+              .select()
+              .from(tradesTable)
+              .where(eq(tradesTable.id, openForSymbol.id))
+              .limit(1);
             if (!persistedTrade) throw new Error("Validation trade disappeared during Phase 7 management");
             validationResult = {
               stage: validationFixture.stage,
@@ -3040,7 +3288,18 @@ class BotEngine {
               managementProjection: phase10ManagementProjection(persistedTrade),
             };
           }
-          this.scannerData.set(symbol, { ...row, status: "entered" });
+          const existingRow =
+            marketStateResult.status === "available"
+              ? buildSignalRow(symbol, mtf, previousRegime)
+              : this.scannerData.get(symbol);
+          if (existingRow)
+            this.scannerData.set(symbol, { ...existingRow, status: "entered" });
+          marketStage.status =
+            marketStateResult.status === "available" ? "pass" : "fail";
+          marketStage.detail =
+            marketStateResult.status === "available"
+              ? "Closed indicators available; current prices used for exit monitoring"
+              : "Indicator history unavailable; exit monitoring remains active";
           signalStage.status = "skip";
           signalStage.detail =
             "Position already open — not seeking a new entry";
@@ -3049,9 +3308,86 @@ class BotEngine {
           orderStage.status = "pass";
           orderStage.detail =
             "Position open — monitoring exit conditions (SL/TP)";
-          record("ENTERED", null, null, row.confidence);
+          record(
+            "ENTERED",
+            null,
+            null,
+            existingRow?.confidence ?? Number(openForSymbol.confidence),
+          );
           continue;
         }
+
+        const { tf1m, tf3m, tf5m, tf15m, tf1h } = mtf;
+        marketStage.data = {
+          candles: {
+            "1m": tf1m.length,
+            "3m": tf3m.length,
+            "5m": tf5m.length,
+            "15m": tf15m.length,
+            "1h": tf1h.length,
+          },
+        };
+
+        // Minimum candle counts required for all indicators
+        if (
+          tf1m.length < 30 ||
+          tf3m.length < 35 ||
+          tf5m.length < 30 ||
+          tf15m.length < 22 ||
+          tf1h.length < 51
+        ) {
+          marketStage.status = "fail";
+          marketStage.detail =
+            "Insufficient candle history for indicator computation";
+          record(
+            "BLOCKED",
+            "Market Data",
+            "Insufficient candle history (warming up)",
+          );
+          continue;
+        }
+
+        // Deferred-work #2: feed the last regime we saw for THIS symbol so
+        // detectMarketRegime can apply hysteresis and stop whipsawing at the
+        // 15s scan cadence. Store the resolved regime back for the next tick.
+        // Entry decisions and the observational state use the same closed
+        // inputs. Existing positions are managed above even if these fail.
+        if (marketStateResult.status === "blocked") {
+          marketStage.status = "fail";
+          marketStage.detail = marketStateResult.issues
+            .map((issue) => `${issue.timeframe ?? "market"}: ${issue.code}`)
+            .join("; ");
+          this.scannerData.delete(symbol);
+          record("BLOCKED", "Market Data", marketStage.detail);
+          continue;
+        }
+        const row = buildSignalRow(symbol, mtf, previousRegime);
+        this.lastRegime.set(symbol, row.regime);
+        regimeCounts[row.regime] = (regimeCounts[row.regime] ?? 0) + 1;
+        // Inputs for the capture log. dataTimestampMs is MARKET time (the
+        // newest candle's close), never now() — an as-of-T query is only
+        // honest against the moment the data was true.
+        scanSnapshots.set(symbol, {
+          row,
+          dataTimestampMs: tf1m[tf1m.length - 1]![0] + 60_000,
+        });
+        marketStage.status = "pass";
+        marketStage.detail = `Fetched 5 timeframes · last price ${row.lastPrice}`;
+
+        // ── Stage 2: Indicators ──────────────────────────────────────────────
+        indicatorStage.status = "pass";
+        indicatorStage.detail =
+          `Confidence ${row.confidence.toFixed(0)}% · regime ${row.regime} · ADX ${row.adx.toFixed(1)}` +
+          ` · macro ${row.macroBullish ? "bullish" : "bearish"}`;
+        indicatorStage.data = {
+          confidence: row.confidence,
+          regime: row.regime,
+          adx: row.adx,
+          rsi: row.rsi,
+          macdHistogram: row.macdHistogram,
+          macroBullish: row.macroBullish,
+          confidenceThreshold: confThreshold,
+        };
 
         // ── Pre-signal risk checks (evaluated for display; block by priority) ─
         const isBlacklisted = blacklisted.has(symbol);
@@ -3902,7 +4238,8 @@ class BotEngine {
               plan: bestSignal,
               ...(stratConfig && {
                 strategyConfig:
-                  this.rawStrategyConfigs.get(bestSignal.strategyId) ?? stratConfig,
+                  this.rawStrategyConfigs.get(bestSignal.strategyId) ??
+                  stratConfig,
               }),
               riskChecks: preChecks,
               marketState:
@@ -3922,7 +4259,8 @@ class BotEngine {
               symbolExposurePercent:
                 balance > 0
                   ? ((existingSymbolNotionalUsdt + candidateNotionalUsdt) /
-                      balance) * 100
+                      balance) *
+                    100
                   : null,
               netExposurePercent:
                 balance > 0 ? (netExposureUsdt / balance) * 100 : null,
@@ -3962,119 +4300,138 @@ class BotEngine {
               restrictedLiveCommand = authorization.liveCommand;
             }
           } else {
-          const reconciliationState: "HEALTHY" | "UNHEALTHY" | "UNKNOWN" = this
-            .state.newEntriesAllowed
-            ? "HEALTHY"
-            : /unknown|unverified|ambiguous/i.test(
-                  this.state.entryBlockReason ?? "",
-                )
-              ? "UNKNOWN"
-              : "UNHEALTHY";
-          const authorizationInput: Parameters<typeof authorizeAutopilotEntry>[0] = {
-            userId: this.userId,
-            section: this.section,
-            // Identity must be the PERSISTED configuration: the mandate froze
-            // its fingerprint from the stored row, and fingerprinting the
-            // HF-overridden copy here could never match while test mode was
-            // on (BUG-003: every autonomous decision refused as
-            // CONFIGURATION_CHANGED with nothing actually changed).
-            config: rawConfig,
-            executionAuthority,
-            providerConfigurationValid:
-              this.credentialsVerified && this.marketsLoaded > 0,
-            reconciliationState,
-            killSwitchActive:
-              this.state.circuitBreakerActive ||
-              this.riskPaused ||
-              this.connectionSuspended,
-            marketState:
-              marketStateResult.status === "available"
-                ? marketStateResult.state
+            const reconciliationState: "HEALTHY" | "UNHEALTHY" | "UNKNOWN" =
+              this.state.newEntriesAllowed
+                ? "HEALTHY"
+                : /unknown|unverified|ambiguous/i.test(
+                      this.state.entryBlockReason ?? "",
+                    )
+                  ? "UNKNOWN"
+                  : "UNHEALTHY";
+            const authorizationInput: Parameters<
+              typeof authorizeAutopilotEntry
+            >[0] = {
+              userId: this.userId,
+              section: this.section,
+              // Identity must be the PERSISTED configuration: the mandate froze
+              // its fingerprint from the stored row, and fingerprinting the
+              // HF-overridden copy here could never match while test mode was
+              // on (BUG-003: every autonomous decision refused as
+              // CONFIGURATION_CHANGED with nothing actually changed).
+              config: rawConfig,
+              executionAuthority,
+              providerConfigurationValid:
+                this.credentialsVerified && this.marketsLoaded > 0,
+              reconciliationState,
+              killSwitchActive:
+                this.state.circuitBreakerActive ||
+                this.riskPaused ||
+                this.connectionSuspended,
+              marketState:
+                marketStateResult.status === "available"
+                  ? marketStateResult.state
+                  : null,
+              unifiedBrainEvidenceAvailable,
+              plan: bestSignal,
+              // Identity input: the PERSISTED strategy config, not the
+              // HF-overridden effective one (BUG-004 — see rawStrategyConfigs).
+              ...(stratConfig && {
+                strategyConfig:
+                  this.rawStrategyConfigs.get(bestSignal.strategyId) ??
+                  stratConfig,
+              }),
+              riskChecks: preChecks,
+              balanceUsdt:
+                Number.isFinite(balance) && balance > 0 ? balance : null,
+              dailyPnlUsdt: Number.isFinite(this.state.dailyPnl)
+                ? this.state.dailyPnl
                 : null,
-            unifiedBrainEvidenceAvailable,
-            plan: bestSignal,
-            // Identity input: the PERSISTED strategy config, not the
-            // HF-overridden effective one (BUG-004 — see rawStrategyConfigs).
-            ...(stratConfig && {
-              strategyConfig:
-                this.rawStrategyConfigs.get(bestSignal.strategyId) ?? stratConfig,
-            }),
-            riskChecks: preChecks,
-            balanceUsdt:
-              Number.isFinite(balance) && balance > 0 ? balance : null,
-            dailyPnlUsdt: Number.isFinite(this.state.dailyPnl)
-              ? this.state.dailyPnl
-              : null,
-            openPositionCount: openTrades.length + enteredThisScan.length,
-            portfolioRiskPercent:
-              balance > 0
-                ? ((existingRiskUsdt + candidateRiskUsdt) / balance) * 100
-                : null,
-            symbolExposurePercent:
-              balance > 0
-                ? ((existingSymbolNotionalUsdt + candidateNotionalUsdt) /
-                    balance) *
-                  100
-                : null,
-            netExposurePercent:
-              balance > 0 ? (netExposureUsdt / balance) * 100 : null,
-            correlatedExposurePercent:
-              balance > 0 ? (correlatedExposureUsdt / balance) * 100 : null,
-            now,
-          };
-          const authorization = await authorizeAutopilotEntry(authorizationInput);
-          if (!authorization.allowed) {
-            orderStage.status = "fail";
-            orderStage.detail = authorization.reason;
-            record("BLOCKED", "Order", authorization.reason, bestSignal.confidence);
-            noteDecision(planToRecord(bestSignal, "approved_not_taken", {
-              stage: "Demo Autopilot",
-              reason: `${authorization.reasonCode}: ${authorization.reason}`,
-            }));
-            if (validationFixture?.stage === "entry") {
-              validationResult = {
-                stage: "entry",
-                entered: false,
-                reason: authorization.reason,
-                reasonCode: authorization.reasonCode,
-                duplicateRefused: authorization.reasonCode === "DUPLICATE_AUTONOMOUS_DECISION",
-              };
+              openPositionCount: openTrades.length + enteredThisScan.length,
+              portfolioRiskPercent:
+                balance > 0
+                  ? ((existingRiskUsdt + candidateRiskUsdt) / balance) * 100
+                  : null,
+              symbolExposurePercent:
+                balance > 0
+                  ? ((existingSymbolNotionalUsdt + candidateNotionalUsdt) /
+                      balance) *
+                    100
+                  : null,
+              netExposurePercent:
+                balance > 0 ? (netExposureUsdt / balance) * 100 : null,
+              correlatedExposurePercent:
+                balance > 0 ? (correlatedExposureUsdt / balance) * 100 : null,
+              now,
+            };
+            const authorization =
+              await authorizeAutopilotEntry(authorizationInput);
+            if (!authorization.allowed) {
+              orderStage.status = "fail";
+              orderStage.detail = authorization.reason;
+              record(
+                "BLOCKED",
+                "Order",
+                authorization.reason,
+                bestSignal.confidence,
+              );
+              noteDecision(
+                planToRecord(bestSignal, "approved_not_taken", {
+                  stage: "Demo Autopilot",
+                  reason: `${authorization.reasonCode}: ${authorization.reason}`,
+                }),
+              );
+              if (validationFixture?.stage === "entry") {
+                validationResult = {
+                  stage: "entry",
+                  entered: false,
+                  reason: authorization.reason,
+                  reasonCode: authorization.reasonCode,
+                  duplicateRefused:
+                    authorization.reasonCode ===
+                    "DUPLICATE_AUTONOMOUS_DECISION",
+                };
+              }
+              continue;
             }
-            continue;
-          }
-          autopilotContext = authorization.context;
-          if (validationFixture?.stage === "entry") {
-            const duplicate = await authorizeAutopilotEntry(authorizationInput);
-            if (duplicate.allowed || duplicate.reasonCode !== "DUPLICATE_AUTONOMOUS_DECISION") {
-              const reason = "Validation idempotency probe failed closed before executor submission";
-              await recordAutopilotExecutionOutcome({
-                context: authorization.context,
-                userId: this.userId,
-                section: this.section,
-                entered: false,
-                reason,
-              });
-              if (duplicate.allowed) {
+            autopilotContext = authorization.context;
+            if (validationFixture?.stage === "entry") {
+              const duplicate =
+                await authorizeAutopilotEntry(authorizationInput);
+              if (
+                duplicate.allowed ||
+                duplicate.reasonCode !== "DUPLICATE_AUTONOMOUS_DECISION"
+              ) {
+                const reason =
+                  "Validation idempotency probe failed closed before executor submission";
                 await recordAutopilotExecutionOutcome({
-                  context: duplicate.context,
+                  context: authorization.context,
                   userId: this.userId,
                   section: this.section,
                   entered: false,
                   reason,
                 });
+                if (duplicate.allowed) {
+                  await recordAutopilotExecutionOutcome({
+                    context: duplicate.context,
+                    userId: this.userId,
+                    section: this.section,
+                    entered: false,
+                    reason,
+                  });
+                }
+                validationResult = {
+                  stage: "entry",
+                  entered: false,
+                  reason,
+                  reasonCode: "VALIDATION_DUPLICATE_PROBE_FAILED",
+                  claimId: authorization.context.claimId,
+                  decisionFingerprint:
+                    authorization.context.decisionFingerprint,
+                  duplicateRefused: false,
+                };
+                continue;
               }
-              validationResult = {
-                stage: "entry",
-                entered: false,
-                reason,
-                reasonCode: "VALIDATION_DUPLICATE_PROBE_FAILED",
-                claimId: authorization.context.claimId,
-                decisionFingerprint: authorization.context.decisionFingerprint,
-                duplicateRefused: false,
-              };
-              continue;
             }
-          }
           }
         }
         let copilotSupervision;
@@ -4254,11 +4611,19 @@ class BotEngine {
               executionIntentId: execResult.executionIntentId,
             }),
             brokerCommandId: restrictedLiveCommand?.idempotencyKey,
-            ...(execResult.brokerOrderId && { brokerOrderId: execResult.brokerOrderId }),
+            ...(execResult.brokerOrderId && {
+              brokerOrderId: execResult.brokerOrderId,
+            }),
             ...(execResult.fillId && { fillId: execResult.fillId }),
-            ...(execResult.fillLatencyMs != null && { fillLatencyMs: execResult.fillLatencyMs }),
-            ...(execResult.realizedSlippageBps != null && { realizedSlippageBps: execResult.realizedSlippageBps }),
-            ...(execResult.liveDemoDivergenceBps != null && { liveDemoDivergenceBps: execResult.liveDemoDivergenceBps }),
+            ...(execResult.fillLatencyMs != null && {
+              fillLatencyMs: execResult.fillLatencyMs,
+            }),
+            ...(execResult.realizedSlippageBps != null && {
+              realizedSlippageBps: execResult.realizedSlippageBps,
+            }),
+            ...(execResult.liveDemoDivergenceBps != null && {
+              liveDemoDivergenceBps: execResult.liveDemoDivergenceBps,
+            }),
           });
           if (!execResult.entered) {
             try {
@@ -4287,7 +4652,9 @@ class BotEngine {
             entered: execResult.entered,
             reason: execResult.reason,
             ...(execResult.tradeId != null && { tradeId: execResult.tradeId }),
-            ...(execResult.executionIntentId != null && { executionIntentId: execResult.executionIntentId }),
+            ...(execResult.executionIntentId != null && {
+              executionIntentId: execResult.executionIntentId,
+            }),
             ...(autopilotContext && {
               claimId: autopilotContext.claimId,
               decisionFingerprint: autopilotContext.decisionFingerprint,
@@ -4426,7 +4793,11 @@ class BotEngine {
         void captureDecisions({
           userId: this.userId,
           section: this.section,
-          provider: validationFixture ? "fixture" : this.section === "forex" ? "oanda" : "binance",
+          provider: validationFixture
+            ? "fixture"
+            : this.section === "forex"
+              ? "oanda"
+              : "binance",
           venue: config.marketType,
           timeframe: "1m",
           configVersion: configVersionOf(
@@ -4527,19 +4898,35 @@ class BotEngine {
       executionTarget: config.executionTarget === "demo" ? "demo" : "live",
       testnet: config.testnet,
     });
-    if (!isBrokerAuthority(executionAuthority) || executionAuthority !== this.activeExecutionAuthority) {
+    if (
+      !isBrokerAuthority(executionAuthority) ||
+      executionAuthority !== this.activeExecutionAuthority
+    ) {
       logger.error(
-        { executionAuthority, activeExecutionAuthority: this.activeExecutionAuthority, symbol },
+        {
+          executionAuthority,
+          activeExecutionAuthority: this.activeExecutionAuthority,
+          symbol,
+        },
         "LIVE EXECUTION REFUSED — runtime authority does not match the active broker client",
       );
-      return { entered: false, reason: "Execution authority is ambiguous or does not match the active broker endpoint" };
+      return {
+        entered: false,
+        reason:
+          "Execution authority is ambiguous or does not match the active broker endpoint",
+      };
     }
     const ex = this.exchange!;
     const market = this.toMarket(symbol);
     const side = plan.side;
     const strategyId: string | undefined = plan.strategyId;
     const strategyName: string | undefined = plan.strategyName;
-    const entry = { entryPrice: plan.entryPrice, slPrice: plan.slPrice, tpPrice: plan.tpPrice, qty: plan.qty };
+    const entry = {
+      entryPrice: plan.entryPrice,
+      slPrice: plan.slPrice,
+      tpPrice: plan.tpPrice,
+      qty: plan.qty,
+    };
     const isShort = side === "short";
     const isFutures = config.marketType === "futures";
     // Forex (OANDA): entry is a single atomic MARKET + stopLossOnFill +
@@ -4861,9 +5248,13 @@ class BotEngine {
       const fillLatencyMs = brokerCommandStartedAt == null
         ? undefined
         : Math.max(0, Date.now() - brokerCommandStartedAt);
-      const realizedSlippageBps = entry.entryPrice > 0
-        ? Math.ceil((Math.abs(fillPrice - entry.entryPrice) / entry.entryPrice) * 10_000)
-        : undefined;
+      const realizedSlippageBps =
+        entry.entryPrice > 0
+          ? Math.ceil(
+              (Math.abs(fillPrice - entry.entryPrice) / entry.entryPrice) *
+                10_000,
+            )
+          : undefined;
       const expectedSlippageBps = Math.ceil(
         Math.max(0, this.activeSlippageRate) * 10_000,
       );
@@ -5656,8 +6047,12 @@ class BotEngine {
     if (!(qty > 0) || !(entryPrice > 0)) return;
 
     const isShort = trade.side === "sell";
-    const favorable = isShort ? (entryPrice - low) * qty : (high - entryPrice) * qty;
-    const adverse = isShort ? (entryPrice - high) * qty : (low - entryPrice) * qty;
+    const favorable = isShort
+      ? (entryPrice - low) * qty
+      : (high - entryPrice) * qty;
+    const adverse = isShort
+      ? (entryPrice - high) * qty
+      : (low - entryPrice) * qty;
 
     const currentMfe = trade.mfeUsdt != null ? Number(trade.mfeUsdt) : 0;
     const currentMae = trade.maeUsdt != null ? Number(trade.maeUsdt) : 0;
@@ -5685,7 +6080,11 @@ class BotEngine {
   ): Promise<Phase7ManagementDecision | null> {
     if (trade.managementMode === "fixed" || !trade.thesisId) return null;
     const thesis = await loadPositionThesis(this.userId, this.section, trade.id);
-    if (!thesis || thesis.thesisId !== trade.thesisId || thesis.managementPolicyVersion !== trade.managementPolicyVersion) {
+    if (
+      !thesis ||
+      thesis.thesisId !== trade.thesisId ||
+      thesis.managementPolicyVersion !== trade.managementPolicyVersion
+    ) {
       logger.error({ tradeId: trade.id }, "Phase 7 thesis or policy lineage is missing — adaptive management frozen");
       return null;
     }
@@ -5694,14 +6093,19 @@ class BotEngine {
     const position = {
       tradeId: trade.id,
       symbol: trade.symbol,
-      side: trade.side === "sell" ? "short" as const : "long" as const,
+      side: trade.side === "sell" ? ("short" as const) : ("long" as const),
       entryPrice: Number(trade.entryPrice),
       currentStopPrice: Number(trade.stopLoss),
       targetPrice: Number(trade.takeProfit),
       remainingQuantity: Number(trade.remainingQuantity ?? trade.quantity),
       openedAt: trade.entryTime,
     };
-    const evaluation = evaluatePositionThesis({ thesis, position, marketState, evaluatedAt: now });
+    const evaluation = evaluatePositionThesis({
+      thesis,
+      position,
+      marketState,
+      evaluatedAt: now,
+    });
     const action = proposePositionAction({
       thesis,
       evaluation,
@@ -5756,17 +6160,29 @@ class BotEngine {
   ): Promise<{ orderIds: OpenOrderIds | undefined; closed: boolean }> {
     const ex = this.exchange!;
     const tradeAuthority = authorityFromTrade(trade);
-    const sandboxAuthority = isBrokerSandboxAuthority(tradeAuthority) && tradeAuthority === this.activeExecutionAuthority;
-    if (trade.managementAuthority !== "phase7" || trade.managementMode !== "phase7_active" || !sandboxAuthority) {
-      await this.recordPhase7(trade, decision, "REFUSED", now, { reason: "Phase 7 mutation authority is not active for this environment" });
+    const sandboxAuthority =
+      isBrokerSandboxAuthority(tradeAuthority) &&
+      tradeAuthority === this.activeExecutionAuthority;
+    if (
+      trade.managementAuthority !== "phase7" ||
+      trade.managementMode !== "phase7_active" ||
+      !sandboxAuthority
+    ) {
+      await this.recordPhase7(trade, decision, "REFUSED", now, {
+        reason: "Phase 7 mutation authority is not active for this environment",
+      });
       return { orderIds, closed: false };
     }
     if (trade.executionTarget === "live" && !this.state.newEntriesAllowed) {
-      await this.recordPhase7(trade, decision, "REFUSED", now, { reason: "Reconciliation is incomplete; adaptive changes frozen" });
+      await this.recordPhase7(trade, decision, "REFUSED", now, {
+        reason: "Reconciliation is incomplete; adaptive changes frozen",
+      });
       return { orderIds, closed: false };
     }
     if (!decision.validation.valid) {
-      await this.recordPhase7(trade, decision, "REFUSED", now, { reason: "Deterministic validation refused the proposal" });
+      await this.recordPhase7(trade, decision, "REFUSED", now, {
+        reason: "Deterministic validation refused the proposal",
+      });
       return { orderIds, closed: false };
     }
     if (!this.autopilotPermitsPhase7Action(trade, decision.action.type)) {
@@ -5777,10 +6193,15 @@ class BotEngine {
       return { orderIds, closed: false };
     }
     if (["HOLD", "FREEZE"].includes(decision.action.type)) {
-      await this.recordPhase7(trade, decision, "APPLIED", now, { mutated: false, reason: decision.action.type });
+      await this.recordPhase7(trade, decision, "APPLIED", now, {
+        mutated: false,
+        reason: decision.action.type,
+      });
       return { orderIds, closed: false };
     }
-    const claimed = await this.recordPhase7(trade, decision, "PROPOSED", now, { claimed: true });
+    const claimed = await this.recordPhase7(trade, decision, "PROPOSED", now, {
+      claimed: true,
+    });
     if (!claimed) {
       logger.warn({ tradeId: trade.id, actionFingerprint: decision.action.fingerprint }, "Phase 7 action already proposed — retry frozen pending audit/reconciliation");
       return { orderIds, closed: false };
@@ -5794,7 +6215,10 @@ class BotEngine {
           exitPrice: outcome.exitPrice,
           pnl: outcome.pnl,
         });
-        return { orderIds: outcome.closed ? undefined : orderIds, closed: outcome.closed };
+        return {
+          orderIds: outcome.closed ? undefined : orderIds,
+          closed: outcome.closed,
+        };
       }
       const result = decision.action.type === "REDUCE"
         ? await this.tradeManager.reduceByPolicy(ex, trade, market, decision.action.reductionFraction!, orderIds)
@@ -5808,7 +6232,11 @@ class BotEngine {
           );
       orderIds = result.orderIds;
       if (!result.protectionHealthy) {
-        const [latestTrade] = await db.select().from(tradesTable).where(eq(tradesTable.id, trade.id)).limit(1);
+        const [latestTrade] = await db
+          .select()
+          .from(tradesTable)
+          .where(eq(tradesTable.id, trade.id))
+          .limit(1);
         const emergency = await this.exitManager.closeManually(ex, latestTrade ?? trade, market, now, cooldownMinutes, "emergency_stop", orderIds);
         await this.recordPhase7(trade, decision, emergency.closed ? "FAILED" : "FAILED", now, {
           actualAction: "EMERGENCY_EXIT_AFTER_PROTECTION_FAILURE",
@@ -5816,7 +6244,10 @@ class BotEngine {
           closed: emergency.closed,
           reason: result.reason,
         });
-        return { orderIds: emergency.closed ? undefined : orderIds, closed: emergency.closed };
+        return {
+          orderIds: emergency.closed ? undefined : orderIds,
+          closed: emergency.closed,
+        };
       }
       await this.recordPhase7(trade, decision, result.applied ? "APPLIED" : "FAILED", now, {
         actualAction: decision.action.type,
@@ -5827,7 +6258,9 @@ class BotEngine {
       });
       return { orderIds, closed: false };
     } catch (error) {
-      await this.recordPhase7(trade, decision, "FAILED", now, { error: error instanceof Error ? error.message : String(error) });
+      await this.recordPhase7(trade, decision, "FAILED", now, {
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }
@@ -5843,14 +6276,22 @@ class BotEngine {
     const tradeAuthority = authorityFromTrade(trade);
     const tradeMarketType = toMarketType(trade.marketType);
     if (
-      tradeAuthority !== this.activeExecutionAuthority
-      || tradeMarketType !== this.activeMarketType
-      || (!isSimulatedAuthority(tradeAuthority) && !isBrokerAuthority(tradeAuthority))
+      tradeAuthority !== this.activeExecutionAuthority ||
+      tradeMarketType !== this.activeMarketType ||
+      (!isSimulatedAuthority(tradeAuthority) &&
+        !isBrokerAuthority(tradeAuthority))
     ) {
       this.state.newEntriesAllowed = false;
-      this.state.entryBlockReason = "Exit-only: open trade execution authority is unverified";
+      this.state.entryBlockReason =
+        "Exit-only: open trade execution authority is unverified";
       logger.error(
-        { tradeId: trade.id, tradeAuthority, activeExecutionAuthority: this.activeExecutionAuthority, tradeMarketType, activeMarketType: this.activeMarketType },
+        {
+          tradeId: trade.id,
+          tradeAuthority,
+          activeExecutionAuthority: this.activeExecutionAuthority,
+          tradeMarketType,
+          activeMarketType: this.activeMarketType,
+        },
         "POSITION MANAGEMENT REFUSED — ambiguous execution authority; no broker call made",
       );
       return;
@@ -5873,13 +6314,19 @@ class BotEngine {
     // ExitManager path a live close runs then settles it. Returns before any
     // exchange call below, all of which would be meaningless here.
     if (trade.executionTarget === "demo") {
-      const phase7OwnsManagement = trade.managementAuthority === "phase7" && trade.managementMode === "phase7_active";
+      const phase7OwnsManagement =
+        trade.managementAuthority === "phase7" &&
+        trade.managementMode === "phase7_active";
       let phase7Action: PositionManagementAction | undefined;
       if (phase7Decision && trade.managementMode === "phase7_shadow") {
-        await this.recordPhase7(trade, phase7Decision, "SHADOW", now, { mutated: false });
+        await this.recordPhase7(trade, phase7Decision, "SHADOW", now, {
+          mutated: false,
+        });
       } else if (phase7OwnsManagement && phase7Decision) {
         if (!phase7Decision.validation.valid) {
-          await this.recordPhase7(trade, phase7Decision, "REFUSED", now, { reason: "Deterministic validation refused the proposal" });
+          await this.recordPhase7(trade, phase7Decision, "REFUSED", now, {
+            reason: "Deterministic validation refused the proposal",
+          });
         } else if (!this.autopilotPermitsPhase7Action(trade, phase7Decision.action.type)) {
           await this.recordPhase7(trade, phase7Decision, "REFUSED", now, {
             reason: `Autopilot mandate does not permit Phase 7 action ${phase7Decision.action.type}`,
@@ -5894,22 +6341,36 @@ class BotEngine {
       }
       try {
         await simulateDemoExit({
-          trade, candles1m, now, cooldownMinutes,
-          stratConfig, costs: this.fillCosts(), exitManager: this.exitManager,
+          trade,
+          candles1m,
+          now,
+          cooldownMinutes,
+          stratConfig,
+          costs: this.fillCosts(),
+          exitManager: this.exitManager,
           phase7OwnsManagement,
           ...(phase7Action && { phase7Action }),
-          ...(phase7Action && phase7Decision && {
-            onPhase7Result: async (result) => {
-              await this.recordPhase7(trade, phase7Decision, result.actionApplied ? "APPLIED" : "FAILED", now, {
-                actualAction: phase7Action.type,
-                ...result,
-              });
-            },
-          }),
+          ...(phase7Action &&
+            phase7Decision && {
+              onPhase7Result: async (result) => {
+                await this.recordPhase7(
+                  trade,
+                  phase7Decision,
+                  result.actionApplied ? "APPLIED" : "FAILED",
+                  now,
+                  {
+                    actualAction: phase7Action.type,
+                    ...result,
+                  },
+                );
+              },
+            }),
         });
       } catch (error) {
         if (phase7Action && phase7Decision) {
-          await this.recordPhase7(trade, phase7Decision, "FAILED", now, { error: error instanceof Error ? error.message : String(error) });
+          await this.recordPhase7(trade, phase7Decision, "FAILED", now, {
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
         throw error;
       }
@@ -5937,7 +6398,12 @@ class BotEngine {
         );
         if (liquidationIsUnsafe) {
           logger.error(
-            { tradeId: trade.id, symbol: trade.symbol, currentStop, liquidationPrice },
+            {
+              tradeId: trade.id,
+              symbol: trade.symbol,
+              currentStop,
+              liquidationPrice,
+            },
             "LIQUIDATION RISK: open position's stop is now too close to the exchange's liquidation price — force-flattening",
           );
           const outcome = await this.exitManager.closeManually(ex, trade, market, now, cooldownMinutes, "emergency_stop", orderIds);
@@ -5964,9 +6430,14 @@ class BotEngine {
     // order id is ever recorded. Previously this was dropped on the floor,
     // leaving the bot treating the trade as unprotected on every later tick.
     if (trade.managementMode === "phase7_shadow" && phase7Decision) {
-      await this.recordPhase7(trade, phase7Decision, "SHADOW", now, { mutated: false });
+      await this.recordPhase7(trade, phase7Decision, "SHADOW", now, {
+        mutated: false,
+      });
     }
-    if (trade.managementAuthority === "phase7" && trade.managementMode === "phase7_active") {
+    if (
+      trade.managementAuthority === "phase7" &&
+      trade.managementMode === "phase7_active"
+    ) {
       if (phase7Decision) {
         const applied = await this.applyPhase7BrokerAction(trade, market, orderIds, phase7Decision, now, cooldownMinutes);
         orderIds = applied.orderIds;
@@ -6035,14 +6506,28 @@ class BotEngine {
           costs: this.fillCosts(tradeMarketType),
           exitManager: this.exitManager,
         });
-        if (!outcome.closed) return { ok: false, error: "Demo close could not be settled — no external order was attempted" };
+        if (!outcome.closed)
+          return {
+            ok: false,
+            error:
+              "Demo close could not be settled — no external order was attempted",
+          };
         this.openOrderIds.delete(trade.id);
         this.state.openPositions = Math.max(0, this.state.openPositions - 1);
         logger.info(
-          { tradeId, symbol: trade.symbol, exitPrice: outcome.exitPrice, pnl: outcome.pnl },
+          {
+            tradeId,
+            symbol: trade.symbol,
+            exitPrice: outcome.exitPrice,
+            pnl: outcome.pnl,
+          },
           "Demo trade closed manually through the simulated fill/accounting path",
         );
-        return { ok: true, exitPrice: outcome.exitPrice ?? undefined, pnl: outcome.pnl ?? undefined };
+        return {
+          ok: true,
+          exitPrice: outcome.exitPrice ?? undefined,
+          pnl: outcome.pnl ?? undefined,
+        };
       }
 
       if (!isBrokerAuthority(tradeAuthority)) {
@@ -6068,9 +6553,16 @@ class BotEngine {
       // otherwise build a DEDICATED client for this close. Never reuse a spot
       // client to close a futures trade (or vice versa), and never mutate the
       // engine's own activeMarketType/exchange for a one-off user action.
-      const ex = this.exchange && this.activeMarketType === tradeMarketType && this.activeExecutionAuthority === tradeAuthority
-        ? this.exchange
-        : await this.buildExchange(config.testnet, tradeMarketType, tradeAuthority);
+      const ex =
+        this.exchange &&
+        this.activeMarketType === tradeMarketType &&
+        this.activeExecutionAuthority === tradeAuthority
+          ? this.exchange
+          : await this.buildExchange(
+              config.testnet,
+              tradeMarketType,
+              tradeAuthority,
+            );
       // Precision helpers inside the close path need market metadata; a
       // freshly created on-demand connection hasn't loaded it yet.
       if (!ex.markets || Object.keys(ex.markets).length === 0) {
@@ -6079,20 +6571,39 @@ class BotEngine {
       // symbolMaps was built for the engine's ACTIVE market type — only valid
       // here when the trade is on that same market; otherwise use the
       // format-rule fallback for the trade's own market type.
-      const market = this.exchange && this.activeMarketType === tradeMarketType && this.activeExecutionAuthority === tradeAuthority
-        ? this.toMarket(trade.symbol)
-        : unifiedFromPlainFallback(trade.symbol, tradeMarketType);
+      const market =
+        this.exchange &&
+        this.activeMarketType === tradeMarketType &&
+        this.activeExecutionAuthority === tradeAuthority
+          ? this.toMarket(trade.symbol)
+          : unifiedFromPlainFallback(trade.symbol, tradeMarketType);
       const orderIds = this.openOrderIds.get(trade.id);
       const outcome = await this.exitManager.closeManually(
         ex, trade, market, new Date(), Number(config.cooldownMinutes), "manual", orderIds,
       );
       if (!outcome.closed) {
-        return { ok: false, error: "Close order could not be executed — check the exchange and try again" };
+        return {
+          ok: false,
+          error:
+            "Close order could not be executed — check the exchange and try again",
+        };
       }
       this.openOrderIds.delete(trade.id);
       this.state.openPositions = Math.max(0, this.state.openPositions - 1);
-      logger.info({ tradeId, symbol: trade.symbol, exitPrice: outcome.exitPrice, pnl: outcome.pnl }, "Trade closed manually by user");
-      return { ok: true, exitPrice: outcome.exitPrice ?? undefined, pnl: outcome.pnl ?? undefined };
+      logger.info(
+        {
+          tradeId,
+          symbol: trade.symbol,
+          exitPrice: outcome.exitPrice,
+          pnl: outcome.pnl,
+        },
+        "Trade closed manually by user",
+      );
+      return {
+        ok: true,
+        exitPrice: outcome.exitPrice ?? undefined,
+        pnl: outcome.pnl ?? undefined,
+      };
     } catch (err) {
       logger.error({ err, tradeId }, "Manual close failed");
       return { ok: false, error: String((err as Error)?.message ?? err) };
@@ -6251,7 +6762,13 @@ class BotEngine {
     }
   }
 
-  private async openTradeAuthorityIssues(): Promise<Array<{ tradeId: number; authority: ExecutionAuthority; marketType: MarketType }>> {
+  private async openTradeAuthorityIssues(): Promise<
+    Array<{
+      tradeId: number;
+      authority: ExecutionAuthority;
+      marketType: MarketType;
+    }>
+  > {
     const openTrades = await db
       .select({
         id: tradesTable.id,
@@ -6268,7 +6785,8 @@ class BotEngine {
     return openTrades.flatMap((trade) => {
       const authority = authorityFromTrade(trade);
       const marketType = toMarketType(trade.marketType);
-      return authority === this.activeExecutionAuthority && marketType === this.activeMarketType
+      return authority === this.activeExecutionAuthority &&
+        marketType === this.activeMarketType
         ? []
         : [{ tradeId: trade.id, authority, marketType }];
     });
@@ -6350,9 +6868,9 @@ class BotEngine {
               Number.isFinite(Number(quantity)) &&
               Number(quantity) > 0,
           )
-          .map(([asset]) =>
-            this.symbolMaps?.toUnified.get(`${asset}USDT`) ??
-            `${asset}/USDT`,
+          .map(
+            ([asset]) =>
+              this.symbolMaps?.toUnified.get(`${asset}USDT`) ?? `${asset}/USDT`,
           );
         tickers = symbols.length
           ? await this.exchange!.fetchTickers(symbols)
@@ -6680,7 +7198,12 @@ class BotEngine {
           "Authoritative OANDA exposure has no evidence-backed local ownership; entries remain blocked pending operator resolution",
       });
       logger.error(
-        { positions: untracked.map((position: any) => ({ symbol: position.symbol, tradeId: position.info?.oandaTradeId })) },
+        {
+          positions: untracked.map((position: any) => ({
+            symbol: position.symbol,
+            tradeId: position.info?.oandaTradeId,
+          })),
+        },
         "Startup reconciliation (forex): OANDA has live trades absent from the database",
       );
       await this.sendAlert(
@@ -6726,7 +7249,9 @@ class BotEngine {
       const qty = sells.reduce((s, t) => s + Number(t.amount), 0);
       const tolerance = Math.max(trackedQty * 0.005, 1e-8);
       if (qty + tolerance >= trackedQty) {
-        exitPrice = sells.reduce((s, t) => s + Number(t.amount) * Number(t.price), 0) / qty;
+        exitPrice =
+          sells.reduce((s, t) => s + Number(t.amount) * Number(t.price), 0) /
+          qty;
         priceSource = `weighted average of ${sells.length} closing ${closingSide} fill(s) since entry`;
       }
     } catch (err) {
@@ -6759,7 +7284,10 @@ class BotEngine {
     const partialsNetPnl = partials.reduce((s, p) => s + Number(p.pnl), 0);
 
     const isShort = trade.side === "sell";
-    const legPnl = (isShort ? Number(trade.entryPrice) - exitPrice : exitPrice - Number(trade.entryPrice)) * trackedQty;
+    const legPnl =
+      (isShort
+        ? Number(trade.entryPrice) - exitPrice
+        : exitPrice - Number(trade.entryPrice)) * trackedQty;
     const pnl = legPnl + partialsNetPnl;
     await db
       .update(tradesTable)
@@ -6814,8 +7342,11 @@ class BotEngine {
         }
         if (ocoResult) {
           this.openOrderIds.set(trade.id, {
-            tpOrderId: ocoResult.tpOrderId, slOrderId: ocoResult.slOrderId,
-            ...(ocoResult.orderListId && { ocoOrderListId: ocoResult.orderListId }),
+            tpOrderId: ocoResult.tpOrderId,
+            slOrderId: ocoResult.slOrderId,
+            ...(ocoResult.orderListId && {
+              ocoOrderListId: ocoResult.orderListId,
+            }),
           });
           logger.info({ tradeId: trade.id }, "RECONCILE: re-placed protective orders for a previously-unprotected position");
           await this.sendAlert(
@@ -6860,7 +7391,11 @@ class BotEngine {
         });
       }
       logger.info(
-        { tradeId: trade.id, symbol: trade.symbol, orderCount: closingOrders.length },
+        {
+          tradeId: trade.id,
+          symbol: trade.symbol,
+          orderCount: closingOrders.length,
+        },
         "RECONCILE: restored in-memory order tracking from existing exchange orders",
       );
     } catch (err) {
@@ -6876,7 +7411,9 @@ class BotEngine {
    *  trade at all — e.g. a manual buy, or a DB write that failed after the
    *  exchange fill succeeded. Deliberately does not auto-adopt (see header
    *  comment) — alerts loudly and leaves it for a human to resolve. */
-  private async detectUntrackedPositions(openTrades: (typeof tradesTable.$inferSelect)[]): Promise<void> {
+  private async detectUntrackedPositions(
+    openTrades: (typeof tradesTable.$inferSelect)[],
+  ): Promise<void> {
     const ex = this.exchange!;
     let balance: any;
     try {
@@ -6902,7 +7439,9 @@ class BotEngine {
       try {
         const ticker = await ex.fetchTicker(market);
         lastPrice = Number(ticker?.last ?? 0);
-      } catch { /* best-effort only */ }
+      } catch {
+        /* best-effort only */
+      }
       const notional = total * lastPrice;
       if (notional > 0 && notional < 5) continue; // < $5 — treat as dust, not a position
 
@@ -6991,7 +7530,12 @@ class BotEngine {
     });
 
     logger.error(
-      { positions: untracked.map((position) => ({ symbol: position.symbol, contracts: position.contracts })) },
+      {
+        positions: untracked.map((position) => ({
+          symbol: position.symbol,
+          contracts: position.contracts,
+        })),
+      },
       "RECONCILE_UNTRACKED: exchange has futures positions absent from the database",
     );
     await this.sendAlert(
@@ -7020,7 +7564,9 @@ class BotEngine {
         .where(and(eq(tradesTable.userId, this.userId), eq(tradesTable.section, this.section), eq(tradesTable.symbol, symbol), eq(tradesTable.status, "closed")))
         .orderBy(desc(tradesTable.exitTime))
         .limit(15);
-      const recent = recentAll.filter((t) => t.exitReason !== "reconciled_missing").slice(0, 10);
+      const recent = recentAll
+        .filter((t) => t.exitReason !== "reconciled_missing")
+        .slice(0, 10);
 
       if (recent.length < 10) continue;
 
@@ -7031,10 +7577,27 @@ class BotEngine {
         const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
         await db
           .insert(blacklistTable)
-          .values({ userId: this.userId, section: this.section, symbol, winRate: winRate.toFixed(4), tradeCount: recent.length, blacklistedAt: now, expiresAt })
+          .values({
+            userId: this.userId,
+            section: this.section,
+            symbol,
+            winRate: winRate.toFixed(4),
+            tradeCount: recent.length,
+            blacklistedAt: now,
+            expiresAt,
+          })
           .onConflictDoUpdate({
-            target: [blacklistTable.userId, blacklistTable.section, blacklistTable.symbol],
-            set: { winRate: winRate.toFixed(4), tradeCount: recent.length, blacklistedAt: now, expiresAt },
+            target: [
+              blacklistTable.userId,
+              blacklistTable.section,
+              blacklistTable.symbol,
+            ],
+            set: {
+              winRate: winRate.toFixed(4),
+              tradeCount: recent.length,
+              blacklistedAt: now,
+              expiresAt,
+            },
           });
         // Only log when the symbol is newly blacklisted — not on every 15-second scan tick
         if (!alreadyBlacklisted.has(symbol)) {
@@ -7055,7 +7618,9 @@ class BotEngine {
   private async isToxicHour(hour: number): Promise<boolean> {
     // Test mode wants volume above all — never sit out an hour.
     if (this.highFreqActive) return false;
-    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]!;
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0]!;
     const rows = await db
       .select()
       .from(hourlyStatsTable)
@@ -7076,7 +7641,11 @@ class BotEngine {
    * trade_analyses. Purely derived from recorded facts — no fabrication.
    */
   private async recordTradeAnalysis(tradeId: number): Promise<void> {
-    const [trade] = await db.select().from(tradesTable).where(eq(tradesTable.id, tradeId)).limit(1);
+    const [trade] = await db
+      .select()
+      .from(tradesTable)
+      .where(eq(tradesTable.id, tradeId))
+      .limit(1);
     if (!trade || trade.status === "open") return;
     const a = analyzeTrade(trade);
     await db
@@ -7139,7 +7708,8 @@ class BotEngine {
     const wins = closedToday.filter((t) => Number(t.pnl ?? 0) > 0).length;
     this.state.dailyPnl = totalPnl;
     this.state.totalTradesToday = closedToday.length;
-    this.state.winRateToday = closedToday.length > 0 ? wins / closedToday.length : 0;
+    this.state.winRateToday =
+      closedToday.length > 0 ? wins / closedToday.length : 0;
   }
 
   // ---------------------------------------------------------------------------
@@ -7174,7 +7744,10 @@ class BotEngine {
         // forex config would inherit the column defaults (binance/spot) and
         // the engine would try to trade Binance from the Forex tab.
         broker: this.section === "forex" ? "oanda" : "binance",
-        ...(this.section === "forex" && { marketType: "forex", pairs: "EUR_USD,GBP_USD,AUD_USD,NZD_USD,XAU_USD" }),
+        ...(this.section === "forex" && {
+          marketType: "forex",
+          pairs: "EUR_USD,GBP_USD,AUD_USD,NZD_USD,XAU_USD",
+        }),
         // A NEW section starts in the demo simulation, so an account can trade
         // within minutes of signing up and reaching real money is a deliberate
         // step rather than the only option. The COLUMN default stays "live" on
@@ -7282,8 +7855,16 @@ class BotEngine {
     try {
       await db
         .update(botConfigTable)
-        .set({ riskPaused: this.riskPaused, riskViolationCount: this.riskViolationCount })
-        .where(and(eq(botConfigTable.userId, this.userId), eq(botConfigTable.section, this.section)));
+        .set({
+          riskPaused: this.riskPaused,
+          riskViolationCount: this.riskViolationCount,
+        })
+        .where(
+          and(
+            eq(botConfigTable.userId, this.userId),
+            eq(botConfigTable.section, this.section),
+          ),
+        );
     } catch (err) {
       logger.error({ err }, "Failed to persist risk-pause state — in-memory state is still correct, but a restart before the next successful write would lose it");
     }

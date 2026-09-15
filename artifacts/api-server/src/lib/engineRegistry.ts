@@ -89,17 +89,10 @@ export function evictUserEngines(userId: number): void {
 // ---------------------------------------------------------------------------
 // Session-scoped demo engines
 //
-// A live engine runs because the user is trading real money and expects it to
-// keep running whether or not they are watching. A DEMO engine has no such
-// claim: it is a simulation for someone evaluating the product, and leaving
-// one scanning forever for every account that ever signed up is an always-on
-// cost per signup with no revenue attached — the single largest infrastructure
-// line item in the whole demo design.
-//
-// So demo engines are session-scoped: they run while the user is around and
-// stop after a grace period of silence. Co-Pilot, Research, backtesting and
-// every analytics surface keep working when stopped — only the scan loop
-// pauses, and the next request starts it again.
+// Flat demos without enabled AutoPilot stop after a grace period of silence.
+// Open positions and enabled AutoPilot keep running while the user is away.
+// Co-Pilot, Research, backtesting and analytics remain available when stopped.
+// Only the scan loop pauses, and the next request starts it again.
 //
 // Live engines are NEVER touched by this. Stopping a real position's engine
 // because nobody opened the dashboard would be dangerous.
@@ -123,8 +116,7 @@ export async function sweepIdleDemoEngines(now = Date.now(), graceMs = DEMO_IDLE
     try {
       // pauseForIdle, not stop: the user's desired-running flag survives, so
       // the engine resumes on the next boot or the next time they return.
-      await engine.pauseForIdle();
-      stopped.push(k);
+      if (await engine.pauseForIdle()) stopped.push(k);
     } catch {
       // A failed stop must not stall the sweep for other users.
     }

@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-07-29T12:20:08.570Z",
+  "projectRoot": "/home/ubuntu/TradecoreV4",
+  "structure": {
+    "hasPackageJson": true,
+    "hasTsConfig": true,
+    "hasClaudeConfig": false,
+    "hasClaudeFlow": true
+  },
+  "scannedAt": 1785327608570
+}

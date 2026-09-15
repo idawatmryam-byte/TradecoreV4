@@ -118,22 +118,51 @@ const originalDb = {
   insert: mutableDb.insert,
   update: mutableDb.update,
   select: mutableDb.select,
+  transaction: mutableDb.transaction,
 };
 const originalWarn = logger.warn;
 let validationMismatchWarnings = 0;
+let failPartialWrite = false;
+let failProjectionWrite = false;
 
 mutableDb.insert = () => ({
   values: async (values: Record<string, any>) => {
+    if (failPartialWrite) throw new Error("injected partial insert failure");
     partialExits.push({ ...values });
   },
 });
 mutableDb.update = () => ({
   set: (values: Record<string, any>) => ({
     where: async () => {
+      if (failProjectionWrite)
+        throw new Error("injected projection update failure");
       persistedTrade = { ...persistedTrade, ...values };
     },
   }),
 });
+mutableDb.transaction = async (callback: (tx: any) => Promise<unknown>) => {
+  const before = { ...persistedTrade };
+  const partialCount = partialExits.length;
+  try {
+    return await callback({
+      update: mutableDb.update,
+      insert: mutableDb.insert,
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: () => ({
+              for: async () => [{ ...persistedTrade }],
+            }),
+          }),
+        }),
+      }),
+    });
+  } catch (error) {
+    persistedTrade = before;
+    partialExits.length = partialCount;
+    throw error;
+  }
+};
 mutableDb.select = () => ({
   from: () => ({
     where: async () => partialExits.map((partial) => ({ ...partial })),
@@ -157,6 +186,50 @@ const exitManager = new ExitManager({
 });
 
 try {
+  console.log("\n— Entry-minute timing —");
+  let earlyCloses = 0;
+  const entryMinuteTrade = {
+    ...reloadTrade(),
+    entryTime: new Date(T0.getTime() + 30_000),
+  };
+  const entryMinuteArgs = {
+    trade: entryMinuteTrade as any,
+    now: new Date(T0.getTime() + 40_000),
+    cooldownMinutes: 5,
+    stratConfig: strategyConfig as any,
+    costs,
+    exitManager: {
+      async closeSimulated() {
+        earlyCloses++;
+        return { closed: true };
+      },
+    } as unknown as typeof exitManager,
+  };
+  await simulateDemoExit({
+    ...entryMinuteArgs,
+    candles1m: [[T0.getTime() - 60_000, 100.05, 120, 90, 94, 10]],
+  });
+  expect(
+    "a bar closed before entry cannot close a new trade",
+    earlyCloses === 0,
+  );
+  await simulateDemoExit({
+    ...entryMinuteArgs,
+    candles1m: [[T0.getTime(), 100.05, 120, 90, 100.05, 10]],
+  });
+  expect(
+    "pre-entry wicks cannot trigger a stop or partial",
+    earlyCloses === 0 && partialExits.length === 0,
+  );
+  await simulateDemoExit({
+    ...entryMinuteArgs,
+    candles1m: [[T0.getTime(), 100.05, 120, 90, 94, 10]],
+  });
+  expect(
+    "an observed post-entry price still triggers the stop",
+    Number(earlyCloses) === 1,
+  );
+
   console.log("\n— Demo entry projection —");
   expect(
     "entry is entirely simulated",
@@ -176,6 +249,45 @@ try {
   );
 
   console.log("\n— TP1 and break-even persist —");
+  const beforeTp1 = reloadTrade();
+  const tp1Args = {
+    candles1m: [[T0.getTime() + 60_000, 100.05, 105.1, 100.1, 100.5, 10]] as [
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+    ][],
+    now: new Date(T0.getTime() + 60_000),
+    cooldownMinutes: 5,
+    stratConfig: strategyConfig as any,
+    costs,
+    exitManager,
+  };
+  for (const failurePoint of ["partial", "projection"] as const) {
+    const attemptedTrade = reloadTrade();
+    const before = JSON.stringify(attemptedTrade);
+    failPartialWrite = failurePoint === "partial";
+    failProjectionWrite = failurePoint === "projection";
+    let refused = false;
+    try {
+      await simulateDemoExit({ ...tp1Args, trade: attemptedTrade as any });
+    } catch {
+      refused = true;
+    }
+    expect(`${failurePoint} write failure is surfaced`, refused);
+    expect(
+      `${failurePoint} write failure rolls back the trade and partial`,
+      JSON.stringify(reloadTrade()) === before && partialExits.length === 0,
+    );
+    expect(
+      `${failurePoint} write failure leaves caller state unchanged`,
+      JSON.stringify(attemptedTrade) === before,
+    );
+    failPartialWrite = false;
+    failProjectionWrite = false;
+  }
   const tp1Closed = await simulateDemoExit({
     trade: reloadTrade() as any,
     candles1m: [[T0.getTime() + 60_000, 100.05, 105.1, 100.1, 100.5, 10]],
@@ -189,6 +301,23 @@ try {
   expect(
     "TP1 partial exit is persisted",
     partialExits.length === 1 && partialExits[0]?.reason === "tp1",
+  );
+  expect(
+    "TP1 includes its share of both entry and exit fees",
+    Math.abs(
+      Number(partialExits[0]?.fees) - (100.05 + 105.05) * 0.5 * costs.feeRate,
+    ) < 1e-8,
+  );
+  let staleRefused = false;
+  try {
+    await simulateDemoExit({ ...tp1Args, trade: beforeTp1 as any });
+  } catch (error) {
+    staleRefused =
+      error instanceof Error && error.name === "DemoManagementConflictError";
+  }
+  expect(
+    "stale management is refused before a second partial can be recorded",
+    staleRefused && partialExits.length === 1,
   );
   expect(
     "remaining quantity reflects the TP1 reduction",
@@ -304,6 +433,7 @@ try {
   mutableDb.insert = originalDb.insert;
   mutableDb.update = originalDb.update;
   mutableDb.select = originalDb.select;
+  mutableDb.transaction = originalDb.transaction;
   logger.warn = originalWarn;
 }
 

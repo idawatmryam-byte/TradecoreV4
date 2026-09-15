@@ -109,6 +109,33 @@ const ctxAt = (candle: ReturnType<typeof bar>, now = T0): BarContext =>
 }
 
 // ── Nothing touched ⇒ position stays open ───────────────────────────────────
+for (const side of ["long", "short"] as const) {
+  const pos = longPos({
+    side,
+    slPrice: side === "long" ? 95 : 105,
+    plannedSlPrice: side === "long" ? 95 : 105,
+    tpPrice: side === "long" ? 110 : 90,
+    tp1Price: side === "long" ? 105 : 95,
+    tp1Qty: 0.5,
+  });
+  const context = ctxAt(bar(100, 106, 94, 100));
+  const config = cfg({ tp1RMultiple: 1 });
+  manageBar(pos, context, config, NO_COSTS);
+  expect(
+    `${side}: stopped bar cannot bank a favorable partial first`,
+    pos.partialExits.length === 0,
+  );
+  expect(
+    `${side}: stopped bar preserves full quantity`,
+    pos.remainingQty === 1,
+  );
+  const out = settleBar(pos, context, config, NO_COSTS);
+  expect(
+    `${side}: original stop settles the full loss`,
+    out?.exitReason === "stop_loss" && out.pnl === -5,
+  );
+}
+
 {
   const pos = longPos();
   expect("a quiet bar leaves the position open", settleBar(pos, ctxAt(bar(100, 102, 98, 101)), cfg(), NO_COSTS) === null);

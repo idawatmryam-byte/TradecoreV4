@@ -1,0 +1,3 @@
+nohup: ignoring input
+ERROR: DATABASE_URL is not set — point it at your live database.
+  export DATABASE_URL=postgresql://...   then re-run.

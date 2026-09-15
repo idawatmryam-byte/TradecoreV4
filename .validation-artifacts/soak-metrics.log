@@ -1,0 +1,32 @@
+soak_start_utc=2026-08-22T19:38:00Z
+sample=1 ts=2026-08-22T19:38:08Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=2 ts=2026-08-22T19:38:39Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=3 ts=2026-08-22T19:39:10Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=4 ts=2026-08-22T19:39:40Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=5 ts=2026-08-22T19:40:11Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=6 ts=2026-08-22T19:40:42Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=7 ts=2026-08-22T19:41:13Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=8 ts=2026-08-22T19:41:43Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=9 ts=2026-08-22T19:42:14Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=10 ts=2026-08-22T19:42:45Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=11 ts=2026-08-22T19:43:16Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=12 ts=2026-08-22T19:43:46Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=13 ts=2026-08-22T19:44:17Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=14 ts=2026-08-22T19:44:48Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=15 ts=2026-08-22T19:45:19Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=16 ts=2026-08-22T19:45:49Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=17 ts=2026-08-22T19:46:20Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=18 ts=2026-08-22T19:46:51Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=19 ts=2026-08-22T19:47:22Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=20 ts=2026-08-22T19:47:52Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=21 ts=2026-08-22T19:48:23Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=22 ts=2026-08-22T19:48:54Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=23 ts=2026-08-22T19:49:25Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=24 ts=2026-08-22T19:49:56Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=25 ts=2026-08-22T19:50:26Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=26 ts=2026-08-22T19:50:57Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=27 ts=2026-08-22T19:51:28Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=28 ts=2026-08-22T19:51:59Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=29 ts=2026-08-22T19:52:29Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+sample=30 ts=2026-08-22T19:53:00Z healthz=200 readyz=200 rss_kb= cpu= err_lines=3 unresolved_intents=0 active_switches=0 db_conns=2 duplicate_provider_ids=0
+soak_end_utc=2026-08-22T19:53:34Z
