@@ -6,8 +6,8 @@
  * evaluate() functions (strategies/*.ts) the live engine uses.
  *
  * Key improvements over legacy engine:
- * - 5-timeframe support (1m / 3m / 5m / 15m / 1h) derived by aggregating
- *   the primary-timeframe download — no extra Binance requests.
+ * - 5-timeframe support (1m / 3m / 5m / 15m / 1h) derived from 1m history.
+ *   The selected timeframe controls entry cadence; exits run every minute.
  * - Extended warmup buffer (3 days minimum) ensures EMA50(1h) is valid.
  * - Risk-based position sizing when params.riskPercent > 0.
  * - All symbols in a single chronological event stream for portfolio-correct
@@ -52,7 +52,7 @@ import { estimateLiquidationPrice, stopTooCloseToLiquidation } from "./futuresMa
 import { type RiskModel } from "./dollarRisk";
 import { type DollarRiskContext } from "./strategies/selector";
 import { supportsShortEntries } from "./marketSymbols";
-import { closedCandleWindow } from "./candleWindows";
+import { aggregateCandles, getClosedWindow } from "./candleTiming";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -243,47 +243,6 @@ export function getTimeframeMs(tf: string): number {
   return map[tf] ?? HOUR_MS;
 }
 
-/**
- * Aggregate candles into larger time slots (e.g. 1m → 15m, 1m → 1h).
- * Works for any primary timeframe and any target slot size.
- */
-function aggregateCandles(candles: Candle[], targetMs: number): Candle[] {
-  if (candles.length === 0) return [];
-  const result: Candle[] = [];
-  let slotTs = -1;
-  let o = 0, h = -Infinity, l = Infinity, c = 0, v = 0;
-
-  for (const candle of candles) {
-    const slot = Math.floor(candle[0] / targetMs) * targetMs;
-    if (slot !== slotTs) {
-      if (slotTs >= 0) result.push([slotTs, o, h, l, c, v]);
-      slotTs = slot;
-      o = candle[1]; h = candle[2]; l = candle[3]; c = candle[4]; v = candle[5];
-    } else {
-      if (candle[2] > h) h = candle[2];
-      if (candle[3] < l) l = candle[3];
-      c = candle[4];
-      v += candle[5];
-    }
-  }
-  if (slotTs >= 0) result.push([slotTs, o, h, l, c, v]);
-  return result;
-}
-
-/**
- * Binary-search the aggregated candle array for the window of `windowSize`
- * bars that have CLOSED by the decision's market-data cutoff.
- * Returns null when there is insufficient warmup data.
- */
-function getAggregatedWindow(
-  aggCandles: Candle[],
-  availableAtMs: number,
-  intervalMs: number,
-  windowSize = 51
-): Candle[] | null {
-  const window = closedCandleWindow(aggCandles, availableAtMs, intervalMs, windowSize);
-  return window.length < windowSize ? null : window;
-}
 
 // ---------------------------------------------------------------------------
 // Summary metrics
@@ -497,19 +456,23 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     // flip macroBullish / regime near a boundary. Using 100 in both makes them
     // agree.
     const WARMUP = 100; // candle windows are 100 bars, matching live
-    const warmupMs = WARMUP * tfMs;
-    // Preroll must give the coarsest aggregated series (1h) ≥ WARMUP bars before
-    // the first real candle, or entry evaluation must abstain while the
-    // higher-timeframe history warms up. WARMUP=100 hourly bars ≈ 100h; a 6-day floor
-    // (144h) leaves comfortable margin.
-    const downloadStart = startMs - Math.max(warmupMs * 3, 6 * DAY_MS);
+    // Six days provide the 100 closed hourly bars required by the indicators.
+    // This is independent of scan cadence because the source is always 1m.
+    const downloadStart = startMs - 6 * DAY_MS;
 
     for (let i = 0; i < symbols.length; i++) {
       if (cancelledRuns.has(runId)) throw new Error("cancelled");
       // Forex candles come from OANDA with the user's stored credentials
       // (there is no public OANDA data API); crypto from Binance public REST.
-      if (isForex) await ensureForexCandles(userId, symbols[i]!, timeframe, downloadStart, endMs);
-      else await ensureCandles(symbols[i]!, timeframe, downloadStart, endMs);
+      if (isForex)
+        await ensureForexCandles(
+          userId,
+          symbols[i]!,
+          "1m",
+          downloadStart,
+          endMs,
+        );
+      else await ensureCandles(symbols[i]!, "1m", downloadStart, endMs);
       await db
         .update(backtestRunsTable)
         .set({ progress: Math.round(((i + 1) / symbols.length) * 40) })
@@ -520,35 +483,21 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     logger.info({ runId }, "Backtest: loading candles and building multi-TF arrays");
 
     const symbolCandles = new Map<string, Candle[]>();
-    // Aggregated arrays for 3m / 5m / 15m / 1h derived from primary TF
-    const sym3m  = new Map<string, Candle[]>();
+    // Complete 3m / 5m / 15m / 1h arrays derived from the 1m source.
+    const sym3m = new Map<string, Candle[]>();
     const sym5m  = new Map<string, Candle[]>();
     const sym15m = new Map<string, Candle[]>();
     const sym1h  = new Map<string, Candle[]>();
 
     for (const symbol of symbols) {
-      const candles = await loadCandles(symbol, timeframe, downloadStart, endMs);
+      const candles = (
+        await loadCandles(symbol, "1m", downloadStart, endMs)
+      ).filter((candle) => candle[0] + 60_000 <= endMs);
       symbolCandles.set(symbol, candles);
-
-      if (tfMs <= 60_000) {
-        // Primary is 1m — aggregate up to all required timeframes
-        sym3m.set(symbol,  aggregateCandles(candles, 3 * 60_000));
-        sym5m.set(symbol,  aggregateCandles(candles, 5 * 60_000));
-        sym15m.set(symbol, aggregateCandles(candles, 15 * 60_000));
-        sym1h.set(symbol,  aggregateCandles(candles, HOUR_MS));
-      } else if (tfMs < HOUR_MS) {
-        // Primary is 3m / 5m / 15m — aggregate only the coarser TFs
-        sym3m.set(symbol,  tfMs <= 3 * 60_000 ? aggregateCandles(candles, 3 * 60_000) : candles);
-        sym5m.set(symbol,  tfMs <= 5 * 60_000 ? aggregateCandles(candles, 5 * 60_000) : candles);
-        sym15m.set(symbol, tfMs <= 15 * 60_000 ? aggregateCandles(candles, 15 * 60_000) : candles);
-        sym1h.set(symbol,  aggregateCandles(candles, HOUR_MS));
-      } else {
-        // Primary is 1h or coarser — use as-is for all timeframes
-        sym3m.set(symbol, candles);
-        sym5m.set(symbol, candles);
-        sym15m.set(symbol, candles);
-        sym1h.set(symbol, candles);
-      }
+      sym3m.set(symbol, aggregateCandles(candles, 180_000));
+      sym5m.set(symbol, aggregateCandles(candles, 300_000));
+      sym15m.set(symbol, aggregateCandles(candles, 900_000));
+      sym1h.set(symbol, aggregateCandles(candles, HOUR_MS));
     }
 
     // ── Strategy configs from DB (with defaults for any missing strategy) ──────
@@ -571,8 +520,12 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       {
         runId,
         dbConfigs: [...dbStrategyConfigs.entries()].map(([id, c]) => ({
-          strategyId: id, stopLossPercent: c.stopLossPercent, takeProfitPercent: c.takeProfitPercent,
-          confidenceThreshold: c.confidenceThreshold, riskPercent: c.riskPercent, enabled: c.enabled,
+          strategyId: id,
+          stopLossPercent: c.stopLossPercent,
+          takeProfitPercent: c.takeProfitPercent,
+          confidenceThreshold: c.confidenceThreshold,
+          riskPercent: c.riskPercent,
+          enabled: c.enabled,
         })),
       },
       "BACKTEST_DB_CONFIG (checkpoint 2/3)",
@@ -605,7 +558,10 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     // on strategies disabled for live (e.g. the 20-minute strategy).
     if (params.onlyStrategyId) {
       for (const [id, cfg] of strategyConfigs) {
-        strategyConfigs.set(id, { ...cfg, enabled: id === params.onlyStrategyId });
+        strategyConfigs.set(id, {
+          ...cfg,
+          enabled: id === params.onlyStrategyId,
+        });
       }
       logger.info({ runId, onlyStrategyId: params.onlyStrategyId }, "BACKTEST_SINGLE_STRATEGY isolation active");
     }
@@ -681,7 +637,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       const candles = symbolCandles.get(symbol)!;
       const currentCandle = candles[idx]!;
       const [, , high, low] = currentCandle;
-      const now = new Date(ts);
+      const now = new Date(ts + 60_000);
       const dayKey = now.toISOString().split("T")[0]!;
 
       // Daily circuit-breaker reset
@@ -700,8 +656,14 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         // exit decision are no longer inline here: they are the SAME functions
         // the Demo account runs, so a simulated fill means one thing across
         // the product. Extracted verbatim — the harness Δ0 gate is the proof.
-        const posStratCfg = pos.strategyId ? strategyConfigs.get(pos.strategyId) : undefined;
-        const barCtx: BarContext = { candle: currentCandle, history: candles.slice(0, idx + 1), now };
+        const posStratCfg = pos.strategyId
+          ? strategyConfigs.get(pos.strategyId)
+          : undefined;
+        const barCtx: BarContext = {
+          candle: currentCandle,
+          history: candles.slice(0, idx + 1),
+          now,
+        };
 
         updateExcursion(pos, high, low);
         manageBar(pos, barCtx, posStratCfg, fillCosts);
@@ -713,12 +675,19 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
           if (balance > peakBalance) peakBalance = balance;
 
           allTrades.push({
-            symbol, side: pos.side, entryTime: pos.entryTime, exitTime: now,
-            entryPrice: pos.entryPrice, exitPrice: settled.exitPrice,
-            qty: pos.qty, slPrice: pos.slPrice, tpPrice: pos.tpPrice,
+            symbol,
+            side: pos.side,
+            entryTime: pos.entryTime,
+            exitTime: now,
+            entryPrice: pos.entryPrice,
+            exitPrice: settled.exitPrice,
+            qty: pos.qty,
+            slPrice: pos.slPrice,
+            tpPrice: pos.tpPrice,
             fees: settled.totalFees,
             slippage: settled.totalSlippage,
-            pnl: settled.pnl, grossPnl: settled.grossPnl,
+            pnl: settled.pnl,
+            grossPnl: settled.grossPnl,
             pnlPercent: settled.pnlPercent,
             confidence: pos.confidence,
             exitReason: settled.exitReason,
@@ -726,12 +695,22 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
             strategyId: pos.strategyId,
             strategyName: pos.strategyName,
             regime: pos.regime,
-            leverage: pos.leverage, entryReason: pos.entryReason, tradePlan: pos.tradePlan,
-            mfe: pos.mfe, mae: pos.mae, riskReward: settled.riskReward,
-            tp1Price: pos.tp1Price, tp1Qty: pos.tp1Qty, tp1Filled: pos.tp1Filled,
-            tp1FillPrice: pos.tp1FillPrice, tp1FillTime: pos.tp1FillTime,
-            tp2Price: pos.tp2Price, tp2Qty: pos.tp2Qty, tp2Filled: pos.tp2Filled,
-            tp2FillPrice: pos.tp2FillPrice, tp2FillTime: pos.tp2FillTime,
+            leverage: pos.leverage,
+            entryReason: pos.entryReason,
+            tradePlan: pos.tradePlan,
+            mfe: pos.mfe,
+            mae: pos.mae,
+            riskReward: settled.riskReward,
+            tp1Price: pos.tp1Price,
+            tp1Qty: pos.tp1Qty,
+            tp1Filled: pos.tp1Filled,
+            tp1FillPrice: pos.tp1FillPrice,
+            tp1FillTime: pos.tp1FillTime,
+            tp2Price: pos.tp2Price,
+            tp2Qty: pos.tp2Qty,
+            tp2Filled: pos.tp2Filled,
+            tp2FillPrice: pos.tp2FillPrice,
+            tp2FillTime: pos.tp2FillTime,
             breakEvenActive: pos.breakEvenActive,
             trailingStopActive: pos.trailingStopActive,
             trailingStopMode: pos.trailingStopMode,
@@ -764,7 +743,10 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       // MISSED, not filled — the honest cost of posting maker instead of taker.
       const pending = pendingEntries.get(symbol);
       if (pending) {
-        const filled = pending.side === "short" ? high >= pending.limitPrice : low <= pending.limitPrice;
+        const filled =
+          pending.side === "short"
+            ? high >= pending.limitPrice
+            : low <= pending.limitPrice;
         if (now.getTime() >= pending.expiresAtMs) {
           pendingEntries.delete(symbol);
           makerEntriesMissed++;
@@ -793,19 +775,45 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       // Don't stack a second resting limit on a symbol that already has one.
       const hasPendingEntry = pendingEntries.has(symbol);
 
-      if (circuitBreakerActive || atMaxPositions || alreadyInSymbol || onCooldown || hasPendingEntry) continue;
+      if (
+        circuitBreakerActive ||
+        atMaxPositions ||
+        alreadyInSymbol ||
+        onCooldown ||
+        hasPendingEntry
+      )
+        continue;
 
-      // The current primary close is known at ts + tfMs. A preaggregated bar
-      // that opened earlier can still contain future prices until it closes.
-      const primaryWindow = candles.slice(idx - WARMUP, idx + 1);
-      const availableAtMs = ts + tfMs;
-      // Coarse replay retains its documented timeframe approximation; a slot
-      // containing primary bars must use their actual duration for availability.
-      const window3m  = getAggregatedWindow(sym3m.get(symbol)!, availableAtMs, Math.max(tfMs, 3 * 60_000), WARMUP);
-      const window5m  = getAggregatedWindow(sym5m.get(symbol)!, availableAtMs, Math.max(tfMs, 5 * 60_000), WARMUP);
-      const window15m = getAggregatedWindow(sym15m.get(symbol)!, availableAtMs, Math.max(tfMs, 15 * 60_000), WARMUP);
-      const window1h  = getAggregatedWindow(sym1h.get(symbol)!, availableAtMs, Math.max(tfMs, HOUR_MS), WARMUP);
-      // A minute series is not a valid substitute for missing hourly history.
+      // Build 100 closed candles per timeframe at the decision time.
+      // The selected timeframe controls entry cadence. Indicators and exits
+      // always use real 1m data, so a 5m scan never masquerades as a 1m signal.
+      if (now.getTime() % tfMs !== 0) continue;
+      const primaryWindow = candles.slice(idx - WARMUP + 1, idx + 1);
+      const window3m = getClosedWindow(
+        sym3m.get(symbol)!,
+        180_000,
+        now.getTime(),
+        WARMUP,
+      );
+      const window5m = getClosedWindow(
+        sym5m.get(symbol)!,
+        300_000,
+        now.getTime(),
+        WARMUP,
+      );
+      const window15m = getClosedWindow(
+        sym15m.get(symbol)!,
+        900_000,
+        now.getTime(),
+        WARMUP,
+      );
+      const window1h = getClosedWindow(
+        sym1h.get(symbol)!,
+        HOUR_MS,
+        now.getTime(),
+        WARMUP,
+      );
+      // Missing higher-timeframe history is unavailable, never a 1m substitute.
       if (!window3m || !window5m || !window15m || !window1h) continue;
 
       const mtf: MultiTimeframeCandles = {
@@ -828,7 +836,13 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
         const key = `${r.strategyId}|${r.stage}|${r.reason}`;
         const agg = decisionAgg.get(key);
         if (agg) agg.count++;
-        else decisionAgg.set(key, { strategyId: r.strategyId, stage: r.stage, reason: r.reason, count: 1 });
+        else
+          decisionAgg.set(key, {
+            strategyId: r.strategyId,
+            stage: r.stage,
+            reason: r.reason,
+            count: 1,
+          });
       }
       // PARITY FIX: spot has no short-selling mechanism — the live engine drops
       // short signals in spot mode (botEngine.ts), so the backtest must too, or
@@ -863,11 +877,15 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       // stopLossPercent; any drift would indicate a config-plumbing bug.
       const isShortSignal = bestSignal.side === "short";
       const slDistancePercent =
-        (Math.abs(bestSignal.entryPrice - bestSignal.slPrice) / bestSignal.entryPrice) * 100;
+        (Math.abs(bestSignal.entryPrice - bestSignal.slPrice) /
+          bestSignal.entryPrice) *
+        100;
       // Per-trade leverage from the plan — legacy-adapter plans carry the
       // run's leverage, so historical runs are bit-identical; native decide()
       // strategies may choose LOWER than the cap per trade.
-      const tradeLeverage = isFutures ? Math.max(1, Math.floor(bestSignal.leverage)) : 1;
+      const tradeLeverage = isFutures
+        ? Math.max(1, Math.floor(bestSignal.leverage))
+        : 1;
 
       // Entry fill mechanics:
       //   taker (default): cross the spread now — adverse slippage, taker fee.
@@ -878,9 +896,12 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       //     a position if a later bar trades through it (handled above).
       const fillPrice = makerEntry
         ? bestSignal.entryPrice
-        : bestSignal.entryPrice * (isShortSignal ? 1 - slippageRate : 1 + slippageRate);
+        : bestSignal.entryPrice *
+          (isShortSignal ? 1 - slippageRate : 1 + slippageRate);
       const entryFees = fillPrice * bestSignal.qty * (makerEntry ? makerFeeRate : feeRate);
-      const entrySlippage = makerEntry ? 0 : (fillPrice - bestSignal.entryPrice) * bestSignal.qty;
+      const entrySlippage = makerEntry
+        ? 0
+        : (fillPrice - bestSignal.entryPrice) * bestSignal.qty;
 
       // Diagnostic: the actual stopLossPercent/takeProfitPercent/confidenceThreshold/
       // riskPercent this specific strategy used to produce this specific trade — the
@@ -888,11 +909,18 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       const usedConfig = strategyConfigs.get(bestSignal.strategyId);
       logger.debug(
         {
-          runId, symbol, strategyId: bestSignal.strategyId,
-          stopLossPercent: usedConfig?.stopLossPercent, takeProfitPercent: usedConfig?.takeProfitPercent,
-          confidenceThreshold: usedConfig?.confidenceThreshold, riskPercent: usedConfig?.riskPercent,
-          entryPrice: bestSignal.entryPrice, suggestedSL: bestSignal.slPrice, suggestedTP: bestSignal.tpPrice,
-          confidence: bestSignal.confidence, slDistancePercent: slDistancePercent.toFixed(3),
+          runId,
+          symbol,
+          strategyId: bestSignal.strategyId,
+          stopLossPercent: usedConfig?.stopLossPercent,
+          takeProfitPercent: usedConfig?.takeProfitPercent,
+          confidenceThreshold: usedConfig?.confidenceThreshold,
+          riskPercent: usedConfig?.riskPercent,
+          entryPrice: bestSignal.entryPrice,
+          suggestedSL: bestSignal.slPrice,
+          suggestedTP: bestSignal.tpPrice,
+          confidence: bestSignal.confidence,
+          slDistancePercent: slDistancePercent.toFixed(3),
           plannedLeverage: tradeLeverage,
         },
         "BACKTEST_TRADE_CONFIG_USED",
@@ -915,10 +943,18 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       // positive, then re-applied in the opposite direction around fillPrice
       // — mirrors botEngine.ts enterTrade's side-aware re-anchoring exactly.
       const signalEntry = bestSignal.entryPrice;
-      const slDistance = isShortSignal ? bestSignal.slPrice - signalEntry : signalEntry - bestSignal.slPrice;
-      const tpDistance = isShortSignal ? signalEntry - bestSignal.tpPrice : bestSignal.tpPrice - signalEntry;
-      const realSlPrice = isShortSignal ? fillPrice + slDistance : fillPrice - slDistance;
-      const realTpPrice = isShortSignal ? fillPrice - tpDistance : fillPrice + tpDistance;
+      const slDistance = isShortSignal
+        ? bestSignal.slPrice - signalEntry
+        : signalEntry - bestSignal.slPrice;
+      const tpDistance = isShortSignal
+        ? signalEntry - bestSignal.tpPrice
+        : bestSignal.tpPrice - signalEntry;
+      const realSlPrice = isShortSignal
+        ? fillPrice + slDistance
+        : fillPrice - slDistance;
+      const realTpPrice = isShortSignal
+        ? fillPrice - tpDistance
+        : fillPrice + tpDistance;
 
       // Futures liquidation guard (parity with live botEngine.enterTrade): a
       // leveraged position whose stop sits too close to the liquidation price
@@ -929,12 +965,20 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       let liquidationPrice: number | undefined;
       if (isFutures && tradeLeverage > 1) {
         liquidationPrice = estimateLiquidationPrice(fillPrice, bestSignal.side, tradeLeverage);
-        if (stopTooCloseToLiquidation(fillPrice, realSlPrice, liquidationPrice)) {
+        if (
+          stopTooCloseToLiquidation(fillPrice, realSlPrice, liquidationPrice)
+        ) {
           liquidationRejectedEntries++;
           const key = `${bestSignal.strategyId}|liquidation-guard|stop too close to liquidation at ${tradeLeverage}x`;
           const agg = decisionAgg.get(key);
           if (agg) agg.count++;
-          else decisionAgg.set(key, { strategyId: bestSignal.strategyId, stage: "liquidation-guard", reason: `stop too close to liquidation at ${tradeLeverage}x`, count: 1 });
+          else
+            decisionAgg.set(key, {
+              strategyId: bestSignal.strategyId,
+              stage: "liquidation-guard",
+              reason: `stop too close to liquidation at ${tradeLeverage}x`,
+              count: 1,
+            });
           continue; // live would not open this trade
         }
       }
@@ -1013,40 +1057,71 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       const exitPrice = lastCandle[4] * (isShort ? 1 + slippageRate : 1 - slippageRate);
       const exitQty = pos.remainingQty;
       const exitFees = exitPrice * exitQty * feeRate;
-      const finalSlicePnl = (isShort ? pos.entryPrice - exitPrice : exitPrice - pos.entryPrice) * exitQty - exitFees;
+      const finalSlicePnl =
+        (isShort ? pos.entryPrice - exitPrice : exitPrice - pos.entryPrice) *
+          exitQty -
+        exitFees;
       const partialPnl = pos.partialExits.reduce((s, p) => s + p.pnl, 0);
       const partialFees = pos.partialExits.reduce((s, p) => s + p.fees, 0);
       // Same entry-fee accounting fix as the main exit block above.
       const entryFeeShareFinal = pos.qty > 0 ? pos.fees * (exitQty / pos.qty) : pos.fees;
       const pnl = finalSlicePnl + partialPnl - entryFeeShareFinal;
       const grossPnl =
-        (isShort ? pos.entryPrice - exitPrice : exitPrice - pos.entryPrice) * exitQty +
-        pos.partialExits.reduce((s, p) => s + (isShort ? pos.entryPrice - p.price : p.price - pos.entryPrice) * p.qty, 0);
+        (isShort ? pos.entryPrice - exitPrice : exitPrice - pos.entryPrice) *
+          exitQty +
+        pos.partialExits.reduce(
+          (s, p) =>
+            s +
+            (isShort ? pos.entryPrice - p.price : p.price - pos.entryPrice) *
+              p.qty,
+          0,
+        );
       const totalFees = entryFeeShareFinal + exitFees + partialFees;
       const riskReward =
         pos.entryPrice - pos.plannedSlPrice !== 0
-          ? (pos.tpPrice - pos.entryPrice) / (pos.entryPrice - pos.plannedSlPrice)
+          ? (pos.tpPrice - pos.entryPrice) /
+            (pos.entryPrice - pos.plannedSlPrice)
           : 0;
       const notional = pos.entryPrice * pos.qty;
       balance += pnl;
       allTrades.push({
-        symbol: pos.symbol, entryTime: pos.entryTime, exitTime: new Date(lastCandle[0]),
-        entryPrice: pos.entryPrice, exitPrice,
-        qty: pos.qty, slPrice: pos.slPrice, tpPrice: pos.tpPrice,
-        fees: totalFees, slippage: pos.slippage,
-        pnl, grossPnl,
+        symbol: pos.symbol,
+        entryTime: pos.entryTime,
+        exitTime: new Date(lastCandle[0] + 60_000),
+        entryPrice: pos.entryPrice,
+        exitPrice,
+        qty: pos.qty,
+        slPrice: pos.slPrice,
+        tpPrice: pos.tpPrice,
+        fees: totalFees,
+        slippage: pos.slippage,
+        pnl,
+        grossPnl,
         pnlPercent: notional > 0 ? (pnl / notional) * 100 : 0,
-        confidence: pos.confidence, exitReason: "end_of_backtest",
-        durationSeconds: Math.round((lastCandle[0] - pos.entryTime.getTime()) / 1000),
+        confidence: pos.confidence,
+        exitReason: "end_of_backtest",
+        durationSeconds: Math.round(
+          (lastCandle[0] + 60_000 - pos.entryTime.getTime()) / 1000,
+        ),
         strategyId: pos.strategyId,
         strategyName: pos.strategyName,
         regime: pos.regime,
-        leverage: pos.leverage, entryReason: pos.entryReason, tradePlan: pos.tradePlan,
-        mfe: pos.mfe, mae: pos.mae, riskReward,
-        tp1Price: pos.tp1Price, tp1Qty: pos.tp1Qty, tp1Filled: pos.tp1Filled,
-        tp1FillPrice: pos.tp1FillPrice, tp1FillTime: pos.tp1FillTime,
-        tp2Price: pos.tp2Price, tp2Qty: pos.tp2Qty, tp2Filled: pos.tp2Filled,
-        tp2FillPrice: pos.tp2FillPrice, tp2FillTime: pos.tp2FillTime,
+        leverage: pos.leverage,
+        entryReason: pos.entryReason,
+        tradePlan: pos.tradePlan,
+        mfe: pos.mfe,
+        mae: pos.mae,
+        riskReward,
+        tp1Price: pos.tp1Price,
+        tp1Qty: pos.tp1Qty,
+        tp1Filled: pos.tp1Filled,
+        tp1FillPrice: pos.tp1FillPrice,
+        tp1FillTime: pos.tp1FillTime,
+        tp2Price: pos.tp2Price,
+        tp2Qty: pos.tp2Qty,
+        tp2Filled: pos.tp2Filled,
+        tp2FillPrice: pos.tp2FillPrice,
+        tp2FillTime: pos.tp2FillTime,
         breakEvenActive: pos.breakEvenActive,
         trailingStopActive: pos.trailingStopActive,
         trailingStopMode: pos.trailingStopMode,
@@ -1057,7 +1132,13 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
 
     if (makerEntry) {
       logger.info(
-        { runId, makerEntry: true, makerFeeRate, makerEntriesMissed, filled: allTrades.length },
+        {
+          runId,
+          makerEntry: true,
+          makerFeeRate,
+          makerEntriesMissed,
+          filled: allTrades.length,
+        },
         `Backtest maker-entry mode: ${makerEntriesMissed} limit entries expired unfilled (price never traded back to them) — the honest cost of posting maker instead of taker.`,
       );
     }
@@ -1082,55 +1163,90 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
       for (let i = 0; i < allTrades.length; i += 200) {
         const chunk = allTrades.slice(i, i + 200);
         const batch = chunk.map((t) => ({
-          runId, symbol: t.symbol, side: t.side === "short" ? ("sell" as const) : ("buy" as const),
-          entryTime: t.entryTime, exitTime: t.exitTime,
-          entryPrice: t.entryPrice.toFixed(8), exitPrice: t.exitPrice.toFixed(8),
-          quantity: t.qty.toFixed(8), stopLoss: t.slPrice.toFixed(8),
-          takeProfit: t.tpPrice.toFixed(8), fees: t.fees.toFixed(8),
-          slippage: t.slippage.toFixed(8), pnl: t.pnl.toFixed(8),
+          runId,
+          symbol: t.symbol,
+          side: t.side === "short" ? ("sell" as const) : ("buy" as const),
+          entryTime: t.entryTime,
+          exitTime: t.exitTime,
+          entryPrice: t.entryPrice.toFixed(8),
+          exitPrice: t.exitPrice.toFixed(8),
+          quantity: t.qty.toFixed(8),
+          stopLoss: t.slPrice.toFixed(8),
+          takeProfit: t.tpPrice.toFixed(8),
+          fees: t.fees.toFixed(8),
+          slippage: t.slippage.toFixed(8),
+          pnl: t.pnl.toFixed(8),
           grossPnl: t.grossPnl.toFixed(8),
-          pnlPercent: t.pnlPercent.toFixed(4), confidence: t.confidence.toFixed(2),
-          exitReason: t.exitReason, durationSeconds: t.durationSeconds,
-          mfe: t.mfe.toFixed(8), mae: t.mae.toFixed(8), riskReward: t.riskReward.toFixed(4),
-          ...(t.strategyId   && { strategyId: t.strategyId }),
+          pnlPercent: t.pnlPercent.toFixed(4),
+          confidence: t.confidence.toFixed(2),
+          exitReason: t.exitReason,
+          durationSeconds: t.durationSeconds,
+          mfe: t.mfe.toFixed(8),
+          mae: t.mae.toFixed(8),
+          riskReward: t.riskReward.toFixed(4),
+          ...(t.strategyId && { strategyId: t.strategyId }),
           ...(t.strategyName && { strategyName: t.strategyName }),
-          ...(t.regime       && { marketRegime: t.regime }),
+          ...(t.regime && { marketRegime: t.regime }),
           // Decision engine: per-trade leverage + the plan's reasoning
           ...(t.leverage != null && { leverage: t.leverage }),
           ...(t.entryReason && { entryReason: t.entryReason }),
           ...(t.tradePlan != null && { tradePlan: t.tradePlan }),
           // Phase 7: trade-management parity fields
-          ...(t.tp1Price > 0 && { tp1Price: t.tp1Price.toFixed(8), tp1Quantity: t.tp1Qty.toFixed(8) }),
+          ...(t.tp1Price > 0 && {
+            tp1Price: t.tp1Price.toFixed(8),
+            tp1Quantity: t.tp1Qty.toFixed(8),
+          }),
           tp1Filled: t.tp1Filled,
-          ...(t.tp1FillPrice != null && { tp1FillPrice: t.tp1FillPrice.toFixed(8) }),
+          ...(t.tp1FillPrice != null && {
+            tp1FillPrice: t.tp1FillPrice.toFixed(8),
+          }),
           ...(t.tp1FillTime != null && { tp1FillTime: t.tp1FillTime }),
-          ...(t.tp2Price > 0 && { tp2Price: t.tp2Price.toFixed(8), tp2Quantity: t.tp2Qty.toFixed(8) }),
+          ...(t.tp2Price > 0 && {
+            tp2Price: t.tp2Price.toFixed(8),
+            tp2Quantity: t.tp2Qty.toFixed(8),
+          }),
           tp2Filled: t.tp2Filled,
-          ...(t.tp2FillPrice != null && { tp2FillPrice: t.tp2FillPrice.toFixed(8) }),
+          ...(t.tp2FillPrice != null && {
+            tp2FillPrice: t.tp2FillPrice.toFixed(8),
+          }),
           ...(t.tp2FillTime != null && { tp2FillTime: t.tp2FillTime }),
           breakEvenActive: t.breakEvenActive,
           trailingStopActive: t.trailingStopActive,
           ...(t.trailingStopMode && { trailingStopMode: t.trailingStopMode }),
         }));
-        const inserted = await db.insert(backtestTradesTable).values(batch).returning({ id: backtestTradesTable.id });
+        const inserted = await db
+          .insert(backtestTradesTable)
+          .values(batch)
+          .returning({ id: backtestTradesTable.id });
         for (let j = 0; j < inserted.length; j++) {
           const partials = chunk[j]!.partialExits;
           if (partials.length > 0) {
-            pendingPartialExits.push({ backtestTradeId: inserted[j]!.id, partials });
+            pendingPartialExits.push({
+              backtestTradeId: inserted[j]!.id,
+              partials,
+            });
           }
         }
       }
     }
 
     if (pendingPartialExits.length > 0) {
-      const flatRows = pendingPartialExits.flatMap(({ backtestTradeId, partials }) =>
-        partials.map((p) => ({
-          backtestTradeId, reason: p.reason, quantity: p.qty.toFixed(8),
-          price: p.price.toFixed(8), fees: p.fees.toFixed(8), pnl: p.pnl.toFixed(8), time: p.time,
-        })),
+      const flatRows = pendingPartialExits.flatMap(
+        ({ backtestTradeId, partials }) =>
+          partials.map((p) => ({
+            backtestTradeId,
+            reason: p.reason,
+            quantity: p.qty.toFixed(8),
+            price: p.price.toFixed(8),
+            fees: p.fees.toFixed(8),
+            pnl: p.pnl.toFixed(8),
+            time: p.time,
+          })),
       );
       for (let i = 0; i < flatRows.length; i += 200) {
-        await db.insert(backtestTradePartialExitsTable).values(flatRows.slice(i, i + 200));
+        await db
+          .insert(backtestTradePartialExitsTable)
+          .values(flatRows.slice(i, i + 200));
       }
     }
 
@@ -1138,8 +1254,10 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     if (equityCurveData.length > 0) {
       for (let i = 0; i < equityCurveData.length; i += 500) {
         const batch = equityCurveData.slice(i, i + 500).map((p) => ({
-          runId, timestamp: p.ts,
-          balance: p.balance.toFixed(2), drawdown: p.drawdown.toFixed(4),
+          runId,
+          timestamp: p.ts,
+          balance: p.balance.toFixed(2),
+          drawdown: p.drawdown.toFixed(4),
         }));
         await db.insert(equityCurveTable).values(batch);
       }
@@ -1153,30 +1271,33 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     await db
       .update(backtestRunsTable)
       .set({
-        status: "completed", progress: 100,
+        status: "completed",
+        progress: 100,
         endingBalance: balance.toFixed(2),
-        totalReturn:   metrics.totalReturn.toFixed(4),
-        totalPnl:      metrics.totalPnl.toFixed(2),
-        totalTrades:   metrics.totalTrades,
+        totalReturn: metrics.totalReturn.toFixed(4),
+        totalPnl: metrics.totalPnl.toFixed(2),
+        totalTrades: metrics.totalTrades,
         winningTrades: metrics.winningTrades,
-        losingTrades:  metrics.losingTrades,
-        winRate:       metrics.winRate.toFixed(4),
-        profitFactor:  metrics.profitFactor.toFixed(4),
-        sharpeRatio:   metrics.sharpeRatio.toFixed(4),
-        sortinoRatio:  metrics.sortinoRatio.toFixed(4),
-        maxDrawdown:   metrics.maxDrawdown.toFixed(4),
-        averageWin:    metrics.averageWin.toFixed(8),
-        averageLoss:   metrics.averageLoss.toFixed(8),
-        expectancy:    metrics.expectancy.toFixed(8),
-        largestWin:    metrics.largestWin.toFixed(8),
-        largestLoss:   metrics.largestLoss.toFixed(8),
-        dailyReturns:  metrics.dailyReturns,
+        losingTrades: metrics.losingTrades,
+        winRate: metrics.winRate.toFixed(4),
+        profitFactor: metrics.profitFactor.toFixed(4),
+        sharpeRatio: metrics.sharpeRatio.toFixed(4),
+        sortinoRatio: metrics.sortinoRatio.toFixed(4),
+        maxDrawdown: metrics.maxDrawdown.toFixed(4),
+        averageWin: metrics.averageWin.toFixed(8),
+        averageLoss: metrics.averageLoss.toFixed(8),
+        expectancy: metrics.expectancy.toFixed(8),
+        largestWin: metrics.largestWin.toFixed(8),
+        largestLoss: metrics.largestLoss.toFixed(8),
+        dailyReturns: metrics.dailyReturns,
         monthlyReturns: metrics.monthlyReturns,
         strategyComparison: metrics.strategyComparison,
         // Decision telemetry: strategy × stage × reason rejection counts,
         // most frequent first — "why the run DIDN'T trade more".
         decisionStats: {
-          rejections: [...decisionAgg.values()].sort((a, b) => b.count - a.count),
+          rejections: [...decisionAgg.values()].sort(
+            (a, b) => b.count - a.count,
+          ),
         },
         tp1HitRate: metrics.tp1HitRate.toFixed(4),
         tp2HitRate: metrics.tp2HitRate.toFixed(4),
@@ -1190,7 +1311,7 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     // the row (scoped to this run's user + section) and drop the loader
     // cache so the live engine sees the promotion within one config refresh.
     if (params.onlyStrategyId?.startsWith("custom_")) {
-      const section = isForex ? "forex" as const : "crypto" as const;
+      const section = isForex ? ("forex" as const) : ("crypto" as const);
       try {
         await db
           .update(customStrategiesTable)
@@ -1208,7 +1329,11 @@ export async function runBacktest(runId: number, params: BacktestParams, userId:
     }
 
     logger.info(
-      { runId, ...metrics, effectiveConfigApplied: effectiveConfig.runLevelOverrides },
+      {
+        runId,
+        ...metrics,
+        effectiveConfigApplied: effectiveConfig.runLevelOverrides,
+      },
       "Backtest complete (checkpoint 3/3 — compare effectiveConfigApplied above against BACKTEST_PARAMS_RECEIVED at the start of this run's logs to confirm the submitted values were actually used)",
     );
   } catch (err: any) {

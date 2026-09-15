@@ -143,9 +143,9 @@ export function updateExcursion(pos: SimulatedPosition, high: number, low: numbe
  * Trade management for one bar: TP1 → TP2 → break-even → trailing.
  *
  * Mirrors TradeManager.manage()'s control flow exactly — same order, same
- * conditions. A pre-existing stop or liquidation touch defers to settlement
- * before management can book partial profits or overwrite that protection.
- * OHLC cannot establish a favourable intrabar ordering.
+ * conditions. Runs BEFORE the exit check so a partial fill, break-even move,
+ * or trailing tighten on this same bar is reflected in that check, exactly as
+ * it would be live (TradeManager runs before ExitManager each tick).
  *
  * Mutates `pos`.
  */
@@ -161,17 +161,22 @@ export function manageBar(
   const [, , high, low] = ctx.candle;
   const { slippageRate, makerFeeRate } = costs;
 
-  const stopTouched = isShort ? high >= pos.slPrice : low <= pos.slPrice;
-  const liquidationTouched = pos.liquidationPrice !== undefined &&
-    (isShort ? high >= pos.liquidationPrice : low <= pos.liquidationPrice);
-  if (stopTouched || liquidationTouched) return;
+  // A bar that reaches the existing stop cannot first bank a profitable
+  // partial and move that stop out of the way. OHLC does not prove that
+  // favorable ordering; preserve the original position for settlement.
+  if (isShort ? high >= pos.slPrice : low <= pos.slPrice) return;
 
   // TP1: partial close + move stop to break-even. Long TP1 sits above entry
   // (triggered by a high); short TP1 sits below (triggered by a low).
-  if (!pos.tp1Filled && pos.tp1Price > 0 && (isShort ? low <= pos.tp1Price : high >= pos.tp1Price)) {
+  if (
+    !pos.tp1Filled &&
+    pos.tp1Price > 0 &&
+    (isShort ? low <= pos.tp1Price : high >= pos.tp1Price)
+  ) {
     // Worse fill = lower for a long's sell-to-exit, higher for a short's
     // buy-to-cover.
-    const fillP = pos.tp1Price * (isShort ? 1 + slippageRate : 1 - slippageRate);
+    const fillP =
+      pos.tp1Price * (isShort ? 1 + slippageRate : 1 - slippageRate);
     const qty = Math.min(pos.tp1Qty, pos.remainingQty);
     if (qty > 0) {
       // Pro-rate the ACTUAL entry fee paid by this slice's share — correct
@@ -180,14 +185,22 @@ export function manageBar(
       const entryFeeShare = pos.qty > 0 ? pos.fees * (qty / pos.qty) : 0;
       const exitFee = fillP * qty * makerFeeRate;
       const fees = entryFeeShare + exitFee;
-      const pnl = (isShort ? pos.entryPrice - fillP : fillP - pos.entryPrice) * qty - fees;
-      pos.partialExits.push({ reason: "tp1", qty, price: fillP, fees, pnl, time: ctx.now });
+      const pnl =
+        (isShort ? pos.entryPrice - fillP : fillP - pos.entryPrice) * qty -
+        fees;
+      pos.partialExits.push({
+        reason: "tp1",
+        qty,
+        price: fillP,
+        fees,
+        pnl,
+        time: ctx.now,
+      });
       pos.remainingQty -= qty;
       pos.tp1Filled = true;
       pos.tp1FillPrice = fillP;
       pos.tp1FillTime = ctx.now;
-      // Earlier trailing may already protect more than break-even.
-      pos.slPrice = isShort ? Math.min(pos.slPrice, pos.entryPrice) : Math.max(pos.slPrice, pos.entryPrice);
+      pos.slPrice = pos.entryPrice; // break-even move
       pos.breakEvenActive = true;
     }
   }
@@ -195,15 +208,31 @@ export function manageBar(
   // TP2 (only when tp3Enabled): another slice. The remainder keeps targeting
   // the strategy's own final tpPrice — TP1/TP2 are interior waypoints, never
   // beyond it.
-  if (stratConfig.tp3Enabled && pos.tp1Filled && !pos.tp2Filled && pos.tp2Price > 0 && (isShort ? low <= pos.tp2Price : high >= pos.tp2Price)) {
-    const fillP = pos.tp2Price * (isShort ? 1 + slippageRate : 1 - slippageRate);
+  if (
+    stratConfig.tp3Enabled &&
+    pos.tp1Filled &&
+    !pos.tp2Filled &&
+    pos.tp2Price > 0 &&
+    (isShort ? low <= pos.tp2Price : high >= pos.tp2Price)
+  ) {
+    const fillP =
+      pos.tp2Price * (isShort ? 1 + slippageRate : 1 - slippageRate);
     const qty = Math.min(pos.tp2Qty, pos.remainingQty);
     if (qty > 0) {
       const entryFeeShare = pos.qty > 0 ? pos.fees * (qty / pos.qty) : 0;
       const exitFee = fillP * qty * makerFeeRate;
       const fees = entryFeeShare + exitFee;
-      const pnl = (isShort ? pos.entryPrice - fillP : fillP - pos.entryPrice) * qty - fees;
-      pos.partialExits.push({ reason: "tp2", qty, price: fillP, fees, pnl, time: ctx.now });
+      const pnl =
+        (isShort ? pos.entryPrice - fillP : fillP - pos.entryPrice) * qty -
+        fees;
+      pos.partialExits.push({
+        reason: "tp2",
+        qty,
+        price: fillP,
+        fees,
+        pnl,
+        time: ctx.now,
+      });
       pos.remainingQty -= qty;
       pos.tp2Filled = true;
       pos.tp2FillPrice = fillP;
@@ -215,9 +244,14 @@ export function manageBar(
   // Trailing stop (normal or emergency) — same formula as live, only ever
   // tightening (raises for a long, lowers for a short), never loosening.
   const currentClose = ctx.candle[4];
-  const originalRiskDistance = isShort ? pos.plannedSlPrice - pos.entryPrice : pos.entryPrice - pos.plannedSlPrice;
+  const originalRiskDistance = isShort
+    ? pos.plannedSlPrice - pos.entryPrice
+    : pos.entryPrice - pos.plannedSlPrice;
   if (originalRiskDistance > 0) {
-    const unrealizedR = (isShort ? pos.entryPrice - currentClose : currentClose - pos.entryPrice) / originalRiskDistance;
+    const unrealizedR =
+      (isShort
+        ? pos.entryPrice - currentClose
+        : currentClose - pos.entryPrice) / originalRiskDistance;
     // Pre-TP1 break-even arm — mirror of TradeManager: once unrealized profit
     // reaches breakEvenRMultiple × R, the stop moves to entry (only ever
     // tightening). The trade can no longer turn into a loss.
@@ -236,9 +270,19 @@ export function manageBar(
       !trailingArmed &&
       stratConfig.emergencyTrailingRMultiple > 0 &&
       unrealizedR >= stratConfig.emergencyTrailingRMultiple;
-    if ((trailingArmed && stratConfig.trailingStopMode !== "none") || emergencyArmed) {
+    if (
+      (trailingArmed && stratConfig.trailingStopMode !== "none") ||
+      emergencyArmed
+    ) {
       const mode = emergencyArmed ? "emergency" : stratConfig.trailingStopMode;
-      const candidate = computeTrailingStop(mode, currentClose, ctx.history, stratConfig, emergencyArmed, isShort);
+      const candidate = computeTrailingStop(
+        mode,
+        currentClose,
+        ctx.history,
+        stratConfig,
+        emergencyArmed,
+        isShort,
+      );
       if (isShort ? candidate < pos.slPrice : candidate > pos.slPrice) {
         pos.slPrice = candidate;
         pos.trailingStopActive = true;
